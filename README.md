@@ -71,7 +71,7 @@ Each of these classes is adapted to take as input either a time series or a matr
 
 
 
-**TL;DR** RPCA can be describe as the decomposition of a matrix of observations D into two matrices: a low-rank matrix $`\mathbf{X}`$ and a sparse matrix $`\mathbf{A}`$. Under certain assumptions, these two matrices can be *correctly* recovered. See ```test.ipynb``` for a first overview of the implemented classes.
+**TL;DR** RPCA can be described as the decomposition of a matrix of observations $`\mathbf{D}`$ into two matrices: a low-rank matrix $`\mathbf{X}`$ and a sparse matrix $`\mathbf{A}`$. See ```test.ipynb``` for a first overview of the implemented classes.
 
 
 ## **Installation**
