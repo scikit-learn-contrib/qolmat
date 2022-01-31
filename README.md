@@ -37,7 +37,9 @@ Theoretically, this is guaranteed to work even if the rank of $`\mathbf{X}^*`$ g
 Some examples of real-life applications are background modelling from video surveillance, face recognition, speech recognition. We here focus on anomaly detection in time series.
 <details>
 
-**What's in this repo ?**
+
+<details>
+<summary>What's in this repo ?</summary>
 
 Three classes are implemented: 
 1. RPCA (see p.29 of this [paper](https://arxiv.org/abs/0912.3599)).
@@ -64,7 +66,7 @@ The optimisation problem is the following
 ```
 
 Each of these classes is adapted to take as input either a time series or a matrix directly. If a time series is passed, a pre-processing is done (see ...). !! Just a first attempt !!
-
+<details>
 
 
 
