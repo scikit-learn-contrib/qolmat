@@ -5,7 +5,8 @@ RPCA for anomaly detection and data imputation
 ## **Robust Principal Component Analysis**
 
 <details>
-<summary>What's in this repo ?</summary>
+<summary> What is robust principal component analysis? </summary>
+
 
 Robust Principal Component Analysis (RPCA) is a modification of the statistical procedure of [principal component analysis (PCA)](https://en.wikipedia.org/wiki/Principal_component_analysis) which allows to work with grossly corrupted observations.
 
@@ -35,7 +36,7 @@ Unfortunately this optimization problem is a NP-hard problem due to its nonconve
 Theoretically, this is guaranteed to work even if the rank of $`\mathbf{X}^*`$ grows almost linearly in the dimension of the matrix, and the errors in $`\mathbf{A}^*`$ are up to a constant fraction of all entries. Algorithmically, the above problem can be solved by efficient and scalable algorithms, at a cost not so much higher than the classical PCA. Empirically, a number of simulations and experiments suggest this works under surprisingly broad conditions for many types of real data.
 
 Some examples of real-life applications are background modelling from video surveillance, face recognition, speech recognition. We here focus on anomaly detection in time series.
-<details>
+</details>
 
 
 <details>
@@ -66,7 +67,7 @@ The optimisation problem is the following
 ```
 
 Each of these classes is adapted to take as input either a time series or a matrix directly. If a time series is passed, a pre-processing is done (see ...). !! Just a first attempt !!
-<details>
+</details>
 
 
 
