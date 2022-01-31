@@ -10,9 +10,9 @@ RPCA for anomaly detection and data imputation
 Robust Principal Component Analysis (RPCA) is a modification of the statistical procedure of [principal component analysis (PCA)](https://en.wikipedia.org/wiki/Principal_component_analysis) which allows to work with grossly corrupted observations.
 
 Suppose we are given a large data matrix $`\mathbf{D}`$, and know that it may be decomposed as
-$$
+```math
 \mathbf{D} = \mathbf{X}^* + \mathbf{A}^*
-$$
+```
 where $\mathbf{X}^*$ has low-rank and $`\mathbf{A}^*`$ is sparse. We do not know the low-dimensional column and row space of $`\mathbf{X}^*`$, not even their dimension. Similarly, for the non-zero entries of $`\mathbf{A}^*`$, we do not know their location, magnitude or even their number. Are the low-rank and sparse parts possible to recover both *accurately* and *efficiently*?
 
 Of course, for the separation problem to make sense, the low-rank part cannot be sparse and analogously, the sparse part cannot be low-rank. See [here](https://arxiv.org/abs/0912.3599) for more details.
@@ -68,7 +68,7 @@ Each of these classes is adapted to take as input either a time series or a matr
 
 
 
-**TL;DR** RPCA can be describe as the decomposition of a matrix of observations D into two matrices: a low-rank matrix X and a sparse matrix A. Under certain assumptions, these two matrices can be *correctly* recovered. See ```test.ipynb``` for a first overview of the implemented classes.
+**TL;DR** RPCA can be describe as the decomposition of a matrix of observations D into two matrices: a low-rank matrix $`\mathbf{X}`$ and a sparse matrix $`\mathbf{A}`$. Under certain assumptions, these two matrices can be *correctly* recovered. See ```test.ipynb``` for a first overview of the implemented classes.
 
 
 ## **Installation**
