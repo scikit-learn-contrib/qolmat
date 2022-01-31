@@ -14,10 +14,10 @@ import skopt
 import utils
 
 
-class noisy_rpca:
+class NoisyRPCA:
     def __init__(
         self,
-        signal: Optional[List[float]] = [],
+        signal: Optional[List[float]] = None,
         period: Optional[int] = None,
         D: Optional[np.ndarray] = None,
         rank: Optional[int] = None,
@@ -27,10 +27,10 @@ class noisy_rpca:
         list_etas: Optional[List[float]] = [],
         maxIter: Optional[int] = int(1e4),
         tol: Optional[float] = 1e-6,
-        verbose: Optional[str] = False,
+        verbose: bool = False,
     ) -> None:
 
-        if (signal == []) and (D is None):
+        if (signal is None) and (D is None):
             raise Exception(
                 "You have to provide either a time series (signal) or a matrix (D)"
             )
@@ -46,10 +46,11 @@ class noisy_rpca:
         self.maxIter = maxIter
         self.tol = tol
         self.verbose = verbose
+        
+        self.prepare_data()
 
     def get_period(self) -> None:
-        """
-        Retrieve the "period" of a series based on the ACF
+        """Retrieve the "period" of a series based on the ACF
         """
         ss = pd.Series(self.signal)
         val = []
@@ -61,7 +62,8 @@ class noisy_rpca:
         self.period = ind_sort[::-1][1]
 
     def signal_to_matrix(self) -> None:
-        """Shape a time series into a matrix"""
+        """Shape a time series into a matrix
+        """
 
         modulo = len(self.signal) % self.period
         ret = (self.period - modulo) % self.period
@@ -71,6 +73,9 @@ class noisy_rpca:
         self.ret = ret
 
     def projection_observation(self) -> None:
+        """Get the omega set and impute nan
+        """
+        
         self.omega = 1 - (self.D != self.D)
 
         if np.isnan(np.sum(self.D)):
@@ -88,40 +93,18 @@ class noisy_rpca:
         self.projection_observation()
 
     def k_choice(self, th: float = 0.95) -> None:
-        """
-        Compute de dimension k for decomposition
+        """Estimate a superior rank by SVD
 
-        Args:
-            D (np.Array): observation matrix
-            th (float): threshold
-
-        Returns:
-            int: dimension for the decomposition, via threshold
+        Parameters
+        ----------
+        th : float, optional
+            fraction of thecumulative sum of the singular values, by default 0.95
         """
         _, s, _ = np.linalg.svd(self.proj_D, full_matrices=True)
         nuclear = np.sum(s)
         cum_sum = np.cumsum([i / nuclear for i in s])
         k = np.argwhere(cum_sum > th)[0][0] + 1
         self.rank = k
-
-    @staticmethod
-    def get_Hmatrix(T: int, dimension: int) -> np.ndarray:
-        """
-        Create a matrix H to take into account temporal correlation via HX
-
-        Args:
-            T (int): period
-            dimension (int): second dimension of H = first dimension of X
-
-        Returns:
-            H (np.ndarray): temporal matrix
-        """
-
-        H = np.eye(dimension - T, dimension)
-        H[: dimension - T, T:] = H[: dimension - T, T:] - np.eye(
-            dimension - T, dimension - T
-        )
-        return H
 
     def compute_noisy_rpca(self) -> Tuple[np.ndarray, np.ndarray]:
 
@@ -160,7 +143,7 @@ class noisy_rpca:
         # temporal correlations
         H = {}
         for i in range(p):
-            H[str(i)] = noisy_rpca.get_Hmatrix(self.list_periods[i], m)
+            H[str(i)] = utils.toeplitz_matrix(self.list_periods[i], m)
 
         Ik = np.eye(self.rank)
         Im = np.eye(m)
@@ -204,10 +187,10 @@ class noisy_rpca:
             # update S
             if np.sum(np.isnan(self.D)) > 0:
                 S = utils.soft_thresholding(
-                    self.proj_D - utils.impute_nans(X @ Y.T), self.tau
+                    self.proj_D - utils.impute_nans(X @ Y.T) + Y0 / mu, self.tau / mu
                 )
             else:
-                S = utils.soft_thresholding(self.proj_D - X @ Y.T, self.tau)
+                S = utils.soft_thresholding(self.proj_D - X @ Y.T + Y0  / mu, self.tau / mu)
 
             # update X
             X = (mu * W @ Y + Y0 @ Y) @ np.linalg.inv(
@@ -271,7 +254,7 @@ class noisy_rpca:
         fig, ax = plt.subplots(1, 3, figsize=(10, 3))
 
         for i, (m, t) in enumerate(zip(matrices, titles)):
-            if i != 20:
+            if i != 2:
                 im = ax[i].imshow(
                     m,
                     aspect="auto",
@@ -291,10 +274,12 @@ class noisy_rpca:
     def plot_signal(self) -> None:
 
         x_index = list(range(len(self.signal) - self.ret))
+        S = self.S.copy()
+        S[S == 0] = np.nan
         res = [
             self.signal,
             self.W.flatten().tolist(),
-            self.S.flatten().tolist(),
+            S.flatten().tolist(),
         ]
         titles = ["original signal", "clean signal", "anomalies"]
         colors = ["black", "darkblue", "crimson"]
@@ -323,13 +308,32 @@ class noisy_rpca:
         fig.show()
 
 
-class noisy_rpca_hyperparams(noisy_rpca):
+class NoisyRPCAHyperparams(NoisyRPCA):
+    """This class implement the noisy RPCA with hyperparameters' selection
+
+    Parameters
+    ----------
+    NoisyRPCA : Type[NoisyRPCA]
+        [description]
+    """
     def add_hyperparams(
         self,
-        hyperparams_lam: Optional[List[float]] = [],
         hyperparams_tau: Optional[List[float]] = [],
+        hyperparams_lam: Optional[List[float]] = [],
         hyperparams_etas: Optional[List[List[float]]] = [[]],
     ) -> None:
+        """Define the search space associated to each hyperparameter
+
+        Parameters
+        ----------
+        hyperparams_tau : Optional[List[float]], optional
+            list with 2 values: min and max for the search space for the param tau, by default []
+        hyperparams_lam : Optional[List[float]], optional
+            list with 2 values: min and max for the search space for the param lam, by default []
+        hyperparams_etas : Optional[List[List[float]]], optional
+            list of lists; each sublit contains 2 values: min and max for the search space for the assoiated param eta
+            by default [[]]
+        """
 
         self.search_space = []
         if len(hyperparams_lam) > 0:
@@ -344,7 +348,7 @@ class noisy_rpca_hyperparams(noisy_rpca):
                     low=hyperparams_tau[0], high=hyperparams_tau[1], name="tau"
                 )
             )
-        if len(hyperparams_etas) > 0:  # TO DO: more cases
+        if len(hyperparams_etas[0]) > 0:  # TO DO: more cases
             for i in range(len(hyperparams_etas)):
                 self.search_space.append(
                     skopt.space.Real(
@@ -355,6 +359,18 @@ class noisy_rpca_hyperparams(noisy_rpca):
                 )
 
     def objective(self, args):
+        """Define the objective function to minimise during the optimisation process
+
+        Parameters
+        ----------
+        args : list[list]
+            entire search space
+
+        Returns
+        -------
+        float
+            criterion to minimise
+        """
         self.lam = args[0]
         self.tau = args[1]
         self.list_etas = [args[i + 2] for i in range(len(self.list_periods))]
@@ -391,6 +407,14 @@ class noisy_rpca_hyperparams(noisy_rpca):
         return np.mean(errors)
 
     def compute_improve_rpca_hyperparams(self) -> Tuple[np.ndarray, np.ndarray]:
+        """Decompose a matrix into a low rank part and a sparse part
+        Hyperparams are set by Bayesian optimisation and cross-validation 
+
+        Returns
+        -------
+        Tuple[np.ndarray, np.ndarray]
+            the low rank matrix and the sparse matrix
+        """
         res = skopt.gp_minimize(
             self.objective,
             self.search_space,

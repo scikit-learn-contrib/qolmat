@@ -12,25 +12,46 @@ import plotly.subplots as sp
 import utils
 
 
-class rpca_PCP:
-    """Decompose a matrix into low rank and sparse components.
-    Computes the RPCA decomposition using Alternating Lagrangian Multipliers.
-    Returns L,S the low rank and sparse components respectively
+class RPCA:
+    """This class implement the basic RPCA decomposition using Alternating Lagrangian Multipliers.
+    
+    References
+    ----------
+    Candès, Emmanuel J., et al. "Robust principal component analysis?." 
+    Journal of the ACM (JACM) 58.3 (2011): 1-37
+    
+    Parameters
+    ----------
+    signal: Optional
+        time series we want to denoise
+    period: Optional
+        period/seasonality of the signal
+    M: Optional
+        array we want to denoise. If a signal is passed, M corresponds to that signal
+    mu: Optional
+        parameter for the convergence and shrinkage operator
+    lam: Optional
+        penalizing parameter for the sparse matrix
+    maxIter: int, default = 1e4
+        maximum number of iterations taken for the solvers to converge
+    tol: float, default = 1e-6
+        tolerance for stopping criteria
+    verbose: bool, default = False
     """
 
     def __init__(
         self,
-        signal: Optional[List[float]] = [],
-        period: Optional[int] = 0,
+        signal: Optional[List[float]] = None,
+        period: Optional[int] = None,
         M: Optional[np.ndarray] = None,
         mu: Optional[float] = None,
         lam: Optional[float] = None,
         maxIter: Optional[int] = int(1e4),
         tol: Optional[float] = 1e-6,
-        verbose: Optional[str] = False,
+        verbose: bool = False,
     ) -> None:
 
-        if (signal == []) and (M is None):
+        if (signal is None) and (M is None):
             raise Exception(
                 "You have to provide either a time series (signal) or a matrix (M)"
             )
@@ -45,12 +66,11 @@ class rpca_PCP:
         self.lam = lam
 
     def get_period(self) -> None:
-        """
-        Retrieve the "period" of a series based on the ACF
+        """Retrieve the "period" of a series based on the ACF
         """
         ss = pd.Series(self.signal)
         val = []
-        for i in range(100):
+        for i in range(len(self.signal)):
             val.append(ss.autocorr(lag=i))
 
         ind_sort = sorted(range(len(val)), key=lambda k: val[k])
@@ -58,7 +78,8 @@ class rpca_PCP:
         self.period = ind_sort[::-1][1]
 
     def signal_to_matrix(self) -> None:
-        """Shape a time series into a matrix"""
+        """Shape a time series into a matrix
+        """
 
         modulo = len(self.signal) % self.period
         ret = (self.period - modulo) % self.period
@@ -75,7 +96,14 @@ class rpca_PCP:
 
         self.initial_M = self.M.copy()
 
-    def compute_rpca_PCP(self) -> Tuple[np.ndarray, np.ndarray]:
+    def compute_rpca(self) -> Tuple[np.ndarray, np.ndarray]:
+        """Compute the RPCA deocmposition of a matrix 
+
+        Returns
+        -------
+        Tuple[np.ndarray, np.ndarray]
+            the low rank matrix and the sparse matrix
+        """
 
         if np.isnan(np.sum(self.M)):
             self.proj_M = utils.impute_nans(self.M, method="median")

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Type
 
 import numpy as np
 import pandas as pd
@@ -14,10 +14,38 @@ import skopt
 import utils
 
 
-class improve_rpca:
+class ImprovedRPCA:
+    """This class implement the improved RPCA decomposition with missing data using Alternating Lagrangian Multipliers.
+    
+    References
+    ----------
+    Wang, Xuehui, et al. "An improved robust principal component analysis model for anomalies detection of subway passenger flow." 
+    Journal of advanced transportation 2018 (2018).
+    
+    Parameters
+    ----------
+    signal: Optional
+        time series we want to denoise
+    period: Optional
+        period/seasonality of the signal
+    M: Optional
+        array we want to denoise. If a signal is passed, M corresponds to that signal
+    lam: Optional
+        penalizing parameter for the sparse matrix
+    list_periods: Optional
+        list of periods, linked to the Toeplitz matrices
+    list_etas: Optional
+        list of penalizing parameters for the corresponding period in list_periods
+    maxIter: int, default = 1e4
+        maximum number of iterations taken for the solvers to converge
+    tol: float, default = 1e-6
+        tolerance for stopping criteria
+    verbose: bool, default = False
+    """
+    
     def __init__(
         self,
-        signal: Optional[List[float]] = [],
+        signal: Optional[List[float]] = None,
         period: Optional[int] = None,
         D: Optional[np.ndarray] = None,
         rank: Optional[int] = None,
@@ -26,22 +54,13 @@ class improve_rpca:
         list_etas: Optional[List[float]] = [],
         maxIter: Optional[int] = int(1e4),
         tol: Optional[float] = 1e-6,
-        verbose: Optional[str] = False,
+        verbose: bool = False,
     ) -> None:
 
-        if (signal == []) and (D is None):
+
+        if (signal is None) and (D is None):
             raise Exception(
                 "You must provide either a time series (signal) or a matrix (D)"
-            )
-            
-        if lam is None:
-            raise Exception(
-                "You must provide value for lambda or use the improve_rpca_hyperparams class"
-            )
-            
-        if len(list_periods) != len(list_etas):
-            raise Exception(
-                "list_periods and list_etas must have the same length"
             )
 
         self.signal = signal
@@ -54,10 +73,12 @@ class improve_rpca:
         self.maxIter = maxIter
         self.tol = tol
         self.verbose = verbose
+        
+        self.prepare_data()
+        
 
     def get_period(self) -> None:
-        """
-        Retrieve the "period" of a series based on the ACF
+        """Retrieve the "period" of a series based on the ACF
         """
         ss = pd.Series(self.signal)
         val = []
@@ -69,7 +90,8 @@ class improve_rpca:
         self.period = ind_sort[::-1][1]
 
     def signal_to_matrix(self) -> None:
-        """Shape a time series into a matrix"""
+        """Shape a time series into a matrix
+        """
 
         modulo = len(self.signal) % self.period
         ret = (self.period - modulo) % self.period
@@ -79,6 +101,8 @@ class improve_rpca:
         self.ret = ret
 
     def projection_observation(self) -> None:
+        """Get the omega set and impute nan
+        """
         self.omega = 1 - (self.D != self.D)
 
         if np.isnan(np.sum(self.D)):
@@ -96,15 +120,12 @@ class improve_rpca:
         self.projection_observation()
 
     def k_choice(self, th: float = 0.95) -> None:
-        """
-        Compute de dimension k for decomposition
+        """Estimate a superior rank by SVD
 
-        Args:
-            D (np.Array): observation matrix
-            th (float): threshold
-
-        Returns:
-            int: dimension for the decomposition, via threshold
+        Parameters
+        ----------
+        th : float, optional
+            fraction of thecumulative sum of the singular values, by default 0.95
         """
         _, s, _ = np.linalg.svd(self.proj_D, full_matrices=True)
         nuclear = np.sum(s)
@@ -112,26 +133,14 @@ class improve_rpca:
         k = np.argwhere(cum_sum > th)[0][0] + 1
         self.rank = k
 
-    @staticmethod
-    def get_Hmatrix(T: int, dimension: int) -> np.ndarray:
-        """
-        Create a matrix H to take into account temporal correlation via HX
-
-        Args:
-            T (int): period
-            dimension (int): second dimension of H = first dimension of X
-
-        Returns:
-            H (np.ndarray): temporal matrix
-        """
-
-        H = np.eye(dimension - T, dimension)
-        H[: dimension - T, T:] = H[: dimension - T, T:] - np.eye(
-            dimension - T, dimension - T
-        )
-        return H
-
     def compute_improve_rpca(self) -> Tuple[np.ndarray, np.ndarray]:
+        """Decompose a matrix into a low rank part and a sparse part
+
+        Returns
+        -------
+        Tuple[np.ndarray, np.ndarray]
+            the low rank matrix and the sparse matrix
+        """
 
         self.projection_observation()
 
@@ -162,7 +171,7 @@ class improve_rpca:
         # matrices for temporal correlation
         H = dict()
         for i in range(len(self.list_periods)):
-            H[str(i)] = improve_rpca.get_Hmatrix(self.list_periods[i], m)
+            H[str(i)] = utils.toeplitz_matrix(self.list_periods[i], m)
 
         Ik = np.eye(self.rank)
         Im = np.eye(m)
@@ -303,10 +312,12 @@ class improve_rpca:
     def plot_signal(self) -> None:
 
         x_index = list(range(len(self.signal) - self.ret))
+        A = self.A.copy()
+        A[A == 0] = np.nan
         res = [
             self.signal,
             self.X.flatten().tolist(),
-            self.A.flatten().tolist(),
+            A.flatten().tolist(),
         ]
         titles = ["original signal", "clean signal", "anomalies"]
         colors = ["black", "darkblue", "crimson"]
@@ -335,18 +346,30 @@ class improve_rpca:
         fig.show()
 
 
-class improve_rpca_hyperparams(improve_rpca):
-    # def __init__(self, params):
-    #     lam = params.pop("lam")
-    #     etas = params.pop("etas")
-    #     improve_rpca.__init__(params)
-    #     self.add_hyperparams(lam, etas)
+class ImprovedRPCAHyperparams(ImprovedRPCA):
+    """This class implement the imrpoved RPCA with hyperparameters' selection
+
+    Parameters
+    ----------
+    ImprovedRPCA : Type[ImprovedRPCA]
+        [description]
+    """
         
     def add_hyperparams(
         self,
         hyperparams_lam: Optional[List[float]] = [],
         hyperparams_etas: Optional[List[List[float]]] = [[]],
     ) -> None:
+        """Define the search space associated to each hyperparameter
+
+        Parameters
+        ----------
+        hyperparams_lam : Optional[List[float]], optional
+            list with 2 values: min and max for the search space for the param lam, by default []
+        hyperparams_etas : Optional[List[List[float]]], optional
+            list of lists; each sublit contains 2 values: min and max for the search space for the assoiated param eta
+            by default [[]]
+        """
 
         self.search_space = []
         if len(hyperparams_lam) > 0:
@@ -355,7 +378,7 @@ class improve_rpca_hyperparams(improve_rpca):
                     low=hyperparams_lam[0], high=hyperparams_lam[1], name="lam"
                 )
             )
-        if len(hyperparams_etas) > 0:  # TO DO: more cases
+        if len(hyperparams_etas[0]) > 0:  # TO DO: more cases
             for i in range(len(hyperparams_etas)):
                 self.search_space.append(
                     skopt.space.Real(
@@ -366,6 +389,19 @@ class improve_rpca_hyperparams(improve_rpca):
                 )
 
     def objective(self, args):
+        """Define the objective function to minimise during the optimisation process
+
+        Parameters
+        ----------
+        args : list[list]
+            entire search space
+
+        Returns
+        -------
+        float
+            criterion to minimise
+        """
+        
         self.lam = args[0]
         self.list_etas = [args[i + 1] for i in range(len(self.list_periods))]
 
@@ -401,6 +437,15 @@ class improve_rpca_hyperparams(improve_rpca):
         return np.mean(errors)
 
     def compute_improve_rpca_hyperparams(self) -> Tuple[np.ndarray, np.ndarray]:
+        """Decompose a matrix into a low rank part and a sparse part
+        Hyperparams are set by Bayesian optimisation and cross-validation 
+
+        Returns
+        -------
+        Tuple[np.ndarray, np.ndarray]
+            the low rank matrix and the sparse matrix
+        """
+        
         res = skopt.gp_minimize(
             self.objective,
             self.search_space,
@@ -416,3 +461,5 @@ class improve_rpca_hyperparams(improve_rpca):
         self.lam = res.x[0]
         self.list_etas = res.x[1:]
         X, A = self.compute_improve_rpca()
+
+        return X, A
