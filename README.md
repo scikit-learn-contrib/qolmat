@@ -14,7 +14,7 @@ Suppose we are given a large data matrix $`\mathbf{D}`$, and know that it may be
 ```math
 \mathbf{D} = \mathbf{X}^* + \mathbf{A}^*
 ```
-where $\mathbf{X}^*$ has low-rank and $`\mathbf{A}^*`$ is sparse. We do not know the low-dimensional column and row space of $`\mathbf{X}^*`$, not even their dimension. Similarly, for the non-zero entries of $`\mathbf{A}^*`$, we do not know their location, magnitude or even their number. Are the low-rank and sparse parts possible to recover both *accurately* and *efficiently*?
+where $`\mathbf{X}^*`$ has low-rank and $`\mathbf{A}^*`$ is sparse. We do not know the low-dimensional column and row space of $`\mathbf{X}^*`$, not even their dimension. Similarly, for the non-zero entries of $`\mathbf{A}^*`$, we do not know their location, magnitude or even their number. Are the low-rank and sparse parts possible to recover both *accurately* and *efficiently*?
 
 Of course, for the separation problem to make sense, the low-rank part cannot be sparse and analogously, the sparse part cannot be low-rank. See [here](https://arxiv.org/abs/0912.3599) for more details.
 
