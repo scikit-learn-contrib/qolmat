@@ -21,7 +21,7 @@ Of course, for the separation problem to make sense, the low-rank part cannot be
 Formally, the problem is expressed as
 ```math
 \begin{align*}
-& \text{minimise} \quad \text{rank} (\mathbf{X} ) + \lambda \Vert \mathbf{A} \Vert_0 \\
+& \text{minimise} \quad \text{rank} (\mathbf{X}) + \lambda \Vert \mathbf{A} \Vert_0 \\
 & \text{s.t.} \quad \mathbf{D} = \mathbf{X} + \mathbf{A}
 \end{align*}
 ```
