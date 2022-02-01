@@ -3,3 +3,5 @@ __pycache__/
 .DS_Store
 .ipynb_checkpoints
 /data
+/figures
+/robust_pca.egg-info

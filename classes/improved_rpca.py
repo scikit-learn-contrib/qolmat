@@ -3,16 +3,11 @@ from typing import Optional, Tuple, List, Type
 
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-import plotly.express as px
-import plotly.graph_objects as go
-import plotly.subplots as sp
-
 import skopt
 
-import utils
+from utils import utils
 
+import matplotlib.pyplot as plt
 
 class ImprovedRPCA:
     """This class implement the improved RPCA decomposition with missing data using Alternating Lagrangian Multipliers.
@@ -75,65 +70,29 @@ class ImprovedRPCA:
         self.verbose = verbose
         
         self.prepare_data()
+
+    def prepare_data(self) -> None:
+        """Prepare data fot RPCA computation:
+                Transform signal to matrix if needed
+                Get the omega matrix
+                Impute the nan values if needed
+        """
         
+        if (self.D is None) and (self.period is None):
+            self.period = utils.get_period(self.signal)
+        if self.D is None:
+            self.D, self.ret = utils.signal_to_matrix(self.signal, self.period)
 
-    def get_period(self) -> None:
-        """Retrieve the "period" of a series based on the ACF
-        """
-        ss = pd.Series(self.signal)
-        val = []
-        for i in range(100):
-            val.append(ss.autocorr(lag=i))
-
-        ind_sort = sorted(range(len(val)), key=lambda k: val[k])
-
-        self.period = ind_sort[::-1][1]
-
-    def signal_to_matrix(self) -> None:
-        """Shape a time series into a matrix
-        """
-
-        modulo = len(self.signal) % self.period
-        ret = (self.period - modulo) % self.period
-        self.signal += [np.nan] * ret
-
-        self.D = np.array(self.signal).reshape(-1, self.period)
-        self.ret = ret
-
-    def projection_observation(self) -> None:
-        """Get the omega set and impute nan
-        """
+        self.initial_D = self.D.copy()
+        self.initial_D_proj = utils.impute_nans(self.initial_D, method="median")
+        
         self.omega = 1 - (self.D != self.D)
-
         if np.isnan(np.sum(self.D)):
             self.proj_D = utils.impute_nans(self.D, method="median")
         else:
             self.proj_D = self.D
-
-    def prepare_data(self) -> None:
-        if (self.D is None) and (self.period is None):
-            self.get_period()
-        if self.D is None:
-            self.signal_to_matrix()
-
-        self.initial_D = self.D.copy()
-        self.projection_observation()
-
-    def k_choice(self, th: float = 0.95) -> None:
-        """Estimate a superior rank by SVD
-
-        Parameters
-        ----------
-        th : float, optional
-            fraction of thecumulative sum of the singular values, by default 0.95
-        """
-        _, s, _ = np.linalg.svd(self.proj_D, full_matrices=True)
-        nuclear = np.sum(s)
-        cum_sum = np.cumsum([i / nuclear for i in s])
-        k = np.argwhere(cum_sum > th)[0][0] + 1
-        self.rank = k
-
-    def compute_improve_rpca(self) -> Tuple[np.ndarray, np.ndarray]:
+        
+    def compute_improve_rpca(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Decompose a matrix into a low rank part and a sparse part
 
         Returns
@@ -142,10 +101,13 @@ class ImprovedRPCA:
             the low rank matrix and the sparse matrix
         """
 
-        self.projection_observation()
-
+        self.omega = 1 - (self.D != self.D)
+        if np.isnan(np.sum(self.D)):
+            self.proj_D = utils.impute_nans(self.D, method="median")
+        else:
+            self.proj_D = self.D
         if self.rank is None:
-            self.k_choice()
+            self.rank = utils.approx_rank(self.proj_D)
 
         rho = 1.1
         m, n = self.D.shape
@@ -282,68 +244,33 @@ class ImprovedRPCA:
             self.X = X
             self.A = A
 
-        return X, A
+        return self.initial_D, X, A
+    
+    def resultRPCA_to_signal(self) -> Tuple[List, List, List]:
+        """Convert the resulting matrices from RPCA to lists, if time series version
 
-    def plot_matrices(self) -> None:
-
-        matrices = [self.initial_D, self.X, self.A]
-        titles = ["Observations", "Low-rank", "Sparse"]
-
-        fig, ax = plt.subplots(1, 3, figsize=(10, 3))
-
-        for i, (m, t) in enumerate(zip(matrices, titles)):
-            if i != 20:
-                im = ax[i].imshow(
-                    m,
-                    aspect="auto",
-                    vmin=min(np.min(self.proj_D), np.min(self.X)),
-                    vmax=max(np.max(self.proj_D), np.max(self.X)),
-                )
+        Returns
+        -------
+        Tuple[List, List, List]
+            results of RPCA in list form
+        """
+        
+        if self.ret > 0:
+            if self.signal is None:
+                s1 = self.initial_D.flatten().tolist()[:-self.ret]
             else:
-                m = ax[i].imshow(m, aspect="auto")
-            divider = make_axes_locatable(ax[i])
-            cax = divider.append_axes("right", size="5%", pad=0.05)
-            fig.colorbar(im, cax=cax, orientation="vertical")
-            ax[i].set_title(t, fontsize=16)
-
-        plt.tight_layout()
-        plt.show()
-
-    def plot_signal(self) -> None:
-
-        x_index = list(range(len(self.signal) - self.ret))
-        A = self.A.copy()
-        A[A == 0] = np.nan
-        res = [
-            self.signal,
-            self.X.flatten().tolist(),
-            A.flatten().tolist(),
-        ]
-        titles = ["original signal", "clean signal", "anomalies"]
-        colors = ["black", "darkblue", "crimson"]
-
-        fig = sp.make_subplots(rows=3, cols=1)
-
-        for i, (r, c, t) in enumerate(zip(res, colors, titles)):
-            if self.ret == 0:
-                fig.add_trace(
-                    go.Scatter(x=x_index, y=r, line=dict(color=c), name=t),
-                    row=i + 1,
-                    col=1,
-                )
+                s1 = self.signal
+            s2 = self.X.flatten().tolist()[:-self.ret]
+            s3 = self.A.flatten().tolist()[:-self.ret]
+        else:
+            if self.signal is None:
+                s1 = self.initial_D.flatten().tolist()
             else:
-                fig.add_trace(
-                    go.Scatter(
-                        x=x_index,
-                        y=r[: -self.ret],
-                        line=dict(color=c),
-                        name=t,
-                    ),
-                    row=i + 1,
-                    col=1,
-                )
-
-        fig.show()
+                s1 = self.signal
+            s2 = self.X.flatten().tolist()
+            s3 = self.A.flatten().tolist()
+            
+        return s1, s2, s3
 
 
 class ImprovedRPCAHyperparams(ImprovedRPCA):
@@ -409,7 +336,7 @@ class ImprovedRPCAHyperparams(ImprovedRPCA):
         nb_missing = int(n1 * n2 * 0.05)
 
         errors = []
-        for iter_obj in range(2):
+        for _ in range(2):
             indices_x = np.random.choice(n1, nb_missing)
             indices_y = np.random.choice(n2, nb_missing)
             data_missing = self.initial_D.copy().astype("float")
@@ -417,11 +344,11 @@ class ImprovedRPCAHyperparams(ImprovedRPCA):
 
             self.D = data_missing
 
-            X, _ = self.compute_improve_rpca()
+            _, X, _ = self.compute_improve_rpca()
 
             error = (
                 np.linalg.norm(
-                    self.initial_D[indices_x, indices_y]
+                    self.initial_D_proj[indices_x, indices_y]
                     - X[indices_x, indices_y],
                     1,
                 )
@@ -436,7 +363,7 @@ class ImprovedRPCAHyperparams(ImprovedRPCA):
 
         return np.mean(errors)
 
-    def compute_improve_rpca_hyperparams(self) -> Tuple[np.ndarray, np.ndarray]:
+    def compute_improve_rpca_hyperparams(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Decompose a matrix into a low rank part and a sparse part
         Hyperparams are set by Bayesian optimisation and cross-validation 
 
@@ -460,6 +387,6 @@ class ImprovedRPCAHyperparams(ImprovedRPCA):
 
         self.lam = res.x[0]
         self.list_etas = res.x[1:]
-        X, A = self.compute_improve_rpca()
+        D, X, A = self.compute_improve_rpca()
 
-        return X, A
+        return D, X, A

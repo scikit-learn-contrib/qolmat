@@ -4,6 +4,68 @@ from typing import Optional, Tuple, List
 import numpy as np
 import pandas as pd
 
+def get_period(signal: List) -> int:
+    """Retrieve the "period" of a series based on the ACF
+
+    Parameters
+    ----------
+    signal : List
+        time series
+
+    Returns
+    -------
+    int
+        time series' "period" 
+    """
+    ss = pd.Series(signal)
+    val = []
+    for i in range(len(signal)):
+        val.append(ss.autocorr(lag=i))
+
+    ind_sort = sorted(range(len(val)), key=lambda k: val[k])
+    period = ind_sort[::-1][1]
+    
+    return period
+
+
+def signal_to_matrix(signal: List, period: int) -> Tuple[np.ndarray, int]:
+    """Shape a time series into a matrix
+
+    Parameters
+    ----------
+    signal : List
+        time series
+    period : int
+        time series' period, it corresponds to the number of colummns the resulting matrix
+
+    Returns
+    -------
+    Tuple[np.ndarray, int]
+        matrix and number of added values to match the size (if len(signal)%period != 0)
+    """
+
+    modulo = len(signal) % period
+    nb_add_val = (period - modulo) % period
+    signal += [np.nan] * nb_add_val
+
+    M = np.array(signal).reshape(-1, period)
+    return M, nb_add_val
+
+def approx_rank(M: np.ndarray, th: Optional[float]=0.95) -> int:
+    """Estimate a superior rank of a matrix M by SVD
+
+    Parameters
+    ----------
+    M : np.ndarray
+        matrix 
+    th : float, optional
+        fraction of the cumulative sum of the singular values, by default 0.95
+    """
+    _, s, _ = np.linalg.svd(M, full_matrices=True)
+    nuclear = np.sum(s)
+    cum_sum = np.cumsum([i / nuclear for i in s])
+    k = np.argwhere(cum_sum > th)[0][0] + 1
+    return k
 
 def proximal_operator(U: np.ndarray, X: np.ndarray, threshold: float) -> np.ndarray:
     """Compute the proximal operator with L1 norm
@@ -116,7 +178,6 @@ def ortho_proj(M: np.ndarray, omega: np.ndarray, inv: Optional[int] = 0) -> np.n
     else:
         return M * omega
 
-
 def l1_norm(M: np.ndarray) -> float:
     """L1 norm of a matrix seen as a long vector 1 x (np.product(M.shape))
 
@@ -154,3 +215,55 @@ def toeplitz_matrix(T: int, dimension: int) -> np.ndarray:
     H = np.eye(dimension - T, dimension)
     H[: dimension - T, T:] = H[: dimension - T, T:] - np.eye(dimension - T, dimension - T)
     return H
+
+def construct_graph(
+    X: np.ndarray,
+    n_neighbors: Optional[int]=10,
+    distance: Optional[str]="euclidean",
+    n_jobs: Optional[int]=1
+) -> np.ndarray:
+    """Construct a graph based on the distance (similarity) between data
+
+    Parameters
+    ----------
+    X : np.ndarray
+        Observations
+    n_neighbors : int, optional
+        Number of neighbors for each node, by default 10
+    distance : str, optional
+        Method to construct the weight of the links, by default 'euclidean'
+    n_jobs : int, optional
+        Number of jobs to run in parallel, by default 1
+
+    Returns
+    -------
+    np.ndarray
+        Graph's adjacency matrix 
+    """
+    
+    G_bin = kneighbors_graph(X, n_neighbors=n_neighbors, metric=distance, mode='connectivity', n_jobs=n_jobs).toarray()
+    G_val = kneighbors_graph(X, n_neighbors=n_neighbors, metric=distance, mode='distance', n_jobs=n_jobs).toarray()
+    G_val = np.exp(-G_val)
+    G_val[~np.array(G_bin, dtype=np.bool)] = 0  
+    return G_val
+    
+def get_laplacian(
+    M: np.ndarray,
+    normalised: Optional[bool]=True
+) -> np.ndarray:
+    """Return the Laplacian matrix of a directed graph.
+
+    Parameters
+    ----------
+    M : np.ndarray
+        [description]
+    normalised : Optional[bool], optional
+        If True, then compute symmetric normalized Laplacian, by default True
+
+    Returns
+    -------
+    np.ndarray
+        Laplacian matrix
+    """
+    
+    return scipy.sparse.csgraph.laplacian(M, normed=normalised)
