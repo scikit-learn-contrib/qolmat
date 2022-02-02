@@ -78,7 +78,7 @@ The operator $`P_{\Omega}(\mathbf{M})`$ is the projection of $`\mathbf{M}`$ on t
 
 **TL;DR** RPCA can be described as the decomposition of a matrix of observations $`\mathbf{D}`$ into two matrices: a low-rank matrix $`\mathbf{X}`$ and a sparse matrix $`\mathbf{A}`$. See the examples folder for a first overview of the implemented classes. 
 
-<span style="color:red">**!!JUST A FIRST TRY!!**</span>
+<span style="color:red">**!!THIS IS NOTHING BUT A FIRST TRY!!**</span>
 
 
 
@@ -96,4 +96,4 @@ conda activate robustpcaEnv
 
 [3] Chen, Yuxin, et al. "Bridging convex and nonconvex optimization in robust PCA: Noise, outliers, and missing data." arXiv preprint arXiv:2001.05484 (2020), ([pdf](https://arxiv.org/abs/2001.05484))
 
-[4] Shahid, Nauman, et al. "Fast robust PCA on graphs." IEEE Journal of Selected Topics in Signal Processing 10.4 (2016): 740-756.
+[4] Shahid, Nauman, et al. "Fast robust PCA on graphs." IEEE Journal of Selected Topics in Signal Processing 10.4 (2016): 740-756. ([pdf](https://arxiv.org/abs/1507.08173))

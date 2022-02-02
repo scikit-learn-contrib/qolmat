@@ -3,6 +3,8 @@ from typing import Optional, Tuple, List
 
 import numpy as np
 import pandas as pd
+from sklearn.neighbors import kneighbors_graph
+import scipy
 
 def get_period(signal: List) -> int:
     """Retrieve the "period" of a series based on the ACF

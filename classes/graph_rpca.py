@@ -4,7 +4,7 @@ from typing import Optional, Tuple, List, Type
 import numpy as np
 import skopt
 
-import utils
+from utils import utils
 
 
 class GraphRPCA:
@@ -24,6 +24,7 @@ class GraphRPCA:
         signal: Optional[List] = None,
         period: Optional[int] = None,
         D: Optional[np.ndarray] = None,
+        rank: Optional[int] = None,
         gamma1: Optional[float] = None,
         gamma2: Optional[float] = None,
         G1: Optional[np.ndarray] = None,
@@ -43,6 +44,7 @@ class GraphRPCA:
         self.signal = signal
         self.period = period
         self.D = D
+        self.rank = rank
         self.gamma1 = gamma1
         self.gamma2 = gamma2
         self.G1 = G1
