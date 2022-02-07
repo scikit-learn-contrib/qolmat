@@ -7,8 +7,6 @@ import skopt
 
 from utils import utils
 
-import matplotlib.pyplot as plt
-
 class ImprovedRPCA:
     """This class implement the improved RPCA decomposition with missing data using Alternating Lagrangian Multipliers.
     
@@ -23,8 +21,10 @@ class ImprovedRPCA:
         time series we want to denoise
     period: Optional
         period/seasonality of the signal
-    M: Optional
-        array we want to denoise. If a signal is passed, M corresponds to that signal
+    D: Optional
+        array we want to denoise. If a signal is passed, D corresponds to that signal
+    rank: Optional
+        (estimated) low-rank of the matrix D 
     lam: Optional
         penalizing parameter for the sparse matrix
     list_periods: Optional

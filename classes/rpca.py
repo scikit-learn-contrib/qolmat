@@ -21,8 +21,8 @@ class RPCA:
         time series we want to denoise
     period: Optional
         period/seasonality of the signal
-    M: Optional
-        array we want to denoise. If a signal is passed, M corresponds to that signal
+    D: Optional
+        array we want to denoise. If a signal is passed, D corresponds to that signal
     mu: Optional
         parameter for the convergence and shrinkage operator
     lam: Optional

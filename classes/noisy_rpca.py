@@ -25,8 +25,10 @@ class NoisyRPCA:
         time series we want to denoise
     period: Optional
         period/seasonality of the signal
-    M: Optional
-        array we want to denoise. If a signal is passed, M corresponds to that signal
+    D: Optional
+        array we want to denoise. If a signal is passed, D corresponds to that signal
+    rank: Optional
+        (estimated) low-rank of the matrix D
     tau: Optional
         penalizing parameter for the nuclear norm
     lam: Optional
@@ -98,6 +100,13 @@ class NoisyRPCA:
             self.proj_D = self.D
 
     def compute_noisy_rpca(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Compute the noisy RPCA with time "penalisations"
+
+        Returns
+        -------
+        Tuple[np.ndarray, np.ndarray, np.ndarray]
+            observations, low-rank and sparse matrices.
+        """
 
         omega = 1 - (self.D != self.D)
 

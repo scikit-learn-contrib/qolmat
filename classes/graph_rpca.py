@@ -17,6 +17,31 @@ class GraphRPCA:
 
     Parameters
     ----------
+    signal : Optional[List]
+        time series we want to denoise
+    period : Optional[int]
+        period/seasonality of the signal
+    D : Optional[np.ndarray]
+        array we want to denoise. If a signal is passed, M corresponds to that signal
+    rank : Optional[int]
+        (estimated) low-rank of the matrix D
+    gamma1 : int
+        regularizing parameter for the graph G1, constructed from the columns of D
+    gamma2 : int
+        regularizing parameter for the graph G1, constructed from the rows of D    
+    G1 : Optional[np.ndarray]
+        graph G1, constructed from the columns of D
+    G2 : Optional[np.ndarray]
+        graph G2, constructed from the rows of D
+    nbg1 : Optional[int]
+        number of closest neighbors to construct graph G1, default=10
+    nbg2 : Optional[int]
+        number of closest neighbors to construct graph G2, default=10
+    maxIter: int, default = 1e4
+        maximum number of iterations taken for the solvers to converge
+    tol: float, default = 1e-6
+        tolerance for stopping criteria
+    verbose: bool, default = False
     """
 
     def __init__(
@@ -79,6 +104,13 @@ class GraphRPCA:
             self.proj_D = self.D
 
     def compute_graph_rpca(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Compute the RPCA on graph.
+
+        Returns
+        -------
+        Tuple[np.ndarray, np.ndarray, np.ndarray]
+            observations, low-rank and sparse matrices
+        """
         
         self.omega = 1 - (self.D != self.D)
         if np.isnan(np.sum(self.D)):
