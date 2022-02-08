@@ -78,9 +78,6 @@ The operator $`P_{\Omega}(\mathbf{M})`$ is the projection of $`\mathbf{M}`$ on t
 
 **TL;DR** RPCA can be described as the decomposition of a matrix of observations $`\mathbf{D}`$ into two matrices: a low-rank matrix $`\mathbf{X}`$ and a sparse matrix $`\mathbf{A}`$. See the examples folder for a first overview of the implemented classes. 
 
-<span style="color:red">**!!THIS IS NOTHING BUT A FIRST TRY!!**</span>
-
-
 
 ## **Installation**
 
