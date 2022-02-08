@@ -1,3 +1,7 @@
+"""
+Useful drawing functions
+"""
+
 from __future__ import annotations
 from typing import Optional, Tuple, List, Type
 
@@ -160,7 +164,7 @@ def plot_images(
                     sp.set_title("Moving objects", fontsize=25)
    
     if filename:
-        plt.savefig(f"..//figures/{filename}.png", transparent=True)
+        plt.savefig(f"../figures/{filename}.png", transparent=True)
     
     plt.tight_layout()
     plt.show()

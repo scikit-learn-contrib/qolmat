@@ -4,7 +4,7 @@ from typing import Optional, Tuple, List
 import numpy as np
 import pandas as pd
 
-from utils import  utils
+from robust_pca.utils import  utils
 
 
 class RPCA:

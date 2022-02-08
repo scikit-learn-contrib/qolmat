@@ -42,7 +42,7 @@ Some examples of real-life applications are background modelling from video surv
 <details>
 <summary>What's in this repo ?</summary>
 
-Three classes are implemented: 
+Some classes are implemented: 
 1. ```RPCA``` (see p.29 of this [paper](https://arxiv.org/abs/0912.3599)).
 The optimisation problem is the following 
 ```math

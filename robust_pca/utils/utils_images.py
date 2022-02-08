@@ -1,3 +1,7 @@
+"""
+General utility functions for images
+"""
+
 import numpy as np
 from PIL import Image
 import tqdm

@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import skopt
 
-from utils import utils
+from robust_pca.utils import utils
 
 
 class NoisyRPCA:

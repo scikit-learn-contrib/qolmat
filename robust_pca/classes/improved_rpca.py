@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import skopt
 
-from utils import utils
+from robust_pca.utils import utils
 
 class ImprovedRPCA:
     """This class implement the improved RPCA decomposition with missing data using Alternating Lagrangian Multipliers.

@@ -4,7 +4,7 @@ from typing import Optional, Tuple, List, Type
 import numpy as np
 import skopt
 
-from utils import utils
+from robust_pca.utils import utils
 
 
 class GraphRPCA:
