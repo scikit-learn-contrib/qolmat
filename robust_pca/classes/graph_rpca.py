@@ -80,15 +80,16 @@ class GraphRPCA:
         self.tol = tol
         self.verbose = verbose
         
-        self.prepare_data()
+        self._prepare_data()
 
-    def prepare_data(self) -> None:
+    def _prepare_data(self) -> None:
         """Prepare data fot RPCA computation:
                 Transform signal to matrix if needed
                 Get the omega matrix
                 Impute the nan values if needed
         """
         
+        self.ret = 0
         if (self.D is None) and (self.period is None):
             self.period = utils.get_period(self.signal)
         if self.D is None:

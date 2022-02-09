@@ -273,3 +273,41 @@ def get_laplacian(
     """
     
     return scipy.sparse.csgraph.laplacian(M, normed=normalised)
+
+
+def resultRPCA_to_signal(
+    M1: np.ndarray,
+    M2: np.ndarray,
+    M3: np.ndarray,
+    ret: Optional[int]=0 
+) -> Tuple[List, List, List]:
+    """Convert the resulting matrices from RPCA to lists. 
+    It makes sense if time series version
+
+    Parameters
+    ----------
+    M1 : np.ndarray
+        Observations
+    M2 : np.ndarray
+        Low-rank matrix
+    M3 : np.ndarray
+        Sparse matrix
+    ret : int
+        Number of added values to form a full matrix. by default 0
+
+    Returns
+    -------
+    Tuple[List, List, List]
+        results of RPCA in list form
+    """
+    
+    if ret > 0:
+        s1 = M1.flatten().tolist()[:-ret]
+        s2 = M2.flatten().tolist()[:-ret]
+        s3 = M3.flatten().tolist()[:-ret]
+    else:
+        s1 = M1.flatten().tolist()
+        s2 = M2.flatten().tolist()
+        s3 = M3.flatten().tolist()
+        
+    return s1, s2, s3

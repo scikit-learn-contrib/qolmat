@@ -17,17 +17,17 @@ tmorzadec@quantmetry.com
 """    
 PACKAGES = find_packages()
 INSTALL_REQUIRES = [
-    "numpy>=1.22.1", 
-    "pandas>=1.4.0", 
-    "matplotlib>=3.5.1",
-    "plotly>=5.5.0",
-    "scikit-optimize>=0.9.0",
-    "scipy>=1.7.3",
-    "tqdm>=4.62.3",
-    "pillow>=8.4.0",
-    "scikit-learn>=1.0.2"
+    "numpy", 
+    "pandas", 
+    "matplotlib",
+    "plotly",
+    "scikit-optimize",
+    "scipy",
+    "tqdm",
+    "pillow",
+    "scikit-learn"
 ]
-PYTHON_REQUIRES = ">=3.9"
+PYTHON_REQUIRES = ">=3.8"
 
 setup(
     name=DISTNAME,
@@ -42,3 +42,16 @@ setup(
     install_requires=INSTALL_REQUIRES,
     python_requires=PYTHON_REQUIRES,
 )
+
+
+# INSTALL_REQUIRES = [
+#     "numpy>=1.22.1", 
+#     "pandas>=1.4.0", 
+#     "matplotlib>=3.5.1",
+#     "plotly>=5.5.0",
+#     "scikit-optimize>=0.9.0",
+#     "scipy>=1.7.3",
+#     "tqdm>=4.62.3",
+#     "pillow>=8.4.0",
+#     "scikit-learn>=1.0.2"
+# ]

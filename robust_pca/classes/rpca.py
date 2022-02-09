@@ -60,9 +60,16 @@ class RPCA:
         self.mu = mu
         self.lam = lam
 
-        self.prepare_data()
+        self._prepare_data()
 
-    def prepare_data(self) -> None:
+    def _prepare_data(self) -> None:
+        """Prepare data fot RPCA computation:
+                Transform signal to matrix if needed
+                Get the omega matrix
+                Impute the nan values if needed
+        """
+        
+        self.ret = 0
         if (self.D is None) and (self.period is None):
             self.period = utils.get_period(self.signal)
         if self.D is None:
@@ -118,31 +125,5 @@ class RPCA:
         self.S = S
 
         return self.D, L, S
-    
-    def resultRPCA_to_signal(self) -> Tuple[List, List, List]:
-        """Convert the resulting matrices from RPCA to lists, if time series version
-
-        Returns
-        -------
-        Tuple[List, List, List]
-            results of RPCA in list form
-        """
-        
-        if self.ret > 0:
-            if self.signal is None:
-                s1 = self.D.flatten().tolist()[:-self.ret]
-            else:
-                s1 = self.signal
-            s2 = self.L.flatten().tolist()[:-self.ret]
-            s3 = self.S.flatten().tolist()[:-self.ret]
-        else:
-            if self.signal is None:
-                s1 = self.D.flatten().tolist()
-            else:
-                s1 = self.signal
-            s2 = self.L.flatten().tolist()
-            s3 = self.S.flatten().tolist()
-            
-        return s1, s2, s3
                             
         

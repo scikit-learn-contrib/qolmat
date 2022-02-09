@@ -69,15 +69,16 @@ class ImprovedRPCA:
         self.tol = tol
         self.verbose = verbose
         
-        self.prepare_data()
+        self._prepare_data()
 
-    def prepare_data(self) -> None:
+    def _prepare_data(self) -> None:
         """Prepare data fot RPCA computation:
                 Transform signal to matrix if needed
                 Get the omega matrix
                 Impute the nan values if needed
         """
         
+        self.ret = 0
         if (self.D is None) and (self.period is None):
             self.period = utils.get_period(self.signal)
         if self.D is None:
@@ -92,7 +93,7 @@ class ImprovedRPCA:
         else:
             self.proj_D = self.D
         
-    def compute_improve_rpca(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def compute_improved_rpca(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Decompose a matrix into a low rank part and a sparse part
 
         Returns
@@ -245,32 +246,6 @@ class ImprovedRPCA:
             self.A = A
 
         return self.initial_D, X, A
-    
-    def resultRPCA_to_signal(self) -> Tuple[List, List, List]:
-        """Convert the resulting matrices from RPCA to lists, if time series version
-
-        Returns
-        -------
-        Tuple[List, List, List]
-            results of RPCA in list form
-        """
-        
-        if self.ret > 0:
-            if self.signal is None:
-                s1 = self.initial_D.flatten().tolist()[:-self.ret]
-            else:
-                s1 = self.signal
-            s2 = self.X.flatten().tolist()[:-self.ret]
-            s3 = self.A.flatten().tolist()[:-self.ret]
-        else:
-            if self.signal is None:
-                s1 = self.initial_D.flatten().tolist()
-            else:
-                s1 = self.signal
-            s2 = self.X.flatten().tolist()
-            s3 = self.A.flatten().tolist()
-            
-        return s1, s2, s3
 
 
 class ImprovedRPCAHyperparams(ImprovedRPCA):
@@ -344,7 +319,7 @@ class ImprovedRPCAHyperparams(ImprovedRPCA):
 
             self.D = data_missing
 
-            _, X, _ = self.compute_improve_rpca()
+            _, X, _ = self.compute_improved_rpca()
 
             error = (
                 np.linalg.norm(
@@ -363,7 +338,7 @@ class ImprovedRPCAHyperparams(ImprovedRPCA):
 
         return np.mean(errors)
 
-    def compute_improve_rpca_hyperparams(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def compute_improved_rpca_hyperparams(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Decompose a matrix into a low rank part and a sparse part
         Hyperparams are set by Bayesian optimisation and cross-validation 
 
@@ -387,6 +362,6 @@ class ImprovedRPCAHyperparams(ImprovedRPCA):
 
         self.lam = res.x[0]
         self.list_etas = res.x[1:]
-        D, X, A = self.compute_improve_rpca()
+        D, X, A = self.compute_improved_rpca()
 
         return D, X, A
