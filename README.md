@@ -71,7 +71,7 @@ The optimisation problem is the following
 \end{align*}
 ```
 
-The operator $`P_{\Omega}(\mathbf{M})`$ is the projection of $`\mathbf{M}`$ on the set of observed data $`\Omega`$. This allows to deal with missing values. Each of these classes is adapted to take as input either a time series or a matrix directly. If a time series is passed, a pre-processing is done (see ...).
+The operator $`P_{\Omega}(\mathbf{M})`$ is the projection of $`\mathbf{M}`$ on the set of observed data $`\Omega`$. This allows to deal with missing values. Each of these classes is adapted to take as input either a time series or a matrix directly. If a time series is passed, a pre-processing is done.
 </details>
 
 

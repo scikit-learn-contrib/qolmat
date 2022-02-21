@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from sklearn.neighbors import kneighbors_graph
 import scipy
+from statsmodels import robust
 
 def get_period(signal: List) -> int:
     """Retrieve the "period" of a series based on the ACF
@@ -274,6 +275,21 @@ def get_laplacian(
     
     return scipy.sparse.csgraph.laplacian(M, normed=normalised)
 
+def get_anomaly(A, X, e=3):
+    """
+    Filter the matrix A to get anomalies
+
+    Args:
+        A (np.nadarray): matrix of "unfiltered" anomalies
+        X (np.nadarray): matrix of smooth signal
+        e (int, optional): deviation from 0. Defaults to 3.
+
+    Returns:
+        np.ndarray: filtered A
+        np.ndarray: noise
+    """
+    mad = robust.mad(X)
+    return np.where(np.abs(A) > (e * mad), A, 0), np.where(np.abs(A) <= (e * mad), A, 0)
 
 def resultRPCA_to_signal(
     M1: np.ndarray,

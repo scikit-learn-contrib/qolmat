@@ -5,4 +5,6 @@ __pycache__/
 /data
 /figures
 /robust_pca.egg-info
+/dist
+/docs
 /test-aifluence

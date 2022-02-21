@@ -8,7 +8,7 @@ from robust_pca.utils import  utils
 
 
 class RPCA:
-    """This class implement the basic RPCA decomposition using Alternating Lagrangian Multipliers.
+    """This class implements the basic RPCA decomposition using Alternating Lagrangian Multipliers.
     
     References
     ----------

@@ -249,7 +249,7 @@ class NoisyRPCA:
 
 
 class NoisyRPCAHyperparams(NoisyRPCA):
-    """This class implement the noisy RPCA with hyperparameters' selection
+    """This class implements the noisy RPCA with hyperparameters' selection
 
     Parameters
     ----------
@@ -261,6 +261,7 @@ class NoisyRPCAHyperparams(NoisyRPCA):
         hyperparams_tau: Optional[List[float]] = [],
         hyperparams_lam: Optional[List[float]] = [],
         hyperparams_etas: Optional[List[List[float]]] = [[]],
+        cv:  Optional[int] = 5,
     ) -> None:
         """Define the search space associated to each hyperparameter
 
@@ -273,7 +274,10 @@ class NoisyRPCAHyperparams(NoisyRPCA):
         hyperparams_etas : Optional[List[List[float]]], optional
             list of lists; each sublit contains 2 values: min and max for the search space for the assoiated param eta
             by default [[]]
+        cv: Optional[int], optional
+            to specify the number of folds
         """
+        self.cv = cv
 
         self.search_space = []
         if len(hyperparams_lam) > 0:
@@ -311,6 +315,7 @@ class NoisyRPCAHyperparams(NoisyRPCA):
         float
             criterion to minimise
         """
+        
         self.lam = args[0]
         self.tau = args[1]
         self.list_etas = [args[i + 2] for i in range(len(self.list_periods))]
@@ -319,7 +324,7 @@ class NoisyRPCAHyperparams(NoisyRPCA):
         nb_missing = int(n1 * n2 * 0.05)
 
         errors = []
-        for _ in range(2):
+        for _ in range(self.cv):
             indices_x = np.random.choice(n1, nb_missing)
             indices_y = np.random.choice(n2, nb_missing)
             data_missing = self.initial_D.copy().astype("float")
@@ -346,7 +351,7 @@ class NoisyRPCAHyperparams(NoisyRPCA):
 
         return np.mean(errors)
 
-    def compute_improve_rpca_hyperparams(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def compute_noisy_rpca_hyperparams(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Decompose a matrix into a low rank part and a sparse part
         Hyperparams are set by Bayesian optimisation and cross-validation 
 
@@ -355,6 +360,7 @@ class NoisyRPCAHyperparams(NoisyRPCA):
         Tuple[np.ndarray, np.ndarray]
             the low rank matrix and the sparse matrix
         """
+        
         res = skopt.gp_minimize(
             self.objective,
             self.search_space,

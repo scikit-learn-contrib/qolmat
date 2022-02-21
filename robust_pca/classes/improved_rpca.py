@@ -8,7 +8,7 @@ import skopt
 from robust_pca.utils import utils
 
 class ImprovedRPCA:
-    """This class implement the improved RPCA decomposition with missing data using Alternating Lagrangian Multipliers.
+    """This class implements the improved RPCA decomposition with missing data using Alternating Lagrangian Multipliers.
     
     References
     ----------
@@ -249,7 +249,7 @@ class ImprovedRPCA:
 
 
 class ImprovedRPCAHyperparams(ImprovedRPCA):
-    """This class implement the imrpoved RPCA with hyperparameters' selection
+    """This class implements the improved RPCA with hyperparameters' selection
 
     Parameters
     ----------
@@ -261,6 +261,7 @@ class ImprovedRPCAHyperparams(ImprovedRPCA):
         self,
         hyperparams_lam: Optional[List[float]] = [],
         hyperparams_etas: Optional[List[List[float]]] = [[]],
+        cv: Optional[int] = 5
     ) -> None:
         """Define the search space associated to each hyperparameter
 
@@ -271,7 +272,10 @@ class ImprovedRPCAHyperparams(ImprovedRPCA):
         hyperparams_etas : Optional[List[List[float]]], optional
             list of lists; each sublit contains 2 values: min and max for the search space for the assoiated param eta
             by default [[]]
+        cv: Optional[int], optional
+            to specify the number of folds
         """
+        self.cv = cv
 
         self.search_space = []
         if len(hyperparams_lam) > 0:
@@ -311,7 +315,7 @@ class ImprovedRPCAHyperparams(ImprovedRPCA):
         nb_missing = int(n1 * n2 * 0.05)
 
         errors = []
-        for _ in range(2):
+        for _ in range(self.cv):
             indices_x = np.random.choice(n1, nb_missing)
             indices_y = np.random.choice(n2, nb_missing)
             data_missing = self.initial_D.copy().astype("float")

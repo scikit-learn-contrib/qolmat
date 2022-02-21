@@ -58,6 +58,7 @@ class GraphRPCA:
         nbg2: Optional[int] = 10,
         maxIter: Optional[int] = int(1e4),
         tol: Optional[float] = 1e-6,
+        cv:  Optional[int] = 5,
         verbose: Optional[bool] = False,
     ) -> None:
 
@@ -169,10 +170,19 @@ class GraphRPCA:
 
 
 class GraphRPCAHyperparams(GraphRPCA):
+    """This class implements the graph RPCA with hyperparameters' selection
+
+    Parameters
+    ----------
+    GraphRPCA : Type[GraphRPCA]
+        [description]
+    """
+    
     def add_hyperparams(
         self,
         hyperparams_gamma1: Optional[List[float]] = [],
         hyperparams_gamma2: Optional[List[float]] = [],
+        cv:  Optional[int] = 5,
     ) -> None:
         """Define the search space associated to each hyperparameter
 
@@ -182,7 +192,10 @@ class GraphRPCAHyperparams(GraphRPCA):
             list with 2 values: min and max for the search space for the param gamma1, by default []
         hyperparams_gamma2 : Optional[List[float]], optional
             list with 2 values: min and max for the search space for the param gamma2, by default []
+        cv: Optional[int], optional
+            to specify the number of folds
         """
+        self.cv = cv
 
         self.search_space = []
         if len(hyperparams_gamma1) > 0:
@@ -211,6 +224,7 @@ class GraphRPCAHyperparams(GraphRPCA):
         float
             criterion to minimise
         """
+        
         self.gamma1 = args[0]
         self.gamma2 = args[1]
 
@@ -218,7 +232,7 @@ class GraphRPCAHyperparams(GraphRPCA):
         nb_missing = int(n1 * n2 * 0.05)
 
         errors = []
-        for _ in range(2):
+        for _ in range(self.cv):
             indices_x = np.random.choice(n1, nb_missing)
             indices_y = np.random.choice(n2, nb_missing)
             data_missing = self.initial_D.copy().astype("float")
@@ -254,6 +268,7 @@ class GraphRPCAHyperparams(GraphRPCA):
         Tuple[np.ndarray, np.ndarray]
             the low rank matrix and the sparse matrix
         """
+        
         res = skopt.gp_minimize(
             self.objective,
             self.search_space,
