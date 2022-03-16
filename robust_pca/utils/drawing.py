@@ -40,8 +40,8 @@ def plot_matrices(
             im = ax[i].imshow(
                 m,
                 aspect="auto",
-                vmin=min(np.min(list_matrices[0]), np.min(list_matrices[1])),
-                vmax=max(np.max(list_matrices[0]), np.max(list_matrices[1])),
+                #vmin=min(np.min(list_matrices[0]), np.min(list_matrices[1])),
+                #vmax=max(np.max(list_matrices[0]), np.max(list_matrices[1])),
             )
         else:
             m = ax[i].imshow(m, aspect="auto")

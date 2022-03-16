@@ -58,7 +58,7 @@ def signal_to_matrix(signal: List, period: int) -> Tuple[np.ndarray, int]:
     M = np.array(signal).reshape(-1, period)
     return M, nb_add_val
 
-def approx_rank(M: np.ndarray, th: Optional[float]=0.95) -> int:
+def approx_rank(M: np.ndarray, th: Optional[float]=1) -> int:
     """Estimate a superior rank of a matrix M by SVD
 
     Parameters
@@ -68,11 +68,14 @@ def approx_rank(M: np.ndarray, th: Optional[float]=0.95) -> int:
     th : float, optional
         fraction of the cumulative sum of the singular values, by default 0.95
     """
-    _, s, _ = np.linalg.svd(M, full_matrices=True)
-    nuclear = np.sum(s)
-    cum_sum = np.cumsum([i / nuclear for i in s])
-    k = np.argwhere(cum_sum > th)[0][0] + 1
-    return k
+    if th == 1:
+        return min(M.shape)
+    else:
+        _, s, _ = np.linalg.svd(M, full_matrices=True)
+        nuclear = np.sum(s)
+        cum_sum = np.cumsum([i / nuclear for i in s])
+        k = np.argwhere(cum_sum > th)[0][0] + 1
+        return k
 
 def proximal_operator(U: np.ndarray, X: np.ndarray, threshold: float) -> np.ndarray:
     """Compute the proximal operator with L1 norm
