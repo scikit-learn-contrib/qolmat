@@ -71,8 +71,6 @@ def approx_rank(M: np.ndarray, th: Optional[float]=1) -> int:
     if th == 1:
         return min(M.shape)
     else:
-        print("\n\ndimension M:", M.shape, "\n\n")
-        print("\n\nsum in rank:", np.isnan(M).sum(), "\n\n")
         _, s, _ = np.linalg.svd(M, full_matrices=True)
         nuclear = np.sum(s)
         cum_sum = np.cumsum([i / nuclear for i in s])
