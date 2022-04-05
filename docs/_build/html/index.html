@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome to robust-pca’s documentation! &mdash; robust-pca 0.1 documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/language_data.js"></script>
+        <script async="async" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="What is robust principal component analysis?" href="explanation.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="#" class="icon icon-home"> robust-pca
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption"><span class="caption-text">Brief explanation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="explanation.html">What is robust principal component analysis?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="explanation.html#whats-in-this-repo">What’s in this repo?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="explanation.html#references">References</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Simple examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="examples/time_series.html">Example for anomaly detection in time series</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples/background.html">Example for background and foreground separation with robust PCA</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples/denoise_images.html">Example for image denoising with robust PCA</a></li>
+</ul>
+<p class="caption"><span class="caption-text">API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api.html">robust-pca API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">robust-pca</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home"></a> &raquo;</li>
+      <li>Welcome to robust-pca’s documentation!</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="section" id="welcome-to-robust-pcas-documentation">
+<h1>Welcome to robust-pca’s documentation!<a class="headerlink" href="#welcome-to-robust-pcas-documentation" title="Permalink to this headline">¶</a></h1>
+<p>Robust Principal Component Analysis (RPCA) is a modification
+of the statistical procedure of <a class="reference external" href="https://en.wikipedia.org/wiki/Principal_component_analysis">principal component analysis (PCA)</a>
+which allows to work with grossly corrupted observations.</p>
+<p>Roughly speaking, RPCA can be described as the decomposition of a matrix
+of observations <span class="math notranslate nohighlight">\(D\)</span> into two matrices:
+a low-rank matrix <span class="math notranslate nohighlight">\(X\)</span> and a sparse matrix <span class="math notranslate nohighlight">\(A\)</span> .</p>
+<p>This package was initially created for anomaly detection and data imputation
+in time series.</p>
+<div class="section" id="requirements">
+<h2>🔗 Requirements<a class="headerlink" href="#requirements" title="Permalink to this headline">¶</a></h2>
+<p>Python 3.8+</p>
+</div>
+<div class="section" id="installation">
+<h2>🛠 Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h2>
+<p>Install directly from the gitlab repository:</p>
+</div>
+<div class="section" id="contributing">
+<h2>📝 Contributing<a class="headerlink" href="#contributing" title="Permalink to this headline">¶</a></h2>
+<p>This work is under active development. And a lot of changes will still be made.
+Therefore, feel free to contribute by signaling a bug, suggest a new feature,
+or even contribute with some code. To do so,  open an issue or contact us at <a class="reference external" href="mailto:flastname&#37;&#52;&#48;quantmetry&#46;com">flastname<span>&#64;</span>quantmetry<span>&#46;</span>com</a></p>
+</div>
+<div class="section" id="further-reading">
+<h2>🔍  Further reading<a class="headerlink" href="#further-reading" title="Permalink to this headline">¶</a></h2>
+<p>[1] Candès, Emmanuel J., et al. “Robust principal component analysis?.”
+Journal of the ACM (JACM) 58.3 (2011): 1-37,
+(<a class="reference external" href="https://arxiv.org/abs/0912.3599">pdf</a>)</p>
+<p>[2] Wang, Xuehui, et al. “An improved robust principal component
+analysis model for anomalies detection of subway passenger flow.”
+Journal of advanced transportation 2018 (2018).
+(<a class="reference external" href="https://www.hindawi.com/journals/jat/2018/7191549/">pdf</a>)</p>
+<p>[3] Chen, Yuxin, et al. “Bridging convex and nonconvex optimization in
+robust PCA: Noise, outliers, and missing data.” arXiv preprint
+arXiv:2001.05484 (2020), (<a class="reference external" href="https://arxiv.org/abs/2001.05484">pdf</a>)</p>
+<p>[4] Shahid, Nauman, et al. “Fast robust PCA on graphs.” IEEE Journal of
+Selected Topics in Signal Processing 10.4 (2016): 740-756.
+(<a class="reference external" href="https://arxiv.org/abs/1507.08173">pdf</a>)</p>
+<div class="toctree-wrapper compound">
+</div>
+<div class="toctree-wrapper compound">
+</div>
+<div class="toctree-wrapper compound">
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="explanation.html" class="btn btn-neutral float-right" title="What is robust principal component analysis?" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Quantmetry.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
