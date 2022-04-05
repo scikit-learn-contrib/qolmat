@@ -1,0 +1,9 @@
+__pycache__/
+.pyc
+.DS_Store
+.ipynb_checkpoints
+/data
+/figures
+/notebooks
+/robust_pca.egg-info
+/dist
