@@ -25,7 +25,8 @@ INSTALL_REQUIRES = [
     "scipy",
     "tqdm",
     "pillow",
-    "scikit-learn"
+    "scikit-learn",
+    "statsmodels"
 ]
 PYTHON_REQUIRES = ">=3.8"
 
