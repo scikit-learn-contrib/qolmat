@@ -1,4 +1,5 @@
 from __future__ import annotations
+from re import X
 from typing import Optional, Tuple, List
 
 import numpy as np
@@ -46,9 +47,7 @@ class TemporalRPCA:
     
     def __init__(
         self,
-        signal: Optional[List[float]] = None,
         period: Optional[int] = None,
-        D: Optional[np.ndarray] = None,
         rank: Optional[int] = None,
         lam1: Optional[float] = None,
         lam2: Optional[float] = None,
@@ -60,14 +59,7 @@ class TemporalRPCA:
         norm: Optional[str] = "L2",
     ) -> None:
 
-        if (signal is None) and (D is None):
-            raise Exception(
-                "You have to provide either a time series (signal) or a matrix (D)"
-            )
-
-        self.signal = signal
         self.period = period
-        self.D = D
         self.rank = rank
         self.lam1 = lam1
         self.lam2 = lam2
@@ -77,8 +69,7 @@ class TemporalRPCA:
         self.tol = tol
         self.verbose = verbose
         self.norm = norm
-        
-        self._prepare_data()
+    
 
     def _prepare_data(self) -> None:
         """Prepare data fot RPCA computation:
@@ -87,11 +78,11 @@ class TemporalRPCA:
                 Impute the nan values if needed
         """
         
-        self.ret = 0
+        self.rest = 0
         if (self.D is None) and (self.period is None):
             self.period = utils.get_period(self.signal)
         if self.D is None:
-            self.D, self.ret = utils.signal_to_matrix(self.signal, self.period)
+            self.D, self.rest = utils.signal_to_matrix(self.signal, self.period)
 
         self.initial_D = self.D.copy()
         self.initial_D_proj = utils.impute_nans(self.initial_D, method="median")
@@ -202,6 +193,7 @@ class TemporalRPCA:
 
         self.X = X
         self.A = A
+        self.errors = errors
         
         return None
         
@@ -214,6 +206,7 @@ class TemporalRPCA:
         # init
         Y = np.ones((m, n))
 
+        
         X = self.proj_D
         A = np.zeros((m, n))
         L = np.ones((m, self.rank))
@@ -279,18 +272,52 @@ class TemporalRPCA:
 
         self.X = L @ Q.T
         self.A = A
+        self.errors = errors
         
         return None
     
-
-    def compute(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def get_params(self) -> dict:
+        return {
+            "period": self.period,
+            "lam1": self.lam1,
+            "lam2": self.lam2,
+            "list_periods": self.list_periods,
+            "list_etas": self.list_etas,
+            "maxIter": self.maxIter,
+            "norm": self.norm,
+            "tol": self.tol,
+            "verbose": self.verbose
+        }
+        
+    def fit(
+        self,
+        signal: Optional[List[float]] = None,
+        D: Optional[np.ndarray] = None
+    ) -> None:
         """Compute the noisy RPCA with time "penalisations"
 
-        Returns
-        -------
-        Tuple[np.ndarray, np.ndarray, np.ndarray]
-            observations, low-rank and sparse matrices.
+        Parameters
+        ----------
+        signal : Optional[List[float]], optional
+            list of observations, by default None
+        D : Optional[np.ndarray], optional
+            array of observation, by default None
+            
+        Raises
+        ------
+        Exception
+            The user has to give either a signal, either a matrix
         """
+
+        if (signal is None) and (D is None):
+            raise Exception(
+                "You have to provide either a time series (signal) or a matrix (D)"
+            )
+            
+        self.signal = signal
+        self.D = D
+        
+        self._prepare_data()
 
         self.omega = 1 - (self.D != self.D)
 
@@ -302,15 +329,13 @@ class TemporalRPCA:
         if self.rank is None:
             self.rank = utils.approx_rank(self.proj_D)
 
-
         if self.norm == "L1":
             self.compute_L1()
             
         elif self.norm == "L2":
             self.compute_L2()
         
-
-        return self.initial_D, self.X, self.A
+        return None
 
 
 class TemporalRPCAHyperparams(TemporalRPCA):
@@ -320,13 +345,45 @@ class TemporalRPCAHyperparams(TemporalRPCA):
     ----------
     NoisyRPCA : Type[NoisyRPCA]
         [description]
+        
+    hyperparams_tau : Optional[List[float]], optional
+            list with 2 values: min and max for the search space for the param tau, by default []
+    hyperparams_lam : Optional[List[float]], optional
+        list with 2 values: min and max for the search space for the param lam, by default []
+    hyperparams_etas : Optional[List[List[float]]], optional
+        list of lists; each sublit contains 2 values: min and max for the search space for the assoiated param eta
+        by default [[]]
     """
-    def add_hyperparams(
+    
+    def __init__(
         self,
+        period: Optional[int] = None,
+        rank: Optional[int] = None,
+        lam1: Optional[float] = None,
+        lam2: Optional[float] = None,
+        list_periods: Optional[List[int]] = [],
+        list_etas: Optional[List[float]] = [],
+        maxIter: Optional[int] = int(1e4),
+        tol: Optional[float] = 1e-6,
+        verbose: Optional[bool] = False,
+        norm: Optional[str] = "L2",
         hyperparams_lam1: Optional[List[float]] = [],
         hyperparams_lam2: Optional[List[float]] = [],
         hyperparams_etas: Optional[List[List[float]]] = [[]],
         cv:  Optional[int] = 5,
+    ) -> None:
+        super().__init__(
+            period, rank, lam1, lam2, list_periods, list_etas, maxIter, tol, verbose, norm
+        )
+        
+        self.cv = cv
+        self.hyperparams_lam1 = hyperparams_lam1
+        self.hyperparams_lam2 = hyperparams_lam2
+        self.hyperparams_etas = hyperparams_etas
+        self.add_hyperparams()
+    
+    def add_hyperparams(
+        self,
     ) -> None:
         """Define the search space associated to each hyperparameter
 
@@ -339,30 +396,26 @@ class TemporalRPCAHyperparams(TemporalRPCA):
         hyperparams_etas : Optional[List[List[float]]], optional
             list of lists; each sublit contains 2 values: min and max for the search space for the assoiated param eta
             by default [[]]
-        cv: Optional[int], optional
-            to specify the number of folds
         """
-        self.cv = cv
-
         self.search_space = []
-        if len(hyperparams_lam1) > 0:
+        if len(self.hyperparams_lam1) > 0:
             self.search_space.append(
                 skopt.space.Real(
-                    low=hyperparams_lam1[0], high=hyperparams_lam1[1], name="lam1"
+                    low=self.hyperparams_lam1[0], high=self.hyperparams_lam1[1], name="lam1"
                 )
             )
-        if len(hyperparams_lam2) > 0:
+        if len(self.hyperparams_lam2) > 0:
             self.search_space.append(
                 skopt.space.Real(
-                    low=hyperparams_lam2[0], high=hyperparams_lam2[1], name="tau2"
+                    low=self.hyperparams_lam2[0], high=self.hyperparams_lam2[1], name="tau2"
                 )
             )
-        if len(hyperparams_etas[0]) > 0:  # TO DO: more cases
-            for i in range(len(hyperparams_etas)):
+        if len(self.hyperparams_etas[0]) > 0:  # TO DO: more cases
+            for i in range(len(self.hyperparams_etas)):
                 self.search_space.append(
                     skopt.space.Real(
-                        low=hyperparams_etas[i][0],
-                        high=hyperparams_etas[i][1],
+                        low=self.hyperparams_etas[i][0],
+                        high=self.hyperparams_etas[i][1],
                         name=f"eta_{i}",
                     )
                 )
@@ -381,8 +434,8 @@ class TemporalRPCAHyperparams(TemporalRPCA):
             criterion to minimise
         """
         
-        self.lam = args[0]
-        self.tau = args[1]
+        self.lam1 = args[0]
+        self.lam2 = args[1]
         self.list_etas = [args[i + 2] for i in range(len(self.list_periods))]
 
         n1, n2 = self.initial_D.shape
@@ -397,12 +450,12 @@ class TemporalRPCAHyperparams(TemporalRPCA):
 
             self.D = data_missing
 
-            _, W, _ = self.compute()
+            super().fit(D=data_missing)
 
             error = (
                 np.linalg.norm(
                     self.initial_D[indices_x, indices_y]
-                    - W[indices_x, indices_y],
+                    - self.X[indices_x, indices_y],
                     1,
                 )
                 / nb_missing
@@ -416,15 +469,31 @@ class TemporalRPCAHyperparams(TemporalRPCA):
 
         return np.mean(errors)
 
-    def compute_cv(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def fit(
+        self,
+        signal: Optional[List[float]] = None,
+        D: Optional[np.ndarray] = None,
+    ) -> None:
         """Decompose a matrix into a low rank part and a sparse part
         Hyperparams are set by Bayesian optimisation and cross-validation 
 
-        Returns
-        -------
-        Tuple[np.ndarray, np.ndarray]
-            the low rank matrix and the sparse matrix
+        Parameters
+        ----------
+        signal : Optional[List[float]], optional
+            list of observations, by default None
+        D: Optional
+            array we want to denoise. If a signal is passed, D corresponds to that signal
         """
+        
+        if (signal is None) and (D is None):
+            raise Exception(
+                "You have to provide either a time series (signal) or a matrix (D)"
+            )
+            
+        self.signal = signal
+        self.D = D
+        
+        self._prepare_data()
         
         res = skopt.gp_minimize(
             self.objective,
@@ -438,12 +507,14 @@ class TemporalRPCAHyperparams(TemporalRPCA):
             print(f"Best parameters : {res.x}")
             print(f"Best result : {res.fun}")
 
-        self.lam = res.x[0]
-        self.tau = res.x[1]
+        self.lam1 = res.x[0]
+        self.lam2 = res.x[1]
         self.list_etas = res.x[2:]
-        D, X, A = self.compute()
+        super().fit(D=self.D)
 
-        return D, X, A
+        return None
+    
+    
 
 class OnlineTemporalRPCA(TemporalRPCA):
     """This class implements an online version of Temporal RPCA 
@@ -457,53 +528,67 @@ class OnlineTemporalRPCA(TemporalRPCA):
     TemporalRPCA : _type_
         _description_
     """
-    def add_online_params(
+    def __init__(
         self,
-        burnin: float,
+        period: Optional[int] = None,
+        rank: Optional[int] = None,
+        lam1: Optional[float] = None,
+        lam2: Optional[float] = None,
+        list_periods: Optional[List[int]] = [],
+        list_etas: Optional[List[float]] = [],
+        maxIter: Optional[int] = int(1e4),
+        tol: Optional[float] = 1e-6,
+        verbose: Optional[bool] = False,
+        norm: Optional[str] = "L2",
+        burnin: Optional[float] = 0,
         nwin: Optional[int]=0,
         online_lam1: Optional[float]=None, 
         online_lam2: Optional[float]=None, 
         online_list_periods: Optional[List[float]] = [],
         online_list_etas: Optional[List[float]] = []
     ) -> None:
-        """Add online hyperparams
-
-        Parameters
-        ----------
-        burnin: float
-            burnin sample size
-        nwin : int
-            number of sample to retain if moving windows
-            nwin < burnin and nwin > max(list_periods)
-        online_lam1 : float
-            tuning param for the nuclear norm for the online part
-        online_lam2 : float
-            tuning param for the LA norm (anomalies) for the online part
-        online_list_periods : List[int], optional
-            list on online periods, by default Optional[List[float]]=[]
-        online_list_etas : List[float], optional
-            list on online tuning params for periods, by default Optional[List[float]]=[]
-        """
-        self.burnin = int(self.D.shape[1]*burnin)
+        super().__init__(
+            period, rank, lam1, lam2, list_periods, list_etas, maxIter, tol, verbose, norm
+        )
+    
+        self.burnin = burnin
         self.nwin = nwin
         self.online_lam1 = online_lam1
         self.online_lam2 = online_lam2
         self.online_list_periods = online_list_periods
         self.online_list_etas = online_list_etas
+
         
-    def compute_online(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def fit(
+        self,
+        signal: Optional[List[float]] = None,
+        D: Optional[np.ndarray] = None,
+    ) -> None:
         """Compute an online version of RPCA with temporal regularisations
 
-        Returns
-        -------
-        Tuple[np.ndarray, np.ndarray, np.ndarray]
-            observations, low-rank and sparse matrices
+        Parameters
+        ----------
+        signal : Optional[List[float]], optional
+            list of observations, by default None
+        D: Optional
+            array we want to denoise. If a signal is passed, D corresponds to that signal
         """
+
+        if (signal is None) and (D is None):
+            raise Exception(
+                "You have to provide either a time series (signal) or a matrix (D)"
+            )
+            
+        self.signal = signal
+        self.D = D
+        
+        self._prepare_data()
+        
+        self.burnin = int(self.D.shape[1]*self.burnin)
 
         m, n = self.initial_D.shape
         
         a = TemporalRPCA(
-                    D=self.D[:,:self.burnin],
                     period=self.period,
                     lam1=self.lam1,
                     lam2=self.lam2,
@@ -511,9 +596,13 @@ class OnlineTemporalRPCA(TemporalRPCA):
                     list_etas=self.list_etas,
                     maxIter=self.maxIter,
                     tol=self.tol,
-                    verbose=self.verbose
+                    verbose=self.verbose,
+                    norm=self.norm
                 )
-        _, Lhat, Shat = a.compute()
+        a.fit(D=self.D[:,:self.burnin])
+        Lhat = a.X
+        Shat = a.A
+        
         r = utils.approx_rank(self.proj_D[:,:self.burnin], th=0.99)
         
         _, sigmas_hat, _ = np.linalg.svd(Lhat)   
@@ -586,7 +675,28 @@ class OnlineTemporalRPCA(TemporalRPCA):
             U = utils.update_col(self.online_lam1, U, A, B)
             Lhat = np.hstack((Lhat, U.dot(vi).reshape(m,1)))
             
-        return self.initial_D, Lhat, Shat
-
-        
+        self.D = self.initial_D
+        self.X = Lhat
+        self.A = Shat
+            
+        return None
     
+    def get_params(self):
+        return {
+            "period": self.period,
+            "estimated_rank": self.rank,
+            "lam1": self.lam1,
+            "lam2": self.lam2,
+            "list_periods": self.list_periods,
+            "list_etas": self.list_etas,
+            "maxIter": self.maxIter,
+            "tol": self.tol,
+            "verbose": self.verbose,
+            "norm": self.norm,
+            "burnin": self.burnin,
+            "nwin": self.nwin,
+            "online_lam1": self.online_lam1,
+            "online_lam2": self.online_lam2,
+            "online_list_periods": self.online_list_periods,
+            "online_list_etas": self.online_list_etas,
+        }

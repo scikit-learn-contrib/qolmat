@@ -259,8 +259,10 @@ def construct_graph(
         Graph's adjacency matrix 
     """
     
-    G_bin = kneighbors_graph(X, n_neighbors=n_neighbors, metric=distance, mode='connectivity', n_jobs=n_jobs).toarray()
+    #G_bin = kneighbors_graph(X, n_neighbors=n_neighbors, metric=distance, mode='connectivity', n_jobs=n_jobs).toarray()
     G_val = kneighbors_graph(X, n_neighbors=n_neighbors, metric=distance, mode='distance', n_jobs=n_jobs).toarray()
+    G_bin = G_val.copy()
+    G_bin[G_bin>0] = 1
     G_val = np.exp(-G_val)
     G_val[~np.array(G_bin, dtype=np.bool_)] = 0  
     return G_val
@@ -306,7 +308,7 @@ def resultRPCA_to_signal(
     M1: np.ndarray,
     M2: np.ndarray,
     M3: np.ndarray,
-    ret: Optional[int]=0 
+    rest: Optional[int]=0 
 ) -> Tuple[List, List, List]:
     """Convert the resulting matrices from RPCA to lists. 
     It makes sense if time series version
@@ -328,10 +330,10 @@ def resultRPCA_to_signal(
         results of RPCA in list form
     """
     
-    if ret > 0:
-        s1 = M1.T.flatten().tolist()[:-ret]
-        s2 = M2.T.flatten().tolist()[:-ret]
-        s3 = M3.T.flatten().tolist()[:-ret]
+    if rest > 0:
+        s1 = M1.T.flatten().tolist()[:-rest]
+        s2 = M2.T.flatten().tolist()[:-rest]
+        s3 = M3.T.flatten().tolist()[:-rest]
     else:
         s1 = M1.T.flatten().tolist()
         s2 = M2.T.flatten().tolist()

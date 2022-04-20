@@ -17,12 +17,8 @@ class GraphRPCA:
 
     Parameters
     ----------
-    signal : Optional[List]
-        time series we want to denoise
     period : Optional[int]
         period/seasonality of the signal
-    D : Optional[np.ndarray]
-        array we want to denoise. If a signal is passed, M corresponds to that signal
     rank : Optional[int]
         (estimated) low-rank of the matrix D
     gamma1 : int
@@ -46,9 +42,7 @@ class GraphRPCA:
 
     def __init__(
         self,
-        signal: Optional[List] = None,
         period: Optional[int] = None,
-        D: Optional[np.ndarray] = None,
         rank: Optional[int] = None,
         gamma1: Optional[float] = None,
         gamma2: Optional[float] = None,
@@ -61,15 +55,7 @@ class GraphRPCA:
         cv:  Optional[int] = 5,
         verbose: Optional[bool] = False,
     ) -> None:
-
-        if (signal is None) and (D is None):
-            raise Exception(
-                "You have to provide either a time series (signal) or a matrix (D)"
-            )
-
-        self.signal = signal
         self.period = period
-        self.D = D
         self.rank = rank
         self.gamma1 = gamma1
         self.gamma2 = gamma2
@@ -80,8 +66,6 @@ class GraphRPCA:
         self.maxIter = maxIter
         self.tol = tol
         self.verbose = verbose
-        
-        self._prepare_data()
 
     def _prepare_data(self) -> None:
         """Prepare data fot RPCA computation:
@@ -90,11 +74,11 @@ class GraphRPCA:
                 Impute the nan values if needed
         """
         
-        self.ret = 0
+        self.rest = 0
         if (self.D is None) and (self.period is None):
             self.period = utils.get_period(self.signal)
         if self.D is None:
-            self.D, self.ret = utils.signal_to_matrix(self.signal, self.period)
+            self.D, self.rest = utils.signal_to_matrix(self.signal, self.period)
 
         self.initial_D = self.D.copy()
         self.initial_D_proj = utils.impute_nans(self.initial_D, method="median")
@@ -105,14 +89,30 @@ class GraphRPCA:
         else:
             self.proj_D = self.D
 
-    def compute_graph_rpca(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def fit(
+        self,
+        signal: Optional[List] = None,
+        D: Optional[np.ndarray] = None,
+    ) -> None:
         """Compute the RPCA on graph.
 
-        Returns
-        -------
-        Tuple[np.ndarray, np.ndarray, np.ndarray]
-            observations, low-rank and sparse matrices
+        Parameters
+        ----------
+        signal : Optional[List[float]], optional
+            list of observations, by default None
+        D: Optional
+            array we want to denoise. If a signal is passed, D corresponds to that signal
         """
+        
+        if (signal is None) and (D is None):
+            raise Exception(
+                "You have to provide either a time series (signal) or a matrix (D)"
+            )
+            
+        self.signal = signal
+        self.D = D
+        
+        self._prepare_data()
         
         self.omega = 1 - (self.D != self.D)
         if np.isnan(np.sum(self.D)):
@@ -166,9 +166,14 @@ class GraphRPCA:
         self.X = X
         self.A = self.initial_D - X
 
-        return self.initial_D, X, self.initial_D - X
+        return None
 
 
+####################################################################
+# TO DO 
+# construct graph with missing values 
+# important for the cross validation to work
+####################################################################
 class GraphRPCAHyperparams(GraphRPCA):
     """This class implements the graph RPCA with hyperparameters' selection
 
@@ -176,38 +181,56 @@ class GraphRPCAHyperparams(GraphRPCA):
     ----------
     GraphRPCA : Type[GraphRPCA]
         [description]
+    hyperparams_gamma1 : Optional[List[float]], optional
+            list with 2 values: min and max for the search space for the param gamma1, by default []
+    hyperparams_gamma2 : Optional[List[float]], optional
+        list with 2 values: min and max for the search space for the param gamma2, by default []
+    cv: Optional[int], optional
+        to specify the number of folds
     """
     
-    def add_hyperparams(
+    def __init__(
         self,
+        period: Optional[int] = None,
+        rank: Optional[int] = None,
+        gamma1: Optional[float] = None,
+        gamma2: Optional[float] = None,
+        G1: Optional[np.ndarray] = None,
+        G2: Optional[np.ndarray] = None,
+        nbg1: Optional[int] = 10,
+        nbg2: Optional[int] = 10,
+        maxIter: Optional[int] = int(1e4),
+        tol: Optional[float] = 1e-6,
         hyperparams_gamma1: Optional[List[float]] = [],
         hyperparams_gamma2: Optional[List[float]] = [],
         cv:  Optional[int] = 5,
+        verbose: Optional[bool] = False,
+    ) -> None:
+        super().__init__(
+            period, rank, gamma1, gamma2, G1, G2, nbg1, nbg2, maxIter, tol, verbose
+        )
+
+        self.cv = cv
+        self.hyperparams_gamma1 = hyperparams_gamma1
+        self.hyperparams_gamma2 = hyperparams_gamma2
+        self.add_hyperparams()
+        
+    def add_hyperparams(
+        self,
     ) -> None:
         """Define the search space associated to each hyperparameter
-
-        Parameters
-        ----------
-        hyperparams_gamma1 : Optional[List[float]], optional
-            list with 2 values: min and max for the search space for the param gamma1, by default []
-        hyperparams_gamma2 : Optional[List[float]], optional
-            list with 2 values: min and max for the search space for the param gamma2, by default []
-        cv: Optional[int], optional
-            to specify the number of folds
         """
-        self.cv = cv
-
         self.search_space = []
-        if len(hyperparams_gamma1) > 0:
+        if len(self.hyperparams_gamma1) > 0:
             self.search_space.append(
                 skopt.space.Real(
-                    low=hyperparams_gamma1[0], high=hyperparams_gamma1[1], name="gamma1"
+                    low=self.hyperparams_gamma1[0], high=self.hyperparams_gamma1[1], name="gamma1"
                 )
             )
-        if len(hyperparams_gamma2) > 0:
+        if len(self.hyperparams_gamma2) > 0:
             self.search_space.append(
                 skopt.space.Real(
-                    low=hyperparams_gamma2[0], high=hyperparams_gamma2[1], name="gamma2"
+                    low=self.hyperparams_gamma2[0], high=self.hyperparams_gamma2[1], name="gamma2"
                 )
             )
 
@@ -240,12 +263,13 @@ class GraphRPCAHyperparams(GraphRPCA):
 
             self.D = data_missing
 
-            _, W, _ = self.compute_graph_rpca()
+            #_, W, _ = self.compute_graph_rpca()
+            super().fit(D=self.D)
 
             error = (
                 np.linalg.norm(
                     self.initial_D[indices_x, indices_y]
-                    - W[indices_x, indices_y],
+                    - self.X[indices_x, indices_y],
                     1,
                 )
                 / nb_missing
@@ -259,15 +283,31 @@ class GraphRPCAHyperparams(GraphRPCA):
 
         return np.mean(errors)
     
-    def compute_graph_rpca_hyperparams(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def fit(
+        self,
+        signal: Optional[List[float]] = None,
+        D: Optional[np.ndarray] = None,
+    ) -> None:
         """Decompose a matrix into a low rank part and a sparse part
         Hyperparams are set by Bayesian optimisation and cross-validation 
 
-        Returns
-        -------
-        Tuple[np.ndarray, np.ndarray]
-            the low rank matrix and the sparse matrix
+        Parameters
+        ----------
+        signal : Optional[List[float]], optional
+            list of observations, by default None
+        D: Optional
+            array we want to denoise. If a signal is passed, D corresponds to that signal
         """
+        
+        if (signal is None) and (D is None):
+            raise Exception(
+                "You have to provide either a time series (signal) or a matrix (D)"
+            )
+            
+        self.signal = signal
+        self.D = D
+        
+        self._prepare_data()
         
         res = skopt.gp_minimize(
             self.objective,
@@ -283,6 +323,6 @@ class GraphRPCAHyperparams(GraphRPCA):
 
         self.gamma1 = res.x[0]
         self.gamma2 = res.x[1]
-        D, X, A = self.compute_graph_rpca()
+        super().fit(D=self.D)
 
-        return D, X, A
+        return None

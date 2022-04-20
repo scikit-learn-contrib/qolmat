@@ -17,12 +17,9 @@ class PcpRPCA:
     
     Parameters
     ----------
-    signal: Optional
-        time series we want to denoise
     period: Optional
         period/seasonality of the signal
-    D: Optional
-        array we want to denoise. If a signal is passed, D corresponds to that signal
+    
     mu: Optional
         parameter for the convergence and shrinkage operator
     lam: Optional
@@ -36,31 +33,20 @@ class PcpRPCA:
 
     def __init__(
         self,
-        signal: Optional[List[float]] = None,
         period: Optional[int] = None,
-        D: Optional[np.ndarray] = None,
         mu: Optional[float] = None,
         lam: Optional[float] = None,
         maxIter: Optional[int] = int(1e4),
         tol: Optional[float] = 1e-6,
         verbose: bool = False,
     ) -> None:
-
-        if (signal is None) and (D is None):
-            raise Exception(
-                "You have to provide either a time series (signal) or a matrix (D)"
-            )
-
-        self.signal = signal
+        
         self.period = period
-        self.D = D
         self.maxIter = maxIter
         self.tol = tol
         self.verbose = verbose
         self.mu = mu
         self.lam = lam
-
-        self._prepare_data()
 
     def _prepare_data(self) -> None:
         """Prepare data fot RPCA computation:
@@ -69,22 +55,43 @@ class PcpRPCA:
                 Impute the nan values if needed
         """
         
-        self.ret = 0
+        self.rest = 0
         if (self.D is None) and (self.period is None):
             self.period = utils.get_period(self.signal)
         if self.D is None:
-            self.D, self.ret = utils.signal_to_matrix(self.signal, self.period)
+            self.D, self.rest = utils.signal_to_matrix(self.signal, self.period)
         
         self.initial_D = self.D.copy()
 
-    def compute(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Compute the RPCA deocmposition of a matrix 
+    def fit(
+        self,
+        signal: Optional[List[float]] = None,
+        D: Optional[np.ndarray] = None
+        ) -> None:
+        """Compute the RPCA decomposition of a matrix based on the PCP method
 
-        Returns
-        -------
-        Tuple[np.ndarray, np.ndarray, np.ndarray]
-            the observed matricx, the low rank matrix and the sparse matrix
+        Parameters
+        ----------
+        signal : Optional[List[float]], optional
+            list of observations, by default None
+        D: Optional
+            array we want to denoise. If a signal is passed, D corresponds to that signal
+
+        Raises
+        ------
+        Exception
+            The user has to give either a signal, either a matrix
         """
+        
+        if (signal is None) and (D is None):
+            raise Exception(
+                "You have to provide either a time series (signal) or a matrix (D)"
+            )
+            
+        self.signal = signal
+        self.D = D
+        
+        self._prepare_data()
 
         if np.isnan(np.sum(self.D)):
             self.proj_D = utils.impute_nans(self.D, method="median")
@@ -102,26 +109,37 @@ class PcpRPCA:
         D_norm = np.linalg.norm(self.proj_D, "fro")
 
         n, m = self.D.shape
-        S = np.zeros((n, m))
+        A = np.zeros((n, m))
         Y = np.zeros((n, m))
 
         errors = []
         for iteration in range(self.maxIter):
-            L = utils.svd_thresholding(
-                self.proj_D - S + Y / self.mu, 1 / self.mu
+            X = utils.svd_thresholding(
+                self.proj_D - A + Y / self.mu, 1 / self.mu
             )
-            S = utils.soft_thresholding(
-                self.proj_D - L + Y / self.mu, self.lam / self.mu
+            A = utils.soft_thresholding(
+                self.proj_D - X + Y / self.mu, self.lam / self.mu
             )
-            Y += self.mu * (self.proj_D - L - S)
+            Y += self.mu * (self.proj_D - X - A)
 
-            errors.append(np.linalg.norm(self.proj_D - L - S, "fro") / D_norm)
+            errors.append(np.linalg.norm(self.proj_D - X - A, "fro") / D_norm)
             if errors[-1] <= self.tol:
                 if self.verbose:
                     print(f"Converged in {iteration} iterations")
                 break
 
-        self.L = L
-        self.S = S
+        self.X = X
+        self.A = A
+        self.errors = errors
 
-        return self.D, L, S
+        return None
+    
+    def get_params(self):
+        return {
+            "period": self.period,
+            "mu": self.mu,
+            "lam": self.lam,
+            "maxIter": self.maxIter,
+            "tol": self.tol,
+            "verbose": self.verbose
+        }
