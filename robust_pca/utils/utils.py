@@ -4,6 +4,7 @@ General utility functions for rpca
 
 from __future__ import annotations
 from typing import Optional, Tuple, List
+from numpy.typing import ArrayLike, NDArray
 
 import numpy as np
 import pandas as pd
@@ -11,8 +12,9 @@ from sklearn.neighbors import kneighbors_graph
 import scipy
 from statsmodels import robust
 
-def get_period(signal: List) -> int:
-    """Retrieve the "period" of a series based on the ACF
+def get_period(signal: ArrayLike, max_period: Optional[int] = None) -> int:
+    """
+    Retrieve the "period" of a series based on the ACF
 
     Parameters
     ----------
@@ -24,66 +26,61 @@ def get_period(signal: List) -> int:
     int
         time series' "period" 
     """
-    ss = pd.Series(signal)
-    val = []
-    for i in range(len(signal)):
-        val.append(ss.autocorr(lag=i))
+    signal_ts = pd.Series(signal)
+    if max_period is None:
+        max_period = len(signal_ts)
+    auto_correlations = [signal_ts.autocorr(lag=lag) for lag in range(1,max_period)]
+    return 1 + np.argmax(auto_correlations)
 
-    ind_sort = sorted(range(len(val)), key=lambda k: val[k])
-    period = ind_sort[::-1][1]
-    
-    return period
-
-
-def signal_to_matrix(signal: List, period: int) -> Tuple[np.ndarray, int]:
-    """Shape a time series into a matrix
+def signal_to_matrix(signal: ArrayLike, period: int) -> Tuple[np.ndarray, int]:
+    """
+    Shape a time series into a matrix
 
     Parameters
     ----------
     signal : List
         time series
     period : int
-        time series' period, it corresponds to the number of colummns the resulting matrix
+        time series' period, it corresponds to the number of colummns in the resulting matrix
 
     Returns
     -------
     Tuple[np.ndarray, int]
         matrix and number of added values to match the size (if len(signal)%period != 0)
     """
+    n_rows = (len(signal)//period) + 1
+    D_signal = np.full((n_rows, period), np.nan)
+    D_signal.flat[:len(signal)]=signal                                                
+    return D_signal
 
-    modulo = len(signal) % period
-    nb_add_val = (period - modulo) % period
-    signal += [np.nan] * nb_add_val
-
-    M = np.array(signal).reshape(-1, period)
-    return M, nb_add_val
-
-def approx_rank(M: np.ndarray, th: Optional[float]=1) -> int:
-    """Estimate a superior rank of a matrix M by SVD
+def approx_rank(D: np.ndarray, threshold: Optional[float]=0.95) -> int:
+    """
+    Estimate a superior rank of a matrix M by SVD
 
     Parameters
     ----------
     M : np.ndarray
         matrix 
-    th : float, optional
+    threshold : float, optional
         fraction of the cumulative sum of the singular values, by default 0.95
     """
-    if th == 1:
-        return min(M.shape)
+    if threshold == 1:
+        return min(D.shape)
     else:
-        _, s, _ = np.linalg.svd(M, full_matrices=True)
+        _, s, _ = np.linalg.svd(D, full_matrices=True)
         nuclear = np.sum(s)
         cum_sum = np.cumsum([i / nuclear for i in s])
-        k = np.argwhere(cum_sum > th)[0][0] + 1
+        k = np.argwhere(cum_sum > threshold)[0][0] + 1
         return k
 
 def proximal_operator(U: np.ndarray, X: np.ndarray, threshold: float) -> np.ndarray:
-    """Compute the proximal operator with L1 norm
+    """
+    Compute the proximal operator with L1 norm
 
     Parameters
     ----------
     U : np.ndarray
-                U (np.ndarray): observations
+        observations
 
     X : np.ndarray
         [description]
@@ -142,7 +139,7 @@ def svd_thresholding(X: np.ndarray, threshold: float) -> np.ndarray:
     return np.multiply(U, s) @ Vh
 
 
-def impute_nans(M: np.ndarray, method: Optional[str] = None) -> np.ndarray:
+def impute_nans(D: np.ndarray, method: Optional[str] = "zeros") -> np.ndarray:
     """Impute the M's np.nan with the specified method
 
 
@@ -158,15 +155,19 @@ def impute_nans(M: np.ndarray, method: Optional[str] = None) -> np.ndarray:
     np.ndarray
         array with imputed nan
     """
-
+    if method is None:
+        method = "zeros"
     if method == "mean":
-        return np.where(np.isnan(M), np.tile(np.nanmean(M, axis=0), (M.shape[0], 1)), M)
-    if method == "median":
-        return np.where(np.isnan(M), np.tile(np.nanmedian(M, axis=0), (M.shape[0], 1)), M)
-    return np.where(np.isnan(M), 0, M)
+        return np.where(np.isnan(D), np.tile(np.nanmean(D, axis=0), (D.shape[0], 1)), D)
+    elif method == "median":
+        return np.where(np.isnan(D), np.tile(np.nanmedian(D, axis=0), (D.shape[0], 1)), D)
+    elif method == "zeros":
+        return np.where(np.isnan(D), 0, D)
+    else:
+        raise ValueError("Invalid method")
 
 
-def ortho_proj(M: np.ndarray, omega: np.ndarray, inv: Optional[int] = 0) -> np.ndarray:
+def ortho_proj(D: np.ndarray, omega: np.ndarray, inv: Optional[bool] = False) -> np.ndarray:
     """orthogonal projection of matrix M onto the linear space of matrices supported on omega
 
     Parameters
@@ -183,13 +184,14 @@ def ortho_proj(M: np.ndarray, omega: np.ndarray, inv: Optional[int] = 0) -> np.n
     np.ndarray
         M' projection on omega
     """
-    if inv == 1:
-        return M * (np.ones(omega.shape) - omega)
+    if inv:
+        return D * (~omega)
     else:
-        return M * omega
+        return D * omega
 
-def l1_norm(M: np.ndarray) -> float:
-    """L1 norm of a matrix seen as a long vector 1 x (np.product(M.shape))
+def l1_norm(D: np.ndarray) -> float:
+    """
+    L1 norm of a matrix
 
     Parameters
     ----------
@@ -199,13 +201,14 @@ def l1_norm(M: np.ndarray) -> float:
     Returns
     -------
     float
-        L1 norm of M seen as a vector
+        L1 norm
     """
-    return np.sum(np.abs(M))
+    return np.sum(np.abs(D))
 
 
 def toeplitz_matrix(T: int, dimension: int) -> np.ndarray:
-    """Create a matrix Toeplitz matrix H to take into account temporal correlation via HX
+    """
+    Create a matrix Toeplitz matrix H to take into account temporal correlation via HX
     H=Toeplitz(0,1,-1), in which the central diagonal is defined as ones and
     the T upper diagonal is defined as negative ones.
 
@@ -298,7 +301,6 @@ def resultRPCA_to_signal(
     M1: np.ndarray,
     M2: np.ndarray,
     M3: np.ndarray,
-    ret: Optional[int]=0 
 ) -> Tuple[List, List, List]:
     """Convert the resulting matrices from RPCA to lists. 
     It makes sense if time series version
@@ -317,16 +319,9 @@ def resultRPCA_to_signal(
     Returns
     -------
     Tuple[List, List, List]
-        results of RPCA in list form
+        results of RPCA
     """
-    
-    if ret > 0:
-        s1 = M1.flatten().tolist()[:-ret]
-        s2 = M2.flatten().tolist()[:-ret]
-        s3 = M3.flatten().tolist()[:-ret]
-    else:
-        s1 = M1.flatten().tolist()
-        s2 = M2.flatten().tolist()
-        s3 = M3.flatten().tolist()
-        
+    s1 = M1.flatten()
+    s2 = M2.flatten()
+    s3 = M3.flatten()
     return s1, s2, s3

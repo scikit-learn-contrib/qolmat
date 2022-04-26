@@ -1,4 +1,5 @@
 from __future__ import annotations
+from inspect import indentsize
 from typing import Optional, Tuple, List
 
 import numpy as np
@@ -6,10 +7,12 @@ import pandas as pd
 import skopt
 
 from robust_pca.utils import utils
+from robust_pca.classes.rpca import RPCA
 
 
-class NoisyRPCA:
-    """This class implements a noisy version of the so-called improved RPCA
+class NoisyRPCA(RPCA):
+    """
+    This class implements a noisy version of the so-called noisy RPCA
     
     References
     ----------
@@ -79,10 +82,11 @@ class NoisyRPCA:
         self._prepare_data()
 
     def _prepare_data(self) -> None:
-        """Prepare data fot RPCA computation:
-                Transform signal to matrix if needed
-                Get the omega matrix
-                Impute the nan values if needed
+        """
+        Prepare data fot RPCA computation:
+        Transform signal to matrix if needed
+        Get the omega matrix
+        Impute the nan values if needed
         """
         
         self.ret = 0
@@ -94,7 +98,6 @@ class NoisyRPCA:
         self.initial_D = self.D.copy()
         self.initial_D_proj = utils.impute_nans(self.initial_D, method="median")
         
-        self.omega = 1 - (self.D != self.D)
         if np.isnan(np.sum(self.D)):
             self.proj_D = utils.impute_nans(self.D, method="median")
         else:
@@ -109,9 +112,9 @@ class NoisyRPCA:
             observations, low-rank and sparse matrices.
         """
 
-        omega = 1 - (self.D != self.D)
+        omega = ~np.isnan(self.D)
 
-        if np.isnan(np.sum(self.D)):
+        if np.any(np.isnan(self.D)):
             self.proj_D = utils.impute_nans(self.D, method="median")
         else:
             self.proj_D = self.D
@@ -120,7 +123,7 @@ class NoisyRPCA:
             self.rank = utils.approx_rank(self.proj_D)
 
         m, n = self.D.shape
-        p = len(self.list_periods)
+        number_periods = len(self.list_periods)
         q = 1
         rho = 1.1
         mu = 1e-6
@@ -129,8 +132,8 @@ class NoisyRPCA:
         # init
         Y0 = np.ones((m, n))
         Y_ = {}
-        for i in range(p):
-            Y_[str(i)] = np.ones((m - self.list_periods[i], n))
+        for index_period in range(number_periods):
+            Y_[str(index_period)] = np.ones((m - self.list_periods[index_period], n))
 
         W = self.proj_D
         U, s, Vt = np.linalg.svd(self.proj_D, full_matrices=False)
@@ -143,16 +146,16 @@ class NoisyRPCA:
 
         # temporal correlations
         H = {}
-        for i in range(p):
-            H[str(i)] = utils.toeplitz_matrix(self.list_periods[i], m)
+        for index_period in range(number_periods):
+            H[str(index_period)] = utils.toeplitz_matrix(self.list_periods[index_period], m)
 
         Ik = np.eye(self.rank)
         Im = np.eye(m)
 
         ##
         HTH = np.zeros((m, m))
-        for i in range(p):
-            HTH += H[str(i)].T @ H[str(i)]
+        for index_period in range(number_periods):
+            HTH += H[str(index_period)].T @ H[str(index_period)]
 
         errors1, errors2 = [], []
         for iteration in range(self.maxIter):
@@ -167,9 +170,9 @@ class NoisyRPCA:
             # update W
             HTR = np.zeros((m, n))
             HTY = np.zeros((m, n))
-            for i in range(p):
-                HTR += H[str(i)].T @ R[str(i)]
-                HTY += H[str(i)].T @ Y_[str(i)]
+            for index_period in range(p):
+                HTR += H[str(index_period)].T @ R[str(index_period)]
+                HTY += H[str(index_period)].T @ Y_[str(index_period)]
 
             W_tmp1 = np.linalg.inv((1 / q + mu) * Im + mu * HTH)
             W_tmp2 = (
@@ -181,18 +184,14 @@ class NoisyRPCA:
                 W_tmp1 = np.linalg.inv(mu * Im + mu * HTH)
                 W_tmp2 = mu * X @ Y.T - Y0 + mu * HTR + HTY
                 W_omegaC = W_tmp1 @ W_tmp2
-                W = utils.ortho_proj(W, omega, inv=0) + utils.ortho_proj(
-                    W_omegaC, omega, inv=1
+                W = utils.ortho_proj(W, omega, inv=False) + utils.ortho_proj(
+                    W_omegaC, omega, inv=True
                 )
 
             # update S
-            if np.sum(np.isnan(self.D)) > 0:
-                S = utils.soft_thresholding(
-                    self.proj_D - utils.impute_nans(X @ Y.T) + Y0 / mu, self.tau / mu
-                )
-            else:
-                S = utils.soft_thresholding(self.proj_D - X @ Y.T + Y0  / mu, self.tau / mu)
-
+            S = utils.soft_thresholding(
+                    self.proj_D - utils.impute_nans(X @ Y.T, method = "zeros") + Y0 / mu, self.tau / mu
+            )
             # update X
             X = (mu * W @ Y + Y0 @ Y) @ np.linalg.inv(
                 (self.lam / q) * Ik + mu * Y.T @ Y
@@ -206,15 +205,15 @@ class NoisyRPCA:
             )
 
             # update R
-            for i in range(p):
+            for index_period in range(number_periods):
                 R[str(i)] = utils.soft_thresholding(
                     H[str(i)] @ W - Y_[str(i)] / mu, self.list_etas[i] / mu
                 )
 
             # update Lagrangian multipliers
             Y0 += mu * (W - X @ Y.T)
-            for i in range(p):
-                Y_[str(i)] += mu * (R[str(i)] - H[str(i)] @ W)
+            for index_period in range(number_periods):
+                Y_[str(index_period)] += mu * (R[str(index_period)] - H[str(index_period)] @ W)
 
             # update mu
             mu = min(mu * rho, mu_bar)
@@ -225,8 +224,8 @@ class NoisyRPCA:
             Xc = np.linalg.norm(X - X_temp, np.inf)
             Yc = np.linalg.norm(Y - Y_temp, np.inf)
             Rc = -1
-            for i in range(p):
-                Rc = max(Rc, np.linalg.norm(R[str(i)] - R_temp[str(i)], np.inf))
+            for index_period in range(number_periods):
+                Rc = max(Rc, np.linalg.norm(R[str(index_period)] - R_temp[str(index_period)], np.inf))
             tol1 = max([Wc, Sc, Xc, Yc, Rc])
 
             errors1.append(tol1)
@@ -249,7 +248,8 @@ class NoisyRPCA:
 
 
 class NoisyRPCAHyperparams(NoisyRPCA):
-    """This class implements the noisy RPCA with hyperparameters' selection
+    """
+    This class implements the noisy RPCA with hyperparameters' selection
 
     Parameters
     ----------
@@ -293,12 +293,12 @@ class NoisyRPCAHyperparams(NoisyRPCA):
                 )
             )
         if len(hyperparams_etas[0]) > 0:  # TO DO: more cases
-            for i in range(len(hyperparams_etas)):
+            for index in range(len(hyperparams_etas)):
                 self.search_space.append(
                     skopt.space.Real(
-                        low=hyperparams_etas[i][0],
-                        high=hyperparams_etas[i][1],
-                        name=f"eta_{i}",
+                        low=hyperparams_etas[index][0],
+                        high=hyperparams_etas[index][1],
+                        name=f"eta_{index}",
                     )
                 )
 
@@ -318,7 +318,7 @@ class NoisyRPCAHyperparams(NoisyRPCA):
         
         self.lam = args[0]
         self.tau = args[1]
-        self.list_etas = [args[i + 2] for i in range(len(self.list_periods))]
+        self.list_etas = [args[index + 2] for index in range(len(self.list_periods))]
 
         n1, n2 = self.initial_D.shape
         nb_missing = int(n1 * n2 * 0.05)
