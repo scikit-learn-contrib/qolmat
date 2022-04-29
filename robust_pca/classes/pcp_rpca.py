@@ -48,7 +48,7 @@ class PcpRPCA(RPCA):
         dict_params["lam"] = self.lam
         return dict_params
 
-    def fit(
+    def fit_transform(
         self,
         signal: Optional[ArrayLike] = None,
         D: Optional[NDArray] = None
@@ -102,19 +102,10 @@ class PcpRPCA(RPCA):
 
         X.flat[-ret:] = np.nan
         A.flat[-ret:] = np.nan
-        self.X = X
-        self.A = A
-        self.errors = errors
-        return self
-
-    def transform(self):
-        if self.input_data == "2DArray":
-            return self.X.copy()
-        elif self.input_data == "1DArray":
-            return self.X.flatten()
-        else:
-            raise ValueError("input data type not recognized")
-
-
-
         
+        if self.input_data == "2DArray":
+             return X, A, errors
+        elif self.input_data == "1DArray":
+            return X.flatten(), A.flatten(), errors
+        else:
+            raise ValueError("Data shape not recognized")

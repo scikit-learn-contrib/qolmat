@@ -1,6 +1,5 @@
 from __future__ import annotations
-from re import X
-from typing import Optional, Tuple, List
+from typing import Optional, List
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
@@ -41,10 +40,10 @@ class TemporalRPCA(RPCA):
         self,
         period: Optional[int] = None,
         rank: Optional[int] = None,
-        lam1: Optional[float] = None,
-        lam2: Optional[float] = None,
-        list_periods: Optional[List[int]] = [],
-        list_etas: Optional[List[float]] = [],
+        tau: Optional[float] = None,
+        lam: Optional[float] = None,
+        list_periods: List[int] = [],
+        list_etas: List[float] = [],
         maxIter: Optional[int] = int(1e4),
         tol: Optional[float] = 1e-6,
         verbose: Optional[bool] = False,
@@ -55,8 +54,8 @@ class TemporalRPCA(RPCA):
                          tol = tol,
                          verbose = verbose)
         self.rank = rank
-        self.lam1 = lam1
-        self.lam2 = lam2
+        self.tau = tau
+        self.lam = lam
         self.list_periods = list_periods
         self.list_etas = list_etas
         self.norm = norm
@@ -65,7 +64,7 @@ class TemporalRPCA(RPCA):
         """
         compute RPCA with possible temporal regularisations, penalised with L1 norm 
         """
-        m, n = D.shape
+        m, n = proj_D.shape
         rho = 1.1
         mu = 1e-6
         mu_bar = mu * 1e10
@@ -104,17 +103,17 @@ class TemporalRPCA(RPCA):
                 sums += (mu * R[index] - Y_[index])  @ H[index].T 
             X = (proj_D - A + mu * L @ Q.T - Y + sums) @ np.linalg.inv((1 + mu) * In + 2 * HHT)
             
-            if np.any(np.isnan(D)):
-                A_omega = utils.soft_thresholding(self.proj_D - X, self.lam2)
+            if np.any(np.isnan(proj_D)):
+                A_omega = utils.soft_thresholding(self.proj_D - X, self.lam)
                 A_omega = utils.ortho_proj(A_omega, omega, inverse=False)
                 A_omega_C = proj_D - X
                 A_omega_C = utils.ortho_proj(A_omega_C, omega, inverse=True)
                 A = A_omega + A_omega_C
             else:
-                A = utils.soft_thresholding(self.proj_D - X, self.lam2)
+                A = utils.soft_thresholding(self.proj_D - X, self.lam)
 
-            L = (mu * X + Y) @ Q @ np.linalg.inv(self.lam1 * Ir + mu * (Q.T @ Q))
-            Q = (mu * X.T + Y.T) @ L @ np.linalg.inv(self.lam1 * Ir + mu * (L.T @ L))
+            L = (mu * X + Y) @ Q @ np.linalg.inv(self.tau * Ir + mu * (Q.T @ Q))
+            Q = (mu * X.T + Y.T) @ L @ np.linalg.inv(self.tau * Ir + mu * (L.T @ L))
 
             for index, _ in enumerate(self.list_periods):
                 R[index] = utils.soft_thresholding(
@@ -152,7 +151,7 @@ class TemporalRPCA(RPCA):
         compute RPCA with possible temporal regularisations, penalised with L2 norm
         """
         rho = 1.1
-        m, n = self.D.shape
+        m, n = proj_D.shape
 
         # init
         Y = np.ones((m, n))
@@ -181,16 +180,16 @@ class TemporalRPCA(RPCA):
             Q_temp = Q.copy()
             X =  (proj_D - A + mu * L @ Q.T - Y) @ np.linalg.inv((1 + mu) * In + HHT)
             
-            if np.any(np.isnan(self.D)):
-                A_omega = utils.soft_thresholding(proj_D - X, self.lam2)
+            if np.any(~omega):
+                A_omega = utils.soft_thresholding(proj_D - X, self.lam)
                 A_omega = utils.ortho_proj(A_omega, omega, inverse=False)
                 A_omega_C = proj_D - X
                 A_omega_C = utils.ortho_proj(A_omega_C, omega, inverse=True)
                 A = A_omega + A_omega_C
             else:
-                A = utils.soft_thresholding(self.proj_D - X, self.lam2)
-            L = (mu * X + Y) @ Q @ np.linalg.inv(self.lam1 * Ir + mu * (Q.T @ Q))
-            Q = (mu * X.T + Y.T) @ L @ np.linalg.inv(self.lam1 * Ir + mu * (L.T @ L))
+                A = utils.soft_thresholding(self.proj_D - X, self.lam)
+            L = (mu * X + Y) @ Q @ np.linalg.inv(self.tau * Ir + mu * (Q.T @ Q))
+            Q = (mu * X.T + Y.T) @ L @ np.linalg.inv(self.tau * Ir + mu * (L.T @ L))
             Y += mu * (X - L @ Q.T)
             
             mu = min(mu * rho, mu_bar)
@@ -215,14 +214,14 @@ class TemporalRPCA(RPCA):
 
     def get_params(self) -> dict:
         dict_params = super().get_params()
-        dict_params["lam1"] = self.lam1
-        dict_params["lam2"] = self.lam2
+        dict_params["tau"] = self.tau
+        dict_params["lam"] = self.lam
         dict_params["list_periods"] = self.list_periods
         dict_params["list_etas"] = self.list_etas
         dict_params["norm"] = self.norm
         return dict_params
 
-    def fit(
+    def fit_transform(
         self,
         signal: Optional[ArrayLike] = None,
         D: Optional[NDArray] = None
@@ -249,29 +248,50 @@ class TemporalRPCA(RPCA):
 
         if self.rank is None:
             self.rank = utils.approx_rank(proj_D)
+        if self.tau is None:
+            self.tau = 1.0 / np.sqrt(max(D_init.shape))
+        if self.lam is None:
+            self.lam = 1.0 / np.sqrt(max(D_init.shape))
 
         if self.norm == "L1":
-            X, A, E = self.compute_L1(proj_D, omega)
+            X, A, errors = self.compute_L1(proj_D, omega)
         elif self.norm == "L2":
-            X, A, E = self.compute_L2(proj_D, omega)
+            X, A, errors = self.compute_L2(proj_D, omega)
         X = X.T
         A = A.T
-        E = E.T
-        X.flat[-ret:] = np.nan
-        A.flat[-ret:] = np.nan
-        E.flat[-ret:] = np.nan
-        self.X = X
-        self.A = A
-        self.E = E
-        return self
-    
-    def transform(self):
+        if ret > 0:  
+            X.flat[-ret:] = np.nan
+            A.flat[-ret:] = np.nan
+        
         if self.input_data == "2DArray":
-            return self.X + self.E
+            return X, A, errors
         elif self.input_data == "1DArray":
-            return (self.X + self.E).flatten()
+            ts_X = X.flatten()
+            ts_A = A.flatten()
+            ts_x = ts_X[~np.isnan(ts_X)]
+            ts_A = ts_A[~np.isnan(ts_A)]
+            return ts_X, ts_A, errors
         else:
             raise ValueError("input data type not recognized")
+    
+    def get_params_scale(
+        self,
+        signal: Optional[ArrayLike] = None,
+        D: Optional[NDArray] = None,
+    ) -> None:
+        D_init, ret = self._prepare_data(signal=signal, D=D)
+        proj_D = utils.impute_nans(D_init, method="median")
+        print(np.sum(np.isnan(proj_D)))
+        print(np.nanmedian(proj_D, axis=0))
+        print(proj_D.shape)
+        rank = utils.approx_rank(proj_D)
+        tau = 1.0/np.sqrt(max(D_init.shape))
+        lam = tau
+        return {
+            "rank":rank,
+            "tau":tau,
+            "lam":lam,
+            }
 
 class OnlineTemporalRPCA(TemporalRPCA):
     """
@@ -290,8 +310,8 @@ class OnlineTemporalRPCA(TemporalRPCA):
         self,
         period: Optional[int] = None,
         rank: Optional[int] = None,
-        lam1: Optional[float] = None,
-        lam2: Optional[float] = None,
+        tau: Optional[float] = None,
+        lam: Optional[float] = None,
         list_periods: Optional[List[int]] = [],
         list_etas: Optional[List[float]] = [],
         maxIter: Optional[int] = int(1e4),
@@ -299,17 +319,17 @@ class OnlineTemporalRPCA(TemporalRPCA):
         verbose: Optional[bool] = False,
         norm: Optional[str] = "L2",
         burnin: Optional[float] = 0,
-        nwin: Optional[int]=0,
-        online_lam1: Optional[float]=None, 
-        online_lam2: Optional[float]=None, 
+        nwin: Optional[float] = 0,
+        online_tau: Optional[float]=None, 
+        online_lam: Optional[float]=None, 
         online_list_periods: Optional[ArrayLike] = [],
         online_list_etas: Optional[ArrayLike] = []
     ) -> None:
         super().__init__(
                 period = period,
                 rank = rank,
-                lam1 = lam1,
-                lam2 = lam2,
+                tau = tau,
+                lam = lam,
                 list_periods = list_periods,
                 list_etas = list_etas,
                 maxIter = maxIter,
@@ -320,12 +340,12 @@ class OnlineTemporalRPCA(TemporalRPCA):
     
         self.burnin = burnin
         self.nwin = nwin
-        self.online_lam1 = online_lam1
-        self.online_lam2 = online_lam2
+        self.online_tau = online_tau
+        self.online_lam = online_lam
         self.online_list_periods = online_list_periods
         self.online_list_etas = online_list_etas
 
-    def fit(
+    def fit_transform(
         self,
         signal: Optional[ArrayLike] = None,
         D: Optional[NDArray] = None,
@@ -341,99 +361,97 @@ class OnlineTemporalRPCA(TemporalRPCA):
             array we want to denoise. If a signal is passed, D corresponds to that signal
         """
         D_init, ret = self._prepare_data(signal=signal, D=D)
+        burnin = int(D_init.shape[1]*self.burnin)
+        nwin = int(D_init.shape[1]*self.nwin)
         
-        self.burnin = int(D.shape[1]*self.burnin)
-
         m, n = D_init.shape
+        Lhat, Shat, _ = super().fit(D=D_init[:,:burnin])
 
-        a = super().fit(D=D_init[:,:self.burnin])
-        Lhat = a.X
-        Shat = a.A
-        
-        r = utils.approx_rank(self.proj_D[:,:self.burnin], th=0.99)
+        proj_D = utils.impute_nans(D_init, method="median")
+        approx_rank = utils.approx_rank(proj_D[:,:burnin], th=0.99)
         
         _, sigmas_hat, _ = np.linalg.svd(Lhat)   
    
-        if self.lam1 is None:
-            self.lam1 = 1.0/np.sqrt(max(m, n))
-        if self.lam2 is None:
-            self.lam2 = 1.0/np.sqrt(max(m, n))
+        if self.tau is None:
+            self.tau = 1.0/np.sqrt(max(m, n))
+        if self.lam is None:
+            self.lam = 1.0/np.sqrt(max(m, n))
             
-        mburnin,nburnin = self.D[:,:self.burnin].shape
-        if self.online_lam1 is None:
-            self.online_lam1 = 1.0/np.sqrt(mburnin)/np.mean(sigmas_hat[:r])
-        if self.online_lam2 is None:
-            self.online_lam2 = 1.0/np.sqrt(mburnin)
+        mburnin, _ = len(D_init) # D[:,:self.burnin].shape
+        if self.online_tau is None:
+            self.online_tau = 1.0/np.sqrt(mburnin)/np.mean(sigmas_hat[:approx_rank])
+        if self.online_lam is None:
+            self.online_lam = 1.0/np.sqrt(mburnin)
             
-            
-        self.D = utils.impute_nans(self.D, method="median")
-        
-        #U = np.random.rand(m,r)
-        Uhat, sigmas_hat, Vhat = randomized_svd(Lhat, n_components=r, n_iter=5, random_state=0)
-        U = Uhat[:,:r].dot(np.sqrt(np.diag(sigmas_hat[:r])))
-        if self.nwin == 0:
+        Uhat, sigmas_hat, Vhat = randomized_svd(Lhat, n_components = approx_rank, n_iter=5, random_state=0)
+        U = Uhat[:,:approx_rank].dot(np.sqrt(np.diag(sigmas_hat[:approx_rank])))
+        if nwin == 0:
             Vhat_win = Vhat.copy()
         else:
-            Vhat_win = Vhat[:, -self.nwin:]
-        A = np.zeros((r, r))
-        B = np.zeros((m, r))
-        for i in range(Vhat_win.shape[1]):
+            Vhat_win = Vhat[:, nwin:]
+        A = np.zeros((approx_rank, approx_rank))
+        B = np.zeros((m, approx_rank))
+        for col in range(Vhat_win.shape[1]):
             sums = np.zeros(A.shape)
-            for k in range(len(self.list_periods)):
-                vec = Vhat_win[:, i] - Vhat_win[:, i-self.list_periods[k]]
-                sums += 2 * self.list_etas[k] * (np.outer(vec, vec))
-            A = A + np.outer(Vhat_win[:, i], Vhat_win[:, i]) + sums
+            for period, index in self.list_periods:
+                vec = Vhat_win[:, col] - Vhat_win[:, col-period]
+                sums += 2 * self.list_etas[index] * (np.outer(vec, vec))
+            A = A + np.outer(Vhat_win[:, col], Vhat_win[:, col]) + sums
             
-            if self.nwin == 0:
-                B = B + np.outer(self.D[:, i] - Shat[:, i], Vhat_win[:, i])
+            if nwin == 0:
+                B = B + np.outer(proj_D[:, col] - Shat[:, col], Vhat_win[:, col])
             else:
-                B = B + np.outer(self.D[:, self.burnin - self.nwin + i] - Shat[:, self.burnin - self.nwin + i], 
-                             Vhat_win[:, i])
+                B = B + np.outer(proj_D[:, burnin - nwin + col] - Shat[:, burnin - nwin + col], 
+                                 Vhat_win[:, col])
     
         
-        lv = []
-        for i in range(self.burnin, n):
-            ri = self.D[:, i]
+        lv = np.empty(shape=(n-burnin, proj_D.shape[1]), dtype=float)
+        
+        for row in range(burnin, n):
+            ri = proj_D[:, row]
             vi, si = utils.solve_projection(
                 ri, 
                 U, 
-                self.online_lam1, 
-                self.online_lam2, 
+                self.online_tau, 
+                self.online_lam, 
                 self.online_list_etas, 
                 self.online_list_periods, 
                 Lhat
             )
-            lv.append(vi)
+            lv[row-burnin, :] = vi
+
             Shat = np.hstack((Shat, si.reshape(m,1)))
             vi_delete = Vhat_win[:,0]
-            Vhat_win = np.hstack((Vhat_win[:,1:], vi.reshape(r,1)))
-            if (len(self.online_list_periods) > 0) and (len(lv) > max(self.online_list_periods)):
-                sums = np.zeros((len(vi), len(vi)))
-                for k in range(len(self.online_list_periods)):
-                    vec = vi - lv[i-self.online_list_periods[k]-self.burnin]
-                    sums += 2 * self.online_list_etas[k] * (np.outer(vec, vec))
+            Vhat_win = np.hstack((Vhat_win[:,1:], vi.reshape(approx_rank,1)))
+            
+            if (len(self.online_list_periods) > 0) and (row >= max(self.online_list_periods)):
+                sums = np.zeros((lv.shape[1], lv.shape[1]))
+                for period, index in enumerate(self.online_list_periods):
+                    vec = vi - lv[row - period - burnin]
+                    sums += 2 * self.online_list_etas[index] * (np.outer(vec, vec))
                 A = A + np.outer(vi, vi) + sums
             else:
                 A = A + np.outer(vi, vi) - np.outer(vi_delete, vi_delete)
-            if self.nwin == 0:
+            if nwin == 0:
                 B = B + np.outer(ri - si, vi)
             else:
-                B = B + np.outer(ri - si, vi) - np.outer(self.D[:, i - self.nwin] - Shat[:, i - self.nwin], vi_delete)
-            U = utils.update_col(self.online_lam1, U, A, B)
+                B = B + np.outer(ri - si, vi) - np.outer(proj_D[:, row - nwin] - Shat[:, row - nwin], vi_delete)
+            U = utils.update_col(self.online_tau, U, A, B)
             Lhat = np.hstack((Lhat, U.dot(vi).reshape(m,1)))
-            
-        self.D = self.initial_D
-        self.X = Lhat
-        self.A = Shat
-            
-        return None
+        
+        if self.input_data == "2DArray":
+             return Lhat, Shat
+        elif self.input_data == "1DArray":
+            return Lhat.flatten(), Shat.flatten()
+        else:
+            raise ValueError("Data shape not recognized")
     
     def get_params(self):
         return {
             "period": self.period,
             "estimated_rank": self.rank,
-            "lam1": self.lam1,
-            "lam2": self.lam2,
+            "tau": self.tau,
+            "lam": self.lam,
             "list_periods": self.list_periods,
             "list_etas": self.list_etas,
             "maxIter": self.maxIter,
@@ -442,11 +460,31 @@ class OnlineTemporalRPCA(TemporalRPCA):
             "norm": self.norm,
             "burnin": self.burnin,
             "nwin": self.nwin,
-            "online_lam1": self.online_lam1,
-            "online_lam2": self.online_lam2,
+            "online_tau": self.online_tau,
+            "online_lam": self.online_lam,
             "online_list_periods": self.online_list_periods,
             "online_list_etas": self.online_list_etas,
         }
+    
+    
+    def get_params_scale(
+        self,
+        signal: Optional[ArrayLike] = None,
+        D: Optional[NDArray] = None,
+    ) -> None:
+        D_init, _ = self._prepare_data(signal=signal, D=D)
+        params_scale = super().get_params_scale(signal=signal, D=D)
+        burnin = int(D_init.shape[1]*self.burnin)
+
+        Lhat, _, _ = super().fit(D=D_init[:,:burnin])
+        _, sigmas_hat, _ = np.linalg.svd(Lhat)   
+        online_tau = 1.0/np.sqrt(len(D_init))/np.mean(sigmas_hat[:params_scale["rank"]])
+        online_lam = 1.0/np.sqrt(len(D_init))
+        params_scale["online_tau"] = online_tau
+        params_scale["online_lam"] = online_lam
+        return params_scale
+
+
 
 class TemporalRPCAHyperparams(TemporalRPCA):
     """
@@ -470,26 +508,26 @@ class TemporalRPCAHyperparams(TemporalRPCA):
         self,
         period: Optional[int] = None,
         rank: Optional[int] = None,
-        lam1: Optional[float] = None,
-        lam2: Optional[float] = None,
+        tau: Optional[float] = None,
+        lam: Optional[float] = None,
         list_periods: Optional[List[int]] = [],
         list_etas: Optional[List[float]] = [],
         maxIter: Optional[int] = int(1e4),
         tol: Optional[float] = 1e-6,
         verbose: Optional[bool] = False,
         norm: Optional[str] = "L2",
-        hyperparams_lam1: Optional[List[float]] = [],
-        hyperparams_lam2: Optional[List[float]] = [],
+        hyperparams_tau: Optional[List[float]] = [],
+        hyperparams_lam: Optional[List[float]] = [],
         hyperparams_etas: Optional[List[List[float]]] = [[]],
         cv:  Optional[int] = 5,
     ) -> None:
         super().__init__(
-            period, rank, lam1, lam2, list_periods, list_etas, maxIter, tol, verbose, norm
+            period, rank, tau, lam, list_periods, list_etas, maxIter, tol, verbose, norm
         )
         
         self.cv = cv
-        self.hyperparams_lam1 = hyperparams_lam1
-        self.hyperparams_lam2 = hyperparams_lam2
+        self.hyperparams_tau = hyperparams_tau
+        self.hyperparams_lam = hyperparams_lam
         self.hyperparams_etas = hyperparams_etas
         self.add_hyperparams()
     
@@ -509,16 +547,16 @@ class TemporalRPCAHyperparams(TemporalRPCA):
             by default [[]]
         """
         self.search_space = []
-        if len(self.hyperparams_lam1) > 0:
+        if len(self.hyperparams_tau) > 0:
             self.search_space.append(
                 skopt.space.Real(
-                    low=self.hyperparams_lam1[0], high=self.hyperparams_lam1[1], name="lam1"
+                    low=self.hyperparams_tau[0], high=self.hyperparams_tau[1], name="tau"
                 )
             )
-        if len(self.hyperparams_lam2) > 0:
+        if len(self.hyperparams_lam) > 0:
             self.search_space.append(
                 skopt.space.Real(
-                    low=self.hyperparams_lam2[0], high=self.hyperparams_lam2[1], name="tau2"
+                    low=self.hyperparams_lam[0], high=self.hyperparams_lam[1], name="lam"
                 )
             )
         if len(self.hyperparams_etas[0]) > 0:  # TO DO: more cases
@@ -545,8 +583,8 @@ class TemporalRPCAHyperparams(TemporalRPCA):
             criterion to minimise
         """
         
-        self.lam1 = args[0]
-        self.lam2 = args[1]
+        self.tau = args[0]
+        self.lam = args[1]
         self.list_etas = [args[i + 2] for i in range(len(self.list_periods))]
 
         n1, n2 = self.initial_D.shape
@@ -618,8 +656,8 @@ class TemporalRPCAHyperparams(TemporalRPCA):
             print(f"Best parameters : {res.x}")
             print(f"Best result : {res.fun}")
 
-        self.lam1 = res.x[0]
-        self.lam2 = res.x[1]
+        self.tau = res.x[0]
+        self.lam = res.x[1]
         self.list_etas = res.x[2:]
         super().fit(D=self.D)
 

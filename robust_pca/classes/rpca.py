@@ -35,7 +35,6 @@ class RPCA(BaseEstimator, TransformerMixin):
         self.maxIter = maxIter
         self.tol = tol
         self.verbose = verbose
-        self.input_data = "2DArray"
 
     def _prepare_data(self,
                       signal: Optional[ArrayLike] = None,
@@ -50,9 +49,12 @@ class RPCA(BaseEstimator, TransformerMixin):
             raise ValueError("Either D or signal should not be None")
         if (D is None):
             self.period = utils.get_period(signal) if self.period is None else self.period
-            D_init, ret = utils.signal_to_matrix(self.signal, self.period)
+            D_init, ret = utils.signal_to_matrix(signal, self.period)
             self.input_data = "1DArray"
-            return D_init, ret if D is None else D.copy(), 0
+        else:
+            D_init = D
+            ret = 0
+        return D_init, ret
     
     def get_params(self):
         return {
@@ -62,21 +64,17 @@ class RPCA(BaseEstimator, TransformerMixin):
             "verbose": self.verbose
         }
 
-    def fit(
+    def fit_transform(
         self,
         signal: Optional[ArrayLike] = None,
         D: Optional[NDArray] = None
         ) -> RPCA:
-        X, ret = self._prepare_data(signal=signal, D = D)
-        X.flat[-ret:] = np.nan
+        X, _ = self._prepare_data(signal=signal, D = D)
         A = np.zeros(X.shape, dtype = float)
-        self.X = X
-        self.A = A
-        return self
-    def transform(self):
+
         if self.input_data == "2DArray":
-            return self.X.copy()
+             return X, A
         elif self.input_data == "1DArray":
-            return self.X.flatten()
+            return X.flatten(), A.flatten()
         else:
-            raise ValueError("input data type not recognized")
+            raise ValueError("Data shape not recognized")

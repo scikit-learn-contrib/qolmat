@@ -51,10 +51,10 @@ def signal_to_matrix(signal: ArrayLike, period: int) -> Tuple[NDArray, int]:
     Tuple[NDArray, int]
         matrix and number of added values to match the size (if len(signal)%period != 0)
     """
-    n_rows = len(signal)//period + 1
+    n_rows = len(signal)//period + (len(signal)%period >= 1)
     M = np.full((n_rows, period), fill_value = np.nan, dtype=float)
     M.flat[:len(signal)] = signal
-    nb_add_val = period - (len(signal)%period)
+    nb_add_val = (period - (len(signal)%period))%period
     return M.T, nb_add_val
 
 def approx_rank(M: NDArray, threshold: Optional[float]=0.95) -> int:
