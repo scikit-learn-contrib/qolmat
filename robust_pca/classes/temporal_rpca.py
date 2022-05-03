@@ -380,8 +380,8 @@ class OnlineTemporalRPCA(TemporalRPCA):
             array we want to denoise. If a signal is passed, D corresponds to that signal
         """
         D_init, ret = self._prepare_data(signal=signal, D=D)
-        burnin = int(D_init.shape[1]*self.burnin)
-        nwin = int(D_init.shape[1]*self.nwin)
+        burnin = self.burnin
+        nwin = self.nwin
         
         m, n = D_init.shape
         Lhat, Shat, _ = super().fit(D=D_init[:,:burnin])
