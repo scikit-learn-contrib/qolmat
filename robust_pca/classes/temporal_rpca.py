@@ -221,6 +221,25 @@ class TemporalRPCA(RPCA):
         dict_params["norm"] = self.norm
         return dict_params
 
+    def set_params(self, **kargs):
+        super().set_params(**kargs)
+        self.tau = kargs["tau"]
+        self.norm = kargs["norm"]
+
+        list_periods = []
+        list_etas = []
+        for period in kargs.keys():
+            if "period" in period:
+                index_period = int(period[7:])
+                if f"eta_{index_period}" in kargs.keys():
+                    list_periods.append(kargs[period])
+                    list_etas.append(kargs[f"eta_{index_period}"])
+                else:
+                    raise ValueError(f"No etas' index correspond to {period}")
+        self.list_periods = list_periods
+        self.list_etas = list_etas
+
+
     def fit_transform(
         self,
         signal: Optional[ArrayLike] = None,

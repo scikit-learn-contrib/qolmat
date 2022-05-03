@@ -1,4 +1,5 @@
 from __future__ import annotations
+from multiprocessing.sharedctypes import Value
 from typing import Optional
 
 import numpy as np
@@ -47,6 +48,11 @@ class PcpRPCA(RPCA):
         dict_params["mu"] = self.mu
         dict_params["lam"] = self.lam
         return dict_params
+
+    def set_params(self, **kargs):
+        super().set_params(**kargs)
+        self.mu = kargs["mu"]
+        self.lam = kargs["lam"]
 
     def fit_transform(
         self,

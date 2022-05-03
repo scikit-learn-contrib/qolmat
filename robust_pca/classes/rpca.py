@@ -64,6 +64,11 @@ class RPCA(BaseEstimator, TransformerMixin):
             "verbose": self.verbose
         }
 
+    def set_params(self, **kargs):
+        for param_key in kargs.keys():
+            if param_key in RPCA.__dict__.keys():
+                setattr(self, param_key, kargs[param_key]) 
+
     def fit_transform(
         self,
         signal: Optional[ArrayLike] = None,
