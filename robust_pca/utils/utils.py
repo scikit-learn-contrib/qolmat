@@ -54,7 +54,7 @@ def signal_to_matrix(signal: ArrayLike, period: int) -> Tuple[NDArray, int]:
     n_rows = len(signal)//period + (len(signal)%period >= 1)
     M = np.full((n_rows, period), fill_value = np.nan, dtype=float)
     M.flat[:len(signal)] = signal
-    nb_add_val = (period - (len(signal)%period))%period
+    nb_add_val = (M.shape[0]*M.shape[1]) - len(signal)
     return M.T, nb_add_val
 
 def approx_rank(M: NDArray, threshold: Optional[float]=0.95) -> int:

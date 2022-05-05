@@ -104,13 +104,13 @@ class TemporalRPCA(RPCA):
             X = (proj_D - A + mu * L @ Q.T - Y + sums) @ np.linalg.inv((1 + mu) * In + 2 * HHT)
             
             if np.any(np.isnan(proj_D)):
-                A_omega = utils.soft_thresholding(self.proj_D - X, self.lam)
+                A_omega = utils.soft_thresholding(proj_D - X, self.lam)
                 A_omega = utils.ortho_proj(A_omega, omega, inverse=False)
                 A_omega_C = proj_D - X
                 A_omega_C = utils.ortho_proj(A_omega_C, omega, inverse=True)
                 A = A_omega + A_omega_C
             else:
-                A = utils.soft_thresholding(self.proj_D - X, self.lam)
+                A = utils.soft_thresholding(proj_D - X, self.lam)
 
             L = (mu * X + Y) @ Q @ np.linalg.inv(self.tau * Ir + mu * (Q.T @ Q))
             Q = (mu * X.T + Y.T) @ L @ np.linalg.inv(self.tau * Ir + mu * (L.T @ L))
@@ -155,7 +155,7 @@ class TemporalRPCA(RPCA):
 
         # init
         Y = np.ones((m, n))
-        X = proj_D
+        X = proj_D.copy()
         A = np.zeros((m, n))
         L = np.ones((m, self.rank))
         Q = np.ones((n, self.rank))
@@ -187,7 +187,7 @@ class TemporalRPCA(RPCA):
                 A_omega_C = utils.ortho_proj(A_omega_C, omega, inverse=True)
                 A = A_omega + A_omega_C
             else:
-                A = utils.soft_thresholding(self.proj_D - X, self.lam)
+                A = utils.soft_thresholding(proj_D - X, self.lam)
             L = (mu * X + Y) @ Q @ np.linalg.inv(self.tau * Ir + mu * (Q.T @ Q))
             Q = (mu * X.T + Y.T) @ L @ np.linalg.inv(self.tau * Ir + mu * (L.T @ L))
             Y += mu * (X - L @ Q.T)
@@ -222,22 +222,23 @@ class TemporalRPCA(RPCA):
         return dict_params
 
     def set_params(self, **kargs):
-        super().set_params(**kargs)
-        self.tau = kargs["tau"]
-        self.norm = kargs["norm"]
+        _ = super().set_params(**kargs)
+        for param_key in kargs.keys():
+            setattr(self, param_key, kargs[param_key]) 
 
         list_periods = []
         list_etas = []
-        for period in kargs.keys():
-            if "period" in period:
-                index_period = int(period[7:])
+        for param_key in kargs.keys():
+            if "period" in param_key:
+                index_period = int(param_key[7:])
                 if f"eta_{index_period}" in kargs.keys():
-                    list_periods.append(kargs[period])
+                    list_periods.append(kargs[param_key])
                     list_etas.append(kargs[f"eta_{index_period}"])
                 else:
-                    raise ValueError(f"No etas' index correspond to {period}")
+                    raise ValueError(f"No etas' index correspond to {param_key}")
         self.list_periods = list_periods
         self.list_etas = list_etas
+        return self
 
 
     def fit_transform(
@@ -278,7 +279,7 @@ class TemporalRPCA(RPCA):
             X, A, errors = self.compute_L2(proj_D, omega)
         X = X.T
         A = A.T
-        if ret > 0:  
+        if ret > 0: 
             X.flat[-ret:] = np.nan
             A.flat[-ret:] = np.nan
         
@@ -287,7 +288,7 @@ class TemporalRPCA(RPCA):
         elif self.input_data == "1DArray":
             ts_X = X.flatten()
             ts_A = A.flatten()
-            ts_x = ts_X[~np.isnan(ts_X)]
+            ts_X = ts_X[~np.isnan(ts_X)]
             ts_A = ts_A[~np.isnan(ts_A)]
             return ts_X, ts_A, errors
         else:
@@ -300,9 +301,6 @@ class TemporalRPCA(RPCA):
     ) -> None:
         D_init, ret = self._prepare_data(signal=signal, D=D)
         proj_D = utils.impute_nans(D_init, method="median")
-        print(np.sum(np.isnan(proj_D)))
-        print(np.nanmedian(proj_D, axis=0))
-        print(proj_D.shape)
         rank = utils.approx_rank(proj_D)
         tau = 1.0/np.sqrt(max(D_init.shape))
         lam = tau

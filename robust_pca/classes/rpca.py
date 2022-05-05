@@ -52,7 +52,7 @@ class RPCA(BaseEstimator, TransformerMixin):
             D_init, ret = utils.signal_to_matrix(signal, self.period)
             self.input_data = "1DArray"
         else:
-            D_init = D
+            D_init = D.copy()
             ret = 0
         return D_init, ret
     
@@ -67,7 +67,8 @@ class RPCA(BaseEstimator, TransformerMixin):
     def set_params(self, **kargs):
         for param_key in kargs.keys():
             if param_key in RPCA.__dict__.keys():
-                setattr(self, param_key, kargs[param_key]) 
+                setattr(self, param_key, kargs[param_key])
+        return self
 
     def fit_transform(
         self,
