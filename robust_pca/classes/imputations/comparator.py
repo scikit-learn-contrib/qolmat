@@ -32,30 +32,30 @@ class Comparator:
         self.search_params = search_params
         self.corruption = corruption
 
-    def create_corruptions(self, signal: pd.Series, random_state: Optional[int] = 29):
+    def create_corruptions(self, df: pd.DataFrame, random_state: Optional[int] = 29):
 
-        indices = np.where(signal.notna())[0]  # signal[signal.notna()].index
+        indices = np.where(df.notna())[0]  # signal[signal.notna()].index
 
         self.indices = resample(
             indices,
             replace=False,
-            n_samples=floor(len(indices) * self.ratio_missing),
+            n_samples=floor(indices.size() * self.ratio_missing),
             random_state=random_state,
             stratify=None,
         )
 
-        self.corrupted_signal = signal.copy()
+        self.corrupted_signal = df.copy()
         if self.corruption == "missing":
             self.corrupted_signal[self.indices] = np.nan
         elif self.corruption == "outlier":
             self.corrupted_signal[self.indices] = np.random.randint(
-                0, high=3 * np.max(signal), size=(int(len(signal) * self.ratio_missing))
+                0, high=3 * np.max(df), size=(int(len(df) * self.ratio_missing))
             )
 
     def get_errors(
         self,
-        signal_ref: pd.Series,
-        signal_imputed: pd.Series,
+        signal_ref: pd.DataFrame,
+        signal_imputed: pd.DataFrame,
     ) -> float:
 
         rmse = mean_squared_error(
@@ -78,22 +78,20 @@ class Comparator:
                 tested_model, self.search_params
             )
             res_intermediate = {}
-            for col in self.cols_to_impute:
-                series = self.df[col]
-                errors = defaultdict(list)
-                for _ in range(1):
-                    random_state = np.random.randint(0, 10 * 9)
-                    self.create_corruptions(series, random_state=random_state)
-                    cv = cross_validation.CrossValidation(
-                        tested_model,
-                        search_space=search_space,
-                        search_name=search_name,
-                        ratio_missing=self.ratio_missing,
-                        corruption=self.corruption,
-                    )
-                    imputed_signal = cv.fit_transform(self.corrupted_signal)
-                    for k, v in self.get_errors(series, imputed_signal).items():
-                        errors[k].append(v)
-                res_intermediate[col] = {k: np.mean(v) for k, v in errors.items()}
-            results[type(tested_model).__name__] = res_intermediate
+            df = self.df[self.cols_to_impute]
+            errors = defaultdict(list)
+            for _ in range(1):
+                random_state = np.random.randint(0, 10 * 9)
+                self.create_corruptions(df, random_state=random_state)
+                cv = cross_validation.CrossValidation(
+                    tested_model,
+                    search_space=search_space,
+                    search_name=search_name,
+                    ratio_missing=self.ratio_missing,
+                    corruption=self.corruption,
+                )
+                imputed_signal = cv.fit_transform(self.corrupted_signal)
+                for k, v in self.get_errors(df, imputed_signal).items():
+                    errors[k].append(v)
+        results[type(tested_model).__name__] = errors
         return results

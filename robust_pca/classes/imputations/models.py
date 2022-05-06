@@ -39,31 +39,39 @@ class suppress_stdout_stderr(object):
         os.close(self.null_fds[0])
         os.close(self.null_fds[1])
 
-
-class ImputeByMean:
+class ImputeColumnWise:
     def __init__(
         self,
         groups=[],
     ) -> None:
         self.groups = groups
 
-    def fit_transform(self, signal: pd.Series) -> pd.Series:
+    def fit_transform(self, signal: pd.DataFrame) -> pd.DataFrame:
         col_to_impute = signal.name
         index_signal = signal.index
-        signal = signal.reset_index()
-        imputed = utils.custom_groupby(signal, self.groups)[col_to_impute].apply(
-            lambda x: x.fillna(x.mean())
-        )
-
-        imputed = imputed.to_frame()
-        imputed = imputed.fillna(0)
-        imputed = imputed.set_index(index_signal)
-        imputed = imputed[col_to_impute]
+        imputed = signal.copy()
+        for col in col_to_impute:
+            signal_col = signal[col].reset_index()
+            imputed[col] = self.fit_transform_col(signal_col, col_to_impute=col)
+        imputed.fillna(0, inplace=True)
         return imputed
 
     def get_hyperparams(self):
         return {}
 
+
+class ImputeByMean:
+    def __init__(
+        self,
+        groups=[],
+    ) -> None:
+        super.__init__(groups)
+
+    def fit_transform_col(self, signal: pd.Series, col_to_impute: str) -> pd.Series:
+        imputed = utils.custom_groupby(signal, self.groups)[col_to_impute].apply(
+            lambda x: x.fillna(x.mean())
+        )
+        return imputed
 
 class ImputeByMedian:
     def __init__(
@@ -233,3 +241,20 @@ class ImputeProphet:
             "yearly_seasonality": self.yearly_seasonality,
             "interval_width": self.interval_width,
         }
+
+
+class ImputeRPCA:
+    def __init__(self, **kwargs) -> None:
+        for name, value in kwargs.items():
+            setattr(self, name, value)
+
+    def fit_transform(self, signal: pd.Series) -> pd.Series:
+
+        self.signal = np.asarray(signal).reshape(-1, 1)
+        imputer = KNNImputer(n_neighbors=self.k)
+        res = imputer.fit_transform(self.signal)
+        res = pd.Series([a[0] for a in res], index=signal.index)
+        return res.fillna(np.nanmedian(res))
+
+    def get_hyperparams(self):
+        return {"k": self.k}
