@@ -2,7 +2,7 @@
 import numpy as np
 import pandas as pd
 
-from fbprophet import Prophet
+# from fbprophet import Prophet
 import logging
 from sklearn.impute import KNNImputer
 import os
@@ -73,43 +73,18 @@ class ImputeByMean:
         )
         return imputed
 
-class ImputeByMedian:
+class ImputeByMean:
     def __init__(
         self,
         groups=[],
     ) -> None:
-        self.groups = groups
+        super.__init__(groups)
 
-    def fit_transform(self, signal: pd.Series) -> pd.Series:
-        col_to_impute = signal.name
-        index_signal = signal.index
-        signal = signal.reset_index()
+    def fit_transform_col(self, signal: pd.Series, col_to_impute: str) -> pd.Series:
         imputed = utils.custom_groupby(signal, self.groups)[col_to_impute].apply(
             lambda x: x.fillna(x.median())
         )
-
-        imputed = imputed.to_frame()
-        imputed = imputed.fillna(0)
-        imputed = imputed.set_index(index_signal)
-        imputed = imputed[col_to_impute]
         return imputed
-
-    def get_hyperparams(self):
-        return {}
-
-
-class ImputeByMode:
-    def __init__(
-        self,
-    ) -> None:
-        pass
-
-    def fit(self, signal: pd.Series) -> None:
-        self.signal = signal
-        self.imputed = self.signal.fillna(self.signal[self.signal.notnull()].mode()[0])
-
-    def get_hyperparams(self):
-        return {}
 
 
 class RandomImpute:
@@ -118,7 +93,7 @@ class RandomImpute:
     ) -> None:
         pass
 
-    def fit_transform(self, signal: pd.Series) -> pd.Series:
+    def fit_transform_col(self, signal: pd.Series) -> pd.Series:
         imputed = signal.copy()
         number_missing = imputed.isnull().sum()
         obs = imputed[imputed.notnull()]
@@ -126,9 +101,6 @@ class RandomImpute:
             obs.values, number_missing, replace=True
         )
         return imputed
-
-    def get_hyperparams(self):
-        return {}
 
 
 class ImputeLOCF:
@@ -206,41 +178,41 @@ class ImputeKNN:
         return {"k": self.k}
 
 
-# does not work with kedro...
-class ImputeProphet:
-    def __init__(self, **kwargs) -> None:
-        for name, value in kwargs.items():
-            setattr(self, name, value)
+# # does not work with kedro...
+# class ImputeProphet:
+#     def __init__(self, **kwargs) -> None:
+#         for name, value in kwargs.items():
+#             setattr(self, name, value)
 
-    def fit_transform(self, signal: pd.Series) -> pd.Series:
-        col_to_impute = signal.name
-        data = pd.DataFrame()
-        data["ds"] = signal.index.get_level_values("datetime")
-        data["y"] = signal.values
+#     def fit_transform(self, signal: pd.Series) -> pd.Series:
+#         col_to_impute = signal.name
+#         data = pd.DataFrame()
+#         data["ds"] = signal.index.get_level_values("datetime")
+#         data["y"] = signal.values
 
-        prophet = Prophet(
-            daily_seasonality=self.daily_seasonality,
-            weekly_seasonality=self.weekly_seasonality,
-            yearly_seasonality=self.yearly_seasonality,
-            interval_width=self.interval_width,
-        )
-        with suppress_stdout_stderr():
-            prophet.fit(data)
+#         prophet = Prophet(
+#             daily_seasonality=self.daily_seasonality,
+#             weekly_seasonality=self.weekly_seasonality,
+#             yearly_seasonality=self.yearly_seasonality,
+#             interval_width=self.interval_width,
+#         )
+#         with suppress_stdout_stderr():
+#             prophet.fit(data)
 
-        forecast = prophet.predict(data[["ds"]])["yhat"]
-        imputed = data["y"].fillna(forecast)
-        imputed = imputed.to_frame(col_to_impute)
-        imputed = imputed.set_index(signal.index)
-        imputed = imputed[col_to_impute]
-        return imputed
+#         forecast = prophet.predict(data[["ds"]])["yhat"]
+#         imputed = data["y"].fillna(forecast)
+#         imputed = imputed.to_frame(col_to_impute)
+#         imputed = imputed.set_index(signal.index)
+#         imputed = imputed[col_to_impute]
+#         return imputed
 
-    def get_hyperparams(self):
-        return {
-            "daily_seasonality": self.daily_seasonality,
-            "weekly_seasonality": self.weekly_seasonality,
-            "yearly_seasonality": self.yearly_seasonality,
-            "interval_width": self.interval_width,
-        }
+#     def get_hyperparams(self):
+#         return {
+#             "daily_seasonality": self.daily_seasonality,
+#             "weekly_seasonality": self.weekly_seasonality,
+#             "yearly_seasonality": self.yearly_seasonality,
+#             "interval_width": self.interval_width,
+#         }
 
 
 class ImputeRPCA:
