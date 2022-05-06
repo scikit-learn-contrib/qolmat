@@ -77,10 +77,10 @@ class Comparator:
             search_space, search_name = utils.get_search_space(
                 tested_model, self.search_params
             )
-            errors = defaultdict(list)
             res_intermediate = {}
             for col in self.cols_to_impute:
                 series = self.df[col]
+                errors = defaultdict(list)
                 for _ in range(1):
                     random_state = np.random.randint(0, 10 * 9)
                     self.create_corruptions(series, random_state=random_state)
