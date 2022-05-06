@@ -54,7 +54,7 @@ class ImputeByMean:
         imputed = utils.custom_groupby(signal, self.groups)[col_to_impute].apply(
             lambda x: x.fillna(x.mean())
         )
-        
+
         imputed = imputed.to_frame()
         imputed = imputed.fillna(0)
         imputed = imputed.set_index(index_signal)
@@ -79,13 +79,13 @@ class ImputeByMedian:
         imputed = utils.custom_groupby(signal, self.groups)[col_to_impute].apply(
             lambda x: x.fillna(x.median())
         )
-        
+
         imputed = imputed.to_frame()
         imputed = imputed.fillna(0)
         imputed = imputed.set_index(index_signal)
         imputed = imputed[col_to_impute]
         return imputed
-        
+
     def get_hyperparams(self):
         return {}
 
@@ -115,8 +115,8 @@ class RandomImpute:
         number_missing = imputed.isnull().sum()
         obs = imputed[imputed.notnull()]
         imputed.loc[imputed.isnull()] = np.random.choice(
-            obs.values, number_missing, 
-            replace=True)
+            obs.values, number_missing, replace=True
+        )
         return imputed
 
     def get_hyperparams(self):
@@ -137,7 +137,7 @@ class ImputeLOCF:
         imputed = utils.custom_groupby(signal, self.groups)[col_to_impute].apply(
             lambda x: x.ffill()
         )
-        
+
         imputed = imputed.to_frame()
         imputed = imputed.fillna(0)
         imputed = imputed.set_index(index_signal)
@@ -163,7 +163,7 @@ class ImputeNOCB:
         imputed = utils.custom_groupby(signal, self.groups)[col_to_impute].apply(
             lambda x: x.bfill()
         )
-        
+
         imputed = imputed.to_frame()
         imputed = imputed.fillna(0)
         imputed = imputed.set_index(index_signal)
@@ -173,7 +173,8 @@ class ImputeNOCB:
 
     def get_hyperparams(self):
         return {}
-    
+
+
 class ImputeKNN:
     def __init__(self, **kwargs) -> None:
         for name, value in kwargs.items():
@@ -203,18 +204,18 @@ class ImputeProphet:
         for name, value in kwargs.items():
             setattr(self, name, value)
 
-    def fit_transform(self, signal:pd.Series) -> pd.Series:
+    def fit_transform(self, signal: pd.Series) -> pd.Series:
         col_to_impute = signal.name
         data = pd.DataFrame()
         data["ds"] = signal.index.get_level_values("datetime")
         data["y"] = signal.values
 
         prophet = Prophet(
-                    daily_seasonality=self.daily_seasonality,
-                    weekly_seasonality=self.weekly_seasonality,
-                    yearly_seasonality=self.yearly_seasonality,
-                    interval_width=self.interval_width
-                    )
+            daily_seasonality=self.daily_seasonality,
+            weekly_seasonality=self.weekly_seasonality,
+            yearly_seasonality=self.yearly_seasonality,
+            interval_width=self.interval_width,
+        )
         with suppress_stdout_stderr():
             prophet.fit(data)
 
@@ -230,5 +231,5 @@ class ImputeProphet:
             "daily_seasonality": self.daily_seasonality,
             "weekly_seasonality": self.weekly_seasonality,
             "yearly_seasonality": self.yearly_seasonality,
-            "interval_width": self.interval_width
+            "interval_width": self.interval_width,
         }

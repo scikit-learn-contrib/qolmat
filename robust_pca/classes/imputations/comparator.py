@@ -1,7 +1,10 @@
 import pandas as pd
 import numpy as np
 import cross_validation
-from sklearn.metrics import mean_squared_error, mean_absolute_error#, mean_absolute_percentage_error
+from sklearn.metrics import (
+    mean_squared_error,
+    mean_absolute_error,
+)  # , mean_absolute_percentage_error
 from sklearn.utils import resample
 from collections import defaultdict
 from typing import Optional
@@ -10,16 +13,19 @@ from skopt.space import Categorical, Real, Integer
 import matplotlib.pyplot as plt
 import utils
 
+
 class Comparator:
-    def __init__(self, 
-                 data, 
-                 ratio_missing, 
-                 models_to_test,
-                 cols_to_impute, 
-                 search_params={}, 
-                 corruption="missing"):
-        
-        self.df = data        
+    def __init__(
+        self,
+        data,
+        ratio_missing,
+        models_to_test,
+        cols_to_impute,
+        search_params={},
+        corruption="missing",
+    ):
+
+        self.df = data
         self.ratio_missing = ratio_missing
         self.cols_to_impute = cols_to_impute
         self.models_to_test = models_to_test
@@ -28,8 +34,8 @@ class Comparator:
 
     def create_corruptions(self, signal: pd.Series, random_state: Optional[int] = 29):
 
-        indices = np.where(signal.notna())[0]#signal[signal.notna()].index
-        
+        indices = np.where(signal.notna())[0]  # signal[signal.notna()].index
+
         self.indices = resample(
             indices,
             replace=False,
@@ -51,32 +57,33 @@ class Comparator:
         signal_ref: pd.Series,
         signal_imputed: pd.Series,
     ) -> float:
-        
-        rmse = mean_squared_error(signal_ref[self.indices], signal_imputed[self.indices], squared=False)
-        mae = mean_absolute_error(signal_ref[self.indices], signal_imputed[self.indices])
-        #mape = mean_absolute_percentage_error(signal_ref[self.indices], signal_imputed[self.indices])
-        wmape = np.mean(np.abs(signal_ref[self.indices] - signal_imputed[self.indices])) / np.mean(
-            np.abs(signal_ref[self.indices])
+
+        rmse = mean_squared_error(
+            signal_ref[self.indices], signal_imputed[self.indices], squared=False
         )
-        return {"rmse": rmse, "mae": mae, "wmape": wmape} #"mape": mape, 
+        mae = mean_absolute_error(
+            signal_ref[self.indices], signal_imputed[self.indices]
+        )
+        # mape = mean_absolute_percentage_error(signal_ref[self.indices], signal_imputed[self.indices])
+        wmape = np.mean(
+            np.abs(signal_ref[self.indices] - signal_imputed[self.indices])
+        ) / np.mean(np.abs(signal_ref[self.indices]))
+        return {"rmse": rmse, "mae": mae, "wmape": wmape}  # "mape": mape,
 
     def compare(self):
-        
+
         results = {}
         for tested_model in self.models_to_test:
-            
-            search_space, search_name = utils.get_search_space(tested_model, self.search_params)
-                
+            search_space, search_name = utils.get_search_space(
+                tested_model, self.search_params
+            )
             errors = defaultdict(list)
-            
+            res_intermediate = {}
             for col in self.cols_to_impute:
-                
                 series = self.df[col]
-                
                 for _ in range(1):
-                    random_state = np.random.randint(0,10*9)
+                    random_state = np.random.randint(0, 10 * 9)
                     self.create_corruptions(series, random_state=random_state)
-
                     cv = cross_validation.CrossValidation(
                         tested_model,
                         search_space=search_space,
@@ -85,12 +92,8 @@ class Comparator:
                         corruption=self.corruption,
                     )
                     imputed_signal = cv.fit_transform(self.corrupted_signal)
-
                     for k, v in self.get_errors(series, imputed_signal).items():
                         errors[k].append(v)
-                        
-            print(f"{tested_model} done")
-
-            results[type(tested_model).__name__] = {k: np.mean(v) for k, v in errors.items()}
-
+                res_intermediate[col] = {k: np.mean(v) for k, v in errors.items()}
+            results[type(tested_model).__name__] = res_intermediate
         return results
