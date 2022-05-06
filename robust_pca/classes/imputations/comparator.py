@@ -25,7 +25,7 @@ class Comparator:
         corruption="missing",
     ):
 
-        self.df = data
+        self.df = data[cols_to_impute]
         self.ratio_missing = ratio_missing
         self.cols_to_impute = cols_to_impute
         self.models_to_test = models_to_test
@@ -34,21 +34,33 @@ class Comparator:
 
     def create_corruptions(self, df: pd.DataFrame, random_state: Optional[int] = 29):
 
-        indices = list(map(tuple, np.argwhere(~np.isnan(df.values))))
+        # # indices = list(map(tuple, np.argwhere(~np.isnan(df.values))))
+        # indices = np.argwhere(df.notna().to_numpy().flatten())
+        # print(indices)
+        # indices = resample(
+        #     indices,
+        #     replace=False,
+        #     n_samples=floor(len(indices) * self.ratio_missing),
+        #     random_state=random_state,
+        #     stratify=None,
+        # )
+        # print(indices)
+        # # for i, j in indices:
+        # #     print(self.df.iloc[i, j])
+        # self.df_is_altered = np.zeros(df.size)
+        # print(self.df_is_altered)
+        # self.df_is_altered[indices] = 1
+        # print(self.df_is_altered)
+        # self.df_is_altered = pd.DataFrame(self.df_is_altered.reshape(df.shape), index=df.index, columns=df.columns, dtype=bool)
+        # print(self.df_is_altered)
 
-        self.indices = resample(
-            indices,
-            replace=False,
-            n_samples=floor(len(indices) * self.ratio_missing),
-            random_state=random_state,
-            stratify=None,
-        )
+        self.df_is_altered = utils.choice_with_mask(df, df.notna(), self.ratio_missing, random_state)
 
         self.corrupted_df = df.copy()
         if self.corruption == "missing":
-            self.corrupted_df.iloc[self.indices] = np.nan
+            self.corrupted_df[self.df_is_altered] = np.nan
         elif self.corruption == "outlier":
-            self.corrupted_df.iloc[self.indices] = np.random.randint(
+            self.corrupted_df[self.df_is_altered] = np.random.randint(
                 0, high=3 * np.max(df), size=(int(len(df) * self.ratio_missing))
             )
 
@@ -58,17 +70,15 @@ class Comparator:
         signal_imputed: pd.DataFrame,
     ) -> float:
         
-        print(signal_ref.iloc[self.indices] - signal_imputed.iloc[self.indices])
-        print("ok")
-        
-        rmse = mean_squared_error(
-            signal_ref.values[self.indices], signal_imputed.values[self.indices], squared=False
+        rmse = utils.mean_squared_error(
+            signal_ref[self.df_is_altered], signal_imputed[self.df_is_altered], squared=False
         )
         print(rmse)
 
-        mae = mean_absolute_error(
-            signal_ref.values[self.indices], signal_imputed.values[self.indices], squared=False
+        mae = utils.mean_absolute_error(
+            signal_ref[self.df_is_altered], signal_imputed[self.df_is_altered]
         )
+        print(mae)
 
 
         # rmse = mean_squared_error(
