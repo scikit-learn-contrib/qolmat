@@ -2,7 +2,7 @@ from audioop import rms
 from lib2to3.pytree import Base
 from math import floor
 from typing import Optional, Union
-
+import datetime
 import numpy as np
 import pandas as pd
 from numpy.random import RandomState
@@ -71,12 +71,15 @@ class EvaluateImputor:
 
         for nan_indices in self.nan_subsets:
             if len(transform.shape) == 1:
-                transform.iloc[nan_indices] = np.nan
+                transform.loc[nan_indices] = np.nan
                 impute, _, _ = imputor.fit_transform(signal = transform.values)
                 impute = pd.Series(impute, index = transform.index)
             else:
                 transform.flat().iloc[nan_indices] = np.nan
                 impute, _, _ = imputor.fit_transform(D =transform.values)
+            print("end a rpca")
+            print("time = " + str(datetime.datetime.now().strftime("%H:%M")))
+
             rmse, mae, mape, wmape = func(input.loc[nan_indices], impute.loc[nan_indices])
             RMSE.append(rmse)
             MAE.append(mae)
