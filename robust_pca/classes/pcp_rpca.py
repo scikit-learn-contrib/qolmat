@@ -28,7 +28,7 @@ class PcpRPCA(RPCA):
 
     def __init__(
         self,
-        period: Optional[int] = None,
+        n_cols: Optional[int] = None,
         mu: Optional[float] = None,
         lam: Optional[float] = None,
         maxIter: Optional[int] = int(1e4),
@@ -36,7 +36,7 @@ class PcpRPCA(RPCA):
         verbose: bool = False,
     ) -> None:
 
-        super().__init__(period=period,
+        super().__init__(n_cols=n_cols,
                          maxIter=maxIter,
                          tol = tol,
                          verbose = verbose)
@@ -49,6 +49,16 @@ class PcpRPCA(RPCA):
         dict_params["lam"] = self.lam
         return dict_params
 
+    def get_params_scale(self, signal):
+        D_init, _ = self._prepare_data(signal = signal)
+        proj_D = utils.impute_nans(D_init, method="median")
+        mu = np.prod(proj_D.shape) / (
+                4.0 * utils.l1_norm(self.proj_D)
+            )
+        lam = 1 / np.sqrt(np.max(self.proj_D.shape))
+        dict_params = {"mu":mu, "lam":lam}
+        return dict_params
+
     def set_params(self, **kargs):
         super().set_params(**kargs)
         self.mu = kargs["mu"]
@@ -56,24 +66,17 @@ class PcpRPCA(RPCA):
 
     def fit_transform(
         self,
-        signal: Optional[ArrayLike] = None,
-        D: Optional[NDArray] = None
+        signal: NDArray,
         ) -> PcpRPCA:
-        """Compute the RPCA decomposition of a matrix based on the PCP method
+        """
+        Compute the RPCA decomposition of a matrix based on the PCP method
 
         Parameters
         ----------
-        signal : Optional[ArrayLike], optional
-            Observations, by default None
-        D: Optional
-            array we want to denoise. If a signal is passed, D corresponds to that signal
-
-        Raises
-        ------
-        Exception
-            The user has to give either a signal, either a matrix
+        signal : NDArray
+            Observations
         """
-        D_init, ret = self._prepare_data(signal = signal, D = D)
+        D_init, ret = self._prepare_data(signal = signal)
         proj_D = utils.impute_nans(D_init, method="median")
 
         if self.mu is None:

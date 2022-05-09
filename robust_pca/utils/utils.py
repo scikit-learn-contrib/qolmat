@@ -1,11 +1,11 @@
 """
-General utility functions for rpca
+Modular utility functions for RPCA
 """
 
 from __future__ import annotations
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple
 
-from numpy.typing import ArrayLike, NDArray
+from numpy.typing import NDArray
 import numpy as np
 import pandas as pd
 from sklearn.neighbors import kneighbors_graph
@@ -15,14 +15,15 @@ from statsmodels import robust
 
 
 def get_period(
-        signal: ArrayLike,
+        signal: NDArray,
         max_period:Optional[int]=None) -> int:
     """
-    Retrieve the "period" of a series based on the ACF
+    Retrieve the "period" of a series based on the ACF,
+    in an optional given range.
 
     Parameters
     ----------
-    signal : ArrayLike
+    signal : NDArray
         time series
 
     Returns
@@ -35,24 +36,25 @@ def get_period(
     acf = [round(ts.autocorr(lag=lag), 2) for lag in range(1, max_period+1)]
     return np.argmax(acf) + 1
     
-def signal_to_matrix(signal: ArrayLike, period: int) -> Tuple[NDArray, int]:
+def signal_to_matrix(signal: NDArray, n_columns: int) -> Tuple[NDArray, int]:
     """
-    Shape a time series into a matrix
+    Reshape a time series into a 2D array
 
     Parameters
     ----------
-    signal : ArrayLike
+    signal : NDArray
         time series
-    period : int
-        time series' period, it corresponds to the number of colummns of the resulting matrix
+    n_columns : int
+        Number of colummns of the resulting matrix
 
     Returns
     -------
     Tuple[NDArray, int]
-        matrix and number of added values to match the size (if len(signal)%period != 0)
+        matrix and number of added nan's to match the size
+        (if len(signal)%period != 0)
     """
-    n_rows = len(signal)//period + (len(signal)%period >= 1)
-    M = np.full((n_rows, period), fill_value = np.nan, dtype=float)
+    n_rows = len(signal)//n_columns + (len(signal)%n_columns >= 1)
+    M = np.full((n_rows, n_columns), fill_value = np.nan, dtype=float)
     M.flat[:len(signal)] = signal
     nb_add_val = (M.shape[0]*M.shape[1]) - len(signal)
     return M.T, nb_add_val
@@ -80,11 +82,8 @@ def proximal_operator(U: NDArray, X: NDArray, threshold: float) -> NDArray:
     Parameters
     ----------
     U : NDArray
-        observations
     X : NDArray
-        [description]
     threshold : float
-        [description]
 
     Returns
     -------
@@ -102,16 +101,15 @@ def soft_thresholding(X: NDArray, threshold: float) -> NDArray:
     Parameters
     ----------
     X : NDArray
-        observed data
+        Observed data
     threshold : float
-        scaling parameter to shrink the function
+        Scaling parameter to shrink the function
 
     Returns
     -------
     NDArray
         Array V such that V[i,j] = max(abs(X[i,j]) - tau,0)
     """
-
     return np.sign(X) * np.maximum(np.abs(X) - threshold, 0)
 
 
@@ -142,7 +140,7 @@ def svd_thresholding(X: NDArray, threshold: float) -> NDArray:
 
 def impute_nans(M: NDArray, method:str = "zeros") -> NDArray:
     """
-    Impute the M's np.nan with the specified method
+    Impute the M's nan with the specified method
 
     Parameters
     ----------
@@ -177,7 +175,7 @@ def ortho_proj(M: NDArray, omega: NDArray, inverse: bool = False) -> NDArray:
     omega : NDArray
         projector
     inverse : bool
-        if False, get projection on omega; if true, projection on omega^C, by default False.
+        if False, get projection on omega; if True, projection on omega^C, by default False.
 
     Returns
     -------
@@ -228,9 +226,13 @@ def toeplitz_matrix(T: int, dimension: int, model: str) -> NDArray:
     NDArray
         Toeplitz matrix
     """
+    first_row = np.zeros((dimension,0))
+    first_row[0] = 1
+    first_row[T] = -1
 
-    first_row = np.array([1]+[0]*(T-1)+[-1]+[0]*(dimension-1-(T-1)-1))
-    first_col = np.array([1]+[0]*(dimension-1))
+    first_col = np.zeros((dimension,0))
+    first_col[0] = 1
+
     H = toeplitz(first_col, first_row)
     if model == "row":
         return H[:-T,:]
@@ -264,16 +266,14 @@ def construct_graph(
         Graph's adjacency matrix 
     """
     G_val = kneighbors_graph(
-        X,
-        n_neighbors=n_neighbors,
-        metric=distance,
-        mode='distance',
-        n_jobs=n_jobs).toarray()
+        X = X,
+        n_neighbors = n_neighbors,
+        metric = distance,
+        mode = 'distance',
+        n_jobs = n_jobs).toarray()
 
-    G_bin = G_val.copy()
-    G_bin[G_bin>0] = 1
     G_val = np.exp(-G_val)
-    G_val[~np.array(G_bin, dtype=np.bool_)] = 0  
+    G_val[G_val < 1.0] = 0
     return G_val
     
 def get_laplacian(
@@ -286,16 +286,16 @@ def get_laplacian(
     Parameters
     ----------
     M : NDArray
-        [description]
-    normalised : Optional[bool], optional
-        If True, then compute symmetric normalized Laplacian, by default True
+        Adjacency matrix of the directed graph??
+    normalised : Optional[bool]
+        If True, then compute symmetric normalized Laplacian,
+        by default True
 
     Returns
     -------
     NDArray
         Laplacian matrix
     """
-    
     return scipy.sparse.csgraph.laplacian(M, normed=normalised)
 
 def get_anomaly(A, X, e=3):
@@ -319,42 +319,13 @@ def get_anomaly(A, X, e=3):
     noise = np.where(np.abs(A) <= (e * mad), A, 0)
     return filtered_A, noise 
 
-def resultRPCA_to_signal(
-    D: NDArray,
-    X: NDArray,
-    A: NDArray,
-) -> Tuple[NDArray, NDArray, NDArray]:
-    """
-    Flatten the resulting matrices from RPCA. 
-    It makes sense if time series version
-
-    Parameters
-    ----------
-    D : NDArray
-        Observations
-    X : NDArray
-        Low-rank matrix
-    A : NDArray
-        Sparse matrix
-
-    Returns
-    -------
-    Tuple[NDArray, NDArray, NDArray]
-        Falttened results of RPCA
-    """
-
-    D_series = D.flatten()
-    X_series = X.flatten()
-    A_series = A.flatten()
-    return D_series, X_series, A_series
-
 # ---------------------------------------------------
 # utils for online RPCA
 # ---------------------------------------------------
 
 def threshold(x, mu):
     """
-    y = sgn(x)max(|x| - mu, 0)
+    y = sgn(x) * max(|x| - mu, 0)
     
     Parameters
     ----------
@@ -366,9 +337,7 @@ def threshold(x, mu):
     y: numpy array
     
     """
-    y = np.maximum(x - mu, 0)
-    y = y + np.minimum(x + mu, 0)
-    return y
+    return np.sign(x) * np.maximum(np.abs(x)-mu, 0.0)
 
 def solve_proj2(m, U, lam1, lam2, maxIter=10_000, tol=1e-6):
     """
@@ -386,7 +355,7 @@ def solve_proj2(m, U, lam1, lam2, maxIter=10_000, tol=1e-6):
     lam1 : float
         tuning param for the nuclear norm in the initial problem
     lam2 : float
-        tuning param for the L1 norm of anoamlies in the initial problem
+        tuning param for the L1 norm of anomalies in the initial problem
     maxIter : int, optional
         maximum number of iterations before stopping, by default 10_000
     tol : float, optional
@@ -439,7 +408,7 @@ def solve_projection(z,
     lam1 : float
         tuning param for the nuclear norm in the initial problem
     lam2 : float
-        tuning param for the L1 norm of anoamlies in the initial problem
+        tuning param for the L1 norm of anomalies in the initial problem
     list_lams : list[float]
         tuning param for the L2 norm of temporal regularizations in the initial problem
     list_periods : list[int]
@@ -461,7 +430,8 @@ def solve_projection(z,
     e = np.zeros(n)
     I = np.identity(p)
         
-    sums = np.sum([2*index for index in list_lams])
+    #sums = np.sum([2*index for index in list_lams])
+    sums = 2.0 * np.sum(list_lams)
     sums_rk = np.zeros(n)
     for a,b in zip(list_lams, list_periods):
         sums_rk += 2 * a * X[:,-b]
@@ -483,7 +453,7 @@ def solve_projection(z,
 
 def update_col(lam, U, A, B):
         """
-        Update column of matric U
+        Update column of matrix U
         See Algo 2. p5 of Feng, Jiashi, Huan Xu, and Shuicheng Yan.
         "Online robust pca via stochastic optimization."" 
         Advances in Neural Information Processing Systems. 2013.

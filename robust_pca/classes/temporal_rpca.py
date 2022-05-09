@@ -38,7 +38,7 @@ class TemporalRPCA(RPCA):
     
     def __init__(
         self,
-        period: Optional[int] = None,
+        n_cols: Optional[int] = None,
         rank: Optional[int] = None,
         tau: Optional[float] = None,
         lam: Optional[float] = None,
@@ -49,7 +49,7 @@ class TemporalRPCA(RPCA):
         verbose: Optional[bool] = False,
         norm: Optional[str] = "L2",
     ) -> None:
-        super().__init__(period=period,
+        super().__init__(n_cols=n_cols,
                          maxIter=maxIter,
                          tol = tol,
                          verbose = verbose)
@@ -243,26 +243,18 @@ class TemporalRPCA(RPCA):
 
     def fit_transform(
         self,
-        signal: Optional[ArrayLike] = None,
-        D: Optional[NDArray] = None
+        signal: NDArray,
     ) -> None:
         """
         Compute the noisy RPCA with time "penalisations"
 
         Parameters
         ----------
-        signal : Optional[ArrayLike], optional
-            list of observations, by default None
-        D : Optional[NDArray], optional
-            array of observation, by default None
-            
-        Raises
-        ------
-        Exception
-            The user has to give either a signal, either a matrix
+        signal : NDArray
+            Observations
         """
 
-        D_init, ret = self._prepare_data(signal = signal, D = D)
+        D_init, ret = self._prepare_data(signal = signal)
         omega = (~np.isnan(D_init))
         proj_D = utils.impute_nans(D_init, method="median")
 
@@ -296,10 +288,9 @@ class TemporalRPCA(RPCA):
     
     def get_params_scale(
         self,
-        signal: Optional[ArrayLike] = None,
-        D: Optional[NDArray] = None,
-    ) -> None:
-        D_init, ret = self._prepare_data(signal=signal, D=D)
+        signal: NDArray
+        ) -> None:
+        D_init, _ = self._prepare_data(signal=signal)
         proj_D = utils.impute_nans(D_init, method="median")
         rank = utils.approx_rank(proj_D)
         tau = 1.0/np.sqrt(max(D_init.shape))
@@ -501,181 +492,3 @@ class OnlineTemporalRPCA(TemporalRPCA):
         params_scale["online_lam"] = online_lam
         return params_scale
 
-
-
-class TemporalRPCAHyperparams(TemporalRPCA):
-    """
-    This class implements the noisy RPCA with hyperparameters' selection
-
-    Parameters
-    ----------
-    NoisyRPCA : Type[NoisyRPCA]
-        [description]
-        
-    hyperparams_tau : Optional[List[float]], optional
-            list with 2 values: min and max for the search space for the param tau, by default []
-    hyperparams_lam : Optional[List[float]], optional
-        list with 2 values: min and max for the search space for the param lam, by default []
-    hyperparams_etas : Optional[List[List[float]]], optional
-        list of lists; each sublit contains 2 values: min and max for the search space for the assoiated param eta
-        by default [[]]
-    """
-    
-    def __init__(
-        self,
-        period: Optional[int] = None,
-        rank: Optional[int] = None,
-        tau: Optional[float] = None,
-        lam: Optional[float] = None,
-        list_periods: Optional[List[int]] = [],
-        list_etas: Optional[List[float]] = [],
-        maxIter: Optional[int] = int(1e4),
-        tol: Optional[float] = 1e-6,
-        verbose: Optional[bool] = False,
-        norm: Optional[str] = "L2",
-        hyperparams_tau: Optional[List[float]] = [],
-        hyperparams_lam: Optional[List[float]] = [],
-        hyperparams_etas: Optional[List[List[float]]] = [[]],
-        cv:  Optional[int] = 5,
-    ) -> None:
-        super().__init__(
-            period, rank, tau, lam, list_periods, list_etas, maxIter, tol, verbose, norm
-        )
-        
-        self.cv = cv
-        self.hyperparams_tau = hyperparams_tau
-        self.hyperparams_lam = hyperparams_lam
-        self.hyperparams_etas = hyperparams_etas
-        self.add_hyperparams()
-    
-    def add_hyperparams(
-        self,
-    ) -> None:
-        """Define the search space associated to each hyperparameter
-
-        Parameters
-        ----------
-        hyperparams_tau : Optional[List[float]], optional
-            list with 2 values: min and max for the search space for the param tau, by default []
-        hyperparams_lam : Optional[List[float]], optional
-            list with 2 values: min and max for the search space for the param lam, by default []
-        hyperparams_etas : Optional[List[List[float]]], optional
-            list of lists; each sublit contains 2 values: min and max for the search space for the assoiated param eta
-            by default [[]]
-        """
-        self.search_space = []
-        if len(self.hyperparams_tau) > 0:
-            self.search_space.append(
-                skopt.space.Real(
-                    low=self.hyperparams_tau[0], high=self.hyperparams_tau[1], name="tau"
-                )
-            )
-        if len(self.hyperparams_lam) > 0:
-            self.search_space.append(
-                skopt.space.Real(
-                    low=self.hyperparams_lam[0], high=self.hyperparams_lam[1], name="lam"
-                )
-            )
-        if len(self.hyperparams_etas[0]) > 0:  # TO DO: more cases
-            for i in range(len(self.hyperparams_etas)):
-                self.search_space.append(
-                    skopt.space.Real(
-                        low=self.hyperparams_etas[i][0],
-                        high=self.hyperparams_etas[i][1],
-                        name=f"eta_{i}",
-                    )
-                )
-
-    def objective(self, args):
-        """Define the objective function to minimise during the optimisation process
-
-        Parameters
-        ----------
-        args : List[List]
-            entire search space
-
-        Returns
-        -------
-        float
-            criterion to minimise
-        """
-        
-        self.tau = args[0]
-        self.lam = args[1]
-        self.list_etas = [args[i + 2] for i in range(len(self.list_periods))]
-
-        n1, n2 = self.initial_D.shape
-        nb_missing = int(n1 * n2 * 0.05)
-
-        errors = []
-        for _ in range(self.cv):
-            indices_x = np.random.choice(n1, nb_missing)
-            indices_y = np.random.choice(n2, nb_missing)
-            data_missing = self.initial_D.copy().astype("float")
-            data_missing[indices_x, indices_y] = np.nan
-
-            self.D = data_missing
-
-            super().fit(D=data_missing)
-
-            error = (
-                np.linalg.norm(
-                    self.initial_D[indices_x, indices_y]
-                    - self.X[indices_x, indices_y],
-                    1,
-                )
-                / nb_missing
-            )
-            if error == error:
-                errors.append(error)
-
-        if len(errors) == 0:
-            print("Warning: not converged - return default 10^10")
-            return 10 ** 10
-
-        return np.mean(errors)
-
-    def fit(
-        self,
-        signal: Optional[ArrayLike] = None,
-        D: Optional[NDArray] = None,
-    ) -> None:
-        """Decompose a matrix into a low rank part and a sparse part
-        Hyperparams are set by Bayesian optimisation and cross-validation 
-
-        Parameters
-        ----------
-        signal : Optional[List[float]], optional
-            list of observations, by default None
-        D: Optional
-            array we want to denoise. If a signal is passed, D corresponds to that signal
-        """
-        
-        if (signal is None) and (D is None):
-            raise Exception(
-                "You have to provide either a time series (signal) or a matrix (D)"
-            )
-            
-        self.signal = signal
-        self.D = D
-        
-        self._prepare_data()
-        
-        res = skopt.gp_minimize(
-            self.objective,
-            self.search_space,
-            n_calls=10,
-            random_state=42,
-            n_jobs=-1,
-        )
-
-        if self.verbose:
-            print(f"Best parameters : {res.x}")
-            print(f"Best result : {res.fun}")
-
-        self.tau = res.x[0]
-        self.lam = res.x[1]
-        self.list_etas = res.x[2:]
-        super().fit(D=self.D)
-
-        return None
