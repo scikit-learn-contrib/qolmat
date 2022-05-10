@@ -14,6 +14,9 @@ from sklearn.utils import check_random_state, resample
 
 
 def eval(y_true, y_pred):
+        y_true = np.where(np.isnan(y_true+y_pred), 0, y_true)
+        y_pred = np.where(np.isnan(y_true+y_pred), 0, y_pred)
+
         rmse = mean_squared_error(y_true, y_pred, squared = False)
         mae = mean_absolute_error(y_true, y_pred)
         
