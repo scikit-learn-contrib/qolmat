@@ -36,7 +36,7 @@ def get_period(
     acf = [round(ts.autocorr(lag=lag), 2) for lag in range(1, max_period+1)]
     return np.argmax(acf) + 1
     
-def signal_to_matrix(signal: NDArray, n_columns: int) -> Tuple[NDArray, int]:
+def signal_to_matrix(signal: NDArray, n_rows: int) -> Tuple[NDArray, int]:
     """
     Reshape a time series into a 2D array
 
@@ -44,8 +44,10 @@ def signal_to_matrix(signal: NDArray, n_columns: int) -> Tuple[NDArray, int]:
     ----------
     signal : NDArray
         time series
-    n_columns : int
-        Number of colummns of the resulting matrix
+    n_rows : int
+        Number of colummns of the intermediate matrix
+        Becareful: the returned matrix is the transposed one.
+        That is why n_rows and n_cols are inverted.
 
     Returns
     -------
@@ -53,8 +55,8 @@ def signal_to_matrix(signal: NDArray, n_columns: int) -> Tuple[NDArray, int]:
         matrix and number of added nan's to match the size
         (if len(signal)%period != 0)
     """
-    n_rows = len(signal)//n_columns + (len(signal)%n_columns >= 1)
-    M = np.full((n_rows, n_columns), fill_value = np.nan, dtype=float)
+    n_cols = len(signal)//n_rows + (len(signal)%n_rows >= 1)
+    M = np.full((n_cols, n_rows), fill_value = np.nan, dtype=float)
     M.flat[:len(signal)] = signal
     nb_add_val = (M.shape[0]*M.shape[1]) - len(signal)
     return M.T, nb_add_val
@@ -88,7 +90,7 @@ def proximal_operator(U: NDArray, X: NDArray, threshold: float) -> NDArray:
     Returns
     -------
     NDArray
-        Array V such that V[i,j] = X[i,j] + max(abs(X[i,j]) - tau,0)
+        Array V such that V = X + sign(U-X) * max(abs(U-X) - threshold, 0)
     """
 
     return X + np.sign(U - X) * np.maximum(np.abs(U - X) - threshold, 0)
@@ -108,7 +110,7 @@ def soft_thresholding(X: NDArray, threshold: float) -> NDArray:
     Returns
     -------
     NDArray
-        Array V such that V[i,j] = max(abs(X[i,j]) - tau,0)
+        Array V such that V = sign(X) * max(abs(X - threshold,0)
     """
     return np.sign(X) * np.maximum(np.abs(X) - threshold, 0)
 
@@ -156,13 +158,16 @@ def impute_nans(M: NDArray, method:str = "zeros") -> NDArray:
     """
 
     if method == "mean":
-        return np.where(np.isnan(M), np.tile(np.nanmean(M, axis=0), (M.shape[0], 1)), M)
+        result = np.where(np.isnan(M), np.tile(np.nanmean(M, axis=0), (M.shape[0], 1)), M)
+        result = np.where(np.isnan(result), np.nanmean(result), result)
     elif method == "median":
-        return np.where(np.isnan(M), np.tile(np.nanmedian(M, axis=0), (M.shape[0], 1)), M)
+        result = np.where(np.isnan(M), np.tile(np.nanmedian(M, axis=0), (M.shape[0], 1)), M)
+        result = np.where(np.isnan(result), np.nanmedian(result), result)
     elif method == "zeros":
-        return np.where(np.isnan(M), 0, M)
+        result =  np.where(np.isnan(M), 0, M)
     else:
         raise ValueError("'method' should be 'mean', 'median' or 'zeros'.")
+    return result
 
 def ortho_proj(M: NDArray, omega: NDArray, inverse: bool = False) -> NDArray:
     """
@@ -226,11 +231,11 @@ def toeplitz_matrix(T: int, dimension: int, model: str) -> NDArray:
     NDArray
         Toeplitz matrix
     """
-    first_row = np.zeros((dimension,0))
+    first_row = np.zeros((dimension,))
     first_row[0] = 1
     first_row[T] = -1
 
-    first_col = np.zeros((dimension,0))
+    first_col = np.zeros((dimension,))
     first_col[0] = 1
 
     H = toeplitz(first_col, first_row)
@@ -323,22 +328,6 @@ def get_anomaly(A, X, e=3):
 # utils for online RPCA
 # ---------------------------------------------------
 
-def threshold(x, mu):
-    """
-    y = sgn(x) * max(|x| - mu, 0)
-    
-    Parameters
-    ----------
-    x: numpy array
-    mu: thresholding parameter
-    
-    Returns:
-    ----------
-    y: numpy array
-    
-    """
-    return np.sign(x) * np.maximum(np.abs(x)-mu, 0.0)
-
 def solve_proj2(m, U, lam1, lam2, maxIter=10_000, tol=1e-6):
     """
     solve the problem:
@@ -430,7 +419,6 @@ def solve_projection(z,
     e = np.zeros(n)
     I = np.identity(p)
         
-    #sums = np.sum([2*index for index in list_lams])
     sums = 2.0 * np.sum(list_lams)
     sums_rk = np.zeros(n)
     for a,b in zip(list_lams, list_periods):

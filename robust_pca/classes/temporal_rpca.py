@@ -4,7 +4,6 @@ from typing import Optional, List
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from sklearn.utils.extmath import randomized_svd
-import skopt
 
 from robust_pca.classes.rpca import RPCA
 from robust_pca.utils import utils
@@ -38,7 +37,7 @@ class TemporalRPCA(RPCA):
     
     def __init__(
         self,
-        n_cols: Optional[int] = None,
+        n_rows: Optional[int] = None,
         rank: Optional[int] = None,
         tau: Optional[float] = None,
         lam: Optional[float] = None,
@@ -49,7 +48,7 @@ class TemporalRPCA(RPCA):
         verbose: Optional[bool] = False,
         norm: Optional[str] = "L2",
     ) -> None:
-        super().__init__(n_cols=n_cols,
+        super().__init__(n_rows=n_rows,
                          maxIter=maxIter,
                          tol = tol,
                          verbose = verbose)
@@ -254,7 +253,7 @@ class TemporalRPCA(RPCA):
             Observations
         """
 
-        D_init, ret = self._prepare_data(signal = signal)
+        D_init, n_add_values = self._prepare_data(signal = signal)
         omega = (~np.isnan(D_init))
         proj_D = utils.impute_nans(D_init, method="median")
 
@@ -271,9 +270,9 @@ class TemporalRPCA(RPCA):
             X, A, errors = self.compute_L2(proj_D, omega)
         X = X.T
         A = A.T
-        if ret > 0: 
-            X.flat[-ret:] = np.nan
-            A.flat[-ret:] = np.nan
+        if n_add_values > 0: 
+            X.flat[-n_add_values:] = np.nan
+            A.flat[-n_add_values:] = np.nan
         
         if self.input_data == "2DArray":
             return X, A, errors
@@ -311,12 +310,11 @@ class OnlineTemporalRPCA(TemporalRPCA):
 
     Parameters
     ----------
-    TemporalRPCA : _type_
-        _description_
+    TemporalRPCA
     """
     def __init__(
         self,
-        period: Optional[int] = None,
+        n_rows: Optional[int] = None,
         rank: Optional[int] = None,
         tau: Optional[float] = None,
         lam: Optional[float] = None,
@@ -330,11 +328,10 @@ class OnlineTemporalRPCA(TemporalRPCA):
         nwin: Optional[float] = 0,
         online_tau: Optional[float]=None, 
         online_lam: Optional[float]=None, 
-        online_list_periods: Optional[ArrayLike] = [],
         online_list_etas: Optional[ArrayLike] = []
     ) -> None:
         super().__init__(
-                period = period,
+                n_rows = n_rows,
                 rank = rank,
                 tau = tau,
                 lam = lam,
@@ -350,13 +347,11 @@ class OnlineTemporalRPCA(TemporalRPCA):
         self.nwin = nwin
         self.online_tau = online_tau
         self.online_lam = online_lam
-        self.online_list_periods = online_list_periods
         self.online_list_etas = online_list_etas
 
     def fit_transform(
         self,
-        signal: Optional[ArrayLike] = None,
-        D: Optional[NDArray] = None,
+        signal: NDArray,
     ) -> None:
         """
         Compute an online version of RPCA with temporal regularisations
@@ -368,7 +363,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
         D: Optional
             array we want to denoise. If a signal is passed, D corresponds to that signal
         """
-        D_init, ret = self._prepare_data(signal=signal, D=D)
+        D_init, n_add_values = self._prepare_data(signal=signal)
         burnin = self.burnin
         nwin = self.nwin
         
@@ -385,11 +380,13 @@ class OnlineTemporalRPCA(TemporalRPCA):
         if self.lam is None:
             self.lam = 1.0/np.sqrt(max(m, n))
             
-        mburnin, _ = len(D_init) # D[:,:self.burnin].shape
+        #mburnin, _ = len(D_init) # D[:,:self.burnin].shape
         if self.online_tau is None:
-            self.online_tau = 1.0/np.sqrt(mburnin)/np.mean(sigmas_hat[:approx_rank])
+            self.online_tau = self.tau
         if self.online_lam is None:
-            self.online_lam = 1.0/np.sqrt(mburnin)
+            self.online_lam = self.lam
+        if len(self.online_list_etas) == 0:
+            self.online_list_etas = self.list_etas.copy() 
             
         Uhat, sigmas_hat, Vhat = randomized_svd(Lhat, n_components = approx_rank, n_iter=5, random_state=0)
         U = Uhat[:,:approx_rank].dot(np.sqrt(np.diag(sigmas_hat[:approx_rank])))
@@ -423,7 +420,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
                 self.online_tau, 
                 self.online_lam, 
                 self.online_list_etas, 
-                self.online_list_periods, 
+                self.list_periods, 
                 Lhat
             )
             lv[row-burnin, :] = vi
@@ -432,9 +429,9 @@ class OnlineTemporalRPCA(TemporalRPCA):
             vi_delete = Vhat_win[:,0]
             Vhat_win = np.hstack((Vhat_win[:,1:], vi.reshape(approx_rank,1)))
             
-            if (len(self.online_list_periods) > 0) and (row >= max(self.online_list_periods)):
+            if (len(self.list_periods) > 0) and (row >= max(self.list_periods)):
                 sums = np.zeros((lv.shape[1], lv.shape[1]))
-                for period, index in enumerate(self.online_list_periods):
+                for period, index in enumerate(self.list_periods):
                     vec = vi - lv[row - period - burnin]
                     sums += 2 * self.online_list_etas[index] * (np.outer(vec, vec))
                 A = A + np.outer(vi, vi) + sums
@@ -446,17 +443,23 @@ class OnlineTemporalRPCA(TemporalRPCA):
                 B = B + np.outer(ri - si, vi) - np.outer(proj_D[:, row - nwin] - Shat[:, row - nwin], vi_delete)
             U = utils.update_col(self.online_tau, U, A, B)
             Lhat = np.hstack((Lhat, U.dot(vi).reshape(m,1)))
-        
+            
+        if n_add_values > 0: 
+            Lhat.flat[-n_add_values:] = np.nan
+            Shat.flat[-n_add_values:] = np.nan
+
         if self.input_data == "2DArray":
              return Lhat, Shat
         elif self.input_data == "1DArray":
-            return Lhat.flatten(), Shat.flatten()
+            ts_X = Lhat.flatten()
+            ts_A = Shat.flatten()
+            return ts_X[~np.isnan(ts_X)], ts_A[~np.isnan(ts_A)]
         else:
             raise ValueError("Data shape not recognized")
     
     def get_params(self):
         return {
-            "period": self.period,
+            "n_rows": self.n_rows,
             "estimated_rank": self.rank,
             "tau": self.tau,
             "lam": self.lam,
@@ -470,7 +473,6 @@ class OnlineTemporalRPCA(TemporalRPCA):
             "nwin": self.nwin,
             "online_tau": self.online_tau,
             "online_lam": self.online_lam,
-            "online_list_periods": self.online_list_periods,
             "online_list_etas": self.online_list_etas,
         }
     
@@ -491,4 +493,3 @@ class OnlineTemporalRPCA(TemporalRPCA):
         params_scale["online_tau"] = online_tau
         params_scale["online_lam"] = online_lam
         return params_scale
-

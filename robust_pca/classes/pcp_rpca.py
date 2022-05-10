@@ -28,7 +28,7 @@ class PcpRPCA(RPCA):
 
     def __init__(
         self,
-        n_cols: Optional[int] = None,
+        n_rows: Optional[int] = None,
         mu: Optional[float] = None,
         lam: Optional[float] = None,
         maxIter: Optional[int] = int(1e4),
@@ -36,7 +36,7 @@ class PcpRPCA(RPCA):
         verbose: bool = False,
     ) -> None:
 
-        super().__init__(n_cols=n_cols,
+        super().__init__(n_rows=n_rows,
                          maxIter=maxIter,
                          tol = tol,
                          verbose = verbose)
@@ -76,7 +76,7 @@ class PcpRPCA(RPCA):
         signal : NDArray
             Observations
         """
-        D_init, ret = self._prepare_data(signal = signal)
+        D_init, n_add_values = self._prepare_data(signal = signal)
         proj_D = utils.impute_nans(D_init, method="median")
 
         if self.mu is None:
@@ -108,10 +108,11 @@ class PcpRPCA(RPCA):
                 if self.verbose:
                     print(f"Converged in {iteration} iterations")
                 break
-
-        X.flat[-ret:] = np.nan
-        A.flat[-ret:] = np.nan
         
+        if n_add_values > 0:
+            X.flat[-n_add_values:] = np.nan
+            A.flat[-n_add_values:] = np.nan
+    
         if self.input_data == "2DArray":
              return X, A, errors
         elif self.input_data == "1DArray":
