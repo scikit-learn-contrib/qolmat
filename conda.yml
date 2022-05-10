@@ -21,5 +21,6 @@ dependencies:
   - wheel==0.37.0
   - jupyterlab
   - fbprophet
+  - s3fs
   - scikit-optimize
   - pyarrow

@@ -2,8 +2,8 @@
 import numpy as np
 import pandas as pd
 
-# from fbprophet import Prophet
-import logging
+#from fbprophet import Prophet
+#import logging
 from sklearn.impute import KNNImputer
 import os
 import utils
@@ -47,7 +47,7 @@ class ImputeColumnWise:
         self.groups = groups
 
     def fit_transform(self, signal: pd.DataFrame) -> pd.DataFrame:
-        col_to_impute = signal.name
+        col_to_impute = signal.columns
         index_signal = signal.index
         imputed = signal.copy()
         for col in col_to_impute:
@@ -60,29 +60,30 @@ class ImputeColumnWise:
         return {}
 
 
-class ImputeByMean:
+class ImputeByMean(ImputeColumnWise):
     def __init__(
         self,
         groups=[],
     ) -> None:
-        super.__init__(groups)
+        super().__init__(groups=groups)
 
     def fit_transform_col(self, signal: pd.Series, col_to_impute: str) -> pd.Series:
         imputed = utils.custom_groupby(signal, self.groups)[col_to_impute].apply(
             lambda x: x.fillna(x.mean())
         )
         return imputed
+        
 
-class ImputeByMean:
+class ImputeByMedian(ImputeColumnWise):
     def __init__(
         self,
         groups=[],
     ) -> None:
-        super.__init__(groups)
+        super().__init__(groups=groups)
 
     def fit_transform_col(self, signal: pd.Series, col_to_impute: str) -> pd.Series:
         imputed = utils.custom_groupby(signal, self.groups)[col_to_impute].apply(
-            lambda x: x.fillna(x.median())
+            lambda x: x.fillna(x.mean())
         )
         return imputed
 
