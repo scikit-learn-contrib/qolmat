@@ -1,10 +1,11 @@
 """
-General utility functions for rpca
+Modular utility functions for RPCA
 """
 
 from __future__ import annotations
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple
 
+from numpy.typing import NDArray
 import numpy as np
 import pandas as pd
 from sklearn.neighbors import kneighbors_graph
@@ -13,12 +14,16 @@ from scipy.linalg import toeplitz
 from statsmodels import robust
 
 
-def get_period(signal: List) -> int:
-    """Retrieve the "period" of a series based on the ACF
+def get_period(
+        signal: NDArray,
+        max_period:Optional[int]=None) -> int:
+    """
+    Retrieve the "period" of a series based on the ACF,
+    in an optional given range.
 
     Parameters
     ----------
-    signal : List
+    signal : NDArray
         time series
 
     Returns
@@ -26,187 +31,189 @@ def get_period(signal: List) -> int:
     int
         time series' "period" 
     """
-    ss = pd.Series(signal)
-    val = []
-    for i in range(len(signal)):
-        val.append(round(ss.autocorr(lag=i), 2))
-
-    winner = np.argwhere(val == max(val))
-    period = winner.flatten().tolist()[1]
+    ts = pd.Series(signal)
+    max_period = len(ts) if max_period is None else max_period
+    acf = [round(ts.autocorr(lag=lag), 2) for lag in range(1, max_period+1)]
+    return np.argmax(acf) + 1
     
-    return period
-
-
-def signal_to_matrix(signal: List, period: int) -> Tuple[np.ndarray, int]:
-    """Shape a time series into a matrix
+def signal_to_matrix(signal: NDArray, n_rows: int) -> Tuple[NDArray, int]:
+    """
+    Reshape a time series into a 2D array
 
     Parameters
     ----------
-    signal : List
+    signal : NDArray
         time series
-    period : int
-        time series' period, it corresponds to the number of colummns the resulting matrix
+    n_rows : int
+        Number of colummns of the intermediate matrix
+        Becareful: the returned matrix is the transposed one.
+        That is why n_rows and n_cols are inverted.
 
     Returns
     -------
-    Tuple[np.ndarray, int]
-        matrix and number of added values to match the size (if len(signal)%period != 0)
+    Tuple[NDArray, int]
+        matrix and number of added nan's to match the size
+        (if len(signal)%period != 0)
     """
+    n_cols = len(signal)//n_rows + (len(signal)%n_rows >= 1)
+    M = np.full((n_cols, n_rows), fill_value = np.nan, dtype=float)
+    M.flat[:len(signal)] = signal
+    nb_add_val = (M.shape[0]*M.shape[1]) - len(signal)
+    return M.T, nb_add_val
 
-    modulo = len(signal) % period
-    nb_add_val = (period - modulo) % period
-    signal += [np.nan] * nb_add_val
-
-    M = np.array(signal).reshape(-1, period).T
-    return M, nb_add_val
-
-def approx_rank(M: np.ndarray, th: Optional[float]=0.95) -> int:
-    """Estimate a superior rank of a matrix M by SVD
+def approx_rank(M: NDArray, threshold: Optional[float]=0.95) -> int:
+    """
+    Estimate a superior rank of a matrix M by SVD
 
     Parameters
     ----------
-    M : np.ndarray
+    M : NDArray
         matrix 
     th : float, optional
         fraction of the cumulative sum of the singular values, by default 0.95
     """
-    _, s, _ = np.linalg.svd(M, full_matrices=True)
-    nuclear = np.sum(s)
-    cum_sum = np.cumsum([i / nuclear for i in s])
-    k = np.argwhere(cum_sum > th)[0][0] + 1
-    return k
+    _, svd, _ = np.linalg.svd(M, full_matrices=True)
+    nuclear = np.sum(svd)
+    cum_sum = np.cumsum([sv / nuclear for sv in svd])
+    return np.argwhere(cum_sum > threshold)[0][0] + 1
 
-def proximal_operator(U: np.ndarray, X: np.ndarray, threshold: float) -> np.ndarray:
-    """Compute the proximal operator with L1 norm
+def proximal_operator(U: NDArray, X: NDArray, threshold: float) -> NDArray:
+    """
+    Compute the proximal operator with L1 norm
 
     Parameters
     ----------
-    U : np.ndarray
-                U (np.ndarray): observations
-
-    X : np.ndarray
-        [description]
+    U : NDArray
+    X : NDArray
     threshold : float
-        [description]
 
     Returns
     -------
-    np.ndarray
-        array V such that V[i,j] = X[i,j] + max(abs(X[i,j]) - tau,0)
+    NDArray
+        Array V such that V = X + sign(U-X) * max(abs(U-X) - threshold, 0)
     """
 
     return X + np.sign(U - X) * np.maximum(np.abs(U - X) - threshold, 0)
 
 
-def soft_thresholding(X: np.ndarray, threshold: float) -> np.ndarray:
-    """Apply the shrinkage operator (i.e. soft thresholding) to the elements of X.
+def soft_thresholding(X: NDArray, threshold: float) -> NDArray:
+    """
+    Apply the shrinkage operator (i.e. soft thresholding) to the elements of X.
 
     Parameters
     ----------
-    X : np.ndarray
-        observed data
+    X : NDArray
+        Observed data
     threshold : float
-        scaling parameter to shrink the function
+        Scaling parameter to shrink the function
 
     Returns
     -------
-    np.ndarray
-        array V such that V[i,j] = max(abs(X[i,j]) - tau,0)
+    NDArray
+        Array V such that V = sign(X) * max(abs(X - threshold,0)
     """
-
     return np.sign(X) * np.maximum(np.abs(X) - threshold, 0)
 
 
-def svd_thresholding(X: np.ndarray, threshold: float) -> np.ndarray:
-    """Apply the shrinkage operator to the singular values obtained from the SVD of X.
+def svd_thresholding(X: NDArray, threshold: float) -> NDArray:
+    """
+    Apply the shrinkage operator to the singular values obtained from the SVD of X.
 
     Parameters
     ----------
-    X : np.ndarray
+    X : NDArray
         observation
     threshold : float
         scaling parameter to shrink the function
 
     Returns
     -------
-    np.ndarray
-        array obtained by computing U * shrink(s) * V where
+    NDArray
+        Array obtained by computing U * shrink(s) * V where
             U are the left singular vectors of X
             V are the right singular vectors of X
             s are the singular values as a diagonal matrix
     """
 
-    U, s, Vh = np.linalg.svd(X, full_matrices=False, compute_uv=True)
-    s = soft_thresholding(s, threshold)
-    return np.multiply(U, s) @ Vh
+    U, SVD, Vh = np.linalg.svd(X, full_matrices=False, compute_uv=True)
+    SVD = soft_thresholding(SVD, threshold)
+    return np.multiply(U, SVD) @ Vh
 
 
-def impute_nans(M: np.ndarray, method: Optional[str] = None) -> np.ndarray:
-    """Impute the M's np.nan with the specified method
-
+def impute_nans(M: NDArray, method:str = "zeros") -> NDArray:
+    """
+    Impute the M's nan with the specified method
 
     Parameters
     ----------
-    M : np.ndarray
-        array with nan values
-    method : Optional[str], optional
-        mean or median, by default None
+    M : NDArray
+        Array with nan values
+    method : str
+        'mean' or 'median', or 'zeros'
 
     Returns
     -------
-    np.ndarray
-        array with imputed nan
+    NDArray
+        Array with imputed nan
     """
 
     if method == "mean":
-        return np.where(np.isnan(M), np.tile(np.nanmean(M, axis=0), (M.shape[0], 1)), M)
-    if method == "median":
-        return np.where(np.isnan(M), np.tile(np.nanmedian(M, axis=0), (M.shape[0], 1)), M)
-    return np.where(np.isnan(M), 0, M)
+        result = np.where(np.isnan(M), np.tile(np.nanmean(M, axis=0), (M.shape[0], 1)), M)
+        result = np.where(np.isnan(result), np.nanmean(result), result)
+    elif method == "median":
+        result = np.where(np.isnan(M), np.tile(np.nanmedian(M, axis=0), (M.shape[0], 1)), M)
+        result = np.where(np.isnan(result), np.nanmedian(result), result)
+    elif method == "zeros":
+        result =  np.where(np.isnan(M), 0, M)
+    else:
+        raise ValueError("'method' should be 'mean', 'median' or 'zeros'.")
+    return result
 
-
-def ortho_proj(M: np.ndarray, omega: np.ndarray, inv: Optional[int] = 0) -> np.ndarray:
-    """orthogonal projection of matrix M onto the linear space of matrices supported on omega
+def ortho_proj(M: NDArray, omega: NDArray, inverse: bool = False) -> NDArray:
+    """
+    Orthogonal projection of matrix M onto the linear space of matrices supported on omega
 
     Parameters
     ----------
-    M : np.ndarray
+    M : NDArray
         array to be projected
-    omega : np.ndarray
+    omega : NDArray
         projector
-    inv : Optional[int], optional
-        if 0, get projection on omega; if 1, projection on omega^C, by default 0
+    inverse : bool
+        if False, get projection on omega; if True, projection on omega^C, by default False.
 
     Returns
     -------
-    np.ndarray
+    NDArray
         M' projection on omega
     """
-    if inv == 1:
-        return M * (np.ones(omega.shape) - omega)
+    if inverse:
+        return M * (~omega)
     else:
         return M * omega
 
-def l1_norm(M: np.ndarray) -> float:
-    """L1 norm of a matrix seen as a long vector 1 x (np.product(M.shape))
+def l1_norm(M: NDArray) -> float:
+    """
+    L1 norm of a matrix
 
     Parameters
     ----------
-    M : np.ndarray
+    M : NDArray
 
 
     Returns
     -------
     float
-        L1 norm of M seen as a vector
+        L1 norm of M
     """
     return np.sum(np.abs(M))
 
 
-def toeplitz_matrix(T: int, dimension: int, model: str) -> np.ndarray:
-    """Create a matrix Toeplitz matrix H to take into account temporal correlation via HX
+def toeplitz_matrix(T: int, dimension: int, model: str) -> NDArray:
+    """
+    Create a matrix Toeplitz matrix H to take into account temporal correlation via HX
     H=Toeplitz(0,1,-1), in which the central diagonal is defined as ones and
-    the T upper diagonal is defined as negative ones.
+    the T upper diagonal is defined as minus ones.
     Dimensions depend on the modelisation: if each observation is a row or a column
     if row: H to be HX, if column: H to be XH
 
@@ -221,12 +228,16 @@ def toeplitz_matrix(T: int, dimension: int, model: str) -> np.ndarray:
 
     Returns
     -------
-    np.ndarray
+    NDArray
         Toeplitz matrix
     """
+    first_row = np.zeros((dimension,))
+    first_row[0] = 1
+    first_row[T] = -1
 
-    first_row = np.array([1]+[0]*(T-1)+[-1]+[0]*(dimension-1-(T-1)-1))
-    first_col = np.array([1]+[0]*(dimension-1))
+    first_col = np.zeros((dimension,))
+    first_col[0] = 1
+
     H = toeplitz(first_col, first_row)
     if model == "row":
         return H[:-T,:]
@@ -235,16 +246,17 @@ def toeplitz_matrix(T: int, dimension: int, model: str) -> np.ndarray:
 
 
 def construct_graph(
-    X: np.ndarray,
+    X: NDArray,
     n_neighbors: Optional[int]=10,
     distance: Optional[str]="euclidean",
     n_jobs: Optional[int]=1
-) -> np.ndarray:
-    """Construct a graph based on the distance (similarity) between data
+) -> NDArray:
+    """
+    Construct a graph based on the distance (similarity) between data
 
     Parameters
     ----------
-    X : np.ndarray
+    X : NDArray
         Observations
     n_neighbors : int, optional
         Number of neighbors for each node, by default 10
@@ -255,37 +267,40 @@ def construct_graph(
 
     Returns
     -------
-    np.ndarray
+    NDArray
         Graph's adjacency matrix 
     """
-    
-    #G_bin = kneighbors_graph(X, n_neighbors=n_neighbors, metric=distance, mode='connectivity', n_jobs=n_jobs).toarray()
-    G_val = kneighbors_graph(X, n_neighbors=n_neighbors, metric=distance, mode='distance', n_jobs=n_jobs).toarray()
-    G_bin = G_val.copy()
-    G_bin[G_bin>0] = 1
+    G_val = kneighbors_graph(
+        X = X,
+        n_neighbors = n_neighbors,
+        metric = distance,
+        mode = 'distance',
+        n_jobs = n_jobs).toarray()
+
     G_val = np.exp(-G_val)
-    G_val[~np.array(G_bin, dtype=np.bool_)] = 0  
+    G_val[G_val < 1.0] = 0
     return G_val
     
 def get_laplacian(
-    M: np.ndarray,
+    M: NDArray,
     normalised: Optional[bool]=True
-) -> np.ndarray:
-    """Return the Laplacian matrix of a directed graph.
+) -> NDArray:
+    """
+    Return the Laplacian matrix of a directed graph.
 
     Parameters
     ----------
-    M : np.ndarray
-        [description]
-    normalised : Optional[bool], optional
-        If True, then compute symmetric normalized Laplacian, by default True
+    M : NDArray
+        Adjacency matrix of the directed graph??
+    normalised : Optional[bool]
+        If True, then compute symmetric normalized Laplacian,
+        by default True
 
     Returns
     -------
-    np.ndarray
+    NDArray
         Laplacian matrix
     """
-    
     return scipy.sparse.csgraph.laplacian(M, normed=normalised)
 
 def get_anomaly(A, X, e=3):
@@ -293,92 +308,43 @@ def get_anomaly(A, X, e=3):
     Filter the matrix A to get anomalies
 
     Args:
-        A (np.nadarray): matrix of "unfiltered" anomalies
-        X (np.nadarray): matrix of smooth signal
-        e (int, optional): deviation from 0. Defaults to 3.
+        A : NDArray
+            matrix of "unfiltered" anomalies
+        X : NDArray
+            matrix of smooth signal
+        e : Optional[int]
+            deviation from 0. Defaults to 3.
 
     Returns:
-        np.ndarray: filtered A
-        np.ndarray: noise
+        NDArray: filtered A
+        NDArray: noise
     """
-    mad = robust.mad(X.T)
-    return np.where(np.abs(A.T) > (e * mad), A.T, 0).T, np.where(np.abs(A.T) <= (e * mad), A.T, 0).T
-
-def resultRPCA_to_signal(
-    M1: np.ndarray,
-    M2: np.ndarray,
-    M3: np.ndarray,
-    rest: Optional[int]=0 
-) -> Tuple[List, List, List]:
-    """Convert the resulting matrices from RPCA to lists. 
-    It makes sense if time series version
-
-    Parameters
-    ----------
-    M1 : np.ndarray
-        Observations
-    M2 : np.ndarray
-        Low-rank matrix
-    M3 : np.ndarray
-        Sparse matrix
-    ret : int
-        Number of added values to form a full matrix. by default 0
-
-    Returns
-    -------
-    Tuple[List, List, List]
-        results of RPCA in list form
-    """
-    
-    if rest > 0:
-        s1 = M1.T.flatten().tolist()[:-rest]
-        s2 = M2.T.flatten().tolist()[:-rest]
-        s3 = M3.T.flatten().tolist()[:-rest]
-    else:
-        s1 = M1.T.flatten().tolist()
-        s2 = M2.T.flatten().tolist()
-        s3 = M3.T.flatten().tolist()
-        
-    return s1, s2, s3
+    mad = robust.mad(X, axis = 1)
+    filtered_A = np.where(np.abs(A) > (e * mad), A, 0)
+    noise = np.where(np.abs(A) <= (e * mad), A, 0)
+    return filtered_A, noise 
 
 # ---------------------------------------------------
 # utils for online RPCA
 # ---------------------------------------------------
 
-def thres(x, mu):
-    """
-    y = sgn(x)max(|x| - mu, 0)
-    
-    Parameters
-    ----------
-    x: numpy array
-    mu: thresholding parameter
-    
-    Returns:
-    ----------
-    y: numpy array
-    
-    """
-    y = np.maximum(x - mu, 0)
-    y = y + np.minimum(x + mu, 0)
-    return y
-
 def solve_proj2(m, U, lam1, lam2, maxIter=10_000, tol=1e-6):
-    """solve the problem:
+    """
+    solve the problem:
     min_{v, s} 0.5*|m-Uv-s|_2^2 + 0.5*lambda1*|v|^2 + lambda2*|s|_1
     
     solve the projection by APG
 
     Parameters
     ----------
-    m : np.ndarray
+    m : NDArray
         (n x 1) vector, vector/sample to project
-    U : np.ndarray
+    U : NDArray
         (n x p) matrix, basis
     lam1 : float
         tuning param for the nuclear norm in the initial problem
     lam2 : float
-        tuning param for the L1 norm of anoamlies in the initial problem
+        tuning param for the L1 norm of anomalies in the initial problem
     maxIter : int, optional
         maximum number of iterations before stopping, by default 10_000
     tol : float, optional
@@ -386,7 +352,7 @@ def solve_proj2(m, U, lam1, lam2, maxIter=10_000, tol=1e-6):
 
     Returns
     -------
-    np.ndarray, np.ndarray
+    NDArray, NDArray
         vectors: coefficients, sparse part
     """
     n, p = U.shape
@@ -396,18 +362,26 @@ def solve_proj2(m, U, lam1, lam2, maxIter=10_000, tol=1e-6):
     
     UUt = np.linalg.inv(U.transpose().dot(U) + lam1*I).dot(U.transpose())
     for _ in range(maxIter):
-        vtemp = v
+        vtemp = v.copy()
         v = UUt.dot(m - s)       
         stemp = s
         s = soft_thresholding(m - U.dot(v), lam2)
         stopc = max(np.linalg.norm(v - vtemp), np.linalg.norm(s - stemp))/n
         if stopc < tol:
             break
-    
     return v, s
 
-def solve_projection(z, L, lam1, lam2, list_lams, list_periods, X, maxIter=10_000, tol=1e-6):
-    """solve the problem:
+def solve_projection(z,
+                     L,
+                     lam1,
+                     lam2,
+                     list_lams,
+                     list_periods,
+                     X,
+                     maxIter=10_000,
+                     tol=1e-6):
+    """
+    solve the problem:
     min_{v, s} 0.5*|m-Uv-s|_2^2 + 0.5*lambda1*|v|^2 + lambda2*|s|_1 + sum_k eta_k |Lq-Lq_{-T_k}|_2^2
     
     projection with temporal regularisations
@@ -416,19 +390,19 @@ def solve_projection(z, L, lam1, lam2, list_lams, list_periods, X, maxIter=10_00
 
     Parameters
     ----------
-    z : np.ndarray
+    z : NDArray
         vector to project
-    L : np.ndarray
+    L : NDArray
         basis
     lam1 : float
         tuning param for the nuclear norm in the initial problem
     lam2 : float
-        tuning param for the L1 norm of anoamlies in the initial problem
+        tuning param for the L1 norm of anomalies in the initial problem
     list_lams : list[float]
         tuning param for the L2 norm of temporal regularizations in the initial problem
     list_periods : list[int]
         list of "periods" for the Toeplitz matrices in the initial problem 
-    X : np.ndarray
+    X : NDArray
         low rank part already computed (during the burnin phase)
     maxIter : int, optional
         maximum number of iterations before stopping, by default 10_000
@@ -437,7 +411,7 @@ def solve_projection(z, L, lam1, lam2, list_lams, list_periods, X, maxIter=10_00
 
     Returns
     -------
-    np.ndarray, np.ndarray
+    NDArray, NDArray
         vectors: coefficients, sparse part
     """
     n, p = L.shape
@@ -445,7 +419,7 @@ def solve_projection(z, L, lam1, lam2, list_lams, list_periods, X, maxIter=10_00
     e = np.zeros(n)
     I = np.identity(p)
         
-    sums = np.sum([2*i for i in list_lams])
+    sums = 2.0 * np.sum(list_lams)
     sums_rk = np.zeros(n)
     for a,b in zip(list_lams, list_periods):
         sums_rk += 2 * a * X[:,-b]
@@ -466,7 +440,8 @@ def solve_projection(z, L, lam1, lam2, list_lams, list_periods, X, maxIter=10_00
     return r, e
 
 def update_col(lam, U, A, B):
-        """update column of matric U
+        """
+        Update column of matrix U
         See Algo 2. p5 of Feng, Jiashi, Huan Xu, and Shuicheng Yan.
         "Online robust pca via stochastic optimization."" 
         Advances in Neural Information Processing Systems. 2013.
@@ -477,16 +452,16 @@ def update_col(lam, U, A, B):
         ----------
         lam: float
             tuning param for the nuclear norm in the initial problem
-        U : np.ndarray
+        U : NDArray
             matrix to update
-        A : np.ndarray
+        A : NDArray
             see algorithm 1 in ...
-        B : np.ndarray
+        B : NDArray
             see algorithm 1 in ...
 
         Returns
         -------
-        np.ndarray
+        NDArray
             updated matrix 
         """
         
@@ -497,7 +472,5 @@ def update_col(lam, U, A, B):
             uj = U[:,j]
             aj = A[:,j]
             temp = (bj - U.dot(aj)) / A[j,j] + uj
-            U[:,j] = temp / max(np.linalg.norm(temp), 1)
-            #U[:,j] = (bj - U.dot(aj)) / A[j,j] + uj
-        
+            U[:,j] = temp / max(np.linalg.norm(temp), 1)        
         return U    
