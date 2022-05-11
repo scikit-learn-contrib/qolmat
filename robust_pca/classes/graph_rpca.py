@@ -12,7 +12,7 @@ class GraphRPCA:
 
     References
     ----------
-    Shahid, Nauman, et al. "Fast robust PCA on graphs." 
+    Shahid, Nauman, et al. "Fast robust PCA on graphs."
     IEEE Journal of Selected Topics in Signal Processing 10.4 (2016): 740-756.
 
     Parameters
@@ -24,7 +24,7 @@ class GraphRPCA:
     gamma1 : int
         regularizing parameter for the graph G1, constructed from the columns of D
     gamma2 : int
-        regularizing parameter for the graph G1, constructed from the rows of D    
+        regularizing parameter for the graph G1, constructed from the rows of D
     G1 : Optional[np.ndarray]
         graph G1, constructed from the columns of D
     G2 : Optional[np.ndarray]
@@ -52,7 +52,7 @@ class GraphRPCA:
         nbg2: Optional[int] = 10,
         maxIter: Optional[int] = int(1e4),
         tol: Optional[float] = 1e-6,
-        cv:  Optional[int] = 5,
+        cv: Optional[int] = 5,
         verbose: Optional[bool] = False,
     ) -> None:
         self.period = period
@@ -69,11 +69,11 @@ class GraphRPCA:
 
     def _prepare_data(self) -> None:
         """Prepare data fot RPCA computation:
-                Transform signal to matrix if needed
-                Get the omega matrix
-                Impute the nan values if needed
+        Transform signal to matrix if needed
+        Get the omega matrix
+        Impute the nan values if needed
         """
-        
+
         self.rest = 0
         if (self.D is None) and (self.period is None):
             self.period = utils.get_period(self.signal)
@@ -82,7 +82,7 @@ class GraphRPCA:
 
         self.initial_D = self.D.copy()
         self.initial_D_proj = utils.impute_nans(self.initial_D, method="median")
-        
+
         self.omega = 1 - (self.D != self.D)
         if np.isnan(np.sum(self.D)):
             self.proj_D = utils.impute_nans(self.D, method="median")
@@ -103,17 +103,17 @@ class GraphRPCA:
         D: Optional
             array we want to denoise. If a signal is passed, D corresponds to that signal
         """
-        
+
         if (signal is None) and (D is None):
             raise Exception(
                 "You have to provide either a time series (signal) or a matrix (D)"
             )
-            
+
         self.signal = signal
         self.D = D
-        
+
         self._prepare_data()
-        
+
         self.omega = 1 - (self.D != self.D)
         if np.isnan(np.sum(self.D)):
             self.proj_D = utils.impute_nans(self.D, method="median")
@@ -121,7 +121,7 @@ class GraphRPCA:
             self.proj_D = self.D
         if self.rank is None:
             self.rank = utils.approx_rank(self.proj_D)
-            
+
         if self.G1 is None:
             self.G1 = utils.construct_graph((self.D).T, n_neighbors=self.nbg1)
         if self.G2 is None:
@@ -148,10 +148,12 @@ class GraphRPCA:
             grad_g = 2 * (self.gamma1 * Y @ laplacian1 + self.gamma2 * laplacian2 @ Y)
 
             X = utils.proximal_operator(Y_past - lam * grad_g, self.D, lam)
-            t = (1 + (1 + 4 * t_past ** 2) ** 0.5) / 2
+            t = (1 + (1 + 4 * t_past**2) ** 0.5) / 2
             Y = X + (t_past - 1) / t * (X - X_past)
 
-            errors.append(np.linalg.norm(Y - Y_past, "fro") / np.linalg.norm(Y_past, "fro"))
+            errors.append(
+                np.linalg.norm(Y - Y_past, "fro") / np.linalg.norm(Y_past, "fro")
+            )
             if errors[-1] < self.tol:
                 if self.verbose:
                     print(
@@ -170,8 +172,8 @@ class GraphRPCA:
 
 
 ####################################################################
-# TO DO 
-# construct graph with missing values 
+# TO DO
+# construct graph with missing values
 # important for the cross validation to work
 ####################################################################
 class GraphRPCAHyperparams(GraphRPCA):
@@ -188,7 +190,7 @@ class GraphRPCAHyperparams(GraphRPCA):
     cv: Optional[int], optional
         to specify the number of folds
     """
-    
+
     def __init__(
         self,
         period: Optional[int] = None,
@@ -203,7 +205,7 @@ class GraphRPCAHyperparams(GraphRPCA):
         tol: Optional[float] = 1e-6,
         hyperparams_gamma1: Optional[List[float]] = [],
         hyperparams_gamma2: Optional[List[float]] = [],
-        cv:  Optional[int] = 5,
+        cv: Optional[int] = 5,
         verbose: Optional[bool] = False,
     ) -> None:
         super().__init__(
@@ -214,23 +216,26 @@ class GraphRPCAHyperparams(GraphRPCA):
         self.hyperparams_gamma1 = hyperparams_gamma1
         self.hyperparams_gamma2 = hyperparams_gamma2
         self.add_hyperparams()
-        
+
     def add_hyperparams(
         self,
     ) -> None:
-        """Define the search space associated to each hyperparameter
-        """
+        """Define the search space associated to each hyperparameter"""
         self.search_space = []
         if len(self.hyperparams_gamma1) > 0:
             self.search_space.append(
                 skopt.space.Real(
-                    low=self.hyperparams_gamma1[0], high=self.hyperparams_gamma1[1], name="gamma1"
+                    low=self.hyperparams_gamma1[0],
+                    high=self.hyperparams_gamma1[1],
+                    name="gamma1",
                 )
             )
         if len(self.hyperparams_gamma2) > 0:
             self.search_space.append(
                 skopt.space.Real(
-                    low=self.hyperparams_gamma2[0], high=self.hyperparams_gamma2[1], name="gamma2"
+                    low=self.hyperparams_gamma2[0],
+                    high=self.hyperparams_gamma2[1],
+                    name="gamma2",
                 )
             )
 
@@ -247,7 +252,7 @@ class GraphRPCAHyperparams(GraphRPCA):
         float
             criterion to minimise
         """
-        
+
         self.gamma1 = args[0]
         self.gamma2 = args[1]
 
@@ -263,13 +268,12 @@ class GraphRPCAHyperparams(GraphRPCA):
 
             self.D = data_missing
 
-            #_, W, _ = self.compute_graph_rpca()
+            # _, W, _ = self.compute_graph_rpca()
             super().fit(D=self.D)
 
             error = (
                 np.linalg.norm(
-                    self.initial_D[indices_x, indices_y]
-                    - self.X[indices_x, indices_y],
+                    self.initial_D[indices_x, indices_y] - self.X[indices_x, indices_y],
                     1,
                 )
                 / nb_missing
@@ -279,17 +283,17 @@ class GraphRPCAHyperparams(GraphRPCA):
 
         if len(errors) == 0:
             print("Warning: not converged - return default 10^10")
-            return 10 ** 10
+            return 10**10
 
         return np.mean(errors)
-    
+
     def fit(
         self,
         signal: Optional[List[float]] = None,
         D: Optional[np.ndarray] = None,
     ) -> None:
         """Decompose a matrix into a low rank part and a sparse part
-        Hyperparams are set by Bayesian optimisation and cross-validation 
+        Hyperparams are set by Bayesian optimisation and cross-validation
 
         Parameters
         ----------
@@ -298,17 +302,17 @@ class GraphRPCAHyperparams(GraphRPCA):
         D: Optional
             array we want to denoise. If a signal is passed, D corresponds to that signal
         """
-        
+
         if (signal is None) and (D is None):
             raise Exception(
                 "You have to provide either a time series (signal) or a matrix (D)"
             )
-            
+
         self.signal = signal
         self.D = D
-        
+
         self._prepare_data()
-        
+
         res = skopt.gp_minimize(
             self.objective,
             self.search_space,

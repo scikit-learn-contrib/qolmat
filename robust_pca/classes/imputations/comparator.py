@@ -54,7 +54,9 @@ class Comparator:
         # self.df_is_altered = pd.DataFrame(self.df_is_altered.reshape(df.shape), index=df.index, columns=df.columns, dtype=bool)
         # print(self.df_is_altered)
 
-        self.df_is_altered = utils.choice_with_mask(df, df.notna(), self.ratio_missing, random_state)
+        self.df_is_altered = utils.choice_with_mask(
+            df, df.notna(), self.ratio_missing, random_state
+        )
 
         self.corrupted_df = df.copy()
         if self.corruption == "missing":
@@ -69,9 +71,11 @@ class Comparator:
         signal_ref: pd.DataFrame,
         signal_imputed: pd.DataFrame,
     ) -> float:
-        
+
         rmse = utils.mean_squared_error(
-            signal_ref[self.df_is_altered], signal_imputed[self.df_is_altered], squared=False
+            signal_ref[self.df_is_altered],
+            signal_imputed[self.df_is_altered],
+            squared=False,
         )
         print(rmse)
 
@@ -79,7 +83,6 @@ class Comparator:
             signal_ref[self.df_is_altered], signal_imputed[self.df_is_altered]
         )
         print(mae)
-
 
         # rmse = mean_squared_error(
         #     signal_ref.iloc[self.indices], signal_imputed.iloc[self.indices], squared=False
@@ -91,7 +94,7 @@ class Comparator:
         # wmape = np.mean(
         #     np.abs(signal_ref[self.indices] - signal_imputed[self.indices])
         # ) / np.mean(np.abs(signal_ref[self.indices]))
-        return {"rmse": rmse, "mae": mae}#, "wmape": wmape}  # "mape": mape,
+        return {"rmse": rmse, "mae": mae}  # , "wmape": wmape}  # "mape": mape,
 
     def compare(self):
 
@@ -116,7 +119,7 @@ class Comparator:
                 imputed_df = cv.fit_transform(self.corrupted_df)
                 for k, v in self.get_errors(df, imputed_df).items():
                     errors[k].append(v)
-                    
+
                 print(errors)
         results[type(tested_model).__name__] = errors
         return results

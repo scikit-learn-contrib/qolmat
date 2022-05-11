@@ -4,6 +4,7 @@ import numpy as np
 from sklearn.utils import resample
 from math import floor
 
+
 def get_search_space(tested_model, search_params):
     search_space = None
     search_name = None
@@ -43,6 +44,7 @@ def custom_groupby(df, groups):
     else:
         return df
 
+
 def choice_with_mask(df, mask, ratio, random_state=None):
     indices = np.argwhere(mask.to_numpy().flatten())
     indices = resample(
@@ -54,17 +56,21 @@ def choice_with_mask(df, mask, ratio, random_state=None):
     )
     choosed = np.zeros(df.size)
     choosed[indices] = 1
-    return pd.DataFrame(choosed.reshape(df.shape), index=df.index, columns=df.columns, dtype=bool)
+    return pd.DataFrame(
+        choosed.reshape(df.shape), index=df.index, columns=df.columns, dtype=bool
+    )
+
 
 def mean_squared_error(df1, df2, squared=True):
     """
     We provide an implementation robust to nans.
     """
-    squared_errors = ((df1 - df2)**2).sum().sum()
+    squared_errors = ((df1 - df2) ** 2).sum().sum()
     if squared:
         return squared_errors
     else:
         return np.sqrt(squared_errors)
+
 
 def mean_absolute_error(df1, df2):
     return (df1 - df2).abs().sum().sum()

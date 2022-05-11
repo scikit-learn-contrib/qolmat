@@ -2,8 +2,8 @@
 import numpy as np
 import pandas as pd
 
-#from fbprophet import Prophet
-#import logging
+# from fbprophet import Prophet
+# import logging
 from sklearn.impute import KNNImputer
 import os
 import utils
@@ -39,6 +39,7 @@ class suppress_stdout_stderr(object):
         os.close(self.null_fds[0])
         os.close(self.null_fds[1])
 
+
 class ImputeColumnWise:
     def __init__(
         self,
@@ -72,7 +73,7 @@ class ImputeByMean(ImputeColumnWise):
             lambda x: x.fillna(x.mean())
         )
         return imputed
-        
+
 
 class ImputeByMedian(ImputeColumnWise):
     def __init__(

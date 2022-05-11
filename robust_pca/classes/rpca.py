@@ -5,7 +5,7 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from sklearn.base import BaseEstimator, TransformerMixin
 
-from robust_pca.utils import  utils
+from robust_pca.utils import utils
 
 
 class RPCA(BaseEstimator, TransformerMixin):
@@ -30,7 +30,7 @@ class RPCA(BaseEstimator, TransformerMixin):
         tol: Optional[float] = 1e-6,
         verbose: bool = False,
     ) -> None:
-        
+
         self.n_rows = n_rows
         self.maxIter = maxIter
         self.tol = tol
@@ -44,20 +44,22 @@ class RPCA(BaseEstimator, TransformerMixin):
         Impute the nan values if needed
         """
         if len(signal.shape) == 1:
-            self.n_rows = utils.get_period(signal) if self.n_rows is None else self.n_rows
-            D_init, n_add_values = utils.signal_to_matrix(signal, n_rows = self.n_rows)
+            self.n_rows = (
+                utils.get_period(signal) if self.n_rows is None else self.n_rows
+            )
+            D_init, n_add_values = utils.signal_to_matrix(signal, n_rows=self.n_rows)
             self.input_data = "1DArray"
         else:
             D_init = signal.copy()
             n_add_values = 0
         return D_init, n_add_values
-    
+
     def get_params(self):
         return {
             "n_rows": self.n_rows,
             "maxIter": self.maxIter,
             "tol": self.tol,
-            "verbose": self.verbose
+            "verbose": self.verbose,
         }
 
     def set_params(self, **kargs):
@@ -69,12 +71,12 @@ class RPCA(BaseEstimator, TransformerMixin):
     def fit_transform(
         self,
         signal: NDArray,
-        ) -> RPCA:
+    ) -> RPCA:
         X, _ = self._prepare_data(signal=signal)
-        A = np.zeros(X.shape, dtype = float)
+        A = np.zeros(X.shape, dtype=float)
 
         if self.input_data == "2DArray":
-             return X, A
+            return X, A
         elif self.input_data == "1DArray":
             return X.flatten(), A.flatten()
         else:
