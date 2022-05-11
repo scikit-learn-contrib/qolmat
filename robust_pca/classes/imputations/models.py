@@ -2,9 +2,12 @@
 import numpy as np
 import pandas as pd
 
-#from fbprophet import Prophet
-#import logging
-from sklearn.impute import KNNImputer
+from fbprophet import Prophet
+import logging
+
+from sklearn.experimental import enable_iterative_imputer
+from sklearn.impute import KNNImputer, IterativeImputer
+
 import os
 import utils
 
@@ -39,20 +42,23 @@ class suppress_stdout_stderr(object):
         os.close(self.null_fds[0])
         os.close(self.null_fds[1])
 
+
 class ImputeColumnWise:
     def __init__(
         self,
+        aggregate_time=None,
         groups=[],
     ) -> None:
+        self.aggregate_time = aggregate_time
         self.groups = groups
 
-    def fit_transform(self, signal: pd.DataFrame) -> pd.DataFrame:
-        col_to_impute = signal.columns
-        index_signal = signal.index
-        imputed = signal.copy()
+    def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+
+        col_to_impute = df.columns
+        imputed = df.copy()
         for col in col_to_impute:
-            signal_col = signal[col].reset_index()
-            imputed[col] = self.fit_transform_col(signal_col, col_to_impute=col)
+            df_col = df[col].reset_index()
+            imputed[col] = self.fit_transform_col(df_col, col_to_impute=col).values
         imputed.fillna(0, inplace=True)
         return imputed
 
@@ -63,16 +69,15 @@ class ImputeColumnWise:
 class ImputeByMean(ImputeColumnWise):
     def __init__(
         self,
+        aggregate_time=None,
         groups=[],
     ) -> None:
-        super().__init__(groups=groups)
+        super().__init__(aggregate_time=aggregate_time, groups=groups)
 
     def fit_transform_col(self, signal: pd.Series, col_to_impute: str) -> pd.Series:
-        imputed = utils.custom_groupby(signal, self.groups)[col_to_impute].apply(
-            lambda x: x.fillna(x.mean())
-        )
+        imputed = utils.custom_groupby(signal, self.groups)[col_to_impute].apply(lambda x: x.fillna(x.mean()))
         return imputed
-        
+
 
 class ImputeByMedian(ImputeColumnWise):
     def __init__(
@@ -82,138 +87,101 @@ class ImputeByMedian(ImputeColumnWise):
         super().__init__(groups=groups)
 
     def fit_transform_col(self, signal: pd.Series, col_to_impute: str) -> pd.Series:
-        imputed = utils.custom_groupby(signal, self.groups)[col_to_impute].apply(
-            lambda x: x.fillna(x.mean())
-        )
+        imputed = utils.custom_groupby(signal, self.groups)[col_to_impute].apply(lambda x: x.fillna(x.mean()))
         return imputed
 
 
-class RandomImpute:
+class RandomImpute(ImputeColumnWise):
     def __init__(
         self,
     ) -> None:
         pass
 
-    def fit_transform_col(self, signal: pd.Series) -> pd.Series:
+    def fit_transform_col(self, signal: pd.Series, col_to_impute: str) -> pd.Series:
         imputed = signal.copy()
-        number_missing = imputed.isnull().sum()
-        obs = imputed[imputed.notnull()]
-        imputed.loc[imputed.isnull()] = np.random.choice(
-            obs.values, number_missing, replace=True
+        number_missing = imputed[col_to_impute].isnull().sum()
+        obs = imputed.loc[imputed[col_to_impute].notnull(), col_to_impute].values
+        imputed.loc[imputed[col_to_impute].isnull(), col_to_impute] = np.random.choice(
+            obs, number_missing, replace=True
         )
-        return imputed
+        return imputed[col_to_impute]
 
 
-class ImputeLOCF:
+class ImputeLOCF(ImputeColumnWise):
     def __init__(
         self,
         groups=[],
     ) -> None:
-        self.groups = groups
+        super().__init__(groups=groups)
 
-    def fit_transform(self, signal: pd.Series) -> pd.Series:
-        col_to_impute = signal.name
-        index_signal = signal.index
-        signal = signal.reset_index()
-        imputed = utils.custom_groupby(signal, self.groups)[col_to_impute].apply(
-            lambda x: x.ffill()
-        )
-
-        imputed = imputed.to_frame()
-        imputed = imputed.fillna(0)
-        imputed = imputed.set_index(index_signal)
-        imputed = imputed[col_to_impute]
-        # if index of missing values is 0, impute by the TS median
+    def fit_transform_col(self, signal: pd.Series, col_to_impute: str) -> pd.Series:
+        imputed = utils.custom_groupby(signal, self.groups)[col_to_impute].apply(lambda x: x.ffill())
         return imputed.fillna(np.nanmedian(imputed))
 
-    def get_hyperparams(self):
-        return {}
 
-
-class ImputeNOCB:
+class ImputeNOCB(ImputeColumnWise):
     def __init__(
         self,
         groups=[],
     ) -> None:
-        self.groups = groups
+        super().__init__(groups=groups)
 
-    def fit_transform(self, signal: pd.Series) -> pd.Series:
-        col_to_impute = signal.name
-        index_signal = signal.index
-        signal = signal.reset_index()
-        imputed = utils.custom_groupby(signal, self.groups)[col_to_impute].apply(
-            lambda x: x.bfill()
-        )
-
-        imputed = imputed.to_frame()
-        imputed = imputed.fillna(0)
-        imputed = imputed.set_index(index_signal)
-        imputed = imputed[col_to_impute]
-        # if index of missing values is 0, impute by the TS median
+    def fit_transform_col(self, signal: pd.Series, col_to_impute: str) -> pd.Series:
+        imputed = utils.custom_groupby(signal, self.groups)[col_to_impute].apply(lambda x: x.bfill())
         return imputed.fillna(np.nanmedian(imputed))
 
-    def get_hyperparams(self):
-        return {}
 
-
-class ImputeKNN:
+class ImputeKNN(ImputeColumnWise):
     def __init__(self, **kwargs) -> None:
         for name, value in kwargs.items():
             setattr(self, name, value)
 
-    def fit_transform(self, signal: pd.Series) -> pd.Series:
-        # self.signal = signal.reset_index()
-        # missing_indices = self.signal[self.signal.isnull()].index
-        # for i in missing_indices:
-        #     imputer = KNNImputer(n_neighbors=self.k)
-        #     self.imputed = imputer.fit_transform( self.signal.loc[:i+1])
-        # res = pd.Series([a[0] for a in self.imputed])
-
-        self.signal = np.asarray(signal).reshape(-1, 1)
+    def fit_transform_col(self, signal: pd.Series, col_to_impute: str) -> pd.Series:
+        imputed = np.asarray(signal[col_to_impute]).reshape(-1, 1)
         imputer = KNNImputer(n_neighbors=self.k)
-        res = imputer.fit_transform(self.signal)
-        res = pd.Series([a[0] for a in res], index=signal.index)
-        return res.fillna(np.nanmedian(res))
+        imputed = imputer.fit_transform(imputed)
+        imputed = pd.Series([a[0] for a in imputed], index=signal.index)
+        return imputed.fillna(np.nanmedian(imputed))
 
     def get_hyperparams(self):
         return {"k": self.k}
 
 
-# # does not work with kedro...
-# class ImputeProphet:
-#     def __init__(self, **kwargs) -> None:
-#         for name, value in kwargs.items():
-#             setattr(self, name, value)
+# does not work with kedro...
+class ImputeProphet:
+    def __init__(self, **kwargs) -> None:
+        for name, value in kwargs.items():
+            setattr(self, name, value)
 
-#     def fit_transform(self, signal: pd.Series) -> pd.Series:
-#         col_to_impute = signal.name
-#         data = pd.DataFrame()
-#         data["ds"] = signal.index.get_level_values("datetime")
-#         data["y"] = signal.values
+    def fit_transform(self, signal: pd.Series) -> pd.Series:
+        col_to_impute = signal.name
+        data = pd.DataFrame()
+        data["ds"] = signal.index.get_level_values("datetime")
+        data["y"] = signal.values
 
-#         prophet = Prophet(
-#             daily_seasonality=self.daily_seasonality,
-#             weekly_seasonality=self.weekly_seasonality,
-#             yearly_seasonality=self.yearly_seasonality,
-#             interval_width=self.interval_width,
-#         )
-#         with suppress_stdout_stderr():
-#             prophet.fit(data)
+        prophet = Prophet(
+            daily_seasonality=self.daily_seasonality,
+            weekly_seasonality=self.weekly_seasonality,
+            yearly_seasonality=self.yearly_seasonality,
+            interval_width=self.interval_width,
+        )
+        with suppress_stdout_stderr():
+            prophet.fit(data)
 
-#         forecast = prophet.predict(data[["ds"]])["yhat"]
-#         imputed = data["y"].fillna(forecast)
-#         imputed = imputed.to_frame(col_to_impute)
-#         imputed = imputed.set_index(signal.index)
-#         imputed = imputed[col_to_impute]
-#         return imputed
+        forecast = prophet.predict(data[["ds"]])["yhat"]
+        imputed = data["y"].fillna(forecast)
+        imputed = imputed.to_frame(col_to_impute)
+        imputed = imputed.set_index(signal.index)
+        imputed = imputed[col_to_impute]
+        return imputed
 
-#     def get_hyperparams(self):
-#         return {
-#             "daily_seasonality": self.daily_seasonality,
-#             "weekly_seasonality": self.weekly_seasonality,
-#             "yearly_seasonality": self.yearly_seasonality,
-#             "interval_width": self.interval_width,
-#         }
+    def get_hyperparams(self):
+        return {
+            "daily_seasonality": self.daily_seasonality,
+            "weekly_seasonality": self.weekly_seasonality,
+            "yearly_seasonality": self.yearly_seasonality,
+            "interval_width": self.interval_width,
+        }
 
 
 class ImputeRPCA:
@@ -221,13 +189,44 @@ class ImputeRPCA:
         for name, value in kwargs.items():
             setattr(self, name, value)
 
-    def fit_transform(self, signal: pd.Series) -> pd.Series:
+    def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        if hasattr(self, "aggregate_time"):
+            df_ref, df_agg, df_agg_nan, indices_to_nan = utils.aggregate_time_data(df, self.aggregate_time)
 
-        self.signal = np.asarray(signal).reshape(-1, 1)
-        imputer = KNNImputer(n_neighbors=self.k)
-        res = imputer.fit_transform(self.signal)
-        res = pd.Series([a[0] for a in res], index=signal.index)
-        return res.fillna(np.nanmedian(res))
+        if self.multivariate:
+            _, imputed, _ = RPCA(signal=df_agg.values)
+            imputed = pd.DataFrame(imputed, columns=df_agg.columns)
+        else:
+            imputed = pd.DataFrame()
+            for col in df.columns:
+                _, imputed_signal, _ = RPCA(signal=df_agg[col].values)
+                imputed[col] = imputed_signal
+        imputed.index = df_agg.index
+
+        if hasattr(self, "aggregate_time"):
+            df_res = utils.disaggregate_time_data(df, df_agg, imputed, self.aggregate_time)
+
+        return df_res
 
     def get_hyperparams(self):
-        return {"k": self.k}
+        pass
+
+
+class ImputeIterative:
+    def __init__(self, **kwargs) -> None:
+        self.initial_strategy = "median"
+        self.imputation_order = "ascending"
+        for name, value in kwargs.items():
+            setattr(self, name, value)
+
+    def fit_transform(self, df=pd.DataFrame) -> pd.DataFrame:
+        ii = IterativeImputer(initial_strategy=self.initial_strategy, imputation_order=self.imputation_order)
+        res = ii.fit_transform(df.values)
+        imputed = pd.DataFrame(columns=df.columns)
+        for ind, col in enumerate(imputed.columns):
+            imputed[col] = res[:, ind]
+        imputed.index = df.index
+        return imputed
+
+    def get_hyperparams(self):
+        pass
