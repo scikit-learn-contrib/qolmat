@@ -26,10 +26,15 @@ def get_search_space(tested_model, search_params):
 
 
 def custom_groupby(df, groups):
+    print(groups)
     if len(groups) > 0:
         groupby = []
         for g in groups:
             groupby.append(eval("df." + g))
+        for key, df in df.groupby(groupby):
+            print(key)
+            print(df.head(20))
+        print(groupby)
         return df.groupby(groupby)
     else:
         return df

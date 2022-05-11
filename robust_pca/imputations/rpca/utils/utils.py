@@ -11,7 +11,7 @@ import pandas as pd
 from sklearn.neighbors import kneighbors_graph
 import scipy
 from scipy.linalg import toeplitz
-from statsmodels import robust
+# from statsmodels import robust
 
 
 def get_period(signal: NDArray, max_period: Optional[int] = None) -> int:
@@ -322,7 +322,8 @@ def get_anomaly(A, X, e=3):
         NDArray: filtered A
         NDArray: noise
     """
-    mad = robust.mad(X, axis=1)
+    # mad = robust.mad(X, axis=1)
+    mad = np.median(np.abs(X), axis=1)
     filtered_A = np.where(np.abs(A) > (e * mad), A, 0)
     noise = np.where(np.abs(A) <= (e * mad), A, 0)
     return filtered_A, noise

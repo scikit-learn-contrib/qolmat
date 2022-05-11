@@ -5,8 +5,8 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from sklearn.utils.extmath import randomized_svd
 
-from robust_pca.classes.rpca import RPCA
-from robust_pca.utils import utils
+from robust_pca.imputations.rpca.rpca import RPCA
+from robust_pca.imputations.rpca.utils import utils
 
 
 class TemporalRPCA(RPCA):

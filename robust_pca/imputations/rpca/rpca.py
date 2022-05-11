@@ -5,7 +5,7 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from sklearn.base import BaseEstimator, TransformerMixin
 
-from robust_pca.utils import utils
+from robust_pca.imputations.rpca.utils import utils
 
 
 class RPCA(BaseEstimator, TransformerMixin):
@@ -64,7 +64,7 @@ class RPCA(BaseEstimator, TransformerMixin):
 
     def set_params(self, **kargs):
         for param_key in kargs.keys():
-            if param_key in RPCA.__dict__.keys():
+            if param_key in self.__dict__.keys():
                 setattr(self, param_key, kargs[param_key])
         return self
 

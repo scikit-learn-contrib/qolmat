@@ -2,11 +2,13 @@
 import numpy as np
 import pandas as pd
 
-from fbprophet import Prophet
+# from fbprophet import Prophet
 import logging
 
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import KNNImputer, IterativeImputer
+from robust_pca.imputations.rpca.pcp_rpca import RPCA
+from robust_pca.imputations.rpca.temporal_rpca import TemporalRPCA
 
 import os
 import utils
@@ -46,10 +48,8 @@ class suppress_stdout_stderr(object):
 class ImputeColumnWise:
     def __init__(
         self,
-        aggregate_time=None,
         groups=[],
     ) -> None:
-        self.aggregate_time = aggregate_time
         self.groups = groups
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -57,8 +57,7 @@ class ImputeColumnWise:
         col_to_impute = df.columns
         imputed = df.copy()
         for col in col_to_impute:
-            df_col = df[col].reset_index()
-            imputed[col] = self.fit_transform_col(df_col, col_to_impute=col).values
+            imputed[col] = self.fit_transform_col(df[col])
         imputed.fillna(0, inplace=True)
         return imputed
 
@@ -69,14 +68,16 @@ class ImputeColumnWise:
 class ImputeByMean(ImputeColumnWise):
     def __init__(
         self,
-        aggregate_time=None,
         groups=[],
     ) -> None:
-        super().__init__(aggregate_time=aggregate_time, groups=groups)
+        super().__init__(groups=groups)
 
-    def fit_transform_col(self, signal: pd.Series, col_to_impute: str) -> pd.Series:
-        imputed = utils.custom_groupby(signal, self.groups)[col_to_impute].apply(lambda x: x.fillna(x.mean()))
-        return imputed
+    def fit_transform_col(self, signal: pd.Series) -> pd.Series:
+        col = signal.name
+        col_index = signal.index.names
+        df = signal.reset_index()
+        imputed = utils.custom_groupby(df, self.groups).apply(lambda x: x[col].fillna(x[col].mean()))
+        return imputed.set_index(col_index)[col]
 
 
 class ImputeByMedian(ImputeColumnWise):
@@ -87,8 +88,12 @@ class ImputeByMedian(ImputeColumnWise):
         super().__init__(groups=groups)
 
     def fit_transform_col(self, signal: pd.Series, col_to_impute: str) -> pd.Series:
-        imputed = utils.custom_groupby(signal, self.groups)[col_to_impute].apply(lambda x: x.fillna(x.mean()))
-        return imputed
+        col = signal.name
+        col_index = signal.index.names
+        df = signal.reset_index()
+        imputed = utils.custom_groupby(signal, self.groups).apply(lambda x: x[col].fillna(x[col].median()))
+        print(imputed.set_index(col_index)[col])
+        return imputed.set_index(col_index)[col]
 
 
 class RandomImpute(ImputeColumnWise):
@@ -115,7 +120,7 @@ class ImputeLOCF(ImputeColumnWise):
         super().__init__(groups=groups)
 
     def fit_transform_col(self, signal: pd.Series, col_to_impute: str) -> pd.Series:
-        imputed = utils.custom_groupby(signal, self.groups)[col_to_impute].apply(lambda x: x.ffill())
+        imputed = utils.custom_groupby(signal, self.groups)[col_to_impute].transform(lambda x: x.ffill())
         return imputed.fillna(np.nanmedian(imputed))
 
 
@@ -127,7 +132,7 @@ class ImputeNOCB(ImputeColumnWise):
         super().__init__(groups=groups)
 
     def fit_transform_col(self, signal: pd.Series, col_to_impute: str) -> pd.Series:
-        imputed = utils.custom_groupby(signal, self.groups)[col_to_impute].apply(lambda x: x.bfill())
+        imputed = utils.custom_groupby(signal, self.groups)[col_to_impute].transform(lambda x: x.bfill())
         return imputed.fillna(np.nanmedian(imputed))
 
 
@@ -185,21 +190,28 @@ class ImputeProphet:
 
 
 class ImputeRPCA:
-    def __init__(self, **kwargs) -> None:
-        for name, value in kwargs.items():
-            setattr(self, name, value)
+    def __init__(self, rpca, **kwargs) -> None:
+        # for name, value in kwargs.items():
+        #     setattr(self, name, value)
+        self.dict_params = kwargs
+        self.rpca = rpca
+        # if method == "PCP":
+        #     self.rpca = RPCA()
+        # elif method == "temporal":
+        #     self.rpca = TemporalRPCA()
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         if hasattr(self, "aggregate_time"):
             df_ref, df_agg, df_agg_nan, indices_to_nan = utils.aggregate_time_data(df, self.aggregate_time)
 
+        self.rpca.set_params(**self.dict_params)
         if self.multivariate:
-            _, imputed, _ = RPCA(signal=df_agg.values)
+            _, imputed, _ = self.rpca.fit_transform(signal=df_agg.values)
             imputed = pd.DataFrame(imputed, columns=df_agg.columns)
         else:
             imputed = pd.DataFrame()
             for col in df.columns:
-                _, imputed_signal, _ = RPCA(signal=df_agg[col].values)
+                _, imputed_signal, _ = self.rpca.fit_transform(signal=df_agg[col].values)
                 imputed[col] = imputed_signal
         imputed.index = df_agg.index
 

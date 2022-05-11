@@ -100,6 +100,7 @@ class Comparator:
 
         results = {}
         for tested_model in self.models_to_test:
+            print(type(tested_model).__name__)
             search_space, search_name = utils.get_search_space(
                 tested_model, self.search_params
             )

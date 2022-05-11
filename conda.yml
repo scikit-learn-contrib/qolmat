@@ -24,3 +24,5 @@ dependencies:
   - s3fs
   - scikit-optimize
   - pyarrow
+  - matplotlib
+  - plotly

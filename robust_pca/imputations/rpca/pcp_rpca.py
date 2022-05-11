@@ -5,8 +5,8 @@ from typing import Optional
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-from robust_pca.classes.rpca import RPCA
-from robust_pca.utils import utils
+from robust_pca.imputations.rpca.rpca import RPCA
+from robust_pca.imputations.rpca import utils
 
 
 class PcpRPCA(RPCA):
@@ -53,11 +53,6 @@ class PcpRPCA(RPCA):
         lam = 1 / np.sqrt(np.max(self.proj_D.shape))
         dict_params = {"mu": mu, "lam": lam}
         return dict_params
-
-    def set_params(self, **kargs):
-        super().set_params(**kargs)
-        self.mu = kargs["mu"]
-        self.lam = kargs["lam"]
 
     def fit_transform(
         self,
