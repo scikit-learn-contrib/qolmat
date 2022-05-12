@@ -77,24 +77,15 @@ class Comparator:
             signal_imputed[self.df_is_altered],
             squared=False,
         )
-        print(rmse)
-
         mae = utils.mean_absolute_error(
-            signal_ref[self.df_is_altered], signal_imputed[self.df_is_altered]
+            signal_ref[self.df_is_altered], 
+            signal_imputed[self.df_is_altered]
         )
-        print(mae)
-
-        # rmse = mean_squared_error(
-        #     signal_ref.iloc[self.indices], signal_imputed.iloc[self.indices], squared=False
-        # )
-        # mae = mean_absolute_error(
-        #     signal_ref.iloc[self.indices], signal_imputed.iloc[self.indices]
-        # )
-        # # mape = mean_absolute_percentage_error(signal_ref[self.indices], signal_imputed[self.indices])
-        # wmape = np.mean(
-        #     np.abs(signal_ref[self.indices] - signal_imputed[self.indices])
-        # ) / np.mean(np.abs(signal_ref[self.indices]))
-        return {"rmse": rmse, "mae": mae}  # , "wmape": wmape}  # "mape": mape,
+        wmape = utils.weighted_mean_absolute_percentage_error(
+            signal_ref[self.df_is_altered], 
+            signal_imputed[self.df_is_altered]
+        )
+        return {"rmse": rmse, "mae": mae, "wmape": wmape}
 
     def compare(self):
 
@@ -104,7 +95,7 @@ class Comparator:
             search_space, search_name = utils.get_search_space(
                 tested_model, self.search_params
             )
-            res_intermediate = {}
+
             df = self.df[self.cols_to_impute]
             errors = defaultdict(list)
             for _ in range(1):
@@ -121,6 +112,5 @@ class Comparator:
                 for k, v in self.get_errors(df, imputed_df).items():
                     errors[k].append(v)
 
-                print(errors)
-        results[type(tested_model).__name__] = errors
+            results[type(tested_model).__name__] = {k: np.mean(v) for k, v in errors.items()}
         return results

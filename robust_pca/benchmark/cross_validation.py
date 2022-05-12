@@ -4,6 +4,7 @@ import skopt
 from typing import Optional
 from sklearn.utils import resample
 from math import floor
+import utils
 
 
 class CrossValidation:
@@ -27,27 +28,23 @@ class CrossValidation:
         self.ratio_missing = ratio_missing
         self.corruption = corruption
 
-    def create_corruptions(self, signal: pd.Series, random_state: Optional[int] = 129):
-
-        indices = signal.loc[~np.isnan(signal) & signal > 0].index
-        self.indices = resample(
-            indices,
-            replace=False,
-            n_samples=floor(len(indices) * self.ratio_missing),
-            random_state=random_state,
-            stratify=None,
+    def create_corruptions(self, df: pd.DataFrame, random_state: Optional[int] = 129):
+        
+        self.df_is_altered = utils.choice_with_mask(
+            df, df.notna(), self.ratio_missing, random_state
         )
 
-        self.corrupted_signal = signal.copy()
+        self.corrupted_df = df.copy()
         if self.corruption == "missing":
-            self.corrupted_signal.loc[self.indices] = np.nan
+            self.corrupted_df[self.df_is_altered] = np.nan
         elif self.corruption == "outlier":
-            self.corrupted_signal.loc[self.indices] = np.random.randint(
-                0, high=3 * np.max(signal), size=(int(len(signal) * self.ratio_missing))
+            self.corrupted_df[self.df_is_altered] = np.random.randint(
+                0, high=3 * np.max(df), size=(int(len(df) * self.ratio_missing))
             )
 
     def loss_function(self, initial, imputed):
-        return np.sum(abs(initial[self.indices] - imputed[self.indices]))
+        print(self.df_is_altered)
+        return np.sum(abs(initial[self.df_is_altered] - imputed[self.df_is_altered]))
 
     def objective(self, args):
 
@@ -57,7 +54,7 @@ class CrossValidation:
         errors = []
         for _ in range(self.cv):
             self.create_corruptions(self.signal)
-            imputed = self.model.fit_transform(self.corrupted_signal)
+            imputed = self.model.fit_transform(self.corrupted_df)
             errors.append(self.loss_function(self.signal, imputed))
 
         return np.nanmean(errors)

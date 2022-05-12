@@ -57,7 +57,8 @@ class ImputeColumnWise:
         col_to_impute = df.columns
         imputed = df.copy()
         for col in col_to_impute:
-            imputed[col] = self.fit_transform_col(df[col])
+            #df_col = df[col].reset_index()
+            imputed[col] = self.fit_transform_col(df[col], col_to_impute=col).values
         imputed.fillna(0, inplace=True)
         return imputed
 
@@ -72,13 +73,12 @@ class ImputeByMean(ImputeColumnWise):
     ) -> None:
         super().__init__(groups=groups)
 
-    def fit_transform_col(self, signal: pd.Series) -> pd.Series:
+    def fit_transform_col(self, signal: pd.Series, col_to_impute: str) -> pd.Series:
         col = signal.name
-        col_index = signal.index.names
-        df = signal.reset_index()
-        imputed = utils.custom_groupby(df, self.groups).apply(lambda x: x[col].fillna(x[col].mean()))
-        return imputed.set_index(col_index)[col]
-
+        signal = signal.reset_index()
+        #imputed = utils.custom_groupby(signal, self.groups)[[col_to_impute]].apply(lambda x: x.fillna(x.mean()))
+        imputed = signal[col].fillna(utils.custom_groupby(signal, self.groups)[col].transform('mean'))
+        return imputed
 
 class ImputeByMedian(ImputeColumnWise):
     def __init__(
@@ -89,11 +89,10 @@ class ImputeByMedian(ImputeColumnWise):
 
     def fit_transform_col(self, signal: pd.Series, col_to_impute: str) -> pd.Series:
         col = signal.name
-        col_index = signal.index.names
-        df = signal.reset_index()
-        imputed = utils.custom_groupby(signal, self.groups).apply(lambda x: x[col].fillna(x[col].median()))
-        print(imputed.set_index(col_index)[col])
-        return imputed.set_index(col_index)[col]
+        signal = signal.reset_index()
+        #imputed = utils.custom_groupby(signal, self.groups)[[col_to_impute]].apply(lambda x: x.fillna(x.mean()))
+        imputed = signal[col].fillna(utils.custom_groupby(signal, self.groups)[col].transform('median'))
+        return imputed
 
 
 class RandomImpute(ImputeColumnWise):
@@ -103,13 +102,14 @@ class RandomImpute(ImputeColumnWise):
         pass
 
     def fit_transform_col(self, signal: pd.Series, col_to_impute: str) -> pd.Series:
-        imputed = signal.copy()
-        number_missing = imputed[col_to_impute].isnull().sum()
-        obs = imputed.loc[imputed[col_to_impute].notnull(), col_to_impute].values
-        imputed.loc[imputed[col_to_impute].isnull(), col_to_impute] = np.random.choice(
+        col = signal.name
+        imputed = signal.reset_index()
+        number_missing = imputed[col].isnull().sum()
+        obs = imputed.loc[imputed[col].notnull(), col].values
+        imputed.loc[imputed[col].isnull(), col] = np.random.choice(
             obs, number_missing, replace=True
         )
-        return imputed[col_to_impute]
+        return imputed[col]
 
 
 class ImputeLOCF(ImputeColumnWise):
@@ -120,7 +120,9 @@ class ImputeLOCF(ImputeColumnWise):
         super().__init__(groups=groups)
 
     def fit_transform_col(self, signal: pd.Series, col_to_impute: str) -> pd.Series:
-        imputed = utils.custom_groupby(signal, self.groups)[col_to_impute].transform(lambda x: x.ffill())
+        col = signal.name
+        imputed = signal.reset_index()
+        imputed = utils.custom_groupby(imputed, self.groups)[col].transform(lambda x: x.ffill())
         return imputed.fillna(np.nanmedian(imputed))
 
 
@@ -132,7 +134,9 @@ class ImputeNOCB(ImputeColumnWise):
         super().__init__(groups=groups)
 
     def fit_transform_col(self, signal: pd.Series, col_to_impute: str) -> pd.Series:
-        imputed = utils.custom_groupby(signal, self.groups)[col_to_impute].transform(lambda x: x.bfill())
+        col = signal.name
+        imputed = signal.reset_index()
+        imputed = utils.custom_groupby(imputed, self.groups)[col].transform(lambda x: x.bfill())
         return imputed.fillna(np.nanmedian(imputed))
 
 
@@ -142,7 +146,9 @@ class ImputeKNN(ImputeColumnWise):
             setattr(self, name, value)
 
     def fit_transform_col(self, signal: pd.Series, col_to_impute: str) -> pd.Series:
-        imputed = np.asarray(signal[col_to_impute]).reshape(-1, 1)
+        col = signal.name
+        signal = signal.reset_index()
+        imputed = np.asarray(signal[col]).reshape(-1, 1)
         imputer = KNNImputer(n_neighbors=self.k)
         imputed = imputer.fit_transform(imputed)
         imputed = pd.Series([a[0] for a in imputed], index=signal.index)
