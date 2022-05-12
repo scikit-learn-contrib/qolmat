@@ -67,9 +67,7 @@ class Comparator:
             )
 
     def get_errors(
-        self,
-        signal_ref: pd.DataFrame,
-        signal_imputed: pd.DataFrame,
+        self, signal_ref: pd.DataFrame, signal_imputed: pd.DataFrame,
     ) -> float:
 
         rmse = utils.mean_squared_error(
@@ -78,12 +76,10 @@ class Comparator:
             squared=False,
         )
         mae = utils.mean_absolute_error(
-            signal_ref[self.df_is_altered], 
-            signal_imputed[self.df_is_altered]
+            signal_ref[self.df_is_altered], signal_imputed[self.df_is_altered]
         )
         wmape = utils.weighted_mean_absolute_percentage_error(
-            signal_ref[self.df_is_altered], 
-            signal_imputed[self.df_is_altered]
+            signal_ref[self.df_is_altered], signal_imputed[self.df_is_altered]
         )
         return {"rmse": rmse, "mae": mae, "wmape": wmape}
 
@@ -112,5 +108,7 @@ class Comparator:
                 for k, v in self.get_errors(df, imputed_df).items():
                     errors[k].append(v)
 
-            results[type(tested_model).__name__] = {k: np.mean(v) for k, v in errors.items()}
+            results[type(tested_model).__name__] = {
+                k: np.mean(v) for k, v in errors.items()
+            }
         return results

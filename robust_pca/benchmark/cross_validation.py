@@ -29,7 +29,7 @@ class CrossValidation:
         self.corruption = corruption
 
     def create_corruptions(self, df: pd.DataFrame, random_state: Optional[int] = 129):
-        
+
         self.df_is_altered = utils.choice_with_mask(
             df, df.notna(), self.ratio_missing, random_state
         )
