@@ -138,22 +138,24 @@ def disaggregate_time_data(
         )
     df_impute_agg = df_impute_agg.reset_index()
     df_impute_agg = df_impute_agg.sort_values(by="datetime")
+    print("shape impute agg:", df_impute.shape)
 
     df_impute_agg[[f"{c}_cum_sum_impute" for c in init_cols]] = df_impute_agg.groupby(
         df_impute_agg.datetime.dt.date
     )[cols].transform(lambda x: x.cumsum())
+    print("shape impute agg:", df_impute.shape)
 
     df = df.reset_index()
     df_res = df.merge(df_impute_agg, on="datetime", how="outer")
     df_res = df_res.sort_values(by="datetime")
+    print("shape df_res:", df_res.shape)
+    print("same:", df_res.datetime.nunique())
     df_res = df_res.set_index("datetime")
-
     df_res[[f"{c}_piecewise_lin" for c in init_cols]] = df_res.groupby(
         df_res.index.date
     )[[f"{c}_cum_sum_impute" for c in init_cols]].transform(
         lambda x: x.interpolate(method="time", limit_direction="forward")
     )
-
     df_res.loc[:, [f"{c}_piecewise_lin" for c in init_cols]] = np.where(
         df_res.loc[:, [f"{c}_piecewise_lin" for c in init_cols]] >= 0,
         df_res.loc[:, [f"{c}_piecewise_lin" for c in init_cols]],
@@ -162,7 +164,6 @@ def disaggregate_time_data(
     df_res = df_res.sort_index()
     df_res = df_res.loc[df.datetime, :]
     df_res = df_res.reset_index().sort_values(by="datetime")
-
     df_res[[f"{c}_piecewise_lin_shift" for c in init_cols]] = df_res[
         [f"{c}_piecewise_lin" for c in init_cols]
     ].shift(1)

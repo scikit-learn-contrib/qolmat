@@ -150,6 +150,7 @@ class ImputeKNN(ImputeColumnWise):
         return {"k": self.k}
 
 
+"""
 # does not work with kedro...
 class ImputeProphet:
     def __init__(self, **kwargs) -> None:
@@ -185,44 +186,56 @@ class ImputeProphet:
             "yearly_seasonality": self.yearly_seasonality,
             "interval_width": self.interval_width,
         }
+"""
 
 
 class ImputeRPCA:
-    def __init__(self, rpca, **kwargs) -> None:
-        # for name, value in kwargs.items():
-        #     setattr(self, name, value)
-        self.dict_params = kwargs
-        self.rpca = rpca
-        # if method == "PCP":
-        #     self.rpca = RPCA()
-        # elif method == "temporal":
-        #     self.rpca = TemporalRPCA()
+    def __init__(
+        self, method, aggregate_time=False, multivariate=False, **kwargs
+    ) -> None:
+        self.aggregate_time = aggregate_time
+        self.multivariate = multivariate
+
+        if method == "PCP":
+            self.rpca = RPCA()
+        elif method == "temporal":
+            self.rpca = TemporalRPCA()
+
+        for name, value in kwargs.items():
+            setattr(self.rpca, name, value)
+
+        # self.dict_params = kwargs
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        if hasattr(self, "aggregate_time"):
+
+        # self.rpca.set_params(**self.dict_params)
+
+        if self.aggregate_time:
             df_ref, df_agg, df_agg_nan, indices_to_nan = utils.aggregate_time_data(
                 df, self.aggregate_time
             )
+        else:
+            df_agg = df.copy()
 
-        self.rpca.set_params(**self.dict_params)
         if self.multivariate:
-            _, imputed, _ = self.rpca.fit_transform(signal=df_agg.values)
+            imputed, _, _ = self.rpca.fit_transform(signal=df_agg.values)
             imputed = pd.DataFrame(imputed, columns=df_agg.columns)
         else:
             imputed = pd.DataFrame()
             for col in df.columns:
-                _, imputed_signal, _ = self.rpca.fit_transform(
+                imputed_signal, _, _ = self.rpca.fit_transform(
                     signal=df_agg[col].values
                 )
                 imputed[col] = imputed_signal
         imputed.index = df_agg.index
 
-        if hasattr(self, "aggregate_time"):
+        if self.aggregate_time:
             df_res = utils.disaggregate_time_data(
                 df, df_agg, imputed, self.aggregate_time
             )
-
-        return df_res
+            return df_res
+        else:
+            return imputed
 
     def get_hyperparams(self):
         pass

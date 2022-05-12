@@ -43,13 +43,15 @@ class CrossValidation:
             )
 
     def loss_function(self, initial, imputed):
-        print(self.df_is_altered)
         return np.sum(abs(initial[self.df_is_altered] - imputed[self.df_is_altered]))
 
     def objective(self, args):
-
-        for param_name, param_value in zip(self.search_name, args):
-            setattr(self.model, param_name, param_value)
+        if hasattr(self.model, "rpca"):
+            for param_name, param_value in zip(self.search_name, args):
+                setattr(self.model.rpca, param_name, param_value)
+        else:
+            for param_name, param_value in zip(self.search_name, args):
+                setattr(self.model, param_name, param_value)
 
         errors = []
         for _ in range(self.cv):
