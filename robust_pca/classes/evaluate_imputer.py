@@ -17,14 +17,14 @@ def eval(y_true, y_pred):
         y_true = np.where(np.isnan(y_true+y_pred), 0, y_true)
         y_pred = np.where(np.isnan(y_true+y_pred), 0, y_pred)
 
-        rmse = mean_squared_error(y_true, y_pred, squared = False)
-        mae = mean_absolute_error(y_true, y_pred)
+        rmse = mean_squared_error(y_true[y_true>10], y_pred[y_true>10], squared = False)
+        mae = mean_absolute_error(y_true[y_true>10], y_pred[y_true>10])
         
-        y_true_nan = np.where(y_true > 0, y_true, np.nan)
-        y_pred_nan = np.where(y_true > 0, y_pred, np.nan)
+        y_true_nan = np.where(y_true > 10, y_true, np.nan)
+        y_pred_nan = np.where(y_true > 10, y_pred, np.nan)
 
         mape = np.nanmean(np.abs((y_true_nan - y_pred_nan)/np.abs(y_true_nan)))
-        wmape = np.mean(np.abs(y_true - y_pred))/np.mean(np.abs(y_true))
+        wmape = np.nanmean(np.abs(y_true_nan - y_pred_nan))/np.nanmean(np.abs(y_true_nan))
         return rmse, mae, mape, wmape
 
 
@@ -68,7 +68,7 @@ class EvaluateImputor:
 
         for nan_indices in self.nan_subsets:
             transform.flat[nan_indices] = np.nan
-            impute, _, _ = imputor.fit_transform(signal =transform)
+            impute, _, _ = imputor.fit_transform(signal = transform)
             rmse, mae, mape, wmape = func(input, impute)
             RMSE.append(rmse)
             MAE.append(mae)

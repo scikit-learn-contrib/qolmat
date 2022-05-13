@@ -50,6 +50,7 @@ class RPCA(BaseEstimator, TransformerMixin):
         else:
             D_init = signal.copy()
             n_add_values = 0
+            self.input_data = "1DArray"
         return D_init, n_add_values
     
     def get_params(self):

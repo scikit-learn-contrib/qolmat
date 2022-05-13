@@ -31,19 +31,16 @@ class get_objective:
         self.imputor_eval = imputor_eval
         self.space = space
         self.scoring = scoring
-        self.exp = exp
 
     def fit_transform_and_evaluate(self):
         @skopt.utils.use_named_args(self.space)
         def obj_func(**all_params):
-            
-            if self.exp:
-                all_params = dict(map(lambda x: (x[0], np.exp(x[1]*np.log(10))), all_params.items()))
-
             imputor = self.imputor.set_params(**all_params)
             scores = self.imputor_eval.scores_imputor(imputor)
             gc.collect()
-            print(scores[self.scoring])
+            print(f"{self.scoring} = {scores[self.scoring]}")
+            print(f"wmape = {scores['wmape']}")
+            print(f"mape = {scores['mape']}")
             return scores[self.scoring]
 
         return obj_func
@@ -91,9 +88,9 @@ def rpca_optimizer(imputor: RPCA,
     gc.collect()
     if return_signal:
         if len(imputor_eval.signal.shape) == 1:
-            transform_signal, _, _ = imputor.fit_transform(signal = imputor_eval.signal)
+            transform_signal, anomalies, _ = imputor.fit_transform(signal = imputor_eval.signal)
         else:
-            transform_signal, _, _ = imputor.fit_transform(D = imputor_eval.D)
-        return best_imputor, best_score, best_params, transform_signal
+            transform_signal, anomalies, _ = imputor.fit_transform(D = imputor_eval.D)
+        return best_imputor, best_score, best_params, transform_signal, anomalies
     return best_imputor, best_score, best_params
 

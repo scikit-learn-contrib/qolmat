@@ -223,7 +223,8 @@ class TemporalRPCA(RPCA):
     def set_params(self, **kargs):
         _ = super().set_params(**kargs)
         for param_key in kargs.keys():
-            setattr(self, param_key, kargs[param_key]) 
+            if param_key in ["tau", "lam"]:
+                setattr(self, param_key, kargs[param_key]) 
 
         list_periods = []
         list_etas = []
@@ -263,7 +264,6 @@ class TemporalRPCA(RPCA):
             self.tau = 1.0 / np.sqrt(max(D_init.shape))
         if self.lam is None:
             self.lam = 1.0 / np.sqrt(max(D_init.shape))
-
         if self.norm == "L1":
             X, A, errors = self.compute_L1(proj_D, omega)
         elif self.norm == "L2":
