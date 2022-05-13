@@ -12,6 +12,7 @@ from robust_pca.imputations.rpca.temporal_rpca import TemporalRPCA
 
 import os
 import utils
+import sys
 
 
 class suppress_stdout_stderr(object):
@@ -55,7 +56,7 @@ class ImputeColumnWise:
         imputed = df.copy()
         for col in col_to_impute:
             # df_col = df[col].reset_index()
-            imputed[col] = self.fit_transform_col(df[col], col_to_impute=col).values
+            imputed[col] = self.fit_transform_col(df[col]).values
         imputed.fillna(0, inplace=True)
         return imputed
 
@@ -67,7 +68,7 @@ class ImputeByMean(ImputeColumnWise):
     def __init__(self, groups=[],) -> None:
         super().__init__(groups=groups)
 
-    def fit_transform_col(self, signal: pd.Series, col_to_impute: str) -> pd.Series:
+    def fit_transform_col(self, signal: pd.Series) -> pd.Series:
         col = signal.name
         signal = signal.reset_index()
         # imputed = utils.custom_groupby(signal, self.groups)[[col_to_impute]].apply(lambda x: x.fillna(x.mean()))
@@ -81,7 +82,7 @@ class ImputeByMedian(ImputeColumnWise):
     def __init__(self, groups=[],) -> None:
         super().__init__(groups=groups)
 
-    def fit_transform_col(self, signal: pd.Series, col_to_impute: str) -> pd.Series:
+    def fit_transform_col(self, signal: pd.Series) -> pd.Series:
         col = signal.name
         signal = signal.reset_index()
         # imputed = utils.custom_groupby(signal, self.groups)[[col_to_impute]].apply(lambda x: x.fillna(x.mean()))
@@ -95,7 +96,7 @@ class RandomImpute(ImputeColumnWise):
     def __init__(self,) -> None:
         pass
 
-    def fit_transform_col(self, signal: pd.Series, col_to_impute: str) -> pd.Series:
+    def fit_transform_col(self, signal: pd.Series) -> pd.Series:
         col = signal.name
         imputed = signal.reset_index()
         number_missing = imputed[col].isnull().sum()
@@ -110,7 +111,7 @@ class ImputeLOCF(ImputeColumnWise):
     def __init__(self, groups=[],) -> None:
         super().__init__(groups=groups)
 
-    def fit_transform_col(self, signal: pd.Series, col_to_impute: str) -> pd.Series:
+    def fit_transform_col(self, signal: pd.Series) -> pd.Series:
         col = signal.name
         imputed = signal.reset_index()
         imputed = utils.custom_groupby(imputed, self.groups)[col].transform(
@@ -123,7 +124,7 @@ class ImputeNOCB(ImputeColumnWise):
     def __init__(self, groups=[],) -> None:
         super().__init__(groups=groups)
 
-    def fit_transform_col(self, signal: pd.Series, col_to_impute: str) -> pd.Series:
+    def fit_transform_col(self, signal: pd.Series) -> pd.Series:
         col = signal.name
         imputed = signal.reset_index()
         imputed = utils.custom_groupby(imputed, self.groups)[col].transform(
@@ -137,7 +138,7 @@ class ImputeKNN(ImputeColumnWise):
         for name, value in kwargs.items():
             setattr(self, name, value)
 
-    def fit_transform_col(self, signal: pd.Series, col_to_impute: str) -> pd.Series:
+    def fit_transform_col(self, signal: pd.Series) -> pd.Series:
         col = signal.name
         signal = signal.reset_index()
         imputed = np.asarray(signal[col]).reshape(-1, 1)
@@ -149,6 +150,25 @@ class ImputeKNN(ImputeColumnWise):
     def get_hyperparams(self):
         return {"k": self.k}
 
+class ImputeByInterpolation(ImputeColumnWise):
+    def __init__(self, **kwargs) -> None:
+        for name, value in kwargs.items():
+            setattr(self, name, value)
+            
+    def fit_transform_col(self, signal: pd.Series) -> pd.Series:
+        col = signal.name
+        signal = signal.reset_index()
+        print(signal.datetime.isna().sum())
+        signal = signal.set_index("datetime")
+        return signal[col].interpolate(method=self.method)
+        
+        
+class ImputeBySpline(ImputeColumnWise):
+    def __init__(self,) -> None:
+        pass
+            
+    def fit_transform_col(self, signal: pd.Series) -> pd.Series:
+        return signal.interpolate(option="spline")
 
 """
 # does not work with kedro...
@@ -207,13 +227,18 @@ class ImputeRPCA:
         # self.dict_params = kwargs
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
-
         # self.rpca.set_params(**self.dict_params)
 
         if self.aggregate_time:
-            df_ref, df_agg, df_agg_nan, indices_to_nan = utils.aggregate_time_data(
-                df, self.aggregate_time
-            )
+            df_agg = pd.DataFrame()
+            for col in df.columns:
+                df_to_agg = df.reset_index()
+                df_to_agg = df_to_agg[["datetime", col]]
+                agg = utils.aggregate_time_data(
+                    df_to_agg, col, self.aggregate_time
+                )
+                df_agg[col] = agg["agg_values"]
+            df_agg.index = agg["agg_time"]
         else:
             df_agg = df.copy()
 
@@ -229,11 +254,26 @@ class ImputeRPCA:
                 imputed[col] = imputed_signal
         imputed.index = df_agg.index
 
+
+        # something wrong
         if self.aggregate_time:
-            df_res = utils.disaggregate_time_data(
-                df, df_agg, imputed, self.aggregate_time
-            )
-            return df_res
+            index_df = df.index
+            df = df.reset_index()
+            df.loc[:, "datetime"] = df.datetime.dt.tz_localize(tz=None)
+            df["day_SNCF"] = (df["datetime"] - pd.Timedelta("4H")).dt.date
+            results = pd.DataFrame()
+            for col in imputed.columns:
+                df_res = df.groupby("day_SNCF").apply(
+                    lambda x: utils.impute_entropy_day(
+                        x, col, ts_agg=imputed[col], agg_time=self.aggregate_time, zero_soil=0.0
+                    )
+                )
+                results[col] = df_res["impute"]
+            print(results)
+            print(results.shape)
+            print("resultat")
+            results.index = index_df
+            return results
         else:
             return imputed
 
@@ -248,7 +288,7 @@ class ImputeIterative:
         for name, value in kwargs.items():
             setattr(self, name, value)
 
-    def fit_transform(self, df=pd.DataFrame) -> pd.DataFrame:
+    def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         ii = IterativeImputer(
             initial_strategy=self.initial_strategy,
             imputation_order=self.imputation_order,
@@ -262,3 +302,5 @@ class ImputeIterative:
 
     def get_hyperparams(self):
         pass
+
+
