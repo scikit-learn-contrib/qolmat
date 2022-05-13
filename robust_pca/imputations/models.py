@@ -76,7 +76,7 @@ class ImputeByMean(ImputeColumnWise):
         col = signal.name
         col_index = signal.index.names
         df = signal.reset_index()
-        imputed = utils.custom_groupby(df, self.groups).apply(lambda x: x[col].fillna(x[col].mean()))
+        imputed = utils.custom_groupby(df, self.groups)[[col]].apply(lambda x: x.fillna(x.mean()))
         return imputed.set_index(col_index)[col]
 
 
