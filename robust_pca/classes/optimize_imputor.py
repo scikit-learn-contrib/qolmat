@@ -63,7 +63,7 @@ def rpca_optimizer(imputor: RPCA,
                 exp = exp_variables
     )
     objective_func = objective.fit_transform_and_evaluate()
-
+    print(f"n_jobs={n_jobs}")
     print("beging_time = " + str(datetime.datetime.now().strftime("%H:%M:%S")))
     result = gp_minimize(
             func=objective_func,

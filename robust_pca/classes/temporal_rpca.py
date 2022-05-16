@@ -226,17 +226,11 @@ class TemporalRPCA(RPCA):
             if param_key in ["tau", "lam"]:
                 setattr(self, param_key, kargs[param_key]) 
 
-        list_periods = []
-        list_etas = []
+        list_etas = [None]*len(self.list_periods)
         for param_key in kargs.keys():
-            if "period" in param_key:
-                index_period = int(param_key[7:])
-                if f"eta_{index_period}" in kargs.keys():
-                    list_periods.append(kargs[param_key])
-                    list_etas.append(kargs[f"eta_{index_period}"])
-                else:
-                    raise ValueError(f"No etas' index correspond to {param_key}")
-        self.list_periods = list_periods
+            if "eta" in param_key:
+                index_eta = int(param_key[4:])
+                list_etas[index_eta] = kargs[param_key]
         self.list_etas = list_etas
         return self
 

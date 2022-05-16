@@ -156,7 +156,6 @@ def impute_nans(M: NDArray, method:str = "zeros") -> NDArray:
     NDArray
         Array with imputed nan
     """
-
     if method == "mean":
         result = np.where(np.isnan(M), np.tile(np.nanmean(M, axis=0), (M.shape[0], 1)), M)
         result = np.where(np.isnan(result), np.nanmean(result), result)
