@@ -3,8 +3,13 @@ import pandas as pd
 import numpy as np
 from sklearn.utils import resample
 from math import floor
-import sys
+from scipy.optimize import lsq_linear
+from scipy.optimize import LinearConstraint
+from scipy.optimize import Bounds
+import scipy.sparse as sparse
 
+
+BOUNDS = Bounds(1, np.inf, keep_feasible=True)
 
 def get_search_space(tested_model, search_params):
     search_space = None
@@ -46,8 +51,13 @@ def custom_groupby(df, groups):
         return df
 
 
-def choice_with_mask(df, mask, ratio, random_state=None):
-    indices = np.argwhere(mask.to_numpy().flatten())
+def choice_with_mask(df, mask, ratio, filter_value=None, random_state=None):
+    mask = mask.to_numpy().flatten()
+    if filter_value:
+        mask_filter = (df.values>filter_value).flatten()
+        mask += mask_filter
+    
+    indices = np.argwhere(mask)
     indices = resample(
         indices,
         replace=False,
@@ -83,97 +93,132 @@ def weighted_mean_absolute_percentage_error(df_true, df_pred):
     )
 
 
-def aggregate_time_data(data: pd.DataFrame, agg_time: str, na_handling="ignore"):
-    columns = data.columns
-    df_ref = data.copy()
-    df_ref = df_ref.reset_index()
-    df_ref.loc[:, "datetime"] = df_ref.datetime.dt.tz_localize(tz=None)
-    df = df_ref.copy()
-    df_agg = df_ref.set_index("datetime")
-    df_agg_nan = df_agg.copy()
+def get_agg_matrix(x, y, freq):
+    delta = pd.Timedelta(freq)
+    x = x.reshape(-1, 1)
+    x = np.tile(x, (1, len(y)))
+    y = np.tile(y, (len(x), 1))
 
-    if na_handling == "ignore":
-        df_agg = df_agg.resample(agg_time, axis=0, closed="right")[columns].sum()
-    elif na_handling == "agg_to_nan":
-        agg_sum = lambda x: x.sum(skipna=False, min_count=0)
-        df_agg = df_agg.resample(agg_time, axis=0, closed="right")[columns].apply(
-            agg_sum
-        )
-    elif na_handling == "fillna":
-        df_agg["mean_agg"] = df_agg.resample(agg_time, axis=0, closed="right")[
-            columns
-        ].transform("mean")
-        df_agg.loc[:, columns] = np.where(
-            np.isnan(df_agg.loc[:, columns]),
-            df_agg.loc[:, "mean_agg"],
-            df_agg.loc[:, columns],
-        )
-        df_agg = df_agg.resample(agg_time, axis=0, closed="right")[columns].sum()
-    else:
-        raise ValueError("'na_handling' should be in ['igore', 'agg_to_nan', 'fillna']")
+    increasing = 1 + ((y - x) / delta)
+    increasing = np.logical_and(x - delta <= y, y < x) * increasing
+    decreasing = 1 + ((x - y) / delta)
+    decreasing[-1, :] = 1
+    decreasing = np.logical_and(x <= y, y < x + delta) * decreasing
 
-    custom_sum = lambda x: x.sum(skipna=False, min_count=1)
-    df_agg_nan = df_agg_nan.resample(agg_time, axis=0, closed="right")[columns].apply(
-        custom_sum
+    A = sparse.csc_matrix(decreasing + increasing)
+    return A
+
+
+def agg_df_values(df, target, agg_time):
+    df_dt = df["datetime"]
+    df_dt_agg = np.sort(df["datetime"].dt.floor(agg_time).unique())
+    A = get_agg_matrix(x=df_dt_agg, y=df_dt, freq=agg_time)
+    df_values_agg = A.dot(df[target].values)
+    df_res = pd.DataFrame({"agg_time": df_dt_agg, "agg_values": df_values_agg})
+    return df_res
+
+
+def aggregate_time_data(df, target, agg_time):
+    df.loc[:, "datetime"] = df.datetime.dt.tz_localize(tz=None)
+    df["day_SNCF"] = (df["datetime"] - pd.Timedelta("4H")).dt.date
+    df_aggregated = df.groupby("day_SNCF").apply(
+        lambda x: agg_df_values(x, target, agg_time)
     )
+    return df_aggregated
 
-    indices_to_nan = np.where(df_agg_nan.values > 0.0)
-    return df_ref, df_agg, df_agg_nan, indices_to_nan
+def cross_entropy(t, t_hyp):
+    loss = np.sum(t * np.log(t / t_hyp))
+    jac = np.log(t / t_hyp) - 1
+    return loss, jac
 
 
-def disaggregate_time_data(
-    df: pd.DataFrame, df_agg: pd.DataFrame, df_impute: pd.DataFrame, agg_time: str
+def hessian(t):
+    return np.diag(1 / t)
+
+
+def impute_by_max_entropy(
+    df_dt,
+    df_dt_agg,
+    df_values_agg,
+    freq,
+    df_values_hyp,
 ):
-    init_index = df.index.names
-    init_cols = df.columns
+    A = get_agg_matrix(x=df_dt_agg, y=df_dt, freq=freq)
+    np.random.seed(42)
+    res = lsq_linear(A, b=df_values_agg, bounds=(1, np.inf), method="trf", tol=1e-10)
+    df_res = pd.DataFrame({"datetime": df_dt, "impute": res.x})
+    return df_res
 
-    df_impute.index = df_impute.index.shift(1, freq=agg_time)
-    df_impute_agg = df_impute.copy()
-    df_impute_agg = df_impute_agg.rename(columns={c: f"impute_{c}" for c in init_cols})
-    cols = df_impute_agg.columns
-    # faire par colonne !!!!
-    for col in cols:
-        df_impute_agg.loc[:, col] = np.where(
-            df_impute_agg.loc[:, col] >= 0, df_impute_agg.loc[:, col], 0,
-        )
-    df_impute_agg = df_impute_agg.reset_index()
-    df_impute_agg = df_impute_agg.sort_values(by="datetime")
-    print("shape impute agg:", df_impute.shape)
 
-    df_impute_agg[[f"{c}_cum_sum_impute" for c in init_cols]] = df_impute_agg.groupby(
-        df_impute_agg.datetime.dt.date
-    )[cols].transform(lambda x: x.cumsum())
-    print("shape impute agg:", df_impute.shape)
+def is_in_a_slot(df_dt, df_dt_agg, freq):
+    delta = pd.Timedelta(freq)
+    df_dt_agg = df_dt_agg.values.reshape(-1, 1)
+    df_dt_agg = np.tile(df_dt_agg, (1, len(df_dt)))
+    df_dt = df_dt.values
+    df_dt = np.tile(df_dt, (len(df_dt_agg), 1))
 
-    df = df.reset_index()
-    df_res = df.merge(df_impute_agg, on="datetime", how="outer")
-    df_res = df_res.sort_values(by="datetime")
-    print("shape df_res:", df_res.shape)
-    print("same:", df_res.datetime.nunique())
-    df_res = df_res.set_index("datetime")
-    df_res[[f"{c}_piecewise_lin" for c in init_cols]] = df_res.groupby(
-        df_res.index.date
-    )[[f"{c}_cum_sum_impute" for c in init_cols]].transform(
-        lambda x: x.interpolate(method="time", limit_direction="forward")
+    lower_bound = df_dt >= df_dt_agg - delta
+    upper_bound = df_dt < df_dt_agg + delta
+
+    in_any_slots = np.logical_and(lower_bound, upper_bound)
+    in_any_slots = np.any(in_any_slots, axis=0)
+    return in_any_slots
+
+
+def impute_entropy_day(df, target, ts_agg, agg_time, zero_soil=0.0):
+    col_name = ts_agg.name
+
+    df_day = df.drop_duplicates(subset=["datetime"])
+    ts_agg = ts_agg.to_frame().reset_index()
+    ts_agg = ts_agg.loc[
+        (ts_agg.agg_time >= df_day.datetime.min())
+        & (ts_agg.agg_time <= df_day.datetime.max())
+    ]
+    if len(ts_agg) < 2:
+        df_day = pd.DataFrame({"datetime": df_day.datetime.values})
+        df_day["impute"] = np.nan
+        df_res = df.merge(df_day[["datetime", "impute"]], on="datetime", how="left")
+        return df_res
+
+    df_day["datetime_round"] = df_day.datetime.dt.round(agg_time)
+    df_day["n_train"] = df_day.groupby("datetime_round")[target].transform(
+        lambda x: x.shape[0]
     )
-    df_res.loc[:, [f"{c}_piecewise_lin" for c in init_cols]] = np.where(
-        df_res.loc[:, [f"{c}_piecewise_lin" for c in init_cols]] >= 0,
-        df_res.loc[:, [f"{c}_piecewise_lin" for c in init_cols]],
-        0,
+    
+    df_day["hyp_values"] = (
+        df_day[["datetime_round"]]
+        .merge(ts_agg, left_on="datetime_round", right_on="agg_time", how="left")[
+            col_name
+        ]
+        .values
     )
-    df_res = df_res.sort_index()
-    df_res = df_res.loc[df.datetime, :]
-    df_res = df_res.reset_index().sort_values(by="datetime")
-    df_res[[f"{c}_piecewise_lin_shift" for c in init_cols]] = df_res[
-        [f"{c}_piecewise_lin" for c in init_cols]
-    ].shift(1)
-    df_res[[f"{c}_result" for c in init_cols]] = (
-        df_res.loc[:, [f"{c}_piecewise_lin" for c in init_cols]].values
-        - df_res.loc[:, [f"{c}_piecewise_lin_shift" for c in init_cols]].values
+
+    df_day["hyp_values"] = df_day["hyp_values"] / df_day["n_train"]
+    df_day.loc[df_day[target].notna(), "hyp_values"] = df_day.loc[
+        df_day[target].notna(), target
+    ]
+    ts_agg_zeros = ts_agg.loc[ts_agg[col_name] <= zero_soil, "agg_time"]
+    is_in_zero_slot = is_in_a_slot(
+        df_dt=df_day["datetime"], df_dt_agg=ts_agg_zeros, freq=agg_time
     )
-    df_res = df_res.sort_values(by="datetime")
-    df_res = df_res.set_index(init_index)
-    df_res = df_res[[f"{c}_result" for c in init_cols]]
-    df_res = df_res.rename(columns={k: v for k, v in zip(df_res.columns, init_cols)})
+
+    df_day["impute"] = np.nan
+    df_day.loc[is_in_zero_slot, "impute"] = 0
+    
+    non_zero_impute = impute_by_max_entropy(
+        df_dt=df_day.loc[~is_in_zero_slot, "datetime"].values,
+        df_dt_agg=ts_agg.loc[ts_agg[col_name] > zero_soil, "agg_time"].values,
+        df_values_agg=ts_agg.loc[ts_agg[col_name] > zero_soil, col_name].values,
+        freq=agg_time,
+        df_values_hyp=df_day.loc[~is_in_zero_slot, "hyp_values"].values,
+    )
+    
+    df_day.loc[~is_in_zero_slot, "impute"] = (
+        df_day.loc[~is_in_zero_slot, ["datetime"]]
+        .merge(non_zero_impute, on="datetime", how="left")["impute"]
+        .values
+    )
+
+    df_res = df.merge(df_day[["datetime", "impute"]], on="datetime", how="left")
 
     return df_res

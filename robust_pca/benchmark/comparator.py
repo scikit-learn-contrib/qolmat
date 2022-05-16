@@ -23,19 +23,29 @@ class Comparator:
         cols_to_impute,
         search_params={},
         corruption="missing",
+        filter_value_nan=-1e10
     ):
 
         self.df = data[cols_to_impute]
         self.ratio_missing = ratio_missing
         self.cols_to_impute = cols_to_impute
+        self.filter_value_nan = filter_value_nan
         self.models_to_test = models_to_test
         self.search_params = search_params
         self.corruption = corruption
 
-    def create_corruptions(self, df: pd.DataFrame, random_state: Optional[int] = 29):
+    def create_corruptions(
+        self, 
+        df: pd.DataFrame, 
+        random_state: Optional[int] = 29
+    ):
 
         self.df_is_altered = utils.choice_with_mask(
-            df, df.notna(), self.ratio_missing, random_state
+            df, 
+            df.notna(), 
+            self.ratio_missing, 
+            self.filter_value_nan,
+            random_state
         )
 
         self.corrupted_df = df.copy()
@@ -85,9 +95,9 @@ class Comparator:
                     ratio_missing=self.ratio_missing,
                     corruption=self.corruption,
                 )
-                print("# nan before imputation:", df.isna().sum().sum())
+                #print("# nan before imputation:", df.isna().sum().sum())
                 imputed_df = cv.fit_transform(self.corrupted_df)
-                print("# nan after imputation...:", imputed_df.isna().sum().sum())
+                #print("# nan after imputation...:", imputed_df.isna().sum().sum())
                 for k, v in self.get_errors(df, imputed_df).items():
                     errors[k].append(v)
 
