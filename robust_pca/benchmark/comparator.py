@@ -34,26 +34,6 @@ class Comparator:
 
     def create_corruptions(self, df: pd.DataFrame, random_state: Optional[int] = 29):
 
-        # # indices = list(map(tuple, np.argwhere(~np.isnan(df.values))))
-        # indices = np.argwhere(df.notna().to_numpy().flatten())
-        # print(indices)
-        # indices = resample(
-        #     indices,
-        #     replace=False,
-        #     n_samples=floor(len(indices) * self.ratio_missing),
-        #     random_state=random_state,
-        #     stratify=None,
-        # )
-        # print(indices)
-        # # for i, j in indices:
-        # #     print(self.df.iloc[i, j])
-        # self.df_is_altered = np.zeros(df.size)
-        # print(self.df_is_altered)
-        # self.df_is_altered[indices] = 1
-        # print(self.df_is_altered)
-        # self.df_is_altered = pd.DataFrame(self.df_is_altered.reshape(df.shape), index=df.index, columns=df.columns, dtype=bool)
-        # print(self.df_is_altered)
-
         self.df_is_altered = utils.choice_with_mask(
             df, df.notna(), self.ratio_missing, random_state
         )
@@ -67,9 +47,7 @@ class Comparator:
             )
 
     def get_errors(
-        self,
-        signal_ref: pd.DataFrame,
-        signal_imputed: pd.DataFrame,
+        self, signal_ref: pd.DataFrame, signal_imputed: pd.DataFrame,
     ) -> float:
 
         rmse = utils.mean_squared_error(
@@ -77,34 +55,24 @@ class Comparator:
             signal_imputed[self.df_is_altered],
             squared=False,
         )
-        print(rmse)
-
         mae = utils.mean_absolute_error(
             signal_ref[self.df_is_altered], signal_imputed[self.df_is_altered]
         )
-        print(mae)
-
-        # rmse = mean_squared_error(
-        #     signal_ref.iloc[self.indices], signal_imputed.iloc[self.indices], squared=False
-        # )
-        # mae = mean_absolute_error(
-        #     signal_ref.iloc[self.indices], signal_imputed.iloc[self.indices]
-        # )
-        # # mape = mean_absolute_percentage_error(signal_ref[self.indices], signal_imputed[self.indices])
-        # wmape = np.mean(
-        #     np.abs(signal_ref[self.indices] - signal_imputed[self.indices])
-        # ) / np.mean(np.abs(signal_ref[self.indices]))
-        return {"rmse": rmse, "mae": mae}  # , "wmape": wmape}  # "mape": mape,
+        wmape = utils.weighted_mean_absolute_percentage_error(
+            signal_ref[self.df_is_altered], signal_imputed[self.df_is_altered]
+        )
+        return {"rmse": round(rmse, 4), "mae": round(mae, 4), "wmape": round(wmape, 4)}
 
     def compare(self):
 
         results = {}
         for tested_model in self.models_to_test:
             print(type(tested_model).__name__)
+
             search_space, search_name = utils.get_search_space(
                 tested_model, self.search_params
             )
-            res_intermediate = {}
+
             df = self.df[self.cols_to_impute]
             errors = defaultdict(list)
             for _ in range(1):
@@ -117,10 +85,14 @@ class Comparator:
                     ratio_missing=self.ratio_missing,
                     corruption=self.corruption,
                 )
+                print("# nan before imputation:", df.isna().sum().sum())
                 imputed_df = cv.fit_transform(self.corrupted_df)
+                print("# nan after imputation...:", imputed_df.isna().sum().sum())
                 for k, v in self.get_errors(df, imputed_df).items():
                     errors[k].append(v)
 
-                print(errors)
-        results[type(tested_model).__name__] = errors
+            results[type(tested_model).__name__] = {
+                k: np.mean(v) for k, v in errors.items()
+            }
+
         return results

@@ -223,11 +223,13 @@ class TemporalRPCA(RPCA):
 
     def set_params(self, **kargs):
         _ = super().set_params(**kargs)
+
         for param_key in kargs.keys():
             setattr(self, param_key, kargs[param_key])
 
         list_periods = []
         list_etas = []
+
         for param_key in kargs.keys():
             if "period" in param_key:
                 index_period = int(param_key[7:])
@@ -236,14 +238,12 @@ class TemporalRPCA(RPCA):
                     list_etas.append(kargs[f"eta_{index_period}"])
                 else:
                     raise ValueError(f"No etas' index correspond to {param_key}")
+
         self.list_periods = list_periods
         self.list_etas = list_etas
         return self
 
-    def fit_transform(
-        self,
-        signal: NDArray,
-    ) -> None:
+    def fit_transform(self, signal: NDArray,) -> None:
         """
         Compute the noisy RPCA with time "penalisations"
 
@@ -348,10 +348,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
         self.online_lam = online_lam
         self.online_list_etas = online_list_etas
 
-    def fit_transform(
-        self,
-        signal: NDArray,
-    ) -> None:
+    def fit_transform(self, signal: NDArray,) -> None:
         """
         Compute an online version of RPCA with temporal regularisations
 
@@ -483,9 +480,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
         }
 
     def get_params_scale(
-        self,
-        signal: Optional[ArrayLike] = None,
-        D: Optional[NDArray] = None,
+        self, signal: Optional[ArrayLike] = None, D: Optional[NDArray] = None,
     ) -> None:
         D_init, _ = self._prepare_data(signal=signal, D=D)
         params_scale = super().get_params_scale(signal=signal, D=D)
