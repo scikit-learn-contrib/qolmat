@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
-import cross_validation
+from robust_pca.benchmark import cross_validation
+from robust_pca.benchmark import  utils
 from sklearn.metrics import (
     mean_squared_error,
     mean_absolute_error,
@@ -11,7 +12,7 @@ from typing import Optional
 from math import floor
 from skopt.space import Categorical, Real, Integer
 import matplotlib.pyplot as plt
-import utils
+
 
 
 class Comparator:

@@ -6,3 +6,4 @@ __pycache__/
 /figures
 /robust_pca.egg-info
 /dist
+/build

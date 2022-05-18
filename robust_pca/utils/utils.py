@@ -9,7 +9,6 @@ import numpy as np
 import pandas as pd
 from sklearn.neighbors import kneighbors_graph
 import scipy
-from statsmodels import robust
 
 def get_period(signal: List) -> int:
     """Retrieve the "period" of a series based on the ACF
@@ -291,7 +290,7 @@ def get_anomaly(A, X, e=3):
         np.ndarray: filtered A
         np.ndarray: noise
     """
-    mad = robust.mad(X)
+    mad = np.median(np.abs(X - np.median(X)))
     return np.where(np.abs(A) > (e * mad), A, 0), np.where(np.abs(A) <= (e * mad), A, 0)
 
 def resultRPCA_to_signal(

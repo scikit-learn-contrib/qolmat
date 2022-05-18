@@ -9,11 +9,9 @@ from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import KNNImputer, IterativeImputer
 from robust_pca.imputations.rpca.pcp_rpca import RPCA
 from robust_pca.imputations.rpca.temporal_rpca import TemporalRPCA
-
+from robust_pca.benchmark import utils
 import os
-import utils
 import sys
-
 
 class suppress_stdout_stderr(object):
     """
