@@ -11,6 +11,7 @@ import scipy.sparse as sparse
 
 BOUNDS = Bounds(1, np.inf, keep_feasible=True)
 
+
 def get_search_space(tested_model, search_params):
     search_space = None
     search_name = None
@@ -54,9 +55,9 @@ def custom_groupby(df, groups):
 def choice_with_mask(df, mask, ratio, filter_value=None, random_state=None):
     mask = mask.to_numpy().flatten()
     if filter_value:
-        mask_filter = (df.values>filter_value).flatten()
+        mask_filter = (df.values > filter_value).flatten()
         mask += mask_filter
-    
+
     indices = np.argwhere(mask)
     indices = resample(
         indices,
@@ -126,6 +127,7 @@ def aggregate_time_data(df, target, agg_time):
     )
     return df_aggregated
 
+
 def cross_entropy(t, t_hyp):
     loss = np.sum(t * np.log(t / t_hyp))
     jac = np.log(t / t_hyp) - 1
@@ -184,7 +186,7 @@ def impute_entropy_day(df, target, ts_agg, agg_time, zero_soil=0.0):
     df_day["n_train"] = df_day.groupby("datetime_round")[target].transform(
         lambda x: x.shape[0]
     )
-    
+
     df_day["hyp_values"] = (
         df_day[["datetime_round"]]
         .merge(ts_agg, left_on="datetime_round", right_on="agg_time", how="left")[
@@ -204,7 +206,7 @@ def impute_entropy_day(df, target, ts_agg, agg_time, zero_soil=0.0):
 
     df_day["impute"] = np.nan
     df_day.loc[is_in_zero_slot, "impute"] = 0
-    
+
     non_zero_impute = impute_by_max_entropy(
         df_dt=df_day.loc[~is_in_zero_slot, "datetime"].values,
         df_dt_agg=ts_agg.loc[ts_agg[col_name] > zero_soil, "agg_time"].values,
@@ -212,7 +214,7 @@ def impute_entropy_day(df, target, ts_agg, agg_time, zero_soil=0.0):
         freq=agg_time,
         df_values_hyp=df_day.loc[~is_in_zero_slot, "hyp_values"].values,
     )
-    
+
     df_day.loc[~is_in_zero_slot, "impute"] = (
         df_day.loc[~is_in_zero_slot, ["datetime"]]
         .merge(non_zero_impute, on="datetime", how="left")["impute"]

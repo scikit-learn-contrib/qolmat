@@ -4,17 +4,17 @@ from typing import Optional, Tuple, List
 import numpy as np
 import pandas as pd
 
-from robust_pca.utils import  utils
+from robust_pca.utils import utils
 
 
 class RPCA:
     """This class implements the basic RPCA decomposition using Alternating Lagrangian Multipliers.
-    
+
     References
     ----------
-    Candès, Emmanuel J., et al. "Robust principal component analysis?." 
+    Candès, Emmanuel J., et al. "Robust principal component analysis?."
     Journal of the ACM (JACM) 58.3 (2011): 1-37
-    
+
     Parameters
     ----------
     signal: Optional
@@ -64,21 +64,21 @@ class RPCA:
 
     def _prepare_data(self) -> None:
         """Prepare data fot RPCA computation:
-                Transform signal to matrix if needed
-                Get the omega matrix
-                Impute the nan values if needed
+        Transform signal to matrix if needed
+        Get the omega matrix
+        Impute the nan values if needed
         """
-        
+
         self.ret = 0
         if (self.D is None) and (self.period is None):
             self.period = utils.get_period(self.signal)
         if self.D is None:
             self.D, self.ret = utils.signal_to_matrix(self.signal, self.period)
-        
+
         self.initial_D = self.D.copy()
 
     def compute_rpca(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Compute the RPCA deocmposition of a matrix 
+        """Compute the RPCA deocmposition of a matrix
 
         Returns
         -------
@@ -92,9 +92,7 @@ class RPCA:
             self.proj_D = self.D
 
         if self.mu is None:
-            self.mu = np.prod(self.proj_D.shape) / (
-                4.0 * utils.l1_norm(self.proj_D)
-            )
+            self.mu = np.prod(self.proj_D.shape) / (4.0 * utils.l1_norm(self.proj_D))
 
         if self.lam is None:
             self.lam = 1 / np.sqrt(np.max(self.proj_D.shape))
@@ -107,9 +105,7 @@ class RPCA:
 
         errors = []
         for iteration in range(self.maxIter):
-            L = utils.svd_thresholding(
-                self.proj_D - S + Y / self.mu, 1 / self.mu
-            )
+            L = utils.svd_thresholding(self.proj_D - S + Y / self.mu, 1 / self.mu)
             S = utils.soft_thresholding(
                 self.proj_D - L + Y / self.mu, self.lam / self.mu
             )
@@ -125,5 +121,3 @@ class RPCA:
         self.S = S
 
         return self.D, L, S
-                            
-        

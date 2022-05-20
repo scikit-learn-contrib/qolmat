@@ -10,6 +10,7 @@ import pandas as pd
 from sklearn.neighbors import kneighbors_graph
 import scipy
 
+
 def get_period(signal: List) -> int:
     """Retrieve the "period" of a series based on the ACF
 
@@ -21,7 +22,7 @@ def get_period(signal: List) -> int:
     Returns
     -------
     int
-        time series' "period" 
+        time series' "period"
     """
     ss = pd.Series(signal)
     val = []
@@ -30,7 +31,7 @@ def get_period(signal: List) -> int:
 
     ind_sort = sorted(range(len(val)), key=lambda k: val[k])
     period = ind_sort[::-1][1]
-    
+
     return period
 
 
@@ -57,13 +58,14 @@ def signal_to_matrix(signal: List, period: int) -> Tuple[np.ndarray, int]:
     M = np.array(signal).reshape(-1, period)
     return M, nb_add_val
 
-def approx_rank(M: np.ndarray, th: Optional[float]=1) -> int:
+
+def approx_rank(M: np.ndarray, th: Optional[float] = 1) -> int:
     """Estimate a superior rank of a matrix M by SVD
 
     Parameters
     ----------
     M : np.ndarray
-        matrix 
+        matrix
     th : float, optional
         fraction of the cumulative sum of the singular values, by default 0.95
     """
@@ -75,6 +77,7 @@ def approx_rank(M: np.ndarray, th: Optional[float]=1) -> int:
         cum_sum = np.cumsum([i / nuclear for i in s])
         k = np.argwhere(cum_sum > th)[0][0] + 1
         return k
+
 
 def proximal_operator(U: np.ndarray, X: np.ndarray, threshold: float) -> np.ndarray:
     """Compute the proximal operator with L1 norm
@@ -161,7 +164,9 @@ def impute_nans(M: np.ndarray, method: Optional[str] = None) -> np.ndarray:
     if method == "mean":
         return np.where(np.isnan(M), np.tile(np.nanmean(M, axis=0), (M.shape[0], 1)), M)
     if method == "median":
-        return np.where(np.isnan(M), np.tile(np.nanmedian(M, axis=0), (M.shape[0], 1)), M)
+        return np.where(
+            np.isnan(M), np.tile(np.nanmedian(M, axis=0), (M.shape[0], 1)), M
+        )
     return np.where(np.isnan(M), 0, M)
 
 
@@ -186,6 +191,7 @@ def ortho_proj(M: np.ndarray, omega: np.ndarray, inv: Optional[int] = 0) -> np.n
         return M * (np.ones(omega.shape) - omega)
     else:
         return M * omega
+
 
 def l1_norm(M: np.ndarray) -> float:
     """L1 norm of a matrix seen as a long vector 1 x (np.product(M.shape))
@@ -222,14 +228,17 @@ def toeplitz_matrix(T: int, dimension: int) -> np.ndarray:
     """
 
     H = np.eye(dimension - T, dimension)
-    H[: dimension - T, T:] = H[: dimension - T, T:] - np.eye(dimension - T, dimension - T)
+    H[: dimension - T, T:] = H[: dimension - T, T:] - np.eye(
+        dimension - T, dimension - T
+    )
     return H
+
 
 def construct_graph(
     X: np.ndarray,
-    n_neighbors: Optional[int]=10,
-    distance: Optional[str]="euclidean",
-    n_jobs: Optional[int]=1
+    n_neighbors: Optional[int] = 10,
+    distance: Optional[str] = "euclidean",
+    n_jobs: Optional[int] = 1,
 ) -> np.ndarray:
     """Construct a graph based on the distance (similarity) between data
 
@@ -247,19 +256,21 @@ def construct_graph(
     Returns
     -------
     np.ndarray
-        Graph's adjacency matrix 
+        Graph's adjacency matrix
     """
-    
-    G_bin = kneighbors_graph(X, n_neighbors=n_neighbors, metric=distance, mode='connectivity', n_jobs=n_jobs).toarray()
-    G_val = kneighbors_graph(X, n_neighbors=n_neighbors, metric=distance, mode='distance', n_jobs=n_jobs).toarray()
+
+    G_bin = kneighbors_graph(
+        X, n_neighbors=n_neighbors, metric=distance, mode="connectivity", n_jobs=n_jobs
+    ).toarray()
+    G_val = kneighbors_graph(
+        X, n_neighbors=n_neighbors, metric=distance, mode="distance", n_jobs=n_jobs
+    ).toarray()
     G_val = np.exp(-G_val)
-    G_val[~np.array(G_bin, dtype=np.bool)] = 0  
+    G_val[~np.array(G_bin, dtype=np.bool)] = 0
     return G_val
-    
-def get_laplacian(
-    M: np.ndarray,
-    normalised: Optional[bool]=True
-) -> np.ndarray:
+
+
+def get_laplacian(M: np.ndarray, normalised: Optional[bool] = True) -> np.ndarray:
     """Return the Laplacian matrix of a directed graph.
 
     Parameters
@@ -274,8 +285,9 @@ def get_laplacian(
     np.ndarray
         Laplacian matrix
     """
-    
+
     return scipy.sparse.csgraph.laplacian(M, normed=normalised)
+
 
 def get_anomaly(A, X, e=3):
     """
@@ -293,13 +305,11 @@ def get_anomaly(A, X, e=3):
     mad = np.median(np.abs(X - np.median(X)))
     return np.where(np.abs(A) > (e * mad), A, 0), np.where(np.abs(A) <= (e * mad), A, 0)
 
+
 def resultRPCA_to_signal(
-    M1: np.ndarray,
-    M2: np.ndarray,
-    M3: np.ndarray,
-    ret: Optional[int]=0 
+    M1: np.ndarray, M2: np.ndarray, M3: np.ndarray, ret: Optional[int] = 0
 ) -> Tuple[List, List, List]:
-    """Convert the resulting matrices from RPCA to lists. 
+    """Convert the resulting matrices from RPCA to lists.
     It makes sense if time series version
 
     Parameters
@@ -318,7 +328,7 @@ def resultRPCA_to_signal(
     Tuple[List, List, List]
         results of RPCA in list form
     """
-    
+
     if ret > 0:
         s1 = M1.flatten().tolist()[:-ret]
         s2 = M2.flatten().tolist()[:-ret]
@@ -327,5 +337,5 @@ def resultRPCA_to_signal(
         s1 = M1.flatten().tolist()
         s2 = M2.flatten().tolist()
         s3 = M3.flatten().tolist()
-        
+
     return s1, s2, s3

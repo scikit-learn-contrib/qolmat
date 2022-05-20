@@ -2,11 +2,13 @@ from setuptools import setup, find_packages
 
 DISTNAME = "robust_pca"
 VERSION_FILE = "robust_pca/_version.py"
-with open(VERSION_FILE, "rt") as f :
-    version_txt = f.read().strip() 
+with open(VERSION_FILE, "rt") as f:
+    version_txt = f.read().strip()
     VERSION = version_txt.split('"')[1]
 DESCRIPTION = "Tools to compute RPCA"
-LONG_DESCRIPTION = "Tools to compute different formulations of RPCA for matrices and times series."
+LONG_DESCRIPTION = (
+    "Tools to compute different formulations of RPCA for matrices and times series."
+)
 LONG_DESCRIPTION_CONTENT_TYPE = "text/x-rst"
 LICENSE = "new BSD"
 AUTHORS = "Hong-Lan Botterman, Julien Roussel, Thomas Morzadec"
@@ -14,18 +16,18 @@ AUTHORS_EMAIL = """
 hlbotterman@quantmetry.com,
 jroussel@quantmetry.com,
 tmorzadec@quantmetry.com
-"""    
+"""
 PACKAGES = find_packages()
 INSTALL_REQUIRES = [
-    "numpy", 
-    "pandas", 
+    "numpy",
+    "pandas",
     "matplotlib",
     "plotly",
     "scikit-optimize",
     "scipy",
     "tqdm",
     "pillow",
-    "scikit-learn"
+    "scikit-learn",
 ]
 PYTHON_REQUIRES = ">=3.8"
 
@@ -45,8 +47,8 @@ setup(
 
 
 # INSTALL_REQUIRES = [
-#     "numpy>=1.22.1", 
-#     "pandas>=1.4.0", 
+#     "numpy>=1.22.1",
+#     "pandas>=1.4.0",
 #     "matplotlib>=3.5.1",
 #     "plotly>=5.5.0",
 #     "scikit-optimize>=0.9.0",

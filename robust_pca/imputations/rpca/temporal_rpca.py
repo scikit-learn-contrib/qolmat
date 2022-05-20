@@ -243,7 +243,10 @@ class TemporalRPCA(RPCA):
         self.list_etas = list_etas
         return self
 
-    def fit_transform(self, signal: NDArray,) -> None:
+    def fit_transform(
+        self,
+        signal: NDArray,
+    ) -> None:
         """
         Compute the noisy RPCA with time "penalisations"
 
@@ -348,7 +351,10 @@ class OnlineTemporalRPCA(TemporalRPCA):
         self.online_lam = online_lam
         self.online_list_etas = online_list_etas
 
-    def fit_transform(self, signal: NDArray,) -> None:
+    def fit_transform(
+        self,
+        signal: NDArray,
+    ) -> None:
         """
         Compute an online version of RPCA with temporal regularisations
 
@@ -480,7 +486,9 @@ class OnlineTemporalRPCA(TemporalRPCA):
         }
 
     def get_params_scale(
-        self, signal: Optional[ArrayLike] = None, D: Optional[NDArray] = None,
+        self,
+        signal: Optional[ArrayLike] = None,
+        D: Optional[NDArray] = None,
     ) -> None:
         D_init, _ = self._prepare_data(signal=signal, D=D)
         params_scale = super().get_params_scale(signal=signal, D=D)

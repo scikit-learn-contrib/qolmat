@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from robust_pca.benchmark import cross_validation
-from robust_pca.benchmark import  utils
+from robust_pca.benchmark import utils
 from sklearn.metrics import (
     mean_squared_error,
     mean_absolute_error,
@@ -14,7 +14,6 @@ from skopt.space import Categorical, Real, Integer
 import matplotlib.pyplot as plt
 
 
-
 class Comparator:
     def __init__(
         self,
@@ -22,31 +21,25 @@ class Comparator:
         ratio_missing,
         models_to_test,
         cols_to_impute,
+        n_samples=1,
         search_params={},
         corruption="missing",
-        filter_value_nan=-1e10
+        filter_value_nan=-1e10,
     ):
 
         self.df = data[cols_to_impute]
         self.ratio_missing = ratio_missing
         self.cols_to_impute = cols_to_impute
+        self.n_samples = n_samples
         self.filter_value_nan = filter_value_nan
         self.models_to_test = models_to_test
         self.search_params = search_params
         self.corruption = corruption
 
-    def create_corruptions(
-        self, 
-        df: pd.DataFrame, 
-        random_state: Optional[int] = 29
-    ):
+    def create_corruptions(self, df: pd.DataFrame, random_state: Optional[int] = 29):
 
         self.df_is_altered = utils.choice_with_mask(
-            df, 
-            df.notna(), 
-            self.ratio_missing, 
-            self.filter_value_nan,
-            random_state
+            df, df.notna(), self.ratio_missing, self.filter_value_nan, random_state
         )
 
         self.corrupted_df = df.copy()
@@ -58,7 +51,9 @@ class Comparator:
             )
 
     def get_errors(
-        self, signal_ref: pd.DataFrame, signal_imputed: pd.DataFrame,
+        self,
+        signal_ref: pd.DataFrame,
+        signal_imputed: pd.DataFrame,
     ) -> float:
 
         rmse = utils.mean_squared_error(
@@ -86,7 +81,7 @@ class Comparator:
 
             df = self.df[self.cols_to_impute]
             errors = defaultdict(list)
-            for _ in range(1):
+            for _ in range(self.n_samples):
                 random_state = np.random.randint(0, 10 * 9)
                 self.create_corruptions(df, random_state=random_state)
                 cv = cross_validation.CrossValidation(
@@ -96,9 +91,9 @@ class Comparator:
                     ratio_missing=self.ratio_missing,
                     corruption=self.corruption,
                 )
-                #print("# nan before imputation:", df.isna().sum().sum())
+                # print("# nan before imputation:", df.isna().sum().sum())
                 imputed_df = cv.fit_transform(self.corrupted_df)
-                #print("# nan after imputation...:", imputed_df.isna().sum().sum())
+                # print("# nan after imputation...:", imputed_df.isna().sum().sum())
                 for k, v in self.get_errors(df, imputed_df).items():
                     errors[k].append(v)
 

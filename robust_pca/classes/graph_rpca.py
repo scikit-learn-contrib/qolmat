@@ -12,7 +12,7 @@ class GraphRPCA:
 
     References
     ----------
-    Shahid, Nauman, et al. "Fast robust PCA on graphs." 
+    Shahid, Nauman, et al. "Fast robust PCA on graphs."
     IEEE Journal of Selected Topics in Signal Processing 10.4 (2016): 740-756.
 
     Parameters
@@ -28,7 +28,7 @@ class GraphRPCA:
     gamma1 : int
         regularizing parameter for the graph G1, constructed from the columns of D
     gamma2 : int
-        regularizing parameter for the graph G1, constructed from the rows of D    
+        regularizing parameter for the graph G1, constructed from the rows of D
     G1 : Optional[np.ndarray]
         graph G1, constructed from the columns of D
     G2 : Optional[np.ndarray]
@@ -58,7 +58,7 @@ class GraphRPCA:
         nbg2: Optional[int] = 10,
         maxIter: Optional[int] = int(1e4),
         tol: Optional[float] = 1e-6,
-        cv:  Optional[int] = 5,
+        cv: Optional[int] = 5,
         verbose: Optional[bool] = False,
     ) -> None:
 
@@ -80,16 +80,16 @@ class GraphRPCA:
         self.maxIter = maxIter
         self.tol = tol
         self.verbose = verbose
-        
+
         self._prepare_data()
 
     def _prepare_data(self) -> None:
         """Prepare data fot RPCA computation:
-                Transform signal to matrix if needed
-                Get the omega matrix
-                Impute the nan values if needed
+        Transform signal to matrix if needed
+        Get the omega matrix
+        Impute the nan values if needed
         """
-        
+
         self.ret = 0
         if (self.D is None) and (self.period is None):
             self.period = utils.get_period(self.signal)
@@ -98,7 +98,7 @@ class GraphRPCA:
 
         self.initial_D = self.D.copy()
         self.initial_D_proj = utils.impute_nans(self.initial_D, method="median")
-        
+
         self.omega = 1 - (self.D != self.D)
         if np.isnan(np.sum(self.D)):
             self.proj_D = utils.impute_nans(self.D, method="median")
@@ -113,7 +113,7 @@ class GraphRPCA:
         Tuple[np.ndarray, np.ndarray, np.ndarray]
             observations, low-rank and sparse matrices
         """
-        
+
         self.omega = 1 - (self.D != self.D)
         if np.isnan(np.sum(self.D)):
             self.proj_D = utils.impute_nans(self.D, method="median")
@@ -121,7 +121,7 @@ class GraphRPCA:
             self.proj_D = self.D
         if self.rank is None:
             self.rank = utils.approx_rank(self.proj_D)
-            
+
         if self.G1 is None:
             self.G1 = utils.construct_graph((self.D).T, n_neighbors=self.nbg1)
         if self.G2 is None:
@@ -148,10 +148,12 @@ class GraphRPCA:
             grad_g = 2 * (self.gamma1 * Y @ laplacian1 + self.gamma2 * laplacian2 @ Y)
 
             X = utils.proximal_operator(Y_past - lam * grad_g, self.D, lam)
-            t = (1 + (1 + 4 * t_past ** 2) ** 0.5) / 2
+            t = (1 + (1 + 4 * t_past**2) ** 0.5) / 2
             Y = X + (t_past - 1) / t * (X - X_past)
 
-            errors.append(np.linalg.norm(Y - Y_past, "fro") / np.linalg.norm(Y_past, "fro"))
+            errors.append(
+                np.linalg.norm(Y - Y_past, "fro") / np.linalg.norm(Y_past, "fro")
+            )
             if errors[-1] < self.tol:
                 if self.verbose:
                     print(
@@ -177,12 +179,12 @@ class GraphRPCAHyperparams(GraphRPCA):
     GraphRPCA : Type[GraphRPCA]
         [description]
     """
-    
+
     def add_hyperparams(
         self,
         hyperparams_gamma1: Optional[List[float]] = [],
         hyperparams_gamma2: Optional[List[float]] = [],
-        cv:  Optional[int] = 5,
+        cv: Optional[int] = 5,
     ) -> None:
         """Define the search space associated to each hyperparameter
 
@@ -224,7 +226,7 @@ class GraphRPCAHyperparams(GraphRPCA):
         float
             criterion to minimise
         """
-        
+
         self.gamma1 = args[0]
         self.gamma2 = args[1]
 
@@ -244,8 +246,7 @@ class GraphRPCAHyperparams(GraphRPCA):
 
             error = (
                 np.linalg.norm(
-                    self.initial_D[indices_x, indices_y]
-                    - W[indices_x, indices_y],
+                    self.initial_D[indices_x, indices_y] - W[indices_x, indices_y],
                     1,
                 )
                 / nb_missing
@@ -255,20 +256,22 @@ class GraphRPCAHyperparams(GraphRPCA):
 
         if len(errors) == 0:
             print("Warning: not converged - return default 10^10")
-            return 10 ** 10
+            return 10**10
 
         return np.mean(errors)
-    
-    def compute_graph_rpca_hyperparams(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+
+    def compute_graph_rpca_hyperparams(
+        self,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Decompose a matrix into a low rank part and a sparse part
-        Hyperparams are set by Bayesian optimisation and cross-validation 
+        Hyperparams are set by Bayesian optimisation and cross-validation
 
         Returns
         -------
         Tuple[np.ndarray, np.ndarray]
             the low rank matrix and the sparse matrix
         """
-        
+
         res = skopt.gp_minimize(
             self.objective,
             self.search_space,

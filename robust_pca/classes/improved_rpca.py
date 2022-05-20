@@ -7,14 +7,15 @@ import skopt
 
 from robust_pca.utils import utils
 
+
 class ImprovedRPCA:
     """This class implements the improved RPCA decomposition with missing data using Alternating Lagrangian Multipliers.
-    
+
     References
     ----------
-    Wang, Xuehui, et al. "An improved robust principal component analysis model for anomalies detection of subway passenger flow." 
+    Wang, Xuehui, et al. "An improved robust principal component analysis model for anomalies detection of subway passenger flow."
     Journal of advanced transportation 2018 (2018).
-    
+
     Parameters
     ----------
     signal: Optional
@@ -24,7 +25,7 @@ class ImprovedRPCA:
     D: Optional
         array we want to denoise. If a signal is passed, D corresponds to that signal
     rank: Optional
-        (estimated) low-rank of the matrix D 
+        (estimated) low-rank of the matrix D
     lam: Optional
         penalizing parameter for the sparse matrix
     list_periods: Optional
@@ -37,7 +38,7 @@ class ImprovedRPCA:
         tolerance for stopping criteria
     verbose: bool, default = False
     """
-    
+
     def __init__(
         self,
         signal: Optional[List[float]] = None,
@@ -51,7 +52,6 @@ class ImprovedRPCA:
         tol: Optional[float] = 1e-6,
         verbose: bool = False,
     ) -> None:
-
 
         if (signal is None) and (D is None):
             raise Exception(
@@ -68,16 +68,16 @@ class ImprovedRPCA:
         self.maxIter = maxIter
         self.tol = tol
         self.verbose = verbose
-        
+
         self._prepare_data()
 
     def _prepare_data(self) -> None:
         """Prepare data fot RPCA computation:
-                Transform signal to matrix if needed
-                Get the omega matrix
-                Impute the nan values if needed
+        Transform signal to matrix if needed
+        Get the omega matrix
+        Impute the nan values if needed
         """
-        
+
         self.ret = 0
         if (self.D is None) and (self.period is None):
             self.period = utils.get_period(self.signal)
@@ -86,13 +86,13 @@ class ImprovedRPCA:
 
         self.initial_D = self.D.copy()
         self.initial_D_proj = utils.impute_nans(self.initial_D, method="median")
-        
+
         self.omega = 1 - (self.D != self.D)
         if np.isnan(np.sum(self.D)):
             self.proj_D = utils.impute_nans(self.D, method="median")
         else:
             self.proj_D = self.D
-        
+
     def compute_improved_rpca(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Decompose a matrix into a low rank part and a sparse part
 
@@ -173,9 +173,7 @@ class ImprovedRPCA:
                 A_omega_C = utils.ortho_proj(A_omega_C, self.omega, inv=1)
                 A = A_omega + A_omega_C
             else:
-                A = utils.soft_thresholding(
-                    self.proj_D - X + Y1 / mu, self.lam / mu
-                )
+                A = utils.soft_thresholding(self.proj_D - X + Y1 / mu, self.lam / mu)
 
             # solve S
             for i in range(len(self.list_periods)):
@@ -256,12 +254,12 @@ class ImprovedRPCAHyperparams(ImprovedRPCA):
     ImprovedRPCA : Type[ImprovedRPCA]
         [description]
     """
-        
+
     def add_hyperparams(
         self,
         hyperparams_lam: Optional[List[float]] = [],
         hyperparams_etas: Optional[List[List[float]]] = [[]],
-        cv: Optional[int] = 5
+        cv: Optional[int] = 5,
     ) -> None:
         """Define the search space associated to each hyperparameter
 
@@ -307,7 +305,7 @@ class ImprovedRPCAHyperparams(ImprovedRPCA):
         float
             criterion to minimise
         """
-        
+
         self.lam = args[0]
         self.list_etas = [args[i + 1] for i in range(len(self.list_periods))]
 
@@ -327,8 +325,7 @@ class ImprovedRPCAHyperparams(ImprovedRPCA):
 
             error = (
                 np.linalg.norm(
-                    self.initial_D_proj[indices_x, indices_y]
-                    - X[indices_x, indices_y],
+                    self.initial_D_proj[indices_x, indices_y] - X[indices_x, indices_y],
                     1,
                 )
                 / nb_missing
@@ -338,20 +335,22 @@ class ImprovedRPCAHyperparams(ImprovedRPCA):
 
         if len(errors) == 0:
             print("Warning: not converged - return default 10^10")
-            return 10 ** 10
+            return 10**10
 
         return np.mean(errors)
 
-    def compute_improved_rpca_hyperparams(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def compute_improved_rpca_hyperparams(
+        self,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Decompose a matrix into a low rank part and a sparse part
-        Hyperparams are set by Bayesian optimisation and cross-validation 
+        Hyperparams are set by Bayesian optimisation and cross-validation
 
         Returns
         -------
         Tuple[np.ndarray, np.ndarray]
             the low rank matrix and the sparse matrix
         """
-        
+
         res = skopt.gp_minimize(
             self.objective,
             self.search_space,

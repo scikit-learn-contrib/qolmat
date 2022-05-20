@@ -10,15 +10,15 @@ from robust_pca.utils import utils
 
 class NoisyRPCA:
     """This class implements a noisy version of the so-called improved RPCA
-    
+
     References
     ----------
-    Wang, Xuehui, et al. "An improved robust principal component analysis model for anomalies detection of subway passenger flow." 
+    Wang, Xuehui, et al. "An improved robust principal component analysis model for anomalies detection of subway passenger flow."
     Journal of advanced transportation 2018 (2018).
-    
-    Chen, Yuxin, et al. "Bridging convex and nonconvex optimization in robust PCA: Noise, outliers and missing data." 
+
+    Chen, Yuxin, et al. "Bridging convex and nonconvex optimization in robust PCA: Noise, outliers and missing data."
     The Annals of Statistics 49.5 (2021): 2948-2971.
-    
+
     Parameters
     ----------
     signal: Optional
@@ -43,7 +43,7 @@ class NoisyRPCA:
         tolerance for stopping criteria
     verbose: bool, default = False
     """
-    
+
     def __init__(
         self,
         signal: Optional[List[float]] = None,
@@ -75,16 +75,16 @@ class NoisyRPCA:
         self.maxIter = maxIter
         self.tol = tol
         self.verbose = verbose
-        
+
         self._prepare_data()
 
     def _prepare_data(self) -> None:
         """Prepare data fot RPCA computation:
-                Transform signal to matrix if needed
-                Get the omega matrix
-                Impute the nan values if needed
+        Transform signal to matrix if needed
+        Get the omega matrix
+        Impute the nan values if needed
         """
-        
+
         self.ret = 0
         if (self.D is None) and (self.period is None):
             self.period = utils.get_period(self.signal)
@@ -93,7 +93,7 @@ class NoisyRPCA:
 
         self.initial_D = self.D.copy()
         self.initial_D_proj = utils.impute_nans(self.initial_D, method="median")
-        
+
         self.omega = 1 - (self.D != self.D)
         if np.isnan(np.sum(self.D)):
             self.proj_D = utils.impute_nans(self.D, method="median")
@@ -172,9 +172,7 @@ class NoisyRPCA:
                 HTY += H[str(i)].T @ Y_[str(i)]
 
             W_tmp1 = np.linalg.inv((1 / q + mu) * Im + mu * HTH)
-            W_tmp2 = (
-                1 / q * (self.proj_D - S) + mu * X @ Y.T - Y0 + mu * HTR + HTY
-            )
+            W_tmp2 = 1 / q * (self.proj_D - S) + mu * X @ Y.T - Y0 + mu * HTR + HTY
             W = W_tmp1 @ W_tmp2
 
             if np.sum(np.isnan(self.D)) > 0:
@@ -191,7 +189,9 @@ class NoisyRPCA:
                     self.proj_D - utils.impute_nans(X @ Y.T) + Y0 / mu, self.tau / mu
                 )
             else:
-                S = utils.soft_thresholding(self.proj_D - X @ Y.T + Y0  / mu, self.tau / mu)
+                S = utils.soft_thresholding(
+                    self.proj_D - X @ Y.T + Y0 / mu, self.tau / mu
+                )
 
             # update X
             X = (mu * W @ Y + Y0 @ Y) @ np.linalg.inv(
@@ -237,9 +237,7 @@ class NoisyRPCA:
 
             if tol1 < self.tol:
                 if self.verbose:
-                    print(
-                        f"Converged in {iteration} iterations with error: {tol1}"
-                    )
+                    print(f"Converged in {iteration} iterations with error: {tol1}")
                 break
 
             self.W = W
@@ -256,12 +254,13 @@ class NoisyRPCAHyperparams(NoisyRPCA):
     NoisyRPCA : Type[NoisyRPCA]
         [description]
     """
+
     def add_hyperparams(
         self,
         hyperparams_tau: Optional[List[float]] = [],
         hyperparams_lam: Optional[List[float]] = [],
         hyperparams_etas: Optional[List[List[float]]] = [[]],
-        cv:  Optional[int] = 5,
+        cv: Optional[int] = 5,
     ) -> None:
         """Define the search space associated to each hyperparameter
 
@@ -315,7 +314,7 @@ class NoisyRPCAHyperparams(NoisyRPCA):
         float
             criterion to minimise
         """
-        
+
         self.lam = args[0]
         self.tau = args[1]
         self.list_etas = [args[i + 2] for i in range(len(self.list_periods))]
@@ -336,8 +335,7 @@ class NoisyRPCAHyperparams(NoisyRPCA):
 
             error = (
                 np.linalg.norm(
-                    self.initial_D[indices_x, indices_y]
-                    - W[indices_x, indices_y],
+                    self.initial_D[indices_x, indices_y] - W[indices_x, indices_y],
                     1,
                 )
                 / nb_missing
@@ -347,20 +345,22 @@ class NoisyRPCAHyperparams(NoisyRPCA):
 
         if len(errors) == 0:
             print("Warning: not converged - return default 10^10")
-            return 10 ** 10
+            return 10**10
 
         return np.mean(errors)
 
-    def compute_noisy_rpca_hyperparams(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def compute_noisy_rpca_hyperparams(
+        self,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Decompose a matrix into a low rank part and a sparse part
-        Hyperparams are set by Bayesian optimisation and cross-validation 
+        Hyperparams are set by Bayesian optimisation and cross-validation
 
         Returns
         -------
         Tuple[np.ndarray, np.ndarray]
             the low rank matrix and the sparse matrix
         """
-        
+
         res = skopt.gp_minimize(
             self.objective,
             self.search_space,
