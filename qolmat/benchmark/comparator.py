@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
-from robust_pca.benchmark import cross_validation
-from robust_pca.benchmark import utils
+from qolmat.benchmark import cross_validation
+from qolmat.benchmark import utils
 from sklearn.metrics import (
     mean_squared_error,
     mean_absolute_error,

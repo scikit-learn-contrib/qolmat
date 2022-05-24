@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
-DISTNAME = "robust_pca"
-VERSION_FILE = "robust_pca/_version.py"
+DISTNAME = "qolmat"
+VERSION_FILE = "qolmat/_version.py"
 with open(VERSION_FILE, "rt") as f:
     version_txt = f.read().strip()
     VERSION = version_txt.split('"')[1]

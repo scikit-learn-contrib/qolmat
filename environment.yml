@@ -1,4 +1,4 @@
-name: robustpcaEnv
+name: env_qolmat
 channels:
   - anaconda
   - plotly

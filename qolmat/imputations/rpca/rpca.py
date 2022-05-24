@@ -5,7 +5,7 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from sklearn.base import BaseEstimator, TransformerMixin
 
-from robust_pca.imputations.rpca.utils import utils
+from qolmat.imputations.rpca.utils import utils
 
 
 class RPCA(BaseEstimator, TransformerMixin):

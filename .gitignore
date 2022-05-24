@@ -4,6 +4,6 @@ __pycache__/
 .ipynb_checkpoints
 /data
 /figures
-/robust_pca.egg-info
+*.egg-info
 /dist
 /build

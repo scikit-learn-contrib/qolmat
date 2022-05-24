@@ -4,7 +4,7 @@ import skopt
 from typing import Optional
 from sklearn.utils import resample
 from math import floor
-from robust_pca.benchmark import utils
+from qolmat.benchmark import utils
 
 
 class CrossValidation:

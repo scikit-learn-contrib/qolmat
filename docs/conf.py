@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.abspath(".."))
 
 # -- Project information -----------------------------------------------------
 
-project = "robust-pca"
+project = "qolmat"
 copyright = "2022, Quantmetry"
 author = "Quantmetry"
 

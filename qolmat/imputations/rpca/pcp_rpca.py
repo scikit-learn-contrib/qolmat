@@ -5,8 +5,8 @@ from typing import Optional
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-from robust_pca.imputations.rpca.rpca import RPCA
-from robust_pca.imputations.rpca import utils
+from qolmat.imputations.rpca.rpca import RPCA
+from qolmat.imputations.rpca import utils
 
 
 class PcpRPCA(RPCA):

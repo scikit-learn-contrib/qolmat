@@ -1,0 +1,9 @@
+numpy
+pandas
+matplotlib
+plotly
+scikit-optimize
+scipy
+tqdm
+pillow
+scikit-learn

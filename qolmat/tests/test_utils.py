@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from robust_pca.utils import utils
+from qolmat.utils import utils
 
 
 def test_get_period() -> None:
