@@ -69,7 +69,7 @@ class Comparator:
         )
         return {"rmse": round(rmse, 4), "mae": round(mae, 4), "wmape": round(wmape, 4)}
 
-    def compare(self):
+    def compare(self, full=True):
 
         results = {}
         for tested_model in self.models_to_test:

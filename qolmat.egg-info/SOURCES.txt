@@ -10,6 +10,7 @@ qolmat.egg-info/top_level.txt
 qolmat/tests/__init__.py
 qolmat/tests/test_utils.py
 qolmat/utils/__init__.py
+qolmat/utils/data.py
 qolmat/utils/drawing.py
 qolmat/utils/utils.py
 qolmat/utils/utils_images.py

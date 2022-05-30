@@ -89,9 +89,7 @@ def mean_absolute_error(df1, df2):
 
 
 def weighted_mean_absolute_percentage_error(df_true, df_pred):
-    return np.nanmean(np.abs(df_true.values - df_pred.values)) / np.nanmean(
-        np.abs(df_true.values)
-    )
+    return ((df_true - df_pred).abs().mean() / df_true.mean()).mean()
 
 
 def get_agg_matrix(x, y, freq):

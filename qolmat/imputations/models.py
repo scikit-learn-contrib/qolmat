@@ -97,6 +97,7 @@ class ImputeByMedian(ImputeColumnWise):
         imputed = signal[col].fillna(
             utils.custom_groupby(signal, self.groups)[col].transform("median")
         )
+        # imputed = signal[col].groupby(self.groups).transform("median")
         return imputed
 
 
