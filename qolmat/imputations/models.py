@@ -231,9 +231,8 @@ class ImputeProphet:
 
 class ImputeRPCA:
     def __init__(
-        self, method, aggregate_time=False, multivariate=False, **kwargs
+        self, method, multivariate=False, **kwargs
     ) -> None:
-        self.aggregate_time = aggregate_time
         self.multivariate = multivariate
 
         if method == "PCP":
@@ -244,59 +243,21 @@ class ImputeRPCA:
         for name, value in kwargs.items():
             setattr(self.rpca, name, value)
 
-        # self.dict_params = kwargs
-
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        # self.rpca.set_params(**self.dict_params)
-
-        if self.aggregate_time:
-            df_agg = pd.DataFrame()
-            for col in df.columns:
-                df_to_agg = df.reset_index()
-                df_to_agg = df_to_agg[["datetime", col]]
-                agg = utils.aggregate_time_data(df_to_agg, col, self.aggregate_time)
-                df_agg[col] = agg["agg_values"]
-            df_agg.index = agg["agg_time"]
-        else:
-            df_agg = df.copy()
 
         if self.multivariate:
-            imputed, _, _ = self.rpca.fit_transform(signal=df_agg.values)
-            imputed = pd.DataFrame(imputed, columns=df_agg.columns)
+            imputed, _, _ = self.rpca.fit_transform(signal=df.values)
+            imputed = pd.DataFrame(imputed, columns=df.columns)
         else:
             imputed = pd.DataFrame()
             for col in df.columns:
                 imputed_signal, _, _ = self.rpca.fit_transform(
-                    signal=df_agg[col].values
+                    signal=df[col].values
                 )
                 imputed[col] = imputed_signal
-        imputed.index = df_agg.index
-
-        # something wrong
-        if self.aggregate_time:
-            index_df = df.index
-            df = df.reset_index()
-            df.loc[:, "datetime"] = df.datetime.dt.tz_localize(tz=None)
-            df["day_SNCF"] = (df["datetime"] - pd.Timedelta("4H")).dt.date
-            results = pd.DataFrame()
-            for col in imputed.columns:
-                df_res = df.groupby("day_SNCF").apply(
-                    lambda x: utils.impute_entropy_day(
-                        x,
-                        col,
-                        ts_agg=imputed[col],
-                        agg_time=self.aggregate_time,
-                        zero_soil=0.0,
-                    )
-                )
-                results[col] = df_res["impute"]
-            print(results)
-            print(results.shape)
-            print("resultat")
-            results.index = index_df
-            return results
-        else:
-            return imputed
+        imputed.index = df.index
+        
+        return imputed
 
     def get_hyperparams(self):
         pass

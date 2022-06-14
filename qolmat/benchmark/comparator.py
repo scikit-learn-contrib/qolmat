@@ -75,7 +75,7 @@ class Comparator:
         for tested_model in self.models_to_test:
             print(type(tested_model).__name__)
 
-            search_space, search_name = utils.get_search_space(
+            search_space = utils.get_search_space(
                 tested_model, self.search_params
             )
 
@@ -87,7 +87,6 @@ class Comparator:
                 cv = cross_validation.CrossValidation(
                     tested_model,
                     search_space=search_space,
-                    search_name=search_name,
                     ratio_missing=self.ratio_missing,
                     corruption=self.corruption,
                 )

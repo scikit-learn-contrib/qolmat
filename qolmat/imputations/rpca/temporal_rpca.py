@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import Optional, List
+from unittest import result
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
@@ -56,7 +57,7 @@ class TemporalRPCA(RPCA):
         self.list_etas = list_etas
         self.norm = norm
 
-    def compute_L1(self, proj_D, omega) -> None:
+    def compute_L1(self, proj_D, omega, return_basis = False) -> None:
         """
         compute RPCA with possible temporal regularisations, penalised with L1 norm
         """
@@ -143,9 +144,13 @@ class TemporalRPCA(RPCA):
                 if self.verbose:
                     print(f"Converged in {iteration} iterations with error: {tol}")
                 break
-        return X, A, errors
+        result = [X, A, errors]
+        
+        if return_basis:
+            result+=[L, Q] 
+        return tuple(result)
 
-    def compute_L2(self, proj_D, omega) -> None:
+    def compute_L2(self, proj_D, omega, return_basis = False) -> None:
         """
         compute RPCA with possible temporal regularisations, penalised with L2 norm
         """
@@ -210,7 +215,12 @@ class TemporalRPCA(RPCA):
                 break
 
         X = L @ Q.T
-        return X, A, errors
+
+        result = [X, A, errors]
+        
+        if return_basis:
+            result+=[L, Q] 
+        return tuple(result)
 
     def get_params(self) -> dict:
         dict_params = super().get_params()
@@ -246,6 +256,7 @@ class TemporalRPCA(RPCA):
     def fit_transform(
         self,
         signal: NDArray,
+        return_basis = False
     ) -> None:
         """
         Compute the noisy RPCA with time "penalisations"
@@ -255,7 +266,7 @@ class TemporalRPCA(RPCA):
         signal : NDArray
             Observations
         """
-
+        self.input_data = "2DArray"
         D_init, n_add_values = self._prepare_data(signal=signal)
         omega = ~np.isnan(D_init)
         proj_D = utils.impute_nans(D_init, method="median")
@@ -268,25 +279,33 @@ class TemporalRPCA(RPCA):
             self.lam = 1.0 / np.sqrt(max(D_init.shape))
 
         if self.norm == "L1":
-            X, A, errors = self.compute_L1(proj_D, omega)
+            res = self.compute_L1(proj_D, omega, return_basis)
         elif self.norm == "L2":
-            X, A, errors = self.compute_L2(proj_D, omega)
-        X = X.T
-        A = A.T
-        if n_add_values > 0:
-            X.flat[-n_add_values:] = np.nan
-            A.flat[-n_add_values:] = np.nan
+            res = self.compute_L2(proj_D, omega, return_basis)
+        
+        X = res[0]
+        A = res[1]
+        errors = res[2]
 
         if self.input_data == "2DArray":
-            return X, A, errors
+            result =  [X, A, errors]
         elif self.input_data == "1DArray":
+            X = X.T
+            A = A.T
+            
+            if n_add_values > 0:
+                X.flat[-n_add_values:] = np.nan
+                A.flat[-n_add_values:] = np.nan
             ts_X = X.flatten()
             ts_A = A.flatten()
             ts_X = ts_X[~np.isnan(ts_X)]
             ts_A = ts_A[~np.isnan(ts_A)]
-            return ts_X, ts_A, errors
+            result = [ts_X, ts_A, errors]
         else:
             raise ValueError("input data type not recognized")
+        if return_basis:
+            result+=res[3:]
+        return tuple(result)
 
     def get_params_scale(self, signal: NDArray) -> None:
         D_init, _ = self._prepare_data(signal=signal)
