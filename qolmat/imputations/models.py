@@ -176,7 +176,6 @@ class ImputeByInterpolation(ImputeColumnWise):
     def fit_transform_col(self, signal: pd.Series) -> pd.Series:
         col = signal.name
         signal = signal.reset_index()
-        print(signal.datetime.isna().sum())
         signal = signal.set_index("datetime")
         return signal[col].interpolate(method=self.method)
 

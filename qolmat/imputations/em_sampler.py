@@ -14,6 +14,7 @@ from sklearn.utils import is_scalar_nan
 from sklearn.impute._base import _BaseImputer
 # from ._typing import ArrayLike
 from numpy.typing import ArrayLike, NDArray
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -311,9 +312,9 @@ class ImputeEM(_BaseImputer):  # type: ignore
         scaler = StandardScaler()
         X_ = pd.DataFrame(scaler.fit_transform(X_), index=X.index, columns=X.columns)
         X_intermediate_ = []
-        for i in range(self.n_iter_em):
-            if self.verbose:
-                print(f"iter_em : {i}/{self.n_iter_em}")
+        for i in tqdm(range(self.n_iter_em)):
+            # if self.verbose:
+            #     print(f"iter_em : {i}/{self.n_iter_em}")
             X_extended = self._add_shift(X_, ystd=True, tmrw=True).bfill().ffill()
             self.fit(X_extended)
             if self.strategy == "sample":
