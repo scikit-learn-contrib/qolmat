@@ -49,6 +49,8 @@ class CrossValidation:
             return np.nansum(np.abs(initial_nan - imputed_nan))
         elif self.loss_norm == 2:
             return np.sqrt(np.nansum(np.square(initial_nan - imputed_nan)))
+        else:
+            raise ValueError("loss_norm has to be 0 or 1 (int)")
         
 
     def _set_params(self, all_params):
