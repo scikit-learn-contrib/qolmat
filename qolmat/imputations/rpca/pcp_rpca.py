@@ -96,7 +96,7 @@ class PcpRPCA(RPCA):
                     print(f"Converged in {iteration} iterations")
                 break
         if return_basis:
-            U,_, Vh = np.linalg.svd(X, full_matrices=False, compute_uv=True)
+            U, _, Vh = np.linalg.svd(X, full_matrices=False, compute_uv=True)
             result = [U, Vh]
         else:
             result = []

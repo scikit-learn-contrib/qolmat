@@ -66,7 +66,7 @@ class CrossValidation:
         def obj_func(**all_params):
             
             self._set_params(all_params=all_params)
-            
+            print(all_params)
             errors = []
             for _ in range(self.cv):
                 self.create_corruptions(self.signal)
