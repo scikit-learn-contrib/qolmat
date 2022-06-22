@@ -18,7 +18,7 @@ class TemporalRPCA(RPCA):
     References
     ----------
     Wang, Xuehui, et al. "An improved robust principal component analysis model for anomalies detection of subway passenger flow."
-    Journal of advanced transportation 2018 (2018).
+    Journal of advanced transportation (2018).
 
     Chen, Yuxin, et al. "Bridging convex and nonconvex optimization in robust PCA: Noise, outliers and missing data."
     The Annals of Statistics 49.5 (2021): 2948-2971.
@@ -87,9 +87,8 @@ class TemporalRPCA(RPCA):
         for index, _ in enumerate(self.list_periods):
             HHT += self.list_etas[index] * (H[index] @ H[index].T)
 
-        HHT = scp.sparse.csr_matrix(HHT) 
         Ir = np.eye(self.rank)
-        In = scp.sparse.eye(n)
+        In = np.eye(n)
 
         errors = np.full((self.maxIter,), np.nan, dtype = float)
 
@@ -105,9 +104,11 @@ class TemporalRPCA(RPCA):
             for index, _ in enumerate(self.list_periods):
                 sums += (mu * R[index] - Y_[index]) @ H[index].T
             
-            X = (proj_D - A + mu * L @ Q.T - Y + sums) @ scp.sparse.linalg.inv(
-                (1 + mu) * In + 2 * HHT
+            X_T = scp.linalg.solve(
+                a=((1 + mu) * In + 2 * HHT).T,
+                b=(proj_D - A + mu * L @ Q.T - Y + sums).T
             )
+            X = X_T.T
 
             if np.any(np.isnan(proj_D)):
                 A_omega = utils.soft_thresholding(proj_D - X, self.lam)
@@ -117,9 +118,18 @@ class TemporalRPCA(RPCA):
                 A = A_omega + A_omega_C
             else:
                 A = utils.soft_thresholding(proj_D - X, self.lam)
+            
+            L_T = scp.linalg.solve(
+                a=(self.tau * Ir + mu * (Q.T @ Q)).T,
+                b=((mu * X + Y) @ Q).T,
+            ) 
+            L =  L_T.T
 
-            L = (mu * X + Y) @ Q @ np.linalg.inv(self.tau * Ir + mu * (Q.T @ Q))
-            Q = (mu * X.T + Y.T) @ L @ np.linalg.inv(self.tau * Ir + mu * (L.T @ L))
+            Q_T = scp.linalg.solve(
+                a=(self.tau * Ir + mu * (L.T @ L)).T,
+                b=((mu * X.T + Y.T) @ L).T,
+            ) 
+            Q = Q_T.T
 
             for index, _ in enumerate(self.list_periods):
                 R[index] = utils.soft_thresholding(
@@ -180,9 +190,8 @@ class TemporalRPCA(RPCA):
         for index, _ in enumerate(self.list_periods):
             HHT += self.list_etas[index] * (H[index] @ H[index].T)
         
-        HHT = scp.sparse.csr_matrix(HHT) 
         Ir = np.eye(self.rank)
-        In = scp.sparse.eye(n)
+        In = np.eye(n)
 
         errors = np.full((self.maxIter,), np.nan, dtype = float)
 
@@ -193,7 +202,11 @@ class TemporalRPCA(RPCA):
             L_temp = L.copy()
             Q_temp = Q.copy()
 
-            X = (proj_D - A + mu * L @ Q.T - Y) @ scp.sparse.linalg.inv((1 + mu) * In + HHT)
+            X_T = scp.linalg.solve(
+                a=((1 + mu) * In + HHT).T,
+                b=(proj_D - A + mu * L @ Q.T - Y).T,
+            ) 
+            X = X_T.T
 
             if np.any(~omega):
                 A_omega = utils.soft_thresholding(proj_D - X, self.lam)
@@ -203,8 +216,19 @@ class TemporalRPCA(RPCA):
                 A = A_omega + A_omega_C
             else:
                 A = utils.soft_thresholding(proj_D - X, self.lam)
-            L = (mu * X + Y) @ Q @ scp.linalg.inv(self.tau * Ir + mu * (Q.T @ Q))
-            Q = (mu * X.T + Y.T) @ L @ scp.linalg.inv(self.tau * Ir + mu * (L.T @ L))
+
+            L_T = scp.linalg.solve(
+                a=(self.tau * Ir + mu * (Q.T @ Q)).T,
+                b=((mu * X + Y) @ Q).T,
+            ) 
+            L = L_T.T
+
+            Q_T = scp.linalg.solve(
+                a=(self.tau * Ir + mu * (L.T @ L)).T,
+                b=((mu * X.T + Y.T) @ L).T,
+            ) 
+            Q = Q_T.T
+            
             Y += mu * (X - L @ Q.T)
 
             mu = min(mu * rho, mu_bar)

@@ -39,7 +39,7 @@ class RPCA(BaseEstimator, TransformerMixin):
 
     def _prepare_data(self, signal: NDArray) -> None:
         """
-        Prepare data fot RPCA computation:
+        Prepare data for RPCA computation:
         Transform signal to matrix if needed
         Get the omega matrix
         Impute the nan values if needed
