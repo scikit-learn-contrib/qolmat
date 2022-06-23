@@ -325,3 +325,34 @@ class ImputeIterative:
 
     def get_hyperparams(self):
         pass
+
+
+class ImputeRegressor:
+    def __init__(self, model, cols_to_impute=[], **kwargs) -> None:
+        self.model = model
+        self.cols_to_impute = cols_to_impute
+        for name, value in kwargs.items():
+            setattr(self, name, value)
+
+    def fit_transform(self, df: pd.DataFrame) -> pd.Series:
+        df_imp = df.copy()
+        print("••••••••••••••••••••••••••")
+        print(self.cols_to_impute)
+        if self.cols_to_impute == []:
+            self.cols_to_impute = df.columns.tolist()
+        print(self.cols_to_impute)
+        print([col for col in df.columns if col not in self.cols_to_impute])
+        X = df[[col for col in df.columns if col not in self.cols_to_impute]]
+        for col in self.cols_to_impute:
+            y = df[col]
+            is_na = y.isna()
+            self.model.fit(X[~is_na], y[~is_na])
+            df_imp[col] = self.model.predict(X[is_na])
+            
+        return df_imp
+
+    def get_hyperparams(self):
+        return {"k": self.k}
+
+    def create_features(self, df):
+        return None

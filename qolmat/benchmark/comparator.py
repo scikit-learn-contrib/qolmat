@@ -80,25 +80,30 @@ class Comparator:
             )
 
             df = self.df[self.cols_to_impute]
-            errors = defaultdict(list)
-            for _ in range(self.n_samples):
-                random_state = np.random.randint(0, 10 * 9)
-                self.create_corruptions(df, random_state=random_state)
-                cv = cross_validation.CrossValidation(
-                    tested_model,
-                    search_space=search_space,
-                    search_name=search_name,
-                    ratio_missing=self.ratio_missing,
-                    corruption=self.corruption,
-                )
-                # print("# nan before imputation:", df.isna().sum().sum())
-                imputed_df = cv.fit_transform(self.corrupted_df)
-                # print("# nan after imputation...:", imputed_df.isna().sum().sum())
-                for k, v in self.get_errors(df, imputed_df).items():
-                    errors[k].append(v)
+            errors = self.evaluate_errors_cv(tested_model, df, search_space, search_name)
 
             results[name] = {
                 k: np.mean(v) for k, v in errors.items()
             }
 
         return pd.DataFrame(results)
+
+    def evaluate_errors_cv(self, tested_model, df, search_space=None, search_name=None):
+        errors = defaultdict(list)
+        for _ in range(self.n_samples):
+            random_state = np.random.randint(0, 10 * 9)
+            self.create_corruptions(df, random_state=random_state)
+            cv = cross_validation.CrossValidation(
+                tested_model,
+                search_space=search_space,
+                search_name=search_name,
+                ratio_missing=self.ratio_missing,
+                corruption=self.corruption,
+            )
+            # print("# nan before imputation:", df.isna().sum().sum())
+            imputed_df = cv.fit_transform(self.corrupted_df)
+            # print("# nan after imputation...:", imputed_df.isna().sum().sum())
+            for metric, value in self.get_errors(df, imputed_df).items():
+                errors[metric].append(value)
+        return errors
+
