@@ -98,8 +98,9 @@ class CrossValidation:
             self._set_params(all_params=best_params)
             imputed_signal = self.model.fit_transform(self.signal)
         
-        res = [imputed_signal]
+        res = imputed_signal
 
         if return_hyper_params:
-            res += [best_params]
-        return tuple(res)
+            res = list(res) + [best_params]
+            return res
+        return res
