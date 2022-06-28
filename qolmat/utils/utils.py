@@ -8,6 +8,7 @@ from typing import Optional, Tuple, List
 import numpy as np
 import pandas as pd
 from sklearn.neighbors import kneighbors_graph
+from numpy.typing import NDArray
 import scipy
 
 
@@ -235,12 +236,13 @@ def toeplitz_matrix(T: int, dimension: int) -> np.ndarray:
 
 
 def construct_graph(
-    X: np.ndarray,
+    X: NDArray,
     n_neighbors: Optional[int] = 10,
     distance: Optional[str] = "euclidean",
     n_jobs: Optional[int] = 1,
 ) -> np.ndarray:
-    """Construct a graph based on the distance (similarity) between data
+    """
+    Construct a graph based on the distance (similarity) between data
 
     Parameters
     ----------

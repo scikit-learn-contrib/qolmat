@@ -466,7 +466,8 @@ class OnlineTemporalRPCA(TemporalRPCA):
         Shat_grow = np.full(D_init.shape, np.nan, dtype=float)
         Shat_grow[:, Shat.shape[1]] = Shat
 
-        Vhat_win_grow = np.full((m, 2*n - (burnin + nwin)), np.nan, dtype=float)
+        n_vhat = Vhat.shape[1]
+        Vhat_win_grow = np.full((m, (n - burnin) + n_vhat), np.nan, dtype=float)
         Vhat_win_grow[:, Vhat_win.shape[1]] = Vhat_win
 
         Lhat_grow = np.full(D_init.shape, np.nan, dtype=float)
@@ -482,15 +483,15 @@ class OnlineTemporalRPCA(TemporalRPCA):
                 self.online_lam,
                 self.online_list_etas,
                 self.list_periods,
-                Lhat_grow,
+                Lhat_grow[:, (row-burnin):((row-burnin) + Lhat.shape[1])],
             )
             lv[row - burnin, :] = vi
 
             Shat_grow[:, row] = si.reshape(m, 1)
             
-            Vhat_win_grow[:, n - nwin + (row-burnin)] = vi.reshape(approx_rank, 1)
+            Vhat_win_grow[:, n_vhat + (row-burnin)] = vi.reshape(approx_rank, 1)
             vi_delete = Vhat_win_grow[:, (row-burnin)]
-            Vhat_win = Vhat_win_grow[:, (row-burnin+1):((row-burnin+1) + (n-nwin))]
+            Vhat_win = Vhat_win_grow[:, (row-burnin+1):((row-burnin) + n_vhat)]
 
             if (len(self.list_periods) > 0) and (row >= max(self.list_periods)):
                 sums = np.zeros((lv.shape[1], lv.shape[1]))
