@@ -1,7 +1,9 @@
 from __future__ import annotations
 from typing import Optional, List
+from unittest import result
 
 import numpy as np
+import scipy as scp
 from numpy.typing import ArrayLike, NDArray
 from sklearn.utils.extmath import randomized_svd
 
@@ -16,7 +18,7 @@ class TemporalRPCA(RPCA):
     References
     ----------
     Wang, Xuehui, et al. "An improved robust principal component analysis model for anomalies detection of subway passenger flow."
-    Journal of advanced transportation 2018 (2018).
+    Journal of advanced transportation (2018).
 
     Chen, Yuxin, et al. "Bridging convex and nonconvex optimization in robust PCA: Noise, outliers and missing data."
     The Annals of Statistics 49.5 (2021): 2948-2971.
@@ -56,7 +58,7 @@ class TemporalRPCA(RPCA):
         self.list_etas = list_etas
         self.norm = norm
 
-    def compute_L1(self, proj_D, omega) -> None:
+    def compute_L1(self, proj_D, omega, return_basis = False) -> None:
         """
         compute RPCA with possible temporal regularisations, penalised with L1 norm
         """
@@ -80,15 +82,16 @@ class TemporalRPCA(RPCA):
             for period in self.list_periods
         ]
 
-        Ir = np.eye(self.rank)
-        In = np.eye(n)
-
         ##
         HHT = np.zeros((n, n))
         for index, _ in enumerate(self.list_periods):
             HHT += self.list_etas[index] * (H[index] @ H[index].T)
 
-        errors = []
+        Ir = np.eye(self.rank)
+        In = np.eye(n)
+
+        errors = np.full((self.maxIter,), np.nan, dtype = float)
+
         for iteration in range(self.maxIter):
             # save current variable values
             X_temp = X.copy()
@@ -100,9 +103,12 @@ class TemporalRPCA(RPCA):
             sums = np.zeros((m, n))
             for index, _ in enumerate(self.list_periods):
                 sums += (mu * R[index] - Y_[index]) @ H[index].T
-            X = (proj_D - A + mu * L @ Q.T - Y + sums) @ np.linalg.inv(
-                (1 + mu) * In + 2 * HHT
+            
+            X_T = scp.linalg.solve(
+                a=((1 + mu) * In + 2 * HHT).T,
+                b=(proj_D - A + mu * L @ Q.T - Y + sums).T
             )
+            X = X_T.T
 
             if np.any(np.isnan(proj_D)):
                 A_omega = utils.soft_thresholding(proj_D - X, self.lam)
@@ -112,9 +118,18 @@ class TemporalRPCA(RPCA):
                 A = A_omega + A_omega_C
             else:
                 A = utils.soft_thresholding(proj_D - X, self.lam)
+            
+            L_T = scp.linalg.solve(
+                a=(self.tau * Ir + mu * (Q.T @ Q)).T,
+                b=((mu * X + Y) @ Q).T,
+            ) 
+            L =  L_T.T
 
-            L = (mu * X + Y) @ Q @ np.linalg.inv(self.tau * Ir + mu * (Q.T @ Q))
-            Q = (mu * X.T + Y.T) @ L @ np.linalg.inv(self.tau * Ir + mu * (L.T @ L))
+            Q_T = scp.linalg.solve(
+                a=(self.tau * Ir + mu * (L.T @ L)).T,
+                b=((mu * X.T + Y.T) @ L).T,
+            ) 
+            Q = Q_T.T
 
             for index, _ in enumerate(self.list_periods):
                 R[index] = utils.soft_thresholding(
@@ -137,15 +152,19 @@ class TemporalRPCA(RPCA):
             for index, _ in enumerate(self.list_periods):
                 Rc = max(Rc, np.linalg.norm(R[index] - R_temp[index], np.inf))
             tol = max([Xc, Ac, Lc, Qc, Rc])
-            errors.append(tol)
+            errors[iteration] = tol
 
             if tol < self.tol:
                 if self.verbose:
                     print(f"Converged in {iteration} iterations with error: {tol}")
                 break
-        return X, A, errors
+        result = [X, A, errors]
+        
+        if return_basis:
+            result+=[L, Q] 
+        return tuple(result)
 
-    def compute_L2(self, proj_D, omega) -> None:
+    def compute_L2(self, proj_D, omega, return_basis = False) -> None:
         """
         compute RPCA with possible temporal regularisations, penalised with L2 norm
         """
@@ -170,17 +189,24 @@ class TemporalRPCA(RPCA):
         HHT = np.zeros((n, n))
         for index, _ in enumerate(self.list_periods):
             HHT += self.list_etas[index] * (H[index] @ H[index].T)
-
+        
         Ir = np.eye(self.rank)
         In = np.eye(n)
 
-        errors = []
+        errors = np.full((self.maxIter,), np.nan, dtype = float)
+
         for iteration in range(self.maxIter):
+            # print(f"iteration={iteration}")
             X_temp = X.copy()
             A_temp = A.copy()
             L_temp = L.copy()
             Q_temp = Q.copy()
-            X = (proj_D - A + mu * L @ Q.T - Y) @ np.linalg.inv((1 + mu) * In + HHT)
+
+            X_T = scp.linalg.solve(
+                a=((1 + mu) * In + HHT).T,
+                b=(proj_D - A + mu * L @ Q.T - Y).T,
+            ) 
+            X = X_T.T
 
             if np.any(~omega):
                 A_omega = utils.soft_thresholding(proj_D - X, self.lam)
@@ -190,8 +216,19 @@ class TemporalRPCA(RPCA):
                 A = A_omega + A_omega_C
             else:
                 A = utils.soft_thresholding(proj_D - X, self.lam)
-            L = (mu * X + Y) @ Q @ np.linalg.inv(self.tau * Ir + mu * (Q.T @ Q))
-            Q = (mu * X.T + Y.T) @ L @ np.linalg.inv(self.tau * Ir + mu * (L.T @ L))
+
+            L_T = scp.linalg.solve(
+                a=(self.tau * Ir + mu * (Q.T @ Q)).T,
+                b=((mu * X + Y) @ Q).T,
+            ) 
+            L = L_T.T
+
+            Q_T = scp.linalg.solve(
+                a=(self.tau * Ir + mu * (L.T @ L)).T,
+                b=((mu * X.T + Y.T) @ L).T,
+            ) 
+            Q = Q_T.T
+            
             Y += mu * (X - L @ Q.T)
 
             mu = min(mu * rho, mu_bar)
@@ -202,15 +239,19 @@ class TemporalRPCA(RPCA):
             Qc = np.linalg.norm(Q - Q_temp, np.inf)
 
             tol = max([Xc, Ac, Lc, Qc])
-            errors.append(tol)
-
+            errors[iteration] = tol
             if tol < self.tol:
                 if self.verbose:
                     print(f"Converged in {iteration} iterations with error: {tol}")
                 break
 
         X = L @ Q.T
-        return X, A, errors
+
+        result = [X, A, errors]
+        
+        if return_basis:
+            result+=[L, Q] 
+        return tuple(result)
 
     def get_params(self) -> dict:
         dict_params = super().get_params()
@@ -246,6 +287,7 @@ class TemporalRPCA(RPCA):
     def fit_transform(
         self,
         signal: NDArray,
+        return_basis = False
     ) -> None:
         """
         Compute the noisy RPCA with time "penalisations"
@@ -255,7 +297,7 @@ class TemporalRPCA(RPCA):
         signal : NDArray
             Observations
         """
-
+        self.input_data = "2DArray"
         D_init, n_add_values = self._prepare_data(signal=signal)
         omega = ~np.isnan(D_init)
         proj_D = utils.impute_nans(D_init, method="median")
@@ -268,25 +310,33 @@ class TemporalRPCA(RPCA):
             self.lam = 1.0 / np.sqrt(max(D_init.shape))
 
         if self.norm == "L1":
-            X, A, errors = self.compute_L1(proj_D, omega)
+            res = self.compute_L1(proj_D, omega, return_basis)
         elif self.norm == "L2":
-            X, A, errors = self.compute_L2(proj_D, omega)
-        X = X.T
-        A = A.T
-        if n_add_values > 0:
-            X.flat[-n_add_values:] = np.nan
-            A.flat[-n_add_values:] = np.nan
+            res = self.compute_L2(proj_D, omega, return_basis)
+        
+        X = res[0]
+        A = res[1]
+        errors = res[2]
 
         if self.input_data == "2DArray":
-            return X, A, errors
+            result =  [X, A, errors]
         elif self.input_data == "1DArray":
+            X = X.T
+            A = A.T
+            
+            if n_add_values > 0:
+                X.flat[-n_add_values:] = np.nan
+                A.flat[-n_add_values:] = np.nan
             ts_X = X.flatten()
             ts_A = A.flatten()
             ts_X = ts_X[~np.isnan(ts_X)]
             ts_A = ts_A[~np.isnan(ts_A)]
-            return ts_X, ts_A, errors
+            result = [ts_X, ts_A, errors]
         else:
             raise ValueError("input data type not recognized")
+        if return_basis:
+            result+=res[3:]
+        return tuple(result)
 
     def get_params_scale(self, signal: NDArray) -> None:
         D_init, _ = self._prepare_data(signal=signal)
@@ -360,17 +410,14 @@ class OnlineTemporalRPCA(TemporalRPCA):
 
         Parameters
         ----------
-        signal : Optional[ArrayLike], optional
-            list of observations, by default None
-        D: Optional
-            array we want to denoise. If a signal is passed, D corresponds to that signal
+        signal : NDArray
         """
         D_init, n_add_values = self._prepare_data(signal=signal)
         burnin = self.burnin
         nwin = self.nwin
 
         m, n = D_init.shape
-        Lhat, Shat, _ = super().fit(D=D_init[:, :burnin])
+        Lhat, Shat, _ = super().fit_transform(signal=D_init[:, :burnin], return_basis=False)
 
         proj_D = utils.impute_nans(D_init, method="median")
         approx_rank = utils.approx_rank(proj_D[:, :burnin], th=0.99)
@@ -382,27 +429,26 @@ class OnlineTemporalRPCA(TemporalRPCA):
         if self.lam is None:
             self.lam = 1.0 / np.sqrt(max(m, n))
 
-        # mburnin, _ = len(D_init) # D[:,:self.burnin].shape
         if self.online_tau is None:
             self.online_tau = self.tau
         if self.online_lam is None:
             self.online_lam = self.lam
         if len(self.online_list_etas) == 0:
-            self.online_list_etas = self.list_etas.copy()
+            self.online_list_etas = self.list_etas
 
         Uhat, sigmas_hat, Vhat = randomized_svd(
             Lhat, n_components=approx_rank, n_iter=5, random_state=0
         )
         U = Uhat[:, :approx_rank].dot(np.sqrt(np.diag(sigmas_hat[:approx_rank])))
-        if nwin == 0:
-            Vhat_win = Vhat.copy()
-        else:
-            Vhat_win = Vhat[:, nwin:]
+        
+        Vhat_win = Vhat[:, nwin:].copy()
+
         A = np.zeros((approx_rank, approx_rank))
         B = np.zeros((m, approx_rank))
+
         for col in range(Vhat_win.shape[1]):
             sums = np.zeros(A.shape)
-            for period, index in self.list_periods:
+            for index, period in enumerate(self.list_periods):
                 vec = Vhat_win[:, col] - Vhat_win[:, col - period]
                 sums += 2 * self.list_etas[index] * (np.outer(vec, vec))
             A = A + np.outer(Vhat_win[:, col], Vhat_win[:, col]) + sums
@@ -417,6 +463,19 @@ class OnlineTemporalRPCA(TemporalRPCA):
 
         lv = np.empty(shape=(n - burnin, proj_D.shape[1]), dtype=float)
 
+        Shat_grow = np.full(D_init.shape, np.nan, dtype=float)
+        Shat_grow[:, :Shat.shape[1]] = Shat
+
+        n_vhat = Vhat.shape[1]
+        Vhat_win_grow = np.full((m, (n - burnin) + n_vhat), np.nan, dtype=float)
+        print(Vhat_win_grow.shape)
+        print(Vhat_win.shape)
+        Vhat_win_grow[:, Vhat_win.shape[1]] = Vhat_win
+
+        Lhat_grow = np.full(D_init.shape, np.nan, dtype=float)
+        Lhat_grow[:, Lhat.shape[1]] = Lhat
+
+
         for row in range(burnin, n):
             ri = proj_D[:, row]
             vi, si = utils.solve_projection(
@@ -426,17 +485,19 @@ class OnlineTemporalRPCA(TemporalRPCA):
                 self.online_lam,
                 self.online_list_etas,
                 self.list_periods,
-                Lhat,
+                Lhat_grow[:, (row-burnin):((row-burnin) + Lhat.shape[1])],
             )
             lv[row - burnin, :] = vi
 
-            Shat = np.hstack((Shat, si.reshape(m, 1)))
-            vi_delete = Vhat_win[:, 0]
-            Vhat_win = np.hstack((Vhat_win[:, 1:], vi.reshape(approx_rank, 1)))
+            Shat_grow[:, row] = si.reshape(m, 1)
+            
+            Vhat_win_grow[:, n_vhat + (row-burnin)] = vi.reshape(approx_rank, 1)
+            vi_delete = Vhat_win_grow[:, (row-burnin)]
+            Vhat_win = Vhat_win_grow[:, (row-burnin+1):((row-burnin) + n_vhat)]
 
             if (len(self.list_periods) > 0) and (row >= max(self.list_periods)):
                 sums = np.zeros((lv.shape[1], lv.shape[1]))
-                for period, index in enumerate(self.list_periods):
+                for index, period in enumerate(self.list_periods):
                     vec = vi - lv[row - period - burnin]
                     sums += 2 * self.online_list_etas[index] * (np.outer(vec, vec))
                 A = A + np.outer(vi, vi) + sums
@@ -448,20 +509,20 @@ class OnlineTemporalRPCA(TemporalRPCA):
                 B = (
                     B
                     + np.outer(ri - si, vi)
-                    - np.outer(proj_D[:, row - nwin] - Shat[:, row - nwin], vi_delete)
+                    - np.outer(proj_D[:, row - nwin] - Shat_grow[:, row - nwin], vi_delete)
                 )
             U = utils.update_col(self.online_tau, U, A, B)
-            Lhat = np.hstack((Lhat, U.dot(vi).reshape(m, 1)))
+            Lhat_grow[:, row] = U.dot(vi).reshape(m, 1)
 
         if n_add_values > 0:
-            Lhat.flat[-n_add_values:] = np.nan
-            Shat.flat[-n_add_values:] = np.nan
+            Lhat_grow.flat[-n_add_values:] = np.nan
+            Shat_grow.flat[-n_add_values:] = np.nan
 
         if self.input_data == "2DArray":
-            return Lhat, Shat
+            return Lhat_grow, Shat_grow
         elif self.input_data == "1DArray":
-            ts_X = Lhat.flatten()
-            ts_A = Shat.flatten()
+            ts_X = Lhat_grow.flatten()
+            ts_A = Shat_grow.flatten()
             return ts_X[~np.isnan(ts_X)], ts_A[~np.isnan(ts_A)]
         else:
             raise ValueError("Data shape not recognized")

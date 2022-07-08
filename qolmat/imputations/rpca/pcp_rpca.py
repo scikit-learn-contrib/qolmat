@@ -1,6 +1,7 @@
 from __future__ import annotations
 from multiprocessing.sharedctypes import Value
 from typing import Optional
+from xmlrpc.client import boolean
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
@@ -57,6 +58,7 @@ class PcpRPCA(RPCA):
     def fit_transform(
         self,
         signal: NDArray,
+        return_basis: boolean = False
     ) -> PcpRPCA:
         """
         Compute the RPCA decomposition of a matrix based on the PCP method
@@ -66,6 +68,7 @@ class PcpRPCA(RPCA):
         signal : NDArray
             Observations
         """
+        self.input_data = "2DArray"
         D_init, n_add_values = self._prepare_data(signal=signal)
         proj_D = utils.impute_nans(D_init, method="median")
 
@@ -92,14 +95,20 @@ class PcpRPCA(RPCA):
                 if self.verbose:
                     print(f"Converged in {iteration} iterations")
                 break
+        if return_basis:
+            U, _, Vh = np.linalg.svd(X, full_matrices=False, compute_uv=True)
+            result = [U, Vh]
+        else:
+            result = []
 
         if n_add_values > 0:
             X.flat[-n_add_values:] = np.nan
             A.flat[-n_add_values:] = np.nan
 
         if self.input_data == "2DArray":
-            return X, A, errors
+            result = [X, A, errors] + result
         elif self.input_data == "1DArray":
-            return X.flatten(), A.flatten(), errors
+            result = [X.flatten(), A.flatten(), errors] + result
         else:
             raise ValueError("Data shape not recognized")
+        return tuple(result)

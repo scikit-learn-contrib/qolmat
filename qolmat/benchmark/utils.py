@@ -14,14 +14,11 @@ BOUNDS = Bounds(1, np.inf, keep_feasible=True)
 
 def get_search_space(tested_model, search_params):
     search_space = None
-    search_name = None
     if str(type(tested_model).__name__) in search_params.keys():
         search_space = []
-        search_name = []
         for name_param, vals_params in search_params[
             str(type(tested_model).__name__)
         ].items():
-            search_name.append(name_param)
             if vals_params["type"] == "Integer":
                 search_space.append(
                     Integer(
@@ -39,7 +36,7 @@ def get_search_space(tested_model, search_params):
                     Categorical(categories=vals_params["categories"], name=name_param)
                 )
 
-    return search_space, search_name
+    return search_space
 
 
 def custom_groupby(df, groups):
@@ -58,7 +55,7 @@ def choice_with_mask(df, mask, ratio, filter_value=None, random_state=None):
         mask_filter = (df.values > filter_value).flatten()
         mask += mask_filter
 
-    indices = np.argwhere(mask)
+    indices = np.argwhere(mask > 0)[:, 0]
     indices = resample(
         indices,
         replace=False,
@@ -66,10 +63,11 @@ def choice_with_mask(df, mask, ratio, filter_value=None, random_state=None):
         random_state=random_state,
         stratify=None,
     )
-    choosed = np.zeros(df.size)
-    choosed[indices] = 1
+
+    choosen = np.full(df.shape, False, dtype=bool)
+    choosen.flat[indices] = True
     return pd.DataFrame(
-        choosed.reshape(df.shape), index=df.index, columns=df.columns, dtype=bool
+        choosen.reshape(df.shape), index=df.index, columns=df.columns, dtype=bool
     )
 
 
