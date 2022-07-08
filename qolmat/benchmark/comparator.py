@@ -19,7 +19,7 @@ class Comparator:
         self,
         data,
         ratio_missing,
-        models_to_test,
+        dict_models,
         cols_to_impute,
         n_samples=1,
         search_params={},
@@ -32,14 +32,14 @@ class Comparator:
         self.cols_to_impute = cols_to_impute
         self.n_samples = n_samples
         self.filter_value_nan = filter_value_nan
-        self.models_to_test = models_to_test
+        self.dict_models = dict_models
         self.search_params = search_params
         self.corruption = corruption
 
-    def create_corruptions(self, df: pd.DataFrame, random_state: Optional[int] = 29):
+    def create_corruptions(self, df: pd.DataFrame, random_state: Optional[int] = 29, mode_anomaly="iid"):
 
         self.df_is_altered = utils.choice_with_mask(
-            df, df.notna(), self.ratio_missing, self.filter_value_nan, random_state
+            df, df.notna(), self.ratio_missing, self.filter_value_nan, random_state, mode=mode_anomaly
         )
 
         self.corrupted_df = df.copy()
@@ -72,7 +72,7 @@ class Comparator:
     def compare(self, full=True):
 
         results = {}
-        for tested_model in self.models_to_test:
+        for name, tested_model in self.dict_models.items():
             print(type(tested_model).__name__)
 
             search_space = utils.get_search_space(
@@ -80,24 +80,30 @@ class Comparator:
             )
 
             df = self.df[self.cols_to_impute]
-            errors = defaultdict(list)
-            for _ in range(self.n_samples):
-                random_state = np.random.randint(0, 10 * 9)
-                self.create_corruptions(df, random_state=random_state)
-                cv = cross_validation.CrossValidation(
-                    tested_model,
-                    search_space=search_space,
-                    ratio_missing=self.ratio_missing,
-                    corruption=self.corruption,
-                )
-                # print("# nan before imputation:", df.isna().sum().sum())
-                imputed_df = cv.fit_transform(self.corrupted_df)
-                # print("# nan after imputation...:", imputed_df.isna().sum().sum())
-                for k, v in self.get_errors(df, imputed_df).items():
-                    errors[k].append(v)
+            errors = self.evaluate_errors_cv(tested_model, df, search_space, search_name)
 
-            results[type(tested_model).__name__] = {
+            results[name] = {
                 k: np.mean(v) for k, v in errors.items()
             }
 
-        return results
+        return pd.DataFrame(results)
+
+    def evaluate_errors_cv(self, tested_model, df, search_space=None, search_name=None):
+        errors = defaultdict(list)
+        for _ in range(self.n_samples):
+            random_state = np.random.randint(0, 10 * 9)
+            self.create_corruptions(df, random_state=random_state)
+            cv = cross_validation.CrossValidation(
+                tested_model,
+                search_space=search_space,
+                search_name=search_name,
+                ratio_missing=self.ratio_missing,
+                corruption=self.corruption,
+            )
+            # print("# nan before imputation:", df.isna().sum().sum())
+            imputed_df = cv.fit_transform(self.corrupted_df)
+            # print("# nan after imputation...:", imputed_df.isna().sum().sum())
+            for metric, value in self.get_errors(df, imputed_df).items():
+                errors[metric].append(value)
+        return errors
+
