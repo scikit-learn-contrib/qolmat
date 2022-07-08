@@ -8,7 +8,7 @@ import logging
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import KNNImputer, IterativeImputer
 from qolmat.imputations.rpca.pcp_rpca import RPCA
-from qolmat.imputations.rpca.temporal_rpca import TemporalRPCA
+from qolmat.imputations.rpca.temporal_rpca import TemporalRPCA, OnlineTemporalRPCA
 from qolmat.benchmark import utils
 import os
 import sys
@@ -239,7 +239,8 @@ class ImputeRPCA:
             self.rpca = RPCA()
         elif method == "temporal":
             self.rpca = TemporalRPCA()
-
+        elif method == "online":
+            self.rpca = OnlineTemporalRPCA()
         for name, value in kwargs.items():
             setattr(self.rpca, name, value)
 

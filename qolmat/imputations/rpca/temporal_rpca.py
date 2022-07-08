@@ -464,10 +464,12 @@ class OnlineTemporalRPCA(TemporalRPCA):
         lv = np.empty(shape=(n - burnin, proj_D.shape[1]), dtype=float)
 
         Shat_grow = np.full(D_init.shape, np.nan, dtype=float)
-        Shat_grow[:, Shat.shape[1]] = Shat
+        Shat_grow[:, :Shat.shape[1]] = Shat
 
         n_vhat = Vhat.shape[1]
         Vhat_win_grow = np.full((m, (n - burnin) + n_vhat), np.nan, dtype=float)
+        print(Vhat_win_grow.shape)
+        print(Vhat_win.shape)
         Vhat_win_grow[:, Vhat_win.shape[1]] = Vhat_win
 
         Lhat_grow = np.full(D_init.shape, np.nan, dtype=float)
