@@ -5,7 +5,7 @@ from qolmat.benchmark import utils
 from sklearn.metrics import (
     mean_squared_error,
     mean_absolute_error,
-)  # , mean_absolute_percentage_error
+)
 from sklearn.utils import resample
 from collections import defaultdict
 from typing import Optional
@@ -36,10 +36,17 @@ class Comparator:
         self.search_params = search_params
         self.corruption = corruption
 
-    def create_corruptions(self, df: pd.DataFrame, random_state: Optional[int] = 29, mode_anomaly="iid"):
+    def create_corruptions(
+        self, df: pd.DataFrame, random_state: Optional[int] = 29, mode_anomaly="iid"
+    ):
 
         self.df_is_altered = utils.choice_with_mask(
-            df, df.notna(), self.ratio_missing, self.filter_value_nan, random_state, mode=mode_anomaly
+            df,
+            df.notna(),
+            self.ratio_missing,
+            self.filter_value_nan,
+            random_state,
+            mode_anomaly=mode_anomaly,
         )
 
         self.corrupted_df = df.copy()
@@ -75,20 +82,16 @@ class Comparator:
         for name, tested_model in self.dict_models.items():
             print(type(tested_model).__name__)
 
-            search_space = utils.get_search_space(
-                tested_model, self.search_params
-            )
+            search_space = utils.get_search_space(tested_model, self.search_params)
 
             df = self.df[self.cols_to_impute]
-            errors = self.evaluate_errors_cv(tested_model, df, search_space, search_name)
+            errors = self.evaluate_errors_cv(tested_model, df, search_space)
 
-            results[name] = {
-                k: np.mean(v) for k, v in errors.items()
-            }
+            results[name] = {k: np.mean(v) for k, v in errors.items()}
 
         return pd.DataFrame(results)
 
-    def evaluate_errors_cv(self, tested_model, df, search_space=None, search_name=None):
+    def evaluate_errors_cv(self, tested_model, df, search_space=None):
         errors = defaultdict(list)
         for _ in range(self.n_samples):
             random_state = np.random.randint(0, 10 * 9)
@@ -96,7 +99,6 @@ class Comparator:
             cv = cross_validation.CrossValidation(
                 tested_model,
                 search_space=search_space,
-                search_name=search_name,
                 ratio_missing=self.ratio_missing,
                 corruption=self.corruption,
             )
@@ -106,4 +108,3 @@ class Comparator:
             for metric, value in self.get_errors(df, imputed_df).items():
                 errors[metric].append(value)
         return errors
-

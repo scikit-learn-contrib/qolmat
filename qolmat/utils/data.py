@@ -4,6 +4,7 @@ import sys
 import pandas as pd
 import numpy as np
 import zipfile
+import matplotlib as mpl
 from datetime import datetime
 
 
@@ -50,7 +51,19 @@ def get_data(datapath: str = "data/", download: bool = True):
         return dataset
 
 
-def preprocess_data(df):
+def preprocess_data(df: pd.DataFrame):
+    """_summary_
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        dataframe with some specific column names
+
+    Returns
+    -------
+    pd.DataFrame
+        preprocessed dataframe
+    """
     df["datetime"] = pd.to_datetime(df[["year", "month", "day", "hour"]])
     df.set_index(["station", "datetime"], inplace=True)
     df.drop(columns=["year", "month", "day", "hour", "wd", "No"], inplace=True)
@@ -65,3 +78,42 @@ def preprocess_data(df):
         dict_agg
     )
     return df
+
+
+def make_ellipses(X, ax, color):
+    covariances = X.cov()  # gmm.covariances_[0] # [n][:2, :2]
+    v, w = np.linalg.eigh(covariances)
+    u = w[0] / np.linalg.norm(w[0])
+    angle = np.arctan2(u[1], u[0])
+    angle = 180 * angle / np.pi  # convert to degrees
+    center = X.mean()  # .means_[0]
+    v = 2.0 * np.sqrt(2.0) * np.sqrt(v)
+    ell = mpl.patches.Ellipse(center, v[0], v[1], 180 + angle, color=color)
+    ell.set_clip_box(ax.bbox)
+    ell.set_alpha(0.5)
+    ax.add_artist(ell)
+    ax.set_aspect("equal", "datalim")
+
+
+def compare_covariances(df1, df2, var_x, var_y, ax):
+    ax.scatter(df2[var_x], df2[var_y], marker=".", color="C0")
+    ax.scatter(df1[var_x], df1[var_y], marker=".", color="C3")
+    make_ellipses(df2[[var_x, var_y]], ax, "firebrick")
+    make_ellipses(df1[[var_x, var_y]], ax, "steelblue")
+    ax.set_xlabel(var_x)
+    ax.set_ylabel(var_y)
+    ax.legend(["After imputation", "Raw data"])
+
+
+def KL(P, Q):
+    """
+    Epsilon is used here to avoid conditional code for
+    checking that neither P nor Q is equal to 0.
+    """
+    epsilon = 0.00001
+
+    P = P.copy() + epsilon
+    Q = Q.copy() + epsilon
+
+    divergence = np.sum(P * np.log(P / Q))
+    return divergence

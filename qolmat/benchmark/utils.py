@@ -49,29 +49,10 @@ def custom_groupby(df, groups):
         return df
 
 
-# def choice_with_mask(df, mask, ratio, filter_value=None, random_state=None, mode_anomaly="iid"):
-#     mask = mask.to_numpy().flatten()
-#     if filter_value:
-#         mask_filter = (df.values > filter_value).flatten()
-#         mask += mask_filter
+def choice_with_mask(
+    df, mask, ratio, filter_value=None, random_state=None, mode_anomaly="iid"
+):
 
-#     indices = np.argwhere(mask)
-#     indices = resample(
-#         indices,
-#         replace=False,
-#         n_samples=floor(len(indices) * ratio),
-#         random_state=random_state,
-#         stratify=None,
-#     )
-#     choosed = np.zeros(df.size)
-#     choosed[indices] = 1
-#     return pd.DataFrame(
-#         choosed.reshape(df.shape), index=df.index, columns=df.columns, dtype=bool
-#     )
-
-
-def choice_with_mask(df, mask, ratio, filter_value=None, random_state=None, mode_anomaly="iid"):
-        
     mask = mask.to_numpy().flatten()
     if filter_value:
         mask_filter = (df.values > filter_value).flatten()
@@ -111,7 +92,7 @@ def mean_absolute_error(df1, df2):
 def weighted_mean_absolute_percentage_error(df_true, df_pred):
     # print((df_true - df_pred).abs().mean())
     # print(df_true.mean())
-    return ((df_true - df_pred).abs().mean() / df_true.mean()).mean()
+    return ((df_true - df_pred).abs().mean() / df_true.abs().mean()).mean()
 
 
 def get_agg_matrix(x, y, freq):
