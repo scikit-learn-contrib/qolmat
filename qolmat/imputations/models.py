@@ -1,9 +1,6 @@
-# from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Dict
 import numpy as np
 import pandas as pd
-
-# from fbprophet import Prophet
-import logging
 
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import KNNImputer, IterativeImputer
@@ -12,37 +9,6 @@ from qolmat.imputations.rpca.temporal_rpca import TemporalRPCA, OnlineTemporalRP
 from qolmat.benchmark import utils
 import os
 import sys
-
-
-class suppress_stdout_stderr(object):
-    """
-    A context manager for doing a "deep suppression" of stdout and stderr in
-    Python, i.e. will suppress all print, even if the print originates in a
-    compiled C/Fortran sub-function.
-       This will not suppress raised exceptions, since exceptions are printed
-    to stderr just before a script exits, and after the context manager has
-    exited (at least, I think that is why it lets exceptions through).
-
-    """
-
-    def __init__(self):
-        # Open a pair of null files
-        self.null_fds = [os.open(os.devnull, os.O_RDWR) for x in range(2)]
-        # Save the actual stdout (1) and stderr (2) file descriptors.
-        self.save_fds = (os.dup(1), os.dup(2))
-
-    def __enter__(self):
-        # Assign the null pointers to stdout and stderr.
-        os.dup2(self.null_fds[0], 1)
-        os.dup2(self.null_fds[1], 2)
-
-    def __exit__(self, *_):
-        # Re-assign the real stdout/stderr back to (1) and (2)
-        os.dup2(self.save_fds[0], 1)
-        os.dup2(self.save_fds[1], 2)
-        # Close the null files
-        os.close(self.null_fds[0])
-        os.close(self.null_fds[1])
 
 
 class ImputeColumnWise:
@@ -164,7 +130,7 @@ class ImputeKNN(ImputeColumnWise):
         imputed = pd.Series([a[0] for a in imputed], index=signal.index)
         return imputed.fillna(np.nanmedian(imputed))
 
-    def get_hyperparams(self):
+    def get_hyperparams(self) -> Dict[str, int]:
         return {"k": self.k}
 
 
@@ -190,49 +156,8 @@ class ImputeBySpline(ImputeColumnWise):
         return signal.interpolate(option="spline")
 
 
-"""
-# does not work with kedro...
-class ImputeProphet:
-    def __init__(self, **kwargs) -> None:
-        for name, value in kwargs.items():
-            setattr(self, name, value)
-
-    def fit_transform(self, signal: pd.Series) -> pd.Series:
-        col_to_impute = signal.name
-        data = pd.DataFrame()
-        data["ds"] = signal.index.get_level_values("datetime")
-        data["y"] = signal.values
-
-        prophet = Prophet(
-            daily_seasonality=self.daily_seasonality,
-            weekly_seasonality=self.weekly_seasonality,
-            yearly_seasonality=self.yearly_seasonality,
-            interval_width=self.interval_width,
-        )
-        with suppress_stdout_stderr():
-            prophet.fit(data)
-
-        forecast = prophet.predict(data[["ds"]])["yhat"]
-        imputed = data["y"].fillna(forecast)
-        imputed = imputed.to_frame(col_to_impute)
-        imputed = imputed.set_index(signal.index)
-        imputed = imputed[col_to_impute]
-        return imputed
-
-    def get_hyperparams(self):
-        return {
-            "daily_seasonality": self.daily_seasonality,
-            "weekly_seasonality": self.weekly_seasonality,
-            "yearly_seasonality": self.yearly_seasonality,
-            "interval_width": self.interval_width,
-        }
-"""
-
-
 class ImputeRPCA:
-    def __init__(
-        self, method, multivariate=False, **kwargs
-    ) -> None:
+    def __init__(self, method, multivariate=False, **kwargs) -> None:
         self.multivariate = multivariate
 
         if method == "PCP":
@@ -252,33 +177,23 @@ class ImputeRPCA:
         else:
             imputed = pd.DataFrame()
             for col in df.columns:
-                imputed_signal, _, _ = self.rpca.fit_transform(
-                    signal=df[col].values
-                )
+                imputed_signal, _, _ = self.rpca.fit_transform(signal=df[col].values)
                 imputed[col] = imputed_signal
         imputed.index = df.index
-        
+
         return imputed
 
     def get_hyperparams(self):
-        pass
+        return self.rpca.__dict__
 
 
 class ImputeIterative:
     def __init__(self, **kwargs) -> None:
-        # self.initial_strategy = "median"
-        # self.imputation_order = "ascending"
-        # for name, value in kwargs.items():
-        #     setattr(self, name, value)
         self.kwargs = kwargs
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        ii = IterativeImputer(
-            **(self.kwargs)
-            # initial_strategy=self.initial_strategy,
-            # imputation_order=self.imputation_order,
-        )
-        res = ii.fit_transform(df.values)
+        iterative_imputer = IterativeImputer(**(self.kwargs))
+        res = iterative_imputer.fit_transform(df.values)
         imputed = pd.DataFrame(columns=df.columns)
         for ind, col in enumerate(imputed.columns):
             imputed[col] = res[:, ind]
@@ -286,7 +201,7 @@ class ImputeIterative:
         return imputed
 
     def get_hyperparams(self):
-        pass
+        return self.__dict__["kwargs"]
 
 
 class ImputeRegressor:
@@ -298,23 +213,57 @@ class ImputeRegressor:
 
     def fit_transform(self, df: pd.DataFrame) -> pd.Series:
         df_imp = df.copy()
-        print("••••••••••••••••••••••••••")
-        print(self.cols_to_impute)
         if self.cols_to_impute == []:
             self.cols_to_impute = df.columns.tolist()
-        print(self.cols_to_impute)
-        print([col for col in df.columns if col not in self.cols_to_impute])
         X = df[[col for col in df.columns if col not in self.cols_to_impute]]
         for col in self.cols_to_impute:
             y = df[col]
+            X_features = df.drop(col, axis=1)
             is_na = y.isna()
-            self.model.fit(X[~is_na], y[~is_na])
-            df_imp[col] = self.model.predict(X[is_na])
-            
+            self.model.fit(
+                X_features[~is_na].fillna(X_features[~is_na].mean()), y[~is_na]
+            )
+            df_imp.loc[is_na, col] = self.model.predict(
+                X_features[is_na].fillna(X_features.mean())
+            )
+
         return df_imp
 
     def get_hyperparams(self):
-        return {"k": self.k}
+        return self.__dict__
+
+    def create_features(self, df):
+        return None
+
+
+class ImputeStochasticRegressor:
+    def __init__(self, model, cols_to_impute=[], **kwargs) -> None:
+        self.model = model
+        self.cols_to_impute = cols_to_impute
+        for name, value in kwargs.items():
+            setattr(self, name, value)
+
+    def fit_transform(self, df: pd.DataFrame) -> pd.Series:
+        df_imp = df.copy()
+        if self.cols_to_impute == []:
+            self.cols_to_impute = df.columns.tolist()
+        X = df[[col for col in df.columns if col not in self.cols_to_impute]]
+        for col in self.cols_to_impute:
+            y = df[col]
+            X_features = df.drop(col, axis=1)
+            is_na = y.isna()
+            self.model.fit(
+                X_features[~is_na].fillna(X_features[~is_na].mean()), y[~is_na]
+            )
+            y_pred = self.model.predict(X_features.fillna(X_features.mean()))
+            std_error = (y_pred[~is_na] - y[~is_na]).std()
+            random_pred = np.random.normal(size=len(y), loc=y_pred, scale=std_error)
+            df_imp.loc[is_na, col] = random_pred[is_na]
+
+        return df_imp
+
+    def get_hyperparams(self):
+        return self.__dict__
 
     def create_features(self, df):
         return None
