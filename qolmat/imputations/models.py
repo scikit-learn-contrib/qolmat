@@ -218,14 +218,9 @@ class ImputeRegressor:
         X = df[[col for col in df.columns if col not in self.cols_to_impute]]
         for col in self.cols_to_impute:
             y = df[col]
-            X_features = df.drop(col, axis=1)
             is_na = y.isna()
-            self.model.fit(
-                X_features[~is_na].fillna(X_features[~is_na].mean()), y[~is_na]
-            )
-            df_imp.loc[is_na, col] = self.model.predict(
-                X_features[is_na].fillna(X_features.mean())
-            )
+            self.model.fit(X[~is_na], y[~is_na])
+            df_imp.loc[is_na, col] = self.model.predict(X[is_na])
 
         return df_imp
 
@@ -250,12 +245,9 @@ class ImputeStochasticRegressor:
         X = df[[col for col in df.columns if col not in self.cols_to_impute]]
         for col in self.cols_to_impute:
             y = df[col]
-            X_features = df.drop(col, axis=1)
             is_na = y.isna()
-            self.model.fit(
-                X_features[~is_na].fillna(X_features[~is_na].mean()), y[~is_na]
-            )
-            y_pred = self.model.predict(X_features.fillna(X_features.mean()))
+            self.model.fit(X[~is_na], y[~is_na])
+            y_pred = self.model.predict(X)
             std_error = (y_pred[~is_na] - y[~is_na]).std()
             random_pred = np.random.normal(size=len(y), loc=y_pred, scale=std_error)
             df_imp.loc[is_na, col] = random_pred[is_na]
