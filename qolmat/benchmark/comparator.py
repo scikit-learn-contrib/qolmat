@@ -15,6 +15,8 @@ import matplotlib.pyplot as plt
 
 
 class Comparator:
+    """This class implements a comparator for evaluating different imputation methods."""
+
     def __init__(
         self,
         data,
@@ -39,6 +41,17 @@ class Comparator:
     def create_corruptions(
         self, df: pd.DataFrame, random_state: Optional[int] = 29, mode_anomaly="iid"
     ):
+        """Create corruption in a dataframe
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            dataframe to be corrupted
+        random_state : Optional[int], optional
+            seed used by the ranom number generator, by default 29
+        mode_anomaly : str, optional
+            way to generate corruptions, by default "iid"
+        """
 
         self.df_is_altered = utils.choice_with_mask(
             df,
@@ -62,6 +75,20 @@ class Comparator:
         signal_ref: pd.DataFrame,
         signal_imputed: pd.DataFrame,
     ) -> float:
+        """Functions evaluating the reconstruction's quality
+
+        Parameters
+        ----------
+        signal_ref : pd.DataFrame
+            reference/orginal signal
+        signal_imputed : pd.DataFrame
+            imputed signal
+
+        Returns
+        -------
+        dictionary
+            dictionay of results obtained via different metrics
+        """
 
         rmse = utils.mean_squared_error(
             signal_ref[self.df_is_altered],
@@ -76,11 +103,25 @@ class Comparator:
         )
         return {"rmse": round(rmse, 4), "mae": round(mae, 4), "wmape": round(wmape, 4)}
 
-    def compare(self, full=True):
+    def compare(self, full: bool = True, verbose: bool = True):
+        """Function to compare different imputation methods
+
+        Parameters
+        ----------
+        full : bool, optional
+            _description_, by default True
+        verbose : bool, optional
+            _description_, by default True
+        Returns
+        -------
+        pd.DataFrame
+            dataframe with imputation
+        """
 
         results = {}
         for name, tested_model in self.dict_models.items():
-            print(type(tested_model).__name__)
+            if verbose:
+                print(type(tested_model).__name__)
 
             search_space = utils.get_search_space(tested_model, self.search_params)
 
@@ -91,7 +132,25 @@ class Comparator:
 
         return pd.DataFrame(results)
 
-    def evaluate_errors_cv(self, tested_model, df, search_space=None):
+    def evaluate_errors_cv(
+        self, tested_model, df: pd.DataFrame, search_space: Optional[dict] = None
+    ):
+        """Evaluate the errors in the cross-validation
+
+        Parameters
+        ----------
+        tested_model : _type_
+            imputation model
+        df : pd.DataFrame
+            dataframe to impute
+        search_space : Optional[dict], optional
+            search space for tested_model's hyperparameters , by default None
+
+        Returns
+        -------
+        dict
+            dictionary with the errors for eahc metric and at each fold
+        """
         errors = defaultdict(list)
         for _ in range(self.n_samples):
             random_state = np.random.randint(0, 10 * 9)
@@ -102,9 +161,7 @@ class Comparator:
                 ratio_missing=self.ratio_missing,
                 corruption=self.corruption,
             )
-            # print("# nan before imputation:", df.isna().sum().sum())
             imputed_df = cv.fit_transform(self.corrupted_df)
-            # print("# nan after imputation...:", imputed_df.isna().sum().sum())
             for metric, value in self.get_errors(df, imputed_df).items():
                 errors[metric].append(value)
         return errors

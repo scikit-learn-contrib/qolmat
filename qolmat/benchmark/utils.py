@@ -19,6 +19,17 @@ def get_search_space(tested_model, search_params):
         for name_param, vals_params in search_params[
             str(type(tested_model).__name__)
         ].items():
+
+            if str(type(tested_model).__name__) == "ImputeRPCA":
+                if getattr(tested_model.rpca, name_param):
+                    raise ValueError(
+                        f"Sorry, you set a value to {name_param} an asked for a search..."
+                    )
+            elif getattr(tested_model, name_param):
+                raise ValueError(
+                    f"Sorry, you set a value to {name_param} an asked for a search..."
+                )
+
             if vals_params["type"] == "Integer":
                 search_space.append(
                     Integer(
