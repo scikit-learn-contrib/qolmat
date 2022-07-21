@@ -58,7 +58,7 @@ class TemporalRPCA(RPCA):
         self.list_etas = list_etas
         self.norm = norm
 
-    def compute_L1(self, proj_D, omega, return_basis = False) -> None:
+    def compute_L1(self, proj_D, omega, return_basis=False) -> None:
         """
         compute RPCA with possible temporal regularisations, penalised with L1 norm
         """
@@ -90,7 +90,7 @@ class TemporalRPCA(RPCA):
         Ir = np.eye(self.rank)
         In = np.eye(n)
 
-        errors = np.full((self.maxIter,), np.nan, dtype = float)
+        errors = np.full((self.maxIter,), np.nan, dtype=float)
 
         for iteration in range(self.maxIter):
             # save current variable values
@@ -103,10 +103,10 @@ class TemporalRPCA(RPCA):
             sums = np.zeros((m, n))
             for index, _ in enumerate(self.list_periods):
                 sums += (mu * R[index] - Y_[index]) @ H[index].T
-            
+
             X_T = scp.linalg.solve(
                 a=((1 + mu) * In + 2 * HHT).T,
-                b=(proj_D - A + mu * L @ Q.T - Y + sums).T
+                b=(proj_D - A + mu * L @ Q.T - Y + sums).T,
             )
             X = X_T.T
 
@@ -118,17 +118,17 @@ class TemporalRPCA(RPCA):
                 A = A_omega + A_omega_C
             else:
                 A = utils.soft_thresholding(proj_D - X, self.lam)
-            
+
             L_T = scp.linalg.solve(
                 a=(self.tau * Ir + mu * (Q.T @ Q)).T,
                 b=((mu * X + Y) @ Q).T,
-            ) 
-            L =  L_T.T
+            )
+            L = L_T.T
 
             Q_T = scp.linalg.solve(
                 a=(self.tau * Ir + mu * (L.T @ L)).T,
                 b=((mu * X.T + Y.T) @ L).T,
-            ) 
+            )
             Q = Q_T.T
 
             for index, _ in enumerate(self.list_periods):
@@ -159,12 +159,12 @@ class TemporalRPCA(RPCA):
                     print(f"Converged in {iteration} iterations with error: {tol}")
                 break
         result = [X, A, errors]
-        
+
         if return_basis:
-            result+=[L, Q] 
+            result += [L, Q]
         return tuple(result)
 
-    def compute_L2(self, proj_D, omega, return_basis = False) -> None:
+    def compute_L2(self, proj_D, omega, return_basis=False) -> None:
         """
         compute RPCA with possible temporal regularisations, penalised with L2 norm
         """
@@ -189,11 +189,11 @@ class TemporalRPCA(RPCA):
         HHT = np.zeros((n, n))
         for index, _ in enumerate(self.list_periods):
             HHT += self.list_etas[index] * (H[index] @ H[index].T)
-        
+
         Ir = np.eye(self.rank)
         In = np.eye(n)
 
-        errors = np.full((self.maxIter,), np.nan, dtype = float)
+        errors = np.full((self.maxIter,), np.nan, dtype=float)
 
         for iteration in range(self.maxIter):
             # print(f"iteration={iteration}")
@@ -205,7 +205,7 @@ class TemporalRPCA(RPCA):
             X_T = scp.linalg.solve(
                 a=((1 + mu) * In + HHT).T,
                 b=(proj_D - A + mu * L @ Q.T - Y).T,
-            ) 
+            )
             X = X_T.T
 
             if np.any(~omega):
@@ -220,15 +220,15 @@ class TemporalRPCA(RPCA):
             L_T = scp.linalg.solve(
                 a=(self.tau * Ir + mu * (Q.T @ Q)).T,
                 b=((mu * X + Y) @ Q).T,
-            ) 
+            )
             L = L_T.T
 
             Q_T = scp.linalg.solve(
                 a=(self.tau * Ir + mu * (L.T @ L)).T,
                 b=((mu * X.T + Y.T) @ L).T,
-            ) 
+            )
             Q = Q_T.T
-            
+
             Y += mu * (X - L @ Q.T)
 
             mu = min(mu * rho, mu_bar)
@@ -248,9 +248,9 @@ class TemporalRPCA(RPCA):
         X = L @ Q.T
 
         result = [X, A, errors]
-        
+
         if return_basis:
-            result+=[L, Q] 
+            result += [L, Q]
         return tuple(result)
 
     def get_params(self) -> dict:
@@ -284,11 +284,7 @@ class TemporalRPCA(RPCA):
         self.list_etas = list_etas
         return self
 
-    def fit_transform(
-        self,
-        signal: NDArray,
-        return_basis = False
-    ) -> None:
+    def fit_transform(self, signal: NDArray, return_basis=False) -> None:
         """
         Compute the noisy RPCA with time "penalisations"
 
@@ -313,17 +309,17 @@ class TemporalRPCA(RPCA):
             res = self.compute_L1(proj_D, omega, return_basis)
         elif self.norm == "L2":
             res = self.compute_L2(proj_D, omega, return_basis)
-        
+
         X = res[0]
         A = res[1]
         errors = res[2]
 
         if self.input_data == "2DArray":
-            result =  [X, A, errors]
+            result = [X, A, errors]
         elif self.input_data == "1DArray":
             X = X.T
             A = A.T
-            
+
             if n_add_values > 0:
                 X.flat[-n_add_values:] = np.nan
                 A.flat[-n_add_values:] = np.nan
@@ -335,7 +331,7 @@ class TemporalRPCA(RPCA):
         else:
             raise ValueError("input data type not recognized")
         if return_basis:
-            result+=res[3:]
+            result += res[3:]
         return tuple(result)
 
     def get_params_scale(self, signal: NDArray) -> None:
@@ -417,7 +413,9 @@ class OnlineTemporalRPCA(TemporalRPCA):
         nwin = self.nwin
 
         m, n = D_init.shape
-        Lhat, Shat, _ = super().fit_transform(signal=D_init[:, :burnin], return_basis=False)
+        Lhat, Shat, _ = super().fit_transform(
+            signal=D_init[:, :burnin], return_basis=False
+        )
 
         proj_D = utils.impute_nans(D_init, method="median")
         approx_rank = utils.approx_rank(proj_D[:, :burnin], th=0.99)
@@ -440,7 +438,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
             Lhat, n_components=approx_rank, n_iter=5, random_state=0
         )
         U = Uhat[:, :approx_rank].dot(np.sqrt(np.diag(sigmas_hat[:approx_rank])))
-        
+
         Vhat_win = Vhat[:, nwin:].copy()
 
         A = np.zeros((approx_rank, approx_rank))
@@ -464,7 +462,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
         lv = np.empty(shape=(n - burnin, proj_D.shape[1]), dtype=float)
 
         Shat_grow = np.full(D_init.shape, np.nan, dtype=float)
-        Shat_grow[:, :Shat.shape[1]] = Shat
+        Shat_grow[:, : Shat.shape[1]] = Shat
 
         n_vhat = Vhat.shape[1]
         Vhat_win_grow = np.full((m, (n - burnin) + n_vhat), np.nan, dtype=float)
@@ -475,7 +473,6 @@ class OnlineTemporalRPCA(TemporalRPCA):
         Lhat_grow = np.full(D_init.shape, np.nan, dtype=float)
         Lhat_grow[:, Lhat.shape[1]] = Lhat
 
-
         for row in range(burnin, n):
             ri = proj_D[:, row]
             vi, si = utils.solve_projection(
@@ -485,15 +482,15 @@ class OnlineTemporalRPCA(TemporalRPCA):
                 self.online_lam,
                 self.online_list_etas,
                 self.list_periods,
-                Lhat_grow[:, (row-burnin):((row-burnin) + Lhat.shape[1])],
+                Lhat_grow[:, (row - burnin) : ((row - burnin) + Lhat.shape[1])],
             )
             lv[row - burnin, :] = vi
 
             Shat_grow[:, row] = si.reshape(m, 1)
-            
-            Vhat_win_grow[:, n_vhat + (row-burnin)] = vi.reshape(approx_rank, 1)
-            vi_delete = Vhat_win_grow[:, (row-burnin)]
-            Vhat_win = Vhat_win_grow[:, (row-burnin+1):((row-burnin) + n_vhat)]
+
+            Vhat_win_grow[:, n_vhat + (row - burnin)] = vi.reshape(approx_rank, 1)
+            vi_delete = Vhat_win_grow[:, (row - burnin)]
+            Vhat_win = Vhat_win_grow[:, (row - burnin + 1) : ((row - burnin) + n_vhat)]
 
             if (len(self.list_periods) > 0) and (row >= max(self.list_periods)):
                 sums = np.zeros((lv.shape[1], lv.shape[1]))
@@ -509,7 +506,9 @@ class OnlineTemporalRPCA(TemporalRPCA):
                 B = (
                     B
                     + np.outer(ri - si, vi)
-                    - np.outer(proj_D[:, row - nwin] - Shat_grow[:, row - nwin], vi_delete)
+                    - np.outer(
+                        proj_D[:, row - nwin] - Shat_grow[:, row - nwin], vi_delete
+                    )
                 )
             U = utils.update_col(self.online_tau, U, A, B)
             Lhat_grow[:, row] = U.dot(vi).reshape(m, 1)

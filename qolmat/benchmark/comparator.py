@@ -15,7 +15,27 @@ import matplotlib.pyplot as plt
 
 
 class Comparator:
-    """This class implements a comparator for evaluating different imputation methods."""
+    """
+    This class implements a comparator for evaluating different imputation methods.
+
+    Parameters
+    ----------
+    data: pd.DataFrame
+        dataframe to impute
+    ratio_missing: float
+        ratio of articially created corruptions (missign values)
+    dict_models: Dict[str, ]
+        dictionary of imputation methods
+    cols_to_impute: List[str]
+        list of column's names to impute
+    n_samples: Optional[int] = 1
+        number of times the cross-validation is done. By default, the value is set to 1.
+    search_params: Optional[Dict[str, Dict[str, Union[str, float, int]]]] = {}
+        dictionary of search space for each implementation method. By default, the value is set to {}.
+    corruption: Optional[str] = "missing"
+        type of corruptions to create: missing or outlier. By default, the value is set to "missing".
+    filter_value_nan: Optional[float] = -1e10
+    """
 
     def __init__(
         self,
