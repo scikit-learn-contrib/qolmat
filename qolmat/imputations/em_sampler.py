@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Union, Tuple, Any
+from typing import Union, Tuple, Any, Optional
 import logging
 from warnings import WarningMessage
 import numpy as np
@@ -12,6 +12,7 @@ from sklearn.impute import MissingIndicator
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import is_scalar_nan
 from sklearn.impute._base import _BaseImputer
+
 # from ._typing import ArrayLike
 from numpy.typing import ArrayLike, NDArray
 from tqdm import tqdm
@@ -53,13 +54,13 @@ class ImputeEM(_BaseImputer):  # type: ignore
 
     def __init__(
         self,
-        strategy: str = "sample",
-        n_iter_em: int = 7,
-        n_iter_ou: int = 50,
-        ampli: int = 0.5,
-        random_state : int = 123,
-        verbose: int = 0,
-        ) -> None:
+        strategy: Optional[str] = "sample",
+        n_iter_em: Optional[int] = 7,
+        n_iter_ou: Optional[int] = 50,
+        ampli: Optional[int] = 0.5,
+        random_state: Optional[int] = 123,
+        verbose: Optional[int] = 0,
+    ) -> None:
         self.strategy = strategy
         self.n_iter_em = n_iter_em
         self.n_iter_ou = n_iter_ou
@@ -106,7 +107,9 @@ class ImputeEM(_BaseImputer):  # type: ignore
             Apn = A @ pn
             Apn[~mask] = 0
             alphan = np.sum(rn ** 2, axis=0) / np.sum(pn * Apn, axis=0)
-            alphan[alphan.isna()] = 0  # we stop updating if convergence is reached for this date
+            alphan[
+                alphan.isna()
+            ] = 0  # we stop updating if convergence is reached for this date
             xn, rnp1 = xn + alphan * pn, rn - alphan * Apn
             betan = np.sum(rnp1 ** 2, axis=0) / np.sum(rn ** 2, axis=0)
             betan[
@@ -240,12 +243,14 @@ class ImputeEM(_BaseImputer):  # type: ignore
         if not isinstance(X, pd.DataFrame):
             self.type_X = type(X)
             if (not isinstance(X, np.ndarray)) & (not isinstance(X, list)):
-                raise ValueError("Input array is not a list, np.array, nor pd.DataFrame.")
+                raise ValueError(
+                    "Input array is not a list, np.array, nor pd.DataFrame."
+                )
             X = pd.DataFrame(X)
             X.columns = X.columns.astype(str)
         return X
 
-    def fit(self, X: ArrayLike) -> MultiTSImputer:
+    def fit(self, X: ArrayLike) -> ImputeEM:
         """
         Fits covariance and compute inverted matrix.
         A penalization is applied to avoid singularity.
@@ -313,8 +318,6 @@ class ImputeEM(_BaseImputer):  # type: ignore
         X_ = pd.DataFrame(scaler.fit_transform(X_), index=X.index, columns=X.columns)
         X_intermediate_ = []
         for i in tqdm(range(self.n_iter_em)):
-            # if self.verbose:
-            #     print(f"iter_em : {i}/{self.n_iter_em}")
             X_extended = self._add_shift(X_, ystd=True, tmrw=True).bfill().ffill()
             self.fit(X_extended)
             if self.strategy == "sample":
@@ -327,9 +330,13 @@ class ImputeEM(_BaseImputer):  # type: ignore
                 )
             X_ = X_extended[cols]
             X_intermediate_.append(X_.copy())
-        X_ = pd.DataFrame(scaler.inverse_transform(X_), index=X.index, columns=X.columns)
+        X_ = pd.DataFrame(
+            scaler.inverse_transform(X_), index=X.index, columns=X.columns
+        )
         self.X_intermediate = [
-            pd.DataFrame(scaler.inverse_transform(X_inter_), index=X.index, columns=X.columns)
+            pd.DataFrame(
+                scaler.inverse_transform(X_inter_), index=X.index, columns=X.columns
+            )
             for X_inter_ in X_intermediate_
         ]
         self.fit(X_)

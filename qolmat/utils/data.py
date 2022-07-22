@@ -96,19 +96,48 @@ def make_ellipses(X, ax, color):
 
 
 def compare_covariances(df1, df2, var_x, var_y, ax):
-    ax.scatter(df2[var_x], df2[var_y], marker=".", color="C0")
+    """
+    Covariance plot: scatter plot with ellipses
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        dataframe with raw data
+    df2 : pd.DataFrame
+        dataframe with imputations
+    var_x : str
+        variable x, column's name of dataframe df1 to compare with
+    var_y : str
+        variable y, column's name of dataframe df2 to compare with
+    ax : matplotlib.axes._subplots.AxesSubplot
+        axes
+    """
     ax.scatter(df1[var_x], df1[var_y], marker=".", color="C3")
-    make_ellipses(df2[[var_x, var_y]], ax, "firebrick")
-    make_ellipses(df1[[var_x, var_y]], ax, "steelblue")
+    ax.scatter(df2[var_x], df2[var_y], marker=".", color="C0")
+    make_ellipses(df1[[var_x, var_y]], ax, "turquoise")
+    make_ellipses(df2[[var_x, var_y]], ax, "crimson")
     ax.set_xlabel(var_x)
     ax.set_ylabel(var_y)
-    ax.legend(["After imputation", "Raw data"])
+    ax.legend(["Raw data", "After imputation"])
 
 
-def KL(P, Q):
+def KL(P: pd.Series, Q: pd.Series) -> float:
     """
+    Compute the Kullback-Leibler divergence between distributions P and Q
     Epsilon is used here to avoid conditional code for
     checking that neither P nor Q is equal to 0.
+
+    Parameters
+    ----------
+    P : pd.Series
+        "true" distribution
+    Q : pd.Series
+        distribution
+
+    Return
+    ------
+    float
+        KL(P,Q)
     """
     epsilon = 0.00001
 
