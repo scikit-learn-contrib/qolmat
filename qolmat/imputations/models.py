@@ -42,7 +42,6 @@ class ImputeByMean(ImputeColumnWise):
     def fit_transform_col(self, signal: pd.Series) -> pd.Series:
         col = signal.name
         signal = signal.reset_index()
-        # imputed = utils.custom_groupby(signal, self.groups)[[col_to_impute]].apply(lambda x: x.fillna(x.mean()))
         imputed = signal[col].fillna(
             utils.custom_groupby(signal, self.groups)[col].transform("mean")
         )
@@ -59,11 +58,25 @@ class ImputeByMedian(ImputeColumnWise):
     def fit_transform_col(self, signal: pd.Series) -> pd.Series:
         col = signal.name
         signal = signal.reset_index()
-        # imputed = utils.custom_groupby(signal, self.groups)[[col_to_impute]].apply(lambda x: x.fillna(x.mean()))
         imputed = signal[col].fillna(
             utils.custom_groupby(signal, self.groups)[col].transform("median")
         )
-        # imputed = signal[col].groupby(self.groups).transform("median")
+        return imputed
+
+
+class ImputeByMode(ImputeColumnWise):
+    def __init__(
+        self,
+        groups=[],
+    ) -> None:
+        super().__init__(groups=groups)
+
+    def fit_transform_col(self, signal: pd.Series) -> pd.Series:
+        col = signal.name
+        signal = signal.reset_index()
+        imputed = signal[col].fillna(
+            utils.custom_groupby(signal, self.groups)[col].mode().iloc[0]
+        )
         return imputed
 
 
