@@ -1,23 +1,24 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>robust-pca API &mdash; robust-pca 0.1 documentation</title><link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <title>Qolmat API &mdash; qolmat 0.1 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
         <script src="_static/doctools.js"></script>
-        <script src="_static/language_data.js"></script>
-        <script async="async" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="robust_pca.classes.pcp_rpca.PcpRPCA" href="generated/robust_pca.classes.pcp_rpca.PcpRPCA.html" />
+    <link rel="next" title="qolmat.imputations.rpca.rpca.RPCA" href="generated/qolmat.imputations.rpca.rpca.RPCA.html" />
     <link rel="prev" title="Example for image denoising with robust PCA" href="examples/denoise_images.html" /> 
 </head>
 
@@ -26,7 +27,7 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="index.html" class="icon icon-home"> robust-pca
+            <a href="index.html" class="icon icon-home"> qolmat
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
@@ -36,43 +37,41 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">Brief explanation</span></p>
+              <p class="caption" role="heading"><span class="caption-text">Brief explanation</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="explanation.html">What is robust principal component analysis?</a></li>
-<li class="toctree-l1"><a class="reference internal" href="explanation.html#whats-in-this-repo">What’s in this repo?</a></li>
-<li class="toctree-l1"><a class="reference internal" href="explanation.html#references">References</a></li>
+<li class="toctree-l1"><a class="reference internal" href="explanation.html">Qolmat methods</a></li>
+<li class="toctree-l1"><a class="reference internal" href="RPCA.html">Focus on RPCA</a></li>
+<li class="toctree-l1"><a class="reference internal" href="EM_sampler.html">Focus on EM_sampler</a></li>
 </ul>
-<p class="caption"><span class="caption-text">Simple examples</span></p>
+<p class="caption" role="heading"><span class="caption-text">Simple examples</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="examples/time_series.html">Example for anomaly detection in time series</a></li>
 <li class="toctree-l1"><a class="reference internal" href="examples/background.html">Example for background and foreground separation with robust PCA</a></li>
 <li class="toctree-l1"><a class="reference internal" href="examples/denoise_images.html">Example for image denoising with robust PCA</a></li>
 </ul>
-<p class="caption"><span class="caption-text">API</span></p>
+<p class="caption" role="heading"><span class="caption-text">API</span></p>
 <ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#">robust-pca API</a><ul>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Qolmat API</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#classes">Classes</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="generated/robust_pca.classes.pcp_rpca.PcpRPCA.html">robust_pca.classes.pcp_rpca.PcpRPCA</a></li>
-<li class="toctree-l3"><a class="reference internal" href="generated/robust_pca.classes.graph_rpca.GraphRPCA.html">robust_pca.classes.graph_rpca.GraphRPCA</a></li>
-<li class="toctree-l3"><a class="reference internal" href="generated/robust_pca.classes.graph_rpca.GraphRPCAHyperparams.html">robust_pca.classes.graph_rpca.GraphRPCAHyperparams</a></li>
-<li class="toctree-l3"><a class="reference internal" href="generated/robust_pca.classes.temporal_rpca.TemporalRPCA.html">robust_pca.classes.temporal_rpca.TemporalRPCA</a></li>
-<li class="toctree-l3"><a class="reference internal" href="generated/robust_pca.classes.temporal_rpca.TemporalRPCAHyperparams.html">robust_pca.classes.temporal_rpca.TemporalRPCAHyperparams</a></li>
-<li class="toctree-l3"><a class="reference internal" href="generated/robust_pca.classes.temporal_rpca.OnlineTemporalRPCA.html">robust_pca.classes.temporal_rpca.OnlineTemporalRPCA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/qolmat.imputations.rpca.rpca.RPCA.html">qolmat.imputations.rpca.rpca.RPCA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/qolmat.imputations.rpca.pcp_rpca.PcpRPCA.html">qolmat.imputations.rpca.pcp_rpca.PcpRPCA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/qolmat.imputations.rpca.temporal_rpca.TemporalRPCA.html">qolmat.imputations.rpca.temporal_rpca.TemporalRPCA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/qolmat.imputations.rpca.temporal_rpca.OnlineTemporalRPCA.html">qolmat.imputations.rpca.temporal_rpca.OnlineTemporalRPCA</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#utils">Utils</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="generated/robust_pca.utils.utils.get_period.html">robust_pca.utils.utils.get_period</a></li>
-<li class="toctree-l3"><a class="reference internal" href="generated/robust_pca.utils.utils.signal_to_matrix.html">robust_pca.utils.utils.signal_to_matrix</a></li>
-<li class="toctree-l3"><a class="reference internal" href="generated/robust_pca.utils.utils.approx_rank.html">robust_pca.utils.utils.approx_rank</a></li>
-<li class="toctree-l3"><a class="reference internal" href="generated/robust_pca.utils.utils.proximal_operator.html">robust_pca.utils.utils.proximal_operator</a></li>
-<li class="toctree-l3"><a class="reference internal" href="generated/robust_pca.utils.utils.soft_thresholding.html">robust_pca.utils.utils.soft_thresholding</a></li>
-<li class="toctree-l3"><a class="reference internal" href="generated/robust_pca.utils.utils.svd_thresholding.html">robust_pca.utils.utils.svd_thresholding</a></li>
-<li class="toctree-l3"><a class="reference internal" href="generated/robust_pca.utils.utils.ortho_proj.html">robust_pca.utils.utils.ortho_proj</a></li>
-<li class="toctree-l3"><a class="reference internal" href="generated/robust_pca.utils.utils.toeplitz_matrix.html">robust_pca.utils.utils.toeplitz_matrix</a></li>
-<li class="toctree-l3"><a class="reference internal" href="generated/robust_pca.utils.utils.construct_graph.html">robust_pca.utils.utils.construct_graph</a></li>
-<li class="toctree-l3"><a class="reference internal" href="generated/robust_pca.utils.drawing.plot_matrices.html">robust_pca.utils.drawing.plot_matrices</a></li>
-<li class="toctree-l3"><a class="reference internal" href="generated/robust_pca.utils.drawing.plot_signal.html">robust_pca.utils.drawing.plot_signal</a></li>
-<li class="toctree-l3"><a class="reference internal" href="generated/robust_pca.utils.drawing.plot_images.html">robust_pca.utils.drawing.plot_images</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/qolmat.imputations.rpca.utils.utils.get_period.html">qolmat.imputations.rpca.utils.utils.get_period</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/qolmat.imputations.rpca.utils.utils.signal_to_matrix.html">qolmat.imputations.rpca.utils.utils.signal_to_matrix</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/qolmat.imputations.rpca.utils.utils.approx_rank.html">qolmat.imputations.rpca.utils.utils.approx_rank</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/qolmat.imputations.rpca.utils.utils.proximal_operator.html">qolmat.imputations.rpca.utils.utils.proximal_operator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/qolmat.imputations.rpca.utils.utils.soft_thresholding.html">qolmat.imputations.rpca.utils.utils.soft_thresholding</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/qolmat.imputations.rpca.utils.utils.svd_thresholding.html">qolmat.imputations.rpca.utils.utils.svd_thresholding</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/qolmat.imputations.rpca.utils.utils.ortho_proj.html">qolmat.imputations.rpca.utils.utils.ortho_proj</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/qolmat.imputations.rpca.utils.utils.toeplitz_matrix.html">qolmat.imputations.rpca.utils.utils.toeplitz_matrix</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/qolmat.imputations.rpca.utils.utils.construct_graph.html">qolmat.imputations.rpca.utils.utils.construct_graph</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/qolmat.imputations.rpca.utils.drawing.plot_matrices.html">qolmat.imputations.rpca.utils.drawing.plot_matrices</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/qolmat.imputations.rpca.utils.drawing.plot_signal.html">qolmat.imputations.rpca.utils.drawing.plot_signal</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/qolmat.imputations.rpca.utils.drawing.plot_images.html">qolmat.imputations.rpca.utils.drawing.plot_images</a></li>
 </ul>
 </li>
 </ul>
@@ -85,7 +84,7 @@
 
     <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="index.html">robust-pca</a>
+          <a href="index.html">qolmat</a>
       </nav>
 
       <div class="wy-nav-content">
@@ -93,7 +92,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
-      <li>robust-pca API</li>
+      <li>Qolmat API</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/api.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -103,92 +102,86 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <div class="section" id="robust-pca-api">
-<h1>robust-pca API<a class="headerlink" href="#robust-pca-api" title="Permalink to this headline">¶</a></h1>
-<div class="section" id="classes">
-<h2>Classes<a class="headerlink" href="#classes" title="Permalink to this headline">¶</a></h2>
+  <section id="qolmat-api">
+<h1>Qolmat API<a class="headerlink" href="#qolmat-api" title="Permalink to this headline"></a></h1>
+<section id="classes">
+<h2>Classes<a class="headerlink" href="#classes" title="Permalink to this headline"></a></h2>
 <table class="longtable docutils align-default">
 <colgroup>
 <col style="width: 10%" />
 <col style="width: 90%" />
 </colgroup>
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/robust_pca.classes.pcp_rpca.PcpRPCA.html#robust_pca.classes.pcp_rpca.PcpRPCA" title="robust_pca.classes.pcp_rpca.PcpRPCA"><code class="xref py py-obj docutils literal notranslate"><span class="pre">classes.pcp_rpca.PcpRPCA</span></code></a>(signal, period, D, …)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/qolmat.imputations.rpca.rpca.RPCA.html#qolmat.imputations.rpca.rpca.RPCA" title="qolmat.imputations.rpca.rpca.RPCA"><code class="xref py py-obj docutils literal notranslate"><span class="pre">imputations.rpca.rpca.RPCA</span></code></a>([n_rows, ...])</p></td>
+<td><p>This class is the root class of the RPCA methods.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/qolmat.imputations.rpca.pcp_rpca.PcpRPCA.html#qolmat.imputations.rpca.pcp_rpca.PcpRPCA" title="qolmat.imputations.rpca.pcp_rpca.PcpRPCA"><code class="xref py py-obj docutils literal notranslate"><span class="pre">imputations.rpca.pcp_rpca.PcpRPCA</span></code></a>([n_rows, ...])</p></td>
 <td><p>This class implements the basic RPCA decomposition using Alternating Lagrangian Multipliers.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/robust_pca.classes.graph_rpca.GraphRPCA.html#robust_pca.classes.graph_rpca.GraphRPCA" title="robust_pca.classes.graph_rpca.GraphRPCA"><code class="xref py py-obj docutils literal notranslate"><span class="pre">classes.graph_rpca.GraphRPCA</span></code></a>(signal, period, …)</p></td>
-<td><p>This class implements Fast Robust PCA on Graphs using the FISTA algorithm</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/robust_pca.classes.graph_rpca.GraphRPCAHyperparams.html#robust_pca.classes.graph_rpca.GraphRPCAHyperparams" title="robust_pca.classes.graph_rpca.GraphRPCAHyperparams"><code class="xref py py-obj docutils literal notranslate"><span class="pre">classes.graph_rpca.GraphRPCAHyperparams</span></code></a>(…)</p></td>
-<td><p>This class implements the graph RPCA with hyperparameters’ selection</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/robust_pca.classes.temporal_rpca.TemporalRPCA.html#robust_pca.classes.temporal_rpca.TemporalRPCA" title="robust_pca.classes.temporal_rpca.TemporalRPCA"><code class="xref py py-obj docutils literal notranslate"><span class="pre">classes.temporal_rpca.TemporalRPCA</span></code></a>(signal, …)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/qolmat.imputations.rpca.temporal_rpca.TemporalRPCA.html#qolmat.imputations.rpca.temporal_rpca.TemporalRPCA" title="qolmat.imputations.rpca.temporal_rpca.TemporalRPCA"><code class="xref py py-obj docutils literal notranslate"><span class="pre">imputations.rpca.temporal_rpca.TemporalRPCA</span></code></a>([...])</p></td>
 <td><p>This class implements a noisy version of the so-called improved RPCA</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/robust_pca.classes.temporal_rpca.TemporalRPCAHyperparams.html#robust_pca.classes.temporal_rpca.TemporalRPCAHyperparams" title="robust_pca.classes.temporal_rpca.TemporalRPCAHyperparams"><code class="xref py py-obj docutils literal notranslate"><span class="pre">classes.temporal_rpca.TemporalRPCAHyperparams</span></code></a>(…)</p></td>
-<td><p>This class implements the noisy RPCA with hyperparameters’ selection</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/robust_pca.classes.temporal_rpca.OnlineTemporalRPCA.html#robust_pca.classes.temporal_rpca.OnlineTemporalRPCA" title="robust_pca.classes.temporal_rpca.OnlineTemporalRPCA"><code class="xref py py-obj docutils literal notranslate"><span class="pre">classes.temporal_rpca.OnlineTemporalRPCA</span></code></a>(…)</p></td>
-<td><p>This class implements an online version of Temporal RPCA  that processes one sample per time instance and hence its memory cost is independent of the number of samples It is based on stochastic optimization of an equivalent reformulation  of the batch TemporalRPCA</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/qolmat.imputations.rpca.temporal_rpca.OnlineTemporalRPCA.html#qolmat.imputations.rpca.temporal_rpca.OnlineTemporalRPCA" title="qolmat.imputations.rpca.temporal_rpca.OnlineTemporalRPCA"><code class="xref py py-obj docutils literal notranslate"><span class="pre">imputations.rpca.temporal_rpca.OnlineTemporalRPCA</span></code></a>([...])</p></td>
+<td><p>This class implements an online version of Temporal RPCA that processes one sample per time instance and hence its memory cost is independent of the number of samples It is based on stochastic optimization of an equivalent reformulation of the batch TemporalRPCA</p></td>
 </tr>
 </tbody>
 </table>
-</div>
-<div class="section" id="utils">
-<h2>Utils<a class="headerlink" href="#utils" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="utils">
+<h2>Utils<a class="headerlink" href="#utils" title="Permalink to this headline"></a></h2>
 <table class="longtable docutils align-default">
 <colgroup>
 <col style="width: 10%" />
 <col style="width: 90%" />
 </colgroup>
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/robust_pca.utils.utils.get_period.html#robust_pca.utils.utils.get_period" title="robust_pca.utils.utils.get_period"><code class="xref py py-obj docutils literal notranslate"><span class="pre">utils.utils.get_period</span></code></a>(signal)</p></td>
-<td><p>Retrieve the “period” of a series based on the ACF</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/qolmat.imputations.rpca.utils.utils.get_period.html#qolmat.imputations.rpca.utils.utils.get_period" title="qolmat.imputations.rpca.utils.utils.get_period"><code class="xref py py-obj docutils literal notranslate"><span class="pre">imputations.rpca.utils.utils.get_period</span></code></a>(signal)</p></td>
+<td><p>Retrieve the &quot;period&quot; of a series based on the ACF, in an optional given range.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/robust_pca.utils.utils.signal_to_matrix.html#robust_pca.utils.utils.signal_to_matrix" title="robust_pca.utils.utils.signal_to_matrix"><code class="xref py py-obj docutils literal notranslate"><span class="pre">utils.utils.signal_to_matrix</span></code></a>(signal, period)</p></td>
-<td><p>Shape a time series into a matrix</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/qolmat.imputations.rpca.utils.utils.signal_to_matrix.html#qolmat.imputations.rpca.utils.utils.signal_to_matrix" title="qolmat.imputations.rpca.utils.utils.signal_to_matrix"><code class="xref py py-obj docutils literal notranslate"><span class="pre">imputations.rpca.utils.utils.signal_to_matrix</span></code></a>(...)</p></td>
+<td><p>Reshape a time series into a 2D array</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/robust_pca.utils.utils.approx_rank.html#robust_pca.utils.utils.approx_rank" title="robust_pca.utils.utils.approx_rank"><code class="xref py py-obj docutils literal notranslate"><span class="pre">utils.utils.approx_rank</span></code></a>(M[, th])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/qolmat.imputations.rpca.utils.utils.approx_rank.html#qolmat.imputations.rpca.utils.utils.approx_rank" title="qolmat.imputations.rpca.utils.utils.approx_rank"><code class="xref py py-obj docutils literal notranslate"><span class="pre">imputations.rpca.utils.utils.approx_rank</span></code></a>(M)</p></td>
 <td><p>Estimate a superior rank of a matrix M by SVD</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/robust_pca.utils.utils.proximal_operator.html#robust_pca.utils.utils.proximal_operator" title="robust_pca.utils.utils.proximal_operator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">utils.utils.proximal_operator</span></code></a>(U, X, threshold)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/qolmat.imputations.rpca.utils.utils.proximal_operator.html#qolmat.imputations.rpca.utils.utils.proximal_operator" title="qolmat.imputations.rpca.utils.utils.proximal_operator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">imputations.rpca.utils.utils.proximal_operator</span></code></a>(U, ...)</p></td>
 <td><p>Compute the proximal operator with L1 norm</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/robust_pca.utils.utils.soft_thresholding.html#robust_pca.utils.utils.soft_thresholding" title="robust_pca.utils.utils.soft_thresholding"><code class="xref py py-obj docutils literal notranslate"><span class="pre">utils.utils.soft_thresholding</span></code></a>(X, threshold)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/qolmat.imputations.rpca.utils.utils.soft_thresholding.html#qolmat.imputations.rpca.utils.utils.soft_thresholding" title="qolmat.imputations.rpca.utils.utils.soft_thresholding"><code class="xref py py-obj docutils literal notranslate"><span class="pre">imputations.rpca.utils.utils.soft_thresholding</span></code></a>(X, ...)</p></td>
 <td><p>Apply the shrinkage operator (i.e.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/robust_pca.utils.utils.svd_thresholding.html#robust_pca.utils.utils.svd_thresholding" title="robust_pca.utils.utils.svd_thresholding"><code class="xref py py-obj docutils literal notranslate"><span class="pre">utils.utils.svd_thresholding</span></code></a>(X, threshold)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/qolmat.imputations.rpca.utils.utils.svd_thresholding.html#qolmat.imputations.rpca.utils.utils.svd_thresholding" title="qolmat.imputations.rpca.utils.utils.svd_thresholding"><code class="xref py py-obj docutils literal notranslate"><span class="pre">imputations.rpca.utils.utils.svd_thresholding</span></code></a>(X, ...)</p></td>
 <td><p>Apply the shrinkage operator to the singular values obtained from the SVD of X.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/robust_pca.utils.utils.ortho_proj.html#robust_pca.utils.utils.ortho_proj" title="robust_pca.utils.utils.ortho_proj"><code class="xref py py-obj docutils literal notranslate"><span class="pre">utils.utils.ortho_proj</span></code></a>(M, omega[, inv])</p></td>
-<td><p>orthogonal projection of matrix M onto the linear space of matrices supported on omega</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/qolmat.imputations.rpca.utils.utils.ortho_proj.html#qolmat.imputations.rpca.utils.utils.ortho_proj" title="qolmat.imputations.rpca.utils.utils.ortho_proj"><code class="xref py py-obj docutils literal notranslate"><span class="pre">imputations.rpca.utils.utils.ortho_proj</span></code></a>(M, omega)</p></td>
+<td><p>Orthogonal projection of matrix M onto the linear space of matrices supported on omega</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/robust_pca.utils.utils.toeplitz_matrix.html#robust_pca.utils.utils.toeplitz_matrix" title="robust_pca.utils.utils.toeplitz_matrix"><code class="xref py py-obj docutils literal notranslate"><span class="pre">utils.utils.toeplitz_matrix</span></code></a>(T, dimension, model)</p></td>
-<td><p>Create a matrix Toeplitz matrix H to take into account temporal correlation via HX H=Toeplitz(0,1,-1), in which the central diagonal is defined as ones and the T upper diagonal is defined as negative ones.</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/qolmat.imputations.rpca.utils.utils.toeplitz_matrix.html#qolmat.imputations.rpca.utils.utils.toeplitz_matrix" title="qolmat.imputations.rpca.utils.utils.toeplitz_matrix"><code class="xref py py-obj docutils literal notranslate"><span class="pre">imputations.rpca.utils.utils.toeplitz_matrix</span></code></a>(T, ...)</p></td>
+<td><p>Create a matrix Toeplitz matrix H to take into account temporal correlation via HX H=Toeplitz(0,1,-1), in which the central diagonal is defined as ones and the T upper diagonal is defined as minus ones.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/robust_pca.utils.utils.construct_graph.html#robust_pca.utils.utils.construct_graph" title="robust_pca.utils.utils.construct_graph"><code class="xref py py-obj docutils literal notranslate"><span class="pre">utils.utils.construct_graph</span></code></a>(X[, …])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/qolmat.imputations.rpca.utils.utils.construct_graph.html#qolmat.imputations.rpca.utils.utils.construct_graph" title="qolmat.imputations.rpca.utils.utils.construct_graph"><code class="xref py py-obj docutils literal notranslate"><span class="pre">imputations.rpca.utils.utils.construct_graph</span></code></a>(X)</p></td>
 <td><p>Construct a graph based on the distance (similarity) between data</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/robust_pca.utils.drawing.plot_matrices.html#robust_pca.utils.drawing.plot_matrices" title="robust_pca.utils.drawing.plot_matrices"><code class="xref py py-obj docutils literal notranslate"><span class="pre">utils.drawing.plot_matrices</span></code></a>(list_matrices[, …])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/qolmat.imputations.rpca.utils.drawing.plot_matrices.html#qolmat.imputations.rpca.utils.drawing.plot_matrices" title="qolmat.imputations.rpca.utils.drawing.plot_matrices"><code class="xref py py-obj docutils literal notranslate"><span class="pre">imputations.rpca.utils.drawing.plot_matrices</span></code></a>(...)</p></td>
 <td><p>Plot RPCA matrices</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/robust_pca.utils.drawing.plot_signal.html#robust_pca.utils.drawing.plot_signal" title="robust_pca.utils.drawing.plot_signal"><code class="xref py py-obj docutils literal notranslate"><span class="pre">utils.drawing.plot_signal</span></code></a>(list_signals[, …])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/qolmat.imputations.rpca.utils.drawing.plot_signal.html#qolmat.imputations.rpca.utils.drawing.plot_signal" title="qolmat.imputations.rpca.utils.drawing.plot_signal"><code class="xref py py-obj docutils literal notranslate"><span class="pre">imputations.rpca.utils.drawing.plot_signal</span></code></a>(...)</p></td>
 <td><p>Plot RPCA results for time series</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/robust_pca.utils.drawing.plot_images.html#robust_pca.utils.drawing.plot_images" title="robust_pca.utils.drawing.plot_images"><code class="xref py py-obj docutils literal notranslate"><span class="pre">utils.drawing.plot_images</span></code></a>(M, A, E, …[, …])</p></td>
-<td><p>Plot multiple images in 3 columns for original, background and “foreground”</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/qolmat.imputations.rpca.utils.drawing.plot_images.html#qolmat.imputations.rpca.utils.drawing.plot_images" title="qolmat.imputations.rpca.utils.drawing.plot_images"><code class="xref py py-obj docutils literal notranslate"><span class="pre">imputations.rpca.utils.drawing.plot_images</span></code></a>(M, ...)</p></td>
+<td><p>Plot multiple images in 3 columns for original, background and &quot;foreground&quot;</p></td>
 </tr>
 </tbody>
 </table>
-</div>
-</div>
+</section>
+</section>
 
 
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="examples/denoise_images.html" class="btn btn-neutral float-left" title="Example for image denoising with robust PCA" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="generated/robust_pca.classes.pcp_rpca.PcpRPCA.html" class="btn btn-neutral float-right" title="robust_pca.classes.pcp_rpca.PcpRPCA" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="generated/qolmat.imputations.rpca.rpca.RPCA.html" class="btn btn-neutral float-right" title="qolmat.imputations.rpca.rpca.RPCA" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

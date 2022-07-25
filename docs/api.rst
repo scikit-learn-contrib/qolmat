@@ -1,8 +1,8 @@
-##############
-robust-pca API
-##############
+##########
+Qolmat API
+##########
 
-.. currentmodule:: robust_pca
+.. currentmodule:: qolmat
 
 Classes
 =======
@@ -11,12 +11,10 @@ Classes
     :toctree: generated/
     :template: class.rst
 
-    classes.pcp_rpca.PcpRPCA
-    classes.graph_rpca.GraphRPCA
-    classes.graph_rpca.GraphRPCAHyperparams
-    classes.temporal_rpca.TemporalRPCA
-    classes.temporal_rpca.TemporalRPCAHyperparams
-    classes.temporal_rpca.OnlineTemporalRPCA
+    imputations.rpca.rpca.RPCA
+    imputations.rpca.pcp_rpca.PcpRPCA
+    imputations.rpca.temporal_rpca.TemporalRPCA
+    imputations.rpca.temporal_rpca.OnlineTemporalRPCA
 
 Utils
 =====
@@ -25,15 +23,15 @@ Utils
     :toctree: generated/
     :template: function.rst
 
-    utils.utils.get_period
-    utils.utils.signal_to_matrix
-    utils.utils.approx_rank
-    utils.utils.proximal_operator
-    utils.utils.soft_thresholding
-    utils.utils.svd_thresholding
-    utils.utils.ortho_proj
-    utils.utils.toeplitz_matrix
-    utils.utils.construct_graph
-    utils.drawing.plot_matrices
-    utils.drawing.plot_signal
-    utils.drawing.plot_images
+    imputations.rpca.utils.utils.get_period
+    imputations.rpca.utils.utils.signal_to_matrix
+    imputations.rpca.utils.utils.approx_rank
+    imputations.rpca.utils.utils.proximal_operator
+    imputations.rpca.utils.utils.soft_thresholding
+    imputations.rpca.utils.utils.svd_thresholding
+    imputations.rpca.utils.utils.ortho_proj
+    imputations.rpca.utils.utils.toeplitz_matrix
+    imputations.rpca.utils.utils.construct_graph
+    imputations.rpca.utils.drawing.plot_matrices
+    imputations.rpca.utils.drawing.plot_signal
+    imputations.rpca.utils.drawing.plot_images

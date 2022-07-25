@@ -1,0 +1,299 @@
+#############
+RPCA examples
+#############
+
+Example for anomaly detection in time series
+============================================
+
+The aim of this notebook is to make use of the RPCA method to
+detect anoamlies in an univariate time series. 
+Note that this method only applies whether the time series has 
+seasonalities or periodicities/structures in itself.
+
+First, import some usefull libraries and functions
+
+.. code-block:: python
+
+    import numpy as np
+    import timesynth as ts # package for generating time series
+
+    import matplotlib.pyplot as plt
+
+    from robust_pca.utils import drawing, utils
+    from robust_pca.classes.pcp_rpca import PcpRPCA
+    from robust_pca.classes.temporal_rpca import TemporalRPCA, OnlineTemporalRPCA
+
+
+Then we generate some synthetic data. More precisely, we consider a sine function 
+which we corrupt by adding some anomalies and creating some missing values.
+
+.. code-block:: python
+
+    time_sampler = ts.TimeSampler(stop_time=20)
+    irregular_time_samples = time_sampler.sample_irregular_time(num_points=5_000, keep_percentage=100)
+    sinusoid = ts.signals.Sinusoidal(frequency=2)
+    white_noise = ts.noise.GaussianNoise(std=0.1)
+    timeseries = ts.TimeSeries(sinusoid, noise_generator=white_noise)
+    samples, signals, errors = timeseries.sample(irregular_time_samples)
+
+    n = len(samples)
+    pc = 0.01
+    indices = np.random.choice(n, int(n*pc))
+    samples[indices] = [np.random.uniform(low=2*np.min(samples), high=2*np.max(samples)) for i in range(int(n*pc))]
+    indices = np.random.choice(n, int(n*pc))
+    samples[indices] = np.nan
+
+    time_sampler = ts.TimeSampler(stop_time=20)
+    irregular_time_samples = time_sampler.sample_irregular_time(num_points=5_000, keep_percentage=100)
+    sinusoid = ts.signals.Sinusoidal(frequency=3)
+    white_noise = ts.noise.GaussianNoise(std=0.1)
+    timeseries = ts.TimeSeries(sinusoid)#, noise_generator=white_noise)
+    samples2, signals2, errors2 = timeseries.sample(irregular_time_samples)
+
+    n2 = len(samples2)
+    indices = np.random.choice(n2, int(n*pc))
+    samples2[indices] = [np.random.uniform(low=2*np.min(samples2), high=2*np.max(samples2)) for i in range(int(n2*pc))]
+    indices = np.random.choice(n2, int(n*pc))
+    samples2[indices] = np.nan
+
+    samples += samples2
+    signals += signals2
+    errors += errors2
+
+    fig, ax = plt.subplots(3, 1, sharex=True, figsize=(12,6))
+    ax[0].plot(range(n), samples)
+    ax[0].set_title("Corrupted signal", fontsize=15)
+    ax[1].plot(range(n), signals)
+    ax[1].set_title("Low-rank signal", fontsize=15)
+    ax[2].plot(range(n), errors)
+    ax[2].set_title("Noise", fontsize=15)
+    ax[2].set_xlabel("Time", fontsize=16)
+    plt.tight_layout()
+    plt.show()
+
+.. image:: ../images/time_series_01.png
+
+The aim is to find the smooth signal (Low-rank signal) as well as the anomalies given 
+the observed signal (Corrupted signal).
+
+We first try the basic RPCA formulation, where we do not take into account the temporal aspect of data under scrutiny.
+We then apply the batch version of temporal RPCA.
+Then, suppose we only have access to some data but new samples arrive constantly. 
+We do not want to compute a RPCA from scratch each time new data come, but we want 
+to use the knowledge we have from the precedent one. This is a perfect scenario 
+for using the online version of the algorithm. In this example, we take as burning 
+sample the 40% first percent of the time series. 
+For the online version, we test with and without a moving window.
+
+
+.. code-block:: python
+
+    a = PcpRPCA(period=25)
+    a.fit(signal=samples.tolist())
+    Afilter, noise = utils.get_anomaly(a.A, a.X, e=2)
+    s1_pcp, s2_pcp, s3_pcp = utils.resultRPCA_to_signal(a.D, a.X, Afilter, a.rest)
+
+    a = TemporalRPCA(period=25, lam1=2, lam2=0.3, list_periods=[20], list_etas=[0.01], norm="L2")
+    a.fit(signal=samples.tolist())
+    s1_temp, s2_temp, s3_temp = utils.resultRPCA_to_signal(a.D, a.X, a.A, a.rest)
+
+    a = OnlineTemporalRPCA(period=25, lam1=2, lam2=0.4, list_periods=[20], list_etas=[0.01], norm="L2",
+                        burnin=0.4, online_list_periods=[20], online_list_etas=[0.2])
+    a.fit(signal=samples.tolist())
+    s1_on, s2_on, s3_on = utils.resultRPCA_to_signal(a.D, a.X, a.A, a.rest)
+
+    a = OnlineTemporalRPCA(period=25, lam1=2, lam2=0.4, list_periods=[20], list_etas=[0.01], norm="L2",
+                        burnin=0.4, nwin=50, online_list_periods=[20], online_list_etas=[0.2])
+    a.fit(signal=samples.tolist())
+    s1_onw, s2_onw, s3_onw = utils.resultRPCA_to_signal(a.D, a.X, a.A, a.rest)
+
+Let's take a look at these results.
+
+.. code-block:: python
+
+    fs = 15
+    colors = ["darkblue", "tab:red"]
+
+    fig, ax = plt.subplots(4, 2, sharex=True,  sharey=False, figsize=(20,8))
+    for j, s in enumerate(zip([s2_pcp, s3_pcp], [s2_temp, s3v], [s2_on, s_on], [s2_onw, s_onw])):
+        for i,e in enumerate(s):
+            ax[i][j].plot(x, e, c=colors[j])
+            ax[i][j].set_yticks([-2, 0, 2])
+            ax[i][j].tick_params('both', length=8, width=1, which='major')
+        
+    for i,y in enumerate(["PCP", "Temporal\n batch", "Temporal\n Online", "Temporal\n Online\n Moving Window"]):
+        ax[i][0].set_ylabel(f"{y} \n\ny", fontsize=fs)
+        ax[i][1].set_ylabel("outliers ampl.", fontsize=fs)
+    ax[3][0].set_xlabel("Time", fontsize=fs)
+    ax[3][1].set_xlabel("Time", fontsize=fs)
+
+    plt.tight_layout()
+    plt.show()
+
+.. image:: ../images/time_series_05.png
+
+One sees the reconstruction for the online part is a little bit more noisy. 
+However, the anomalies are well detected, and it is much more faster!
+
+
+.. note::
+    Since in the problem formulation, the data fitting is no more a constraint, 
+    the sparse part is immediately sparser than in classic formulation. 
+    We do not need a filering step to extract the biggest anoamlies (in amplitude).
+    However, we do not have anymore the equality :math:`D = X + A`. 
+
+.. warning::
+    The quality of signal reconstruction and anomaly detection 
+    just as the transition from batch to online processing 
+    is greatly improvable.
+
+
+
+Example for image denoising with robust PCA
+===========================================
+
+The aim of this notebook is to make use of the RPCA method to denoise an (artificially corrupted) image.
+
+First, import some usefull libraries and functions
+
+.. code-block:: python
+
+    from robust_pca.utils import utils_images
+    from robust_pca.classes.pcp_rpca import PcpRPCA
+
+    import numpy as np
+    import urllib.request
+    %matplotlib inline
+    import matplotlib.pyplot as plt
+    import PIL.Image
+
+We import an image that we convert to a numpy array (if needed, download an image).
+
+.. code-block:: python
+
+    url = "https://www.acaciasfilms.com/wp-content/uploads/2017/11/AF_Myste%CC%80reClouzot-1-800x1132.jpg"
+    urllib.request.urlretrieve(url, "../data/clouzot.jpg")
+    img = np.asarray(PIL.Image.open('../data/clouzot.jpg'), dtype=np.uint8)
+
+We first choose the ratio :math:`ratio` of corrupted pixels, i.e. we want to artificially corrupt the image :math:`img`. 
+Then, we apply a RPCA algorithm that spits the low-rank parts, 
+which are concatenate to form an image.
+
+.. note::
+    In practice, :math:`ratio` % of pixels of each slice of the image are corrupted.  
+    The function :class:`utils_images.corrupt_image` works on the three layers of the image. 
+    This is why the RPCA algorithm is applied multiple times (i.e. hence the use of the loop).
+
+.. code-block:: python
+
+    %% time
+
+    ratio  = 0.25
+    noisy_image = utils_images.corrupt_image(img, ratio)
+
+    res = []
+    for i in range(noisy_image.shape[2]):
+        rpca = RPCA()
+        rpca.fit(D=noisy_image[:,:,i])
+        res.append(rpca.X)
+    restored_image = np.stack(res, axis=-1).astype(np.uint8)
+
+    print(f"similarity score between the original and the noisy image: {utils_images.similarity_images(img, noisy_image)}")
+    print(f"similarity score between the original and the restored image: {utils_images.similarity_images(img, restored_image)}")
+
+.. code-block:: console
+
+    similarity score between the original and the noisy image: 0.7369609061239467
+    similarity score between the original and the restored image: 0.973397754266048
+    CPU times: user 23min 10s, sys: 4min 32s, total: 27min 42s
+    Wall time: 4min 26s   
+
+
+Finally, one visually checks the scores obtained. 
+There are of course some limitations with this method. 
+For instance, one observes the letters are poorly recovered... 
+However, without any training, it is possible to denoise, to some extent, a corrupted image.  
+
+.. code-block:: python
+    
+    fig, ax = plt.subplots(1, 3, sharey=True, figsize=(4*3,5))
+    suptitles = ["original", "noisy", "restored"]
+    for j, (i,t) in enumerate(zip([img, noisy_image, restored_image], suptitles)):
+        ax[j].imshow(i, aspect='auto')
+        ax[j].set_title(t, fontsize=15)
+        ax[j].axis("off")
+    plt.show()
+
+.. image:: ../images/denoise_1.png
+
+
+
+Example for background and foreground separation with robust PCA 
+================================================================
+
+In this notebook, we'll see how to use RPCA algorithms to extract the background and foreground of a video. 
+
+First, import some usefull libraries and functions
+
+.. code-block:: python
+
+    from robust_pca.utils import utils_images, drawing
+    from robust_pca.classes.pcp_rpca import PcpRPCA
+
+    import numpy as np
+    %matplotlib inline
+    import matplotlib.pyplot as plt
+    import moviepy.editor as mpe
+    import os
+
+And then, we load the video.
+however, the initial resolution is too heavy to deal with. 
+So, we choose to rescale the images. 
+In this way, an image from one moment in time is resized in 120 pixels by 160 pixels 
+(with this particular video and with the scale 25).
+
+.. code-block:: python
+
+    video = mpe.VideoFileClip('../data/toy_video.mp4')
+    scale = 25 
+    dims = (int(480 * (scale/100)), int(640 * (scale/100)))
+
+The idea is to transform a video into a matrix, for which it will be posible to differentiate 
+the background from the foreground. To do so, we extract the images from the video every 
+hundredths of a second; these images are rescaled and unfolded to form column-vectors of dimension (120×160,1). 
+We then stack them all and eventually get a matrix of dimension (120×160,video.duration×100). 
+This final matrix represents the video.
+One sees horizontal lines and some curves. 
+The latter are the anomalies to detect and represent the moving cars on a static background. 
+To get an idea of one frame, we can reshape a column.
+
+ .. code-block:: python
+
+    M, dimension = utils_images.video2matrix(video, 100, scale)
+    fig, ax = plt.subplots(1, 2, figsize=(9,4))
+    ax[0].imshow(M, cmap="gray", aspect="auto")
+    ax[1].imshow(np.reshape(M[:,2800], dims), cmap="gray", aspect="auto")
+    for x in ax.ravel():
+        x.axis("off")
+    plt.show()
+        
+.. image:: ../images/background_1.png
+
+
+We now apply a RPCA algorithm. 
+
+.. warning::
+    This is a very slow process. See online formulation for some acceleration of the procedure.
+
+Then, for a first glimpse, we select some frames (e.g. 1500th, 1800th and 2800th frames) 
+to see how the RPCA has detected the moving objects. The moving cars are spotted as anomalies, 
+and are correctly imputed: the background --low-rank part-- is correctly retrieved.
+
+
+.. code-block:: python
+    
+    rpca = PcpRPCA().
+    rpca.fit(D=M)
+    drawing.plot_images(M, rpca.X, rpca.A, [1500, 1800, 2800], dimension) 
+
+.. image:: ../images/background_2.png

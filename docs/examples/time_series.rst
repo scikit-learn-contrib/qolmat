@@ -1,6 +1,5 @@
-############################################
 Example for anomaly detection in time series
-############################################
+============================================
 
 The aim of this notebook is to make use of the RPCA method to
 detect anoamlies in an univariate time series. 

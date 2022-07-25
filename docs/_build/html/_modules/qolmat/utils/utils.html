@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>qolmat.utils.utils &mdash; qolmat 0.1 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../index.html" class="icon icon-home"> qolmat
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Brief explanation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../explanation.html">Qolmat methods</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../RPCA.html">Focus on RPCA</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../EM_sampler.html">Focus on EM_sampler</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Simple examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples/time_series.html">Example for anomaly detection in time series</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples/background.html">Example for background and foreground separation with robust PCA</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples/denoise_images.html">Example for image denoising with robust PCA</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">qolmat</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      <li>qolmat.utils.utils</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for qolmat.utils.utils</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">General utility functions for rpca</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">List</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">sklearn.neighbors</span> <span class="kn">import</span> <span class="n">kneighbors_graph</span>
+<span class="kn">from</span> <span class="nn">numpy.typing</span> <span class="kn">import</span> <span class="n">NDArray</span>
+<span class="kn">import</span> <span class="nn">scipy</span>
+
+
+<div class="viewcode-block" id="get_period"><a class="viewcode-back" href="../../../generated/qolmat.utils.utils.get_period.html#qolmat.utils.utils.get_period">[docs]</a><span class="k">def</span> <span class="nf">get_period</span><span class="p">(</span><span class="n">signal</span><span class="p">:</span> <span class="n">List</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Retrieve the &quot;period&quot; of a series based on the ACF</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    signal : List</span>
+<span class="sd">        time series</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    int</span>
+<span class="sd">        time series&#39; &quot;period&quot;</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">ss</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">signal</span><span class="p">)</span>
+    <span class="n">val</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">signal</span><span class="p">)):</span>
+        <span class="n">val</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ss</span><span class="o">.</span><span class="n">autocorr</span><span class="p">(</span><span class="n">lag</span><span class="o">=</span><span class="n">i</span><span class="p">))</span>
+
+    <span class="n">ind_sort</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">val</span><span class="p">)),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">k</span><span class="p">:</span> <span class="n">val</span><span class="p">[</span><span class="n">k</span><span class="p">])</span>
+    <span class="n">period</span> <span class="o">=</span> <span class="n">ind_sort</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">period</span></div>
+
+
+<div class="viewcode-block" id="signal_to_matrix"><a class="viewcode-back" href="../../../generated/qolmat.utils.utils.signal_to_matrix.html#qolmat.utils.utils.signal_to_matrix">[docs]</a><span class="k">def</span> <span class="nf">signal_to_matrix</span><span class="p">(</span><span class="n">signal</span><span class="p">:</span> <span class="n">List</span><span class="p">,</span> <span class="n">period</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Shape a time series into a matrix</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    signal : List</span>
+<span class="sd">        time series</span>
+<span class="sd">    period : int</span>
+<span class="sd">        time series&#39; period, it corresponds to the number of colummns the resulting matrix</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Tuple[np.ndarray, int]</span>
+<span class="sd">        matrix and number of added values to match the size (if len(signal)%period != 0)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">modulo</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">signal</span><span class="p">)</span> <span class="o">%</span> <span class="n">period</span>
+    <span class="n">nb_add_val</span> <span class="o">=</span> <span class="p">(</span><span class="n">period</span> <span class="o">-</span> <span class="n">modulo</span><span class="p">)</span> <span class="o">%</span> <span class="n">period</span>
+    <span class="n">signal</span> <span class="o">+=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">]</span> <span class="o">*</span> <span class="n">nb_add_val</span>
+
+    <span class="n">M</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">signal</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">period</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">M</span><span class="p">,</span> <span class="n">nb_add_val</span></div>
+
+
+<div class="viewcode-block" id="approx_rank"><a class="viewcode-back" href="../../../generated/qolmat.utils.utils.approx_rank.html#qolmat.utils.utils.approx_rank">[docs]</a><span class="k">def</span> <span class="nf">approx_rank</span><span class="p">(</span><span class="n">M</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">th</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Estimate a superior rank of a matrix M by SVD</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    M : np.ndarray</span>
+<span class="sd">        matrix</span>
+<span class="sd">    th : float, optional</span>
+<span class="sd">        fraction of the cumulative sum of the singular values, by default 0.95</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">th</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">M</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">M</span><span class="p">,</span> <span class="n">full_matrices</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">nuclear</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+        <span class="n">cum_sum</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">([</span><span class="n">i</span> <span class="o">/</span> <span class="n">nuclear</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">s</span><span class="p">])</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span><span class="n">cum_sum</span> <span class="o">&gt;</span> <span class="n">th</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">k</span></div>
+
+
+<div class="viewcode-block" id="proximal_operator"><a class="viewcode-back" href="../../../generated/qolmat.utils.utils.proximal_operator.html#qolmat.utils.utils.proximal_operator">[docs]</a><span class="k">def</span> <span class="nf">proximal_operator</span><span class="p">(</span><span class="n">U</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">threshold</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Compute the proximal operator with L1 norm</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    U : np.ndarray</span>
+<span class="sd">                U (np.ndarray): observations</span>
+
+<span class="sd">    X : np.ndarray</span>
+<span class="sd">        [description]</span>
+<span class="sd">    threshold : float</span>
+<span class="sd">        [description]</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    np.ndarray</span>
+<span class="sd">        array V such that V[i,j] = X[i,j] + max(abs(X[i,j]) - tau,0)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">return</span> <span class="n">X</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">U</span> <span class="o">-</span> <span class="n">X</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">U</span> <span class="o">-</span> <span class="n">X</span><span class="p">)</span> <span class="o">-</span> <span class="n">threshold</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="soft_thresholding"><a class="viewcode-back" href="../../../generated/qolmat.utils.utils.soft_thresholding.html#qolmat.utils.utils.soft_thresholding">[docs]</a><span class="k">def</span> <span class="nf">soft_thresholding</span><span class="p">(</span><span class="n">X</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">threshold</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Apply the shrinkage operator (i.e. soft thresholding) to the elements of X.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    X : np.ndarray</span>
+<span class="sd">        observed data</span>
+<span class="sd">    threshold : float</span>
+<span class="sd">        scaling parameter to shrink the function</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    np.ndarray</span>
+<span class="sd">        array V such that V[i,j] = max(abs(X[i,j]) - tau,0)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">X</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">X</span><span class="p">)</span> <span class="o">-</span> <span class="n">threshold</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="svd_thresholding"><a class="viewcode-back" href="../../../generated/qolmat.utils.utils.svd_thresholding.html#qolmat.utils.utils.svd_thresholding">[docs]</a><span class="k">def</span> <span class="nf">svd_thresholding</span><span class="p">(</span><span class="n">X</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">threshold</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Apply the shrinkage operator to the singular values obtained from the SVD of X.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    X : np.ndarray</span>
+<span class="sd">        observation</span>
+<span class="sd">    threshold : float</span>
+<span class="sd">        scaling parameter to shrink the function</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    np.ndarray</span>
+<span class="sd">        array obtained by computing U * shrink(s) * V where</span>
+<span class="sd">            U are the left singular vectors of X</span>
+<span class="sd">            V are the right singular vectors of X</span>
+<span class="sd">            s are the singular values as a diagonal matrix</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">U</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">Vh</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">full_matrices</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">compute_uv</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">soft_thresholding</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">threshold</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span> <span class="o">@</span> <span class="n">Vh</span></div>
+
+
+<span class="k">def</span> <span class="nf">impute_nans</span><span class="p">(</span><span class="n">M</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">method</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Impute the M&#39;s np.nan with the specified method</span>
+
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    M : np.ndarray</span>
+<span class="sd">        array with nan values</span>
+<span class="sd">    method : Optional[str], optional</span>
+<span class="sd">        mean or median, by default None</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    np.ndarray</span>
+<span class="sd">        array with imputed nan</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;mean&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">M</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">M</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="n">M</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">)),</span> <span class="n">M</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;median&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">M</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanmedian</span><span class="p">(</span><span class="n">M</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="n">M</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">)),</span> <span class="n">M</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">M</span><span class="p">),</span> <span class="mi">0</span><span class="p">,</span> <span class="n">M</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="ortho_proj"><a class="viewcode-back" href="../../../generated/qolmat.utils.utils.ortho_proj.html#qolmat.utils.utils.ortho_proj">[docs]</a><span class="k">def</span> <span class="nf">ortho_proj</span><span class="p">(</span><span class="n">M</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">omega</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">inv</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;orthogonal projection of matrix M onto the linear space of matrices supported on omega</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    M : np.ndarray</span>
+<span class="sd">        array to be projected</span>
+<span class="sd">    omega : np.ndarray</span>
+<span class="sd">        projector</span>
+<span class="sd">    inv : Optional[int], optional</span>
+<span class="sd">        if 0, get projection on omega; if 1, projection on omega^C, by default 0</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    np.ndarray</span>
+<span class="sd">        M&#39; projection on omega</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">inv</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">M</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">omega</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">-</span> <span class="n">omega</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">M</span> <span class="o">*</span> <span class="n">omega</span></div>
+
+
+<span class="k">def</span> <span class="nf">l1_norm</span><span class="p">(</span><span class="n">M</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;L1 norm of a matrix seen as a long vector 1 x (np.product(M.shape))</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    M : np.ndarray</span>
+
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float</span>
+<span class="sd">        L1 norm of M seen as a vector</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">M</span><span class="p">))</span>
+
+
+<div class="viewcode-block" id="toeplitz_matrix"><a class="viewcode-back" href="../../../generated/qolmat.utils.utils.toeplitz_matrix.html#qolmat.utils.utils.toeplitz_matrix">[docs]</a><span class="k">def</span> <span class="nf">toeplitz_matrix</span><span class="p">(</span><span class="n">T</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">dimension</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Create a matrix Toeplitz matrix H to take into account temporal correlation via HX</span>
+<span class="sd">    H=Toeplitz(0,1,-1), in which the central diagonal is defined as ones and</span>
+<span class="sd">    the T upper diagonal is defined as negative ones.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    T : int</span>
+<span class="sd">        &quot;period&quot;, diagonal offset</span>
+<span class="sd">    dimension : int</span>
+<span class="sd">        second dimension of H = first dimension of X</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    np.ndarray</span>
+<span class="sd">        Toeplitz matrix</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">H</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">dimension</span> <span class="o">-</span> <span class="n">T</span><span class="p">,</span> <span class="n">dimension</span><span class="p">)</span>
+    <span class="n">H</span><span class="p">[:</span> <span class="n">dimension</span> <span class="o">-</span> <span class="n">T</span><span class="p">,</span> <span class="n">T</span><span class="p">:]</span> <span class="o">=</span> <span class="n">H</span><span class="p">[:</span> <span class="n">dimension</span> <span class="o">-</span> <span class="n">T</span><span class="p">,</span> <span class="n">T</span><span class="p">:]</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span>
+        <span class="n">dimension</span> <span class="o">-</span> <span class="n">T</span><span class="p">,</span> <span class="n">dimension</span> <span class="o">-</span> <span class="n">T</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">H</span></div>
+
+
+<div class="viewcode-block" id="construct_graph"><a class="viewcode-back" href="../../../generated/qolmat.utils.utils.construct_graph.html#qolmat.utils.utils.construct_graph">[docs]</a><span class="k">def</span> <span class="nf">construct_graph</span><span class="p">(</span>
+    <span class="n">X</span><span class="p">:</span> <span class="n">NDArray</span><span class="p">,</span>
+    <span class="n">n_neighbors</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+    <span class="n">distance</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;euclidean&quot;</span><span class="p">,</span>
+    <span class="n">n_jobs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Construct a graph based on the distance (similarity) between data</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    X : np.ndarray</span>
+<span class="sd">        Observations</span>
+<span class="sd">    n_neighbors : int, optional</span>
+<span class="sd">        Number of neighbors for each node, by default 10</span>
+<span class="sd">    distance : str, optional</span>
+<span class="sd">        Method to construct the weight of the links, by default &#39;euclidean&#39;</span>
+<span class="sd">    n_jobs : int, optional</span>
+<span class="sd">        Number of jobs to run in parallel, by default 1</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    np.ndarray</span>
+<span class="sd">        Graph&#39;s adjacency matrix</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">G_bin</span> <span class="o">=</span> <span class="n">kneighbors_graph</span><span class="p">(</span>
+        <span class="n">X</span><span class="p">,</span> <span class="n">n_neighbors</span><span class="o">=</span><span class="n">n_neighbors</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="n">distance</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;connectivity&quot;</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="n">n_jobs</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span>
+    <span class="n">G_val</span> <span class="o">=</span> <span class="n">kneighbors_graph</span><span class="p">(</span>
+        <span class="n">X</span><span class="p">,</span> <span class="n">n_neighbors</span><span class="o">=</span><span class="n">n_neighbors</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="n">distance</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;distance&quot;</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="n">n_jobs</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span>
+    <span class="n">G_val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">G_val</span><span class="p">)</span>
+    <span class="n">G_val</span><span class="p">[</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">G_bin</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">bool</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">return</span> <span class="n">G_val</span></div>
+
+
+<span class="k">def</span> <span class="nf">get_laplacian</span><span class="p">(</span><span class="n">M</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">normalised</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Return the Laplacian matrix of a directed graph.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    M : np.ndarray</span>
+<span class="sd">        [description]</span>
+<span class="sd">    normalised : Optional[bool], optional</span>
+<span class="sd">        If True, then compute symmetric normalized Laplacian, by default True</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    np.ndarray</span>
+<span class="sd">        Laplacian matrix</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">return</span> <span class="n">scipy</span><span class="o">.</span><span class="n">sparse</span><span class="o">.</span><span class="n">csgraph</span><span class="o">.</span><span class="n">laplacian</span><span class="p">(</span><span class="n">M</span><span class="p">,</span> <span class="n">normed</span><span class="o">=</span><span class="n">normalised</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">get_anomaly</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">e</span><span class="o">=</span><span class="mi">3</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Filter the matrix A to get anomalies</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        A (np.nadarray): matrix of &quot;unfiltered&quot; anomalies</span>
+<span class="sd">        X (np.nadarray): matrix of smooth signal</span>
+<span class="sd">        e (int, optional): deviation from 0. Defaults to 3.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        np.ndarray: filtered A</span>
+<span class="sd">        np.ndarray: noise</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">mad</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">X</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">X</span><span class="p">)))</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">A</span><span class="p">)</span> <span class="o">&gt;</span> <span class="p">(</span><span class="n">e</span> <span class="o">*</span> <span class="n">mad</span><span class="p">),</span> <span class="n">A</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">A</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="p">(</span><span class="n">e</span> <span class="o">*</span> <span class="n">mad</span><span class="p">),</span> <span class="n">A</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">resultRPCA_to_signal</span><span class="p">(</span>
+    <span class="n">M1</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">M2</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">M3</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ret</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">List</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">List</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Convert the resulting matrices from RPCA to lists.</span>
+<span class="sd">    It makes sense if time series version</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    M1 : np.ndarray</span>
+<span class="sd">        Observations</span>
+<span class="sd">    M2 : np.ndarray</span>
+<span class="sd">        Low-rank matrix</span>
+<span class="sd">    M3 : np.ndarray</span>
+<span class="sd">        Sparse matrix</span>
+<span class="sd">    ret : int</span>
+<span class="sd">        Number of added values to form a full matrix. by default 0</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Tuple[List, List, List]</span>
+<span class="sd">        results of RPCA in list form</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">ret</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">s1</span> <span class="o">=</span> <span class="n">M1</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">()[:</span><span class="o">-</span><span class="n">ret</span><span class="p">]</span>
+        <span class="n">s2</span> <span class="o">=</span> <span class="n">M2</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">()[:</span><span class="o">-</span><span class="n">ret</span><span class="p">]</span>
+        <span class="n">s3</span> <span class="o">=</span> <span class="n">M3</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">()[:</span><span class="o">-</span><span class="n">ret</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">s1</span> <span class="o">=</span> <span class="n">M1</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="n">s2</span> <span class="o">=</span> <span class="n">M2</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="n">s3</span> <span class="o">=</span> <span class="n">M3</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">s1</span><span class="p">,</span> <span class="n">s2</span><span class="p">,</span> <span class="n">s3</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Quantmetry.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
