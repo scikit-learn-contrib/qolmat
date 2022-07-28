@@ -480,6 +480,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
                 self.list_periods,
                 Lhat,
             )
+<<<<<<< HEAD
             lv.append(vi)
             Shat = np.hstack((Shat, si.reshape(m, 1)))
             vi_delete = Vhat_win[:, 0]
@@ -489,6 +490,21 @@ class OnlineTemporalRPCA(TemporalRPCA):
                 for k in range(len(self.list_periods)):
                     vec = vi - lv[i - self.list_periods[k] - burnin]
                     sums += 2 * self.online_list_etas[k] * (np.outer(vec, vec))
+=======
+            lv[row - burnin, :] = vi
+
+            Shat_grow[:, row] = si.reshape(m, 1)
+
+            Vhat_win_grow[:, n_vhat + (row - burnin)] = vi.reshape(approx_rank, 1)
+            vi_delete = Vhat_win_grow[:, (row - burnin)]
+            Vhat_win = Vhat_win_grow[:, (row - burnin + 1) : ((row - burnin) + n_vhat)]
+
+            if (len(self.list_periods) > 0) and (row >= max(self.list_periods)):
+                sums = np.zeros((lv.shape[1], lv.shape[1]))
+                for index, period in enumerate(self.list_periods):
+                    vec = vi - lv[row - period - burnin, :]
+                    sums += 2 * self.online_list_etas[index] * (np.outer(vec, vec))
+>>>>>>> cb3be455e136bafa5c4486087c94f918d520fbb8
                 A = A + np.outer(vi, vi) + sums
             else:
                 A = A + np.outer(vi, vi) - np.outer(vi_delete, vi_delete)
