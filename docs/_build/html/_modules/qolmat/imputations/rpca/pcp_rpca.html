@@ -38,13 +38,12 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../explanation.html">Qolmat methods</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../RPCA.html">Focus on RPCA</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../EM_sampler.html">Focus on EM_sampler</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../EM_sampler.html">Focus on EM sampler</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Simple examples</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../../examples/time_series.html">Example for anomaly detection in time series</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../examples/background.html">Example for background and foreground separation with robust PCA</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../examples/denoise_images.html">Example for image denoising with robust PCA</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../examples/imputation_example.html">Imputation examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../examples/RPCA_example.html">RPCA examples</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API</span></p>
 <ul>
@@ -85,7 +84,9 @@
 <span class="kn">from</span> <span class="nn">numpy.typing</span> <span class="kn">import</span> <span class="n">ArrayLike</span><span class="p">,</span> <span class="n">NDArray</span>
 
 <span class="kn">from</span> <span class="nn">qolmat.imputations.rpca.rpca</span> <span class="kn">import</span> <span class="n">RPCA</span>
-<span class="kn">from</span> <span class="nn">qolmat.imputations.rpca</span> <span class="kn">import</span> <span class="n">utils</span>
+<span class="kn">from</span> <span class="nn">qolmat.imputations.rpca.utils</span> <span class="kn">import</span> <span class="n">utils</span>
+
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
 
 
 <div class="viewcode-block" id="PcpRPCA"><a class="viewcode-back" href="../../../../generated/qolmat.imputations.rpca.pcp_rpca.PcpRPCA.html#qolmat.imputations.rpca.pcp_rpca.PcpRPCA">[docs]</a><span class="k">class</span> <span class="nc">PcpRPCA</span><span class="p">(</span><span class="n">RPCA</span><span class="p">):</span>
@@ -133,11 +134,7 @@
         <span class="n">dict_params</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;mu&quot;</span><span class="p">:</span> <span class="n">mu</span><span class="p">,</span> <span class="s2">&quot;lam&quot;</span><span class="p">:</span> <span class="n">lam</span><span class="p">}</span>
         <span class="k">return</span> <span class="n">dict_params</span>
 
-    <span class="k">def</span> <span class="nf">fit_transform</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">signal</span><span class="p">:</span> <span class="n">NDArray</span><span class="p">,</span>
-        <span class="n">return_basis</span><span class="p">:</span> <span class="n">boolean</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PcpRPCA</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">fit_transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">signal</span><span class="p">:</span> <span class="n">NDArray</span><span class="p">,</span> <span class="n">return_basis</span><span class="p">:</span> <span class="n">boolean</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PcpRPCA</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Compute the RPCA decomposition of a matrix based on the PCP method</span>
 
@@ -151,10 +148,10 @@
         <span class="n">proj_D</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">impute_nans</span><span class="p">(</span><span class="n">D_init</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;median&quot;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mu</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">mu</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">proj_D</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mf">4.0</span> <span class="o">*</span> <span class="n">utils</span><span class="o">.</span><span class="n">l1_norm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">proj_D</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mu</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">proj_D</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mf">4.0</span> <span class="o">*</span> <span class="n">utils</span><span class="o">.</span><span class="n">l1_norm</span><span class="p">(</span><span class="n">proj_D</span><span class="p">))</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lam</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">lam</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">proj_D</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">lam</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">proj_D</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
 
         <span class="n">D_norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">proj_D</span><span class="p">,</span> <span class="s2">&quot;fro&quot;</span><span class="p">)</span>
 
@@ -173,6 +170,7 @@
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbose</span><span class="p">:</span>
                     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Converged in </span><span class="si">{</span><span class="n">iteration</span><span class="si">}</span><span class="s2"> iterations&quot;</span><span class="p">)</span>
                 <span class="k">break</span>
+
         <span class="k">if</span> <span class="n">return_basis</span><span class="p">:</span>
             <span class="n">U</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">Vh</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">full_matrices</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">compute_uv</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="n">result</span> <span class="o">=</span> <span class="p">[</span><span class="n">U</span><span class="p">,</span> <span class="n">Vh</span><span class="p">]</span>
@@ -186,7 +184,7 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_data</span> <span class="o">==</span> <span class="s2">&quot;2DArray&quot;</span><span class="p">:</span>
             <span class="n">result</span> <span class="o">=</span> <span class="p">[</span><span class="n">X</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">errors</span><span class="p">]</span> <span class="o">+</span> <span class="n">result</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_data</span> <span class="o">==</span> <span class="s2">&quot;1DArray&quot;</span><span class="p">:</span>
-            <span class="n">result</span> <span class="o">=</span> <span class="p">[</span><span class="n">X</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span> <span class="n">A</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span> <span class="n">errors</span><span class="p">]</span> <span class="o">+</span> <span class="n">result</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="p">[</span><span class="n">X</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span> <span class="n">A</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span> <span class="n">errors</span><span class="p">]</span> <span class="o">+</span> <span class="n">result</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Data shape not recognized&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></div>

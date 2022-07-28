@@ -38,13 +38,12 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../explanation.html">Qolmat methods</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../RPCA.html">Focus on RPCA</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../EM_sampler.html">Focus on EM_sampler</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../EM_sampler.html">Focus on EM sampler</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Simple examples</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../../examples/time_series.html">Example for anomaly detection in time series</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../examples/background.html">Example for background and foreground separation with robust PCA</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../examples/denoise_images.html">Example for image denoising with robust PCA</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../examples/imputation_example.html">Imputation examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../examples/RPCA_example.html">RPCA examples</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API</span></p>
 <ul>
@@ -147,11 +146,7 @@
                 <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">param_key</span><span class="p">,</span> <span class="n">kargs</span><span class="p">[</span><span class="n">param_key</span><span class="p">])</span>
         <span class="k">return</span> <span class="bp">self</span>
 
-    <span class="k">def</span> <span class="nf">fit_transform</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">signal</span><span class="p">:</span> <span class="n">NDArray</span><span class="p">,</span>
-        <span class="n">return_basis</span><span class="p">:</span> <span class="n">boolean</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RPCA</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">fit_transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">signal</span><span class="p">:</span> <span class="n">NDArray</span><span class="p">,</span> <span class="n">return_basis</span><span class="p">:</span> <span class="n">boolean</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RPCA</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">input_data</span> <span class="o">=</span> <span class="s2">&quot;2DArray&quot;</span>
         <span class="n">X</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_data</span><span class="p">(</span><span class="n">signal</span><span class="o">=</span><span class="n">signal</span><span class="p">)</span>
         <span class="n">A</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>

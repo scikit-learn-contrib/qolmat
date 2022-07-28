@@ -38,13 +38,12 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../../explanation.html">Qolmat methods</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../../RPCA.html">Focus on RPCA</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../../EM_sampler.html">Focus on EM_sampler</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../EM_sampler.html">Focus on EM sampler</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Simple examples</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../../../examples/time_series.html">Example for anomaly detection in time series</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../../examples/background.html">Example for background and foreground separation with robust PCA</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../../examples/denoise_images.html">Example for image denoising with robust PCA</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../examples/imputation_example.html">Imputation examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../examples/RPCA_example.html">RPCA examples</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API</span></p>
 <ul>
@@ -132,8 +131,10 @@
 <span class="sd">        (if len(signal)%period != 0)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">n_cols</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">signal</span><span class="p">)</span> <span class="o">//</span> <span class="n">n_rows</span> <span class="o">+</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">signal</span><span class="p">)</span> <span class="o">%</span> <span class="n">n_rows</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">)</span>
-    <span class="n">M</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">n_cols</span><span class="p">,</span> <span class="n">n_rows</span><span class="p">),</span> <span class="n">fill_value</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-    <span class="n">M</span><span class="o">.</span><span class="n">flat</span><span class="p">[:</span> <span class="nb">len</span><span class="p">(</span><span class="n">signal</span><span class="p">)]</span> <span class="o">=</span> <span class="n">signal</span>
+    <span class="c1"># M = np.full((n_cols, n_rows), fill_value=np.nan, dtype=float)</span>
+    <span class="c1"># M.flat[: len(signal)] = signal</span>
+    <span class="n">M</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">signal</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">signal</span><span class="p">)</span> <span class="o">%</span> <span class="n">n_rows</span><span class="p">,</span> <span class="mi">1</span><span class="p">))),</span> <span class="n">axis</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">M</span> <span class="o">=</span> <span class="n">M</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_rows</span><span class="p">)</span>
     <span class="n">nb_add_val</span> <span class="o">=</span> <span class="p">(</span><span class="n">M</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">M</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">signal</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">M</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">nb_add_val</span></div>
 
@@ -213,9 +214,9 @@
 <span class="sd">            s are the singular values as a diagonal matrix</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">U</span><span class="p">,</span> <span class="n">SVD</span><span class="p">,</span> <span class="n">Vh</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">full_matrices</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">compute_uv</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">SVD</span> <span class="o">=</span> <span class="n">soft_thresholding</span><span class="p">(</span><span class="n">SVD</span><span class="p">,</span> <span class="n">threshold</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">SVD</span><span class="p">)</span> <span class="o">@</span> <span class="n">Vh</span></div>
+    <span class="n">U</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">Vh</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">full_matrices</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>  <span class="c1"># , compute_uv=True)</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">soft_thresholding</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">threshold</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">s</span><span class="p">),</span> <span class="n">Vh</span><span class="p">))</span>  <span class="c1"># np.multiply(U, SVD) @ Vh</span></div>
 
 
 <span class="k">def</span> <span class="nf">impute_nans</span><span class="p">(</span><span class="n">M</span><span class="p">:</span> <span class="n">NDArray</span><span class="p">,</span> <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;zeros&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">:</span>
