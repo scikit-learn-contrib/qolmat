@@ -495,7 +495,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
             if (len(self.list_periods) > 0) and (row >= max(self.list_periods)):
                 sums = np.zeros((lv.shape[1], lv.shape[1]))
                 for index, period in enumerate(self.list_periods):
-                    vec = vi - lv[row - period - burnin]
+                    vec = vi - lv[row - period - burnin, :]
                     sums += 2 * self.online_list_etas[index] * (np.outer(vec, vec))
                 A = A + np.outer(vi, vi) + sums
             else:
