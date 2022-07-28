@@ -69,11 +69,7 @@ class RPCA(BaseEstimator, TransformerMixin):
                 setattr(self, param_key, kargs[param_key])
         return self
 
-    def fit_transform(
-        self,
-        signal: NDArray,
-        return_basis: boolean = False
-    ) -> RPCA:
+    def fit_transform(self, signal: NDArray, return_basis: boolean = False) -> RPCA:
         self.input_data = "2DArray"
         X, _ = self._prepare_data(signal=signal)
         A = np.zeros(X.shape, dtype=float)

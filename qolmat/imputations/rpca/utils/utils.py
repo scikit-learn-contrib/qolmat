@@ -54,8 +54,10 @@ def signal_to_matrix(signal: NDArray, n_rows: int) -> Tuple[NDArray, int]:
         (if len(signal)%period != 0)
     """
     n_cols = len(signal) // n_rows + (len(signal) % n_rows >= 1)
-    M = np.full((n_cols, n_rows), fill_value=np.nan, dtype=float)
-    M.flat[: len(signal)] = signal
+    # M = np.full((n_cols, n_rows), fill_value=np.nan, dtype=float)
+    # M.flat[: len(signal)] = signal
+    M = np.concatenate((signal, np.empty((len(signal) % n_rows, 1))), axis=None)
+    M = M.reshape(-1, n_rows)
     nb_add_val = (M.shape[0] * M.shape[1]) - len(signal)
     return M.T, nb_add_val
 
@@ -135,9 +137,9 @@ def svd_thresholding(X: NDArray, threshold: float) -> NDArray:
             s are the singular values as a diagonal matrix
     """
 
-    U, SVD, Vh = np.linalg.svd(X, full_matrices=False, compute_uv=True)
-    SVD = soft_thresholding(SVD, threshold)
-    return np.multiply(U, SVD) @ Vh
+    U, s, Vh = np.linalg.svd(X, full_matrices=False)  # , compute_uv=True)
+    s = soft_thresholding(s, threshold)
+    return np.dot(U, np.dot(np.diag(s), Vh))  # np.multiply(U, SVD) @ Vh
 
 
 def impute_nans(M: NDArray, method: str = "zeros") -> NDArray:

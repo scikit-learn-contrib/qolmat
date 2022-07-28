@@ -6,9 +6,8 @@ import skopt
 
 from numpy.typing import NDArray
 
-from qolmat.rpca import RPCA
-from qolmat.utils import utils
-
+from qolmat.imputations.rpca.rpca import RPCA
+from qolmat.imputations.rpca.utils import utils
 
 
 class GraphRPCA(RPCA):
@@ -69,16 +68,13 @@ class GraphRPCA(RPCA):
         self.nbg1 = nbg1
         self.nbg2 = nbg2
 
-    def fit_transform(
-        self,
-        signal: NDArray
-    ) -> None:
+    def fit_transform(self, signal: NDArray) -> None:
         """Compute the RPCA on graph.
 
-        Parameters
-        ----------
-       signal : NDArray
-            Observations
+         Parameters
+         ----------
+        signal : NDArray
+             Observations
         """
         self.input_data = "2DArray"
         D_init, n_add_values = self._prepare_data(signal=signal)
@@ -101,11 +97,11 @@ class GraphRPCA(RPCA):
         t_past = 1
 
         lam = 1 / (
-              2 * self.gamma1 * np.linalg.norm(laplacian1, 2)
+            2 * self.gamma1 * np.linalg.norm(laplacian1, 2)
             + 2 * self.gamma2 * np.linalg.norm(laplacian2, 2)
         )
 
-        errors = np.full((self.maxIter,), np.nan, dtype = float)
+        errors = np.full((self.maxIter,), np.nan, dtype=float)
         for iteration in range(self.maxIter):
 
             X_past = X.copy()
@@ -114,7 +110,7 @@ class GraphRPCA(RPCA):
             grad_g = 2 * (self.gamma1 * Y @ laplacian1 + self.gamma2 * laplacian2 @ Y)
 
             X = utils.proximal_operator(Y_past - lam * grad_g, proj_D, lam)
-            t = (1 + (1 + 4 * t_past**2) ** 0.5) / 2
+            t = (1 + (1 + 4 * t_past ** 2) ** 0.5) / 2
             Y = X + (t_past - 1) / t * (X - X_past)
 
             error = np.linalg.norm(Y - Y_past, "fro") / np.linalg.norm(Y_past, "fro")
@@ -132,13 +128,13 @@ class GraphRPCA(RPCA):
         self.errors = errors
 
         A = D_init - X
-        
+
         if self.input_data == "2DArray":
-            result =  [X, A, errors]
+            result = [X, A, errors]
         elif self.input_data == "1DArray":
             X = X.T
             A = A.T
-            
+
             if n_add_values > 0:
                 X.flat[-n_add_values:] = np.nan
                 A.flat[-n_add_values:] = np.nan
