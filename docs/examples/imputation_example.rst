@@ -74,26 +74,13 @@ In this way, the algorithms will use a cross-validatino to find and save the bes
 
 .. code-block:: python
 
-    imputer_mean = models.ImputeByMean(groups=["datetime.dt.month", "datetime.dt.dayofweek"])
-    imputer_median = models.ImputeByMedian(groups=["datetime.dt.month", "datetime.dt.dayofweek"])
     imputer_interpol = models.ImputeByInterpolation(method="polynomial", order=2)
-    imputer_random = models.RandomImpute()
     imputer_rpca = models.ImputeRPCA(
         method="temporal", multivariate=False, **{"n_rows":7*4, "maxIter":1000, "tau":1}
     )
     imputer_em = ImputeEM(n_iter_em=14, n_iter_ou=10, verbose=1)
-    imputer_spline = models.ImputeBySpline()
-    imputer_locf = models.ImputeLOCF()
-    imputer_nocb = models.ImputeNOCB()
-    imputer_knn = models.ImputeKNN(k=10)
     imputer_iterative = models.ImputeIterative(
         **{"estimator": LinearRegression(), "sample_posterior": False, "max_iter": 100, "missing_values": np.nan}
-    )
-    impute_regressor = models.ImputeRegressor(
-        HistGradientBoostingRegressor(), cols_to_impute=cols_to_impute
-    )
-    impute_stochastic_regressor = models.ImputeStochasticRegressor(
-        HistGradientBoostingRegressor(), cols_to_impute=cols_to_impute
     )
 
     search_params = {
@@ -104,19 +91,10 @@ In this way, the algorithms will use a cross-validatino to find and save the bes
     }
 
     dict_models = {
-        "mean": imputer_mean,
-        "median": imputer_median,
         "interpolation": imputer_interpol,
         "EM": imputer_em,
         "RPCA": imputer_rpca,
-        "random": imputer_random,
-        "LOCF": imputer_locf,
-        "NOCB": imputer_nocb,
-        "spline": imputer_spline,
-        "KNN": imputer_knn,
         "iterative": imputer_iterative,
-        "regression": impute_regressor,
-        "stochastic_regression": impute_stochastic_regressor
     }
 
 
@@ -170,3 +148,68 @@ function of each methods. We are then able to visually appreciate the imputation
 .. image:: ../images/imputation_PRES.png
 .. image:: ../images/imputation_DEWP.png
 
+
+For other vizualiations, we can for instance compare the distributions 2 by 2.
+
+.. code-block:: python 
+    
+    for imputation_method in dict_models.keys():
+        fig, axs = plt.subplots(1, 3, figsize=(20, 5))
+        for i in range(3):
+            data.compare_covariances(dataset.loc[city, cols_to_impute], dfs_imputed[imputation_method], cols_to_impute[i], cols_to_impute[(i+1)%3], axs[i])
+            axs[1].set_title(f"{imputation_method}", fontsize=20)
+
+.. image:: ../images/covariance_interpolation.png
+.. image:: ../images/covariance_EM.png
+.. image:: ../images/covariance_RPCA.png
+    .. image:: ../images/covariance_iterative.png
+
+Another quantity of interest could be the coefficient of determination.
+
+.. code-block:: python 
+
+    from sklearn.metrics import r2_score
+    r2_scores = []
+    for name, df in dfs_imputed.items():
+        r2_scores_ = []
+        for col in cols_to_impute:
+            r2_scores_.append(r2_score(dataset.loc[city, col].dropna(how="all"), df[col].ffill().bfill()))
+        r2_scores.append(r2_scores_)
+    r2_scores = pd.DataFrame(r2_scores, index=dfs_imputed.keys(), columns=cols_to_impute)
+    r2_scores
+
+.. image:: ../images/coef_determination.png
+
+For time series, it is sometimes interesting to plot the autocorrelation function. 
+
+.. code-block:: python 
+
+    from statsmodels.tsa.stattools import acf
+    fig, axs = plt.subplots(1, 3, figsize=(20, 5))
+    for i, col in enumerate(cols_to_impute):
+        axs[i].plot(acf(dataset.loc[city, col].dropna()), color="k")
+        for name, df in dfs_imputed.items():
+            axs[i].plot(acf(df[col]))
+        axs[i].set_xlabel("Lags [days]")
+        axs[i].set_ylabel("Correlation")
+        axs[i].set_ylim([0.5, 1])
+        axs[i].set_title(col)
+    axs[-1].legend(["Original dataset"] +  list(dfs_imputed.keys()), loc=[1, 0])
+
+.. image:: ../images/autocorrelation.png
+
+
+Finally, let's compare the distribution by means of KL divergence.
+
+.. code-block:: python 
+
+    kl_divergences = []
+    for name, df in dfs_imputed.items():
+        kl_divergences_ = []
+        for col in cols_to_impute:
+            kl_divergences_.append(data.KL(dataset.loc[city, col].dropna(how="all"), df[col].ffill().bfill()))
+        kl_divergences.append(kl_divergences_)
+    kl_divergences = pd.DataFrame(kl_divergences, index=dfs_imputed.keys(), columns=cols_to_impute)
+    kl_divergences
+
+.. image:: ../images/KL_divergence.png

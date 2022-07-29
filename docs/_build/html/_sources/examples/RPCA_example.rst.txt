@@ -192,9 +192,9 @@ which are concatenate to form an image.
 
     res = []
     for i in range(noisy_image.shape[2]):
-        rpca = RPCA()
-        rpca.fit(D=noisy_image[:,:,i])
-        res.append(rpca.X)
+        rpca = PcpRPCA()
+        X, _, _ = rpca.fit_transform(signal=noisy_image[:,:,i])
+        res.append(X)
     restored_image = np.stack(res, axis=-1).astype(np.uint8)
 
     print(f"similarity score between the original and the noisy image: {utils_images.similarity_images(img, noisy_image)}")
@@ -291,8 +291,8 @@ and are correctly imputed: the background --low-rank part-- is correctly retriev
 
 .. code-block:: python
     
-    rpca = PcpRPCA().
-    rpca.fit(D=M)
-    drawing.plot_images(M, rpca.X, rpca.A, [1500, 1800, 2800], dimension) 
+    rpca = PcpRPCA()
+    X, A, _ = rpca.fit_transform(signal=M)
+    drawing.plot_images(M, X, A, [1500, 1800, 2800], dimension) 
 
 .. image:: ../images/background_2.png

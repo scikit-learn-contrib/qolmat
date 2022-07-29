@@ -15,6 +15,7 @@ Classes
     imputations.rpca.pcp_rpca.PcpRPCA
     imputations.rpca.temporal_rpca.TemporalRPCA
     imputations.rpca.temporal_rpca.OnlineTemporalRPCA
+    imputations.rpca.graph_rpca.GraphRPCA
 
 Utils
 =====
