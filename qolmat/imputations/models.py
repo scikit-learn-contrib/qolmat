@@ -240,7 +240,7 @@ class ImputeNOCB(ImputeColumnWise):
 
     def fit_transform_col(self, signal: pd.Series) -> pd.Series:
         """
-        Fit/transform by imputing missing values by carrying carrying the next observation backward.
+        Fit/transform by imputing missing values by carrying the next observation backward.
         If the last observation is missing, it is imputed by the median of the series
 
         Parameters
@@ -508,7 +508,7 @@ class ImputeIterative:
 class ImputeRegressor:
     """
     This class implements a regression imputer in the multivariate case.
-    It imputes each Series with missign value within a DataFrame using the complete ones.
+    It imputes each Series with missing value within a DataFrame using the complete ones.
 
     Parameters
     ----------
@@ -566,7 +566,7 @@ class ImputeRegressor:
 class ImputeStochasticRegressor:
     """
     This class implements a stochastic regression imputer in the multivariate case.
-    It imputes each Series with missign value within a DataFrame using the complete ones.
+    It imputes each Series with missing value within a DataFrame using the complete ones.
 
     Parameters
     ----------

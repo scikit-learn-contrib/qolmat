@@ -25,16 +25,26 @@ class TemporalRPCA(RPCA):
 
     Parameters
     ----------
-    rank: Optional
+    n_rows: Optional[int]
+        number of rows of the reshaped matrix if the signal is a time series
+    rank: Optional[int]
         (estimated) low-rank of the matrix D
-    tau: Optional
+    tau: Optional[float]
         penalizing parameter for the nuclear norm
-    lam: Optional
+    lam: Optional[float]
         penalizing parameter for the sparse matrix
-    list_periods: Optional
+    list_periods: Optional[List[int]]
         list of periods, linked to the Toeplitz matrices
-    list_etas: Optional
+    list_etas: Optional[List[float]]
         list of penalizing parameters for the corresponding period in list_periods
+    maxIter: Optional[int]
+        stopping criteria, maximum number of iterations. By default, the value is set to 10_000
+    tol: Optional[float]
+        stoppign critera, minimum difference between 2 consecutive iterations. By default, the value is set to 1e-6
+    verbose: Optional[bool]
+        verbosity. By default, the value is set to False
+    norm: Optional[str]
+        error norm, can be "L1" or "L2". By default, the value is set to "L2"
     """
 
     def __init__(
@@ -357,7 +367,35 @@ class OnlineTemporalRPCA(TemporalRPCA):
 
     Parameters
     ----------
-    TemporalRPCA
+    n_rows: Optional[int]
+        number of rows of the reshaped matrix if the signal is a time series
+    rank: Optional[int]
+        (estimated) low-rank of the matrix D
+    tau: Optional[float]
+        penalizing parameter for the nuclear norm
+    lam: Optional[float]
+        penalizing parameter for the sparse matrix
+    list_periods: Optional[List[int]]
+        list of periods, linked to the Toeplitz matrices
+    list_etas: Optional[List[float]]
+        list of penalizing parameters for the corresponding period in list_periods
+    maxIter: Optional[int]
+        stopping criteria, maximum number of iterations. By default, the value is set to 10_000
+    tol: Optional[float]
+        stoppign critera, minimum difference between 2 consecutive iterations. By default, the value is set to 1e-6
+    verbose: Optional[bool]
+        verbosity. By default, the value is set to False
+    burnin: Optional[float]
+        proportion of the entire matrix (the first (burnin x 100)% columns) for the batch part. Has to be between 0 and 1.
+        By default, the value is set to 0.
+    nwin: Optional[int]
+        size of the sliding window (number of column). By default, the value is set to 0.
+    online_tau: Optional[float]
+        penalizing parameter for the nuclear norm, online part
+    online_lam: Optional[float]
+        penalizing parameter for the sparse matrix, online part
+    online_list_etas: Optional[List[float]]
+        list of penalizing parameters for the corresponding period in list_periods, online part
     """
 
     def __init__(
@@ -371,7 +409,6 @@ class OnlineTemporalRPCA(TemporalRPCA):
         maxIter: Optional[int] = int(1e4),
         tol: Optional[float] = 1e-6,
         verbose: Optional[bool] = False,
-        norm: Optional[str] = "L2",
         burnin: Optional[float] = 0,
         nwin: Optional[float] = 0,
         online_tau: Optional[float] = None,
@@ -388,7 +425,6 @@ class OnlineTemporalRPCA(TemporalRPCA):
             maxIter=maxIter,
             tol=tol,
             verbose=verbose,
-            norm=norm,
         )
 
         self.burnin = burnin
@@ -396,6 +432,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
         self.online_tau = online_tau
         self.online_lam = online_lam
         self.online_list_etas = online_list_etas
+        self.norm = "L2"
 
     def fit_transform(
         self,

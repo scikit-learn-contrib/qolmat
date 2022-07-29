@@ -42,6 +42,7 @@ class GraphRPCA(RPCA):
     tol: float, default = 1e-6
         tolerance for stopping criteria
     verbose: bool, default = False
+        verbosity
     """
 
     def __init__(
@@ -146,10 +147,3 @@ class GraphRPCA(RPCA):
         else:
             raise ValueError("input data type not recognized")
         return tuple(result)
-
-
-####################################################################
-# TO DO
-# construct graph with missing values
-# important for the cross validation to work
-####################################################################
