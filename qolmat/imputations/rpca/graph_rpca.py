@@ -80,8 +80,7 @@ class GraphRPCA(RPCA):
        signal : NDArray
             Observations
         """
-        self.input_data = "2DArray"
-        D_init, n_add_values = self._prepare_data(signal=signal)
+        D_init, n_add_values, input_data = self._prepare_data(signal=signal)
         omega = ~np.isnan(D_init)
         proj_D = utils.impute_nans(D_init, method="median")
 
@@ -133,9 +132,9 @@ class GraphRPCA(RPCA):
 
         A = D_init - X
         
-        if self.input_data == "2DArray":
+        if input_data == "2DArray":
             result =  [X, A, errors]
-        elif self.input_data == "1DArray":
+        elif input_data == "1DArray":
             X = X.T
             A = A.T
             

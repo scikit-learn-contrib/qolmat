@@ -1,6 +1,5 @@
 from __future__ import annotations
 from typing import Optional, List
-from unittest import result
 
 import numpy as np
 import scipy as scp
@@ -148,7 +147,7 @@ class TemporalRPCA(RPCA):
             Ac = np.linalg.norm(A - A_temp, np.inf)
             Lc = np.linalg.norm(L - L_temp, np.inf)
             Qc = np.linalg.norm(Q - Q_temp, np.inf)
-            Rc = -1
+            Rc = -np.inf
             for index, _ in enumerate(self.list_periods):
                 Rc = max(Rc, np.linalg.norm(R[index] - R_temp[index], np.inf))
             tol = max([Xc, Ac, Lc, Qc, Rc])
@@ -264,13 +263,8 @@ class TemporalRPCA(RPCA):
 
     def set_params(self, **kargs):
         _ = super().set_params(**kargs)
-
-        for param_key in kargs.keys():
-            setattr(self, param_key, kargs[param_key])
-
         list_periods = []
         list_etas = []
-
         for param_key in kargs.keys():
             if "period" in param_key:
                 index_period = int(param_key[7:])
@@ -279,7 +273,9 @@ class TemporalRPCA(RPCA):
                     list_etas.append(kargs[f"eta_{index_period}"])
                 else:
                     raise ValueError(f"No etas' index correspond to {param_key}")
-
+            elif "eta" not in param_key: 
+                setattr(self, param_key, kargs[param_key])
+                
         self.list_periods = list_periods
         self.list_etas = list_etas
         return self
@@ -297,8 +293,7 @@ class TemporalRPCA(RPCA):
         signal : NDArray
             Observations
         """
-        self.input_data = "2DArray"
-        D_init, n_add_values = self._prepare_data(signal=signal)
+        D_init, n_add_values, input_data = self._prepare_data(signal=signal)
         omega = ~np.isnan(D_init)
         proj_D = utils.impute_nans(D_init, method="median")
 
@@ -318,9 +313,9 @@ class TemporalRPCA(RPCA):
         A = res[1]
         errors = res[2]
 
-        if self.input_data == "2DArray":
+        if input_data == "2DArray":
             result =  [X, A, errors]
-        elif self.input_data == "1DArray":
+        elif input_data == "1DArray":
             X = X.T
             A = A.T
             
@@ -412,7 +407,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
         ----------
         signal : NDArray
         """
-        D_init, n_add_values = self._prepare_data(signal=signal)
+        D_init, n_add_values, input_data = self._prepare_data(signal=signal)
         burnin = self.burnin
         nwin = self.nwin
 
@@ -439,14 +434,17 @@ class OnlineTemporalRPCA(TemporalRPCA):
         Uhat, sigmas_hat, Vhat = randomized_svd(
             Lhat, n_components=approx_rank, n_iter=5, random_state=0
         )
+
+        n_vhat, m_vhat = Vhat.shape
+
         U = Uhat[:, :approx_rank].dot(np.sqrt(np.diag(sigmas_hat[:approx_rank])))
         
         Vhat_win = Vhat[:, nwin:].copy()
 
         A = np.zeros((approx_rank, approx_rank))
-        B = np.zeros((m, approx_rank))
+        B = np.zeros((m_vhat, approx_rank))
 
-        for col in range(Vhat_win.shape[1]):
+        for col in range(m_vhat):
             sums = np.zeros(A.shape)
             for index, period in enumerate(self.list_periods):
                 vec = Vhat_win[:, col] - Vhat_win[:, col - period]
@@ -463,11 +461,10 @@ class OnlineTemporalRPCA(TemporalRPCA):
 
         lv = np.empty(shape=(n - burnin, proj_D.shape[1]), dtype=float)
 
-        Shat_grow = np.full(D_init.shape, np.nan, dtype=float)
+        Shat_grow = np.full(Vhat.shape, np.nan, dtype=float)
         Shat_grow[:, :Shat.shape[1]] = Shat
 
-        n_vhat = Vhat.shape[1]
-        Vhat_win_grow = np.full((m, (n - burnin) + n_vhat), np.nan, dtype=float)
+        Vhat_win_grow = np.full((m_vhat, (n - burnin) + n_vhat), np.nan, dtype=float)
         print(Vhat_win_grow.shape)
         print(Vhat_win.shape)
         Vhat_win_grow[:, Vhat_win.shape[1]] = Vhat_win
@@ -518,9 +515,9 @@ class OnlineTemporalRPCA(TemporalRPCA):
             Lhat_grow.flat[-n_add_values:] = np.nan
             Shat_grow.flat[-n_add_values:] = np.nan
 
-        if self.input_data == "2DArray":
+        if input_data == "2DArray":
             return Lhat_grow, Shat_grow
-        elif self.input_data == "1DArray":
+        elif input_data == "1DArray":
             ts_X = Lhat_grow.flatten()
             ts_A = Shat_grow.flatten()
             return ts_X[~np.isnan(ts_X)], ts_A[~np.isnan(ts_A)]

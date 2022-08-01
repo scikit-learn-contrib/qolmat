@@ -193,7 +193,6 @@ qolmat.egg-info/SOURCES.txt
 qolmat.egg-info/dependency_links.txt
 qolmat.egg-info/requires.txt
 qolmat.egg-info/top_level.txt
-qolmat/benchmark/benchmark.ipynb
 qolmat/benchmark/comparator.py
 qolmat/benchmark/cross_validation.py
 qolmat/benchmark/utils.py
