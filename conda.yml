@@ -8,11 +8,12 @@ dependencies:
   - ipykernel
   - jupyter
   - mypy
-  - numpy==1.22
+  - numpy=1.22
   - numpydoc
   - pandas
   - pytest
   - pytest-cov
+  - python==3.8
   - scikit-learn
   - sphinx
   - sphinx-gallery

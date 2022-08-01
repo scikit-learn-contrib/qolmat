@@ -7,7 +7,7 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
 from qolmat.imputations.rpca.rpca import RPCA
-from qolmat.imputations.rpca import utils
+from qolmat.imputations.rpca.utils import utils
 
 
 class PcpRPCA(RPCA):
@@ -48,10 +48,10 @@ class PcpRPCA(RPCA):
         return dict_params
 
     def get_params_scale(self, signal):
-        D_init, _ = self._prepare_data(signal=signal)
+        D_init, _, _ = self._prepare_data(signal=signal)
         proj_D = utils.impute_nans(D_init, method="median")
-        mu = np.prod(proj_D.shape) / (4.0 * utils.l1_norm(self.proj_D))
-        lam = 1 / np.sqrt(np.max(self.proj_D.shape))
+        mu = np.prod(proj_D.shape) / (4.0 * utils.l1_norm(proj_D))
+        lam = 1 / np.sqrt(np.max(proj_D.shape))
         dict_params = {"mu": mu, "lam": lam}
         return dict_params
 
@@ -72,10 +72,10 @@ class PcpRPCA(RPCA):
         proj_D = utils.impute_nans(D_init, method="median")
 
         if self.mu is None:
-            self.mu = np.prod(proj_D.shape) / (4.0 * utils.l1_norm(self.proj_D))
+            self.mu = np.prod(proj_D.shape) / (4.0 * utils.l1_norm(proj_D))
 
         if self.lam is None:
-            self.lam = 1 / np.sqrt(np.max(self.proj_D.shape))
+            self.lam = 1 / np.sqrt(np.max(proj_D.shape))
 
         D_norm = np.linalg.norm(proj_D, "fro")
 
@@ -101,13 +101,13 @@ class PcpRPCA(RPCA):
             result = []
 
         if n_add_values > 0:
-            X.flat[-n_add_values:] = np.nan
-            A.flat[-n_add_values:] = np.nan
+            X.T.flat[-n_add_values:] = np.nan
+            A.T.flat[-n_add_values:] = np.nan
 
         if input_data == "2DArray":
             result = [X, A, errors] + result
         elif input_data == "1DArray":
-            result = [X.flatten(), A.flatten(), errors] + result
+            result = [X.T.flatten(), A.T.flatten(), errors] + result
         else:
             raise ValueError("Data shape not recognized")
         return tuple(result)

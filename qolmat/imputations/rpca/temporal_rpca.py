@@ -1,4 +1,5 @@
 from __future__ import annotations
+from hashlib import sha1
 from typing import Optional, List
 
 import numpy as np
@@ -389,7 +390,8 @@ class OnlineTemporalRPCA(TemporalRPCA):
             verbose=verbose,
             norm=norm,
         )
-
+        if burnin < nwin:
+            raise ValueError("burnin < nwin")
         self.burnin = burnin
         self.nwin = nwin
         self.online_tau = online_tau
@@ -408,16 +410,14 @@ class OnlineTemporalRPCA(TemporalRPCA):
         signal : NDArray
         """
         D_init, n_add_values, input_data = self._prepare_data(signal=signal)
-        burnin = self.burnin
-        nwin = self.nwin
-
         m, n = D_init.shape
-        Lhat, Shat, _ = super().fit_transform(signal=D_init[:, :burnin], return_basis=False)
-
+        burnin = int(self.burnin * n)
+        nwin = self.nwin
         proj_D = utils.impute_nans(D_init, method="median")
-        approx_rank = utils.approx_rank(proj_D[:, :burnin], th=0.99)
+        Lhat, Shat, _ = super().fit_transform(signal=proj_D[:, :burnin], return_basis=False)
 
-        _, sigmas_hat, _ = np.linalg.svd(Lhat)
+
+
 
         if self.tau is None:
             self.tau = 1.0 / np.sqrt(max(m, n))
@@ -432,23 +432,24 @@ class OnlineTemporalRPCA(TemporalRPCA):
             self.online_list_etas = self.list_etas
 
         Uhat, sigmas_hat, Vhat = randomized_svd(
-            Lhat, n_components=approx_rank, n_iter=5, random_state=0
+            Lhat, n_components=self.rank, n_iter=5, random_state=0
         )
-
-        n_vhat, m_vhat = Vhat.shape
-
-        U = Uhat[:, :approx_rank].dot(np.sqrt(np.diag(sigmas_hat[:approx_rank])))
+        U = Uhat[:, :self.rank].dot(np.sqrt(np.diag(sigmas_hat[:self.rank])))
+        m_lhat, n_lhat = Lhat.shape
+        m_shat, n_shat = Shat.shape
+        m_vhat, n_vhat = Vhat.shape
         
         Vhat_win = Vhat[:, nwin:].copy()
 
-        A = np.zeros((approx_rank, approx_rank))
-        B = np.zeros((m_vhat, approx_rank))
+        A = np.zeros((self.rank, self.rank))
+        B = np.zeros((m, self.rank))
 
-        for col in range(m_vhat):
+        for col in range(Vhat_win.shape[1]):
             sums = np.zeros(A.shape)
             for index, period in enumerate(self.list_periods):
-                vec = Vhat_win[:, col] - Vhat_win[:, col - period]
-                sums += 2 * self.list_etas[index] * (np.outer(vec, vec))
+                if col >= period:
+                    vec = Vhat_win[:, col] - Vhat_win[:, col - period]
+                    sums += 2 * self.list_etas[index] * (np.outer(vec, vec))
             A = A + np.outer(Vhat_win[:, col], Vhat_win[:, col]) + sums
 
             if nwin == 0:
@@ -459,18 +460,17 @@ class OnlineTemporalRPCA(TemporalRPCA):
                     Vhat_win[:, col],
                 )
 
-        lv = np.empty(shape=(n - burnin, proj_D.shape[1]), dtype=float)
+        list_v = np.empty(shape=(m_vhat, n - burnin), dtype=float)
 
-        Shat_grow = np.full(Vhat.shape, np.nan, dtype=float)
-        Shat_grow[:, :Shat.shape[1]] = Shat
+        Shat_grow = np.empty((m_shat, (n - burnin) + n_shat), dtype=float)
+        Shat_grow[:, :n_shat] = Shat
 
-        Vhat_win_grow = np.full((m_vhat, (n - burnin) + n_vhat), np.nan, dtype=float)
-        print(Vhat_win_grow.shape)
-        print(Vhat_win.shape)
-        Vhat_win_grow[:, Vhat_win.shape[1]] = Vhat_win
+        Vhat_win_grow = np.empty((m_vhat, (n - burnin) + n_vhat), dtype=float)
 
-        Lhat_grow = np.full(D_init.shape, np.nan, dtype=float)
-        Lhat_grow[:, Lhat.shape[1]] = Lhat
+        Vhat_win_grow[:, :Vhat_win.shape[1]] = Vhat_win
+
+        Lhat_grow = np.empty((m_lhat, n), dtype=float)
+        Lhat_grow[:, :Lhat.shape[1]] = Lhat
 
 
         for row in range(burnin, n):
@@ -482,21 +482,22 @@ class OnlineTemporalRPCA(TemporalRPCA):
                 self.online_lam,
                 self.online_list_etas,
                 self.list_periods,
-                Lhat_grow[:, (row-burnin):((row-burnin) + Lhat.shape[1])],
+                Lhat_grow[:, (row-burnin):((row-burnin) + n_lhat)],
             )
-            lv[row - burnin, :] = vi
 
-            Shat_grow[:, row] = si.reshape(m, 1)
-            
-            Vhat_win_grow[:, n_vhat + (row-burnin)] = vi.reshape(approx_rank, 1)
+            list_v[:, row - burnin] = vi
+
+            Shat_grow[:, row] = si
+            Vhat_win_grow[:, n_vhat + (row-burnin)] = vi
             vi_delete = Vhat_win_grow[:, (row-burnin)]
             Vhat_win = Vhat_win_grow[:, (row-burnin+1):((row-burnin) + n_vhat)]
 
             if (len(self.list_periods) > 0) and (row >= max(self.list_periods)):
-                sums = np.zeros((lv.shape[1], lv.shape[1]))
+                sums = np.zeros((len(list_v), len(list_v)))
                 for index, period in enumerate(self.list_periods):
-                    vec = vi - lv[row - period - burnin]
-                    sums += 2 * self.online_list_etas[index] * (np.outer(vec, vec))
+                    if row - burnin >= period:
+                        vec = vi - list_v[:, row - period - burnin]
+                        sums += 2 * self.online_list_etas[index] * (np.outer(vec, vec))
                 A = A + np.outer(vi, vi) + sums
             else:
                 A = A + np.outer(vi, vi) - np.outer(vi_delete, vi_delete)
@@ -509,17 +510,17 @@ class OnlineTemporalRPCA(TemporalRPCA):
                     - np.outer(proj_D[:, row - nwin] - Shat_grow[:, row - nwin], vi_delete)
                 )
             U = utils.update_col(self.online_tau, U, A, B)
-            Lhat_grow[:, row] = U.dot(vi).reshape(m, 1)
+            Lhat_grow[:, row] = U.dot(vi)
 
         if n_add_values > 0:
-            Lhat_grow.flat[-n_add_values:] = np.nan
-            Shat_grow.flat[-n_add_values:] = np.nan
+            Lhat_grow.T.flat[-n_add_values:] = np.nan
+            Shat_grow.T.flat[-n_add_values:] = np.nan
 
         if input_data == "2DArray":
             return Lhat_grow, Shat_grow
         elif input_data == "1DArray":
-            ts_X = Lhat_grow.flatten()
-            ts_A = Shat_grow.flatten()
+            ts_X = Lhat_grow.T.flatten()
+            ts_A = Shat_grow.T.flatten()
             return ts_X[~np.isnan(ts_X)], ts_A[~np.isnan(ts_A)]
         else:
             raise ValueError("Data shape not recognized")
@@ -548,7 +549,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
         signal: Optional[ArrayLike] = None,
         D: Optional[NDArray] = None,
     ) -> None:
-        D_init, _ = self._prepare_data(signal=signal, D=D)
+        D_init, _, _ = self._prepare_data(signal=signal, D=D)
         params_scale = super().get_params_scale(signal=signal, D=D)
         burnin = int(D_init.shape[1] * self.burnin)
 

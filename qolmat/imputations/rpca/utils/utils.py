@@ -156,22 +156,23 @@ def impute_nans(M: NDArray, method: str = "zeros") -> NDArray:
     NDArray
         Array with imputed nan
     """
-
-    if method == "mean":
-        result = np.where(
-            np.isnan(M), np.tile(np.nanmean(M, axis=0), (M.shape[0], 1)), M
-        )
-        result = np.where(np.isnan(result), np.nanmean(result), result)
-    elif method == "median":
-        result = np.where(
-            np.isnan(M), np.tile(np.nanmedian(M, axis=0), (M.shape[0], 1)), M
-        )
-        result = np.where(np.isnan(result), np.nanmedian(result), result)
-    elif method == "zeros":
-        result = np.where(np.isnan(M), 0, M)
-    else:
-        raise ValueError("'method' should be 'mean', 'median' or 'zeros'.")
-    return result
+    if np.any(np.isnan(M)):
+        if method == "mean":
+            result = np.where(
+                np.isnan(M), np.tile(np.nanmean(M, axis=0), (M.shape[0], 1)), M
+            )
+            result = np.where(np.isnan(result), np.nanmean(result), result)
+        elif method == "median":
+            result = np.where(
+                np.isnan(M), np.tile(np.nanmedian(M, axis=0), (M.shape[0], 1)), M
+            )
+            result = np.where(np.isnan(result), np.nanmedian(result), result)
+        elif method == "zeros":
+            result = np.where(np.isnan(M), 0, M)
+        else:
+            raise ValueError("'method' should be 'mean', 'median' or 'zeros'.")
+        return result
+    return M.copy()
 
 
 def ortho_proj(M: NDArray, omega: NDArray, inverse: bool = False) -> NDArray:
