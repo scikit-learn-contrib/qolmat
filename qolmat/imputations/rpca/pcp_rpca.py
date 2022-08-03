@@ -1,15 +1,12 @@
 from __future__ import annotations
-from multiprocessing.sharedctypes import Value
+
 from typing import Optional
 from xmlrpc.client import boolean
 
 import numpy as np
-from numpy.typing import ArrayLike, NDArray
-
+from numpy.typing import NDArray
 from qolmat.imputations.rpca.rpca import RPCA
 from qolmat.imputations.rpca.utils import utils
-
-import matplotlib.pyplot as plt
 
 
 class PcpRPCA(RPCA):

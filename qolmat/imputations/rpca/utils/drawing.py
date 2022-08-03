@@ -3,20 +3,21 @@ Useful drawing functions
 """
 
 from __future__ import annotations
-from typing import Optional, Tuple, List, Type
 
+from typing import List, Optional, Tuple
+
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy
-import matplotlib.pyplot as plt
 
 plt.rcParams["axes.spines.right"] = False
 plt.rcParams["axes.spines.top"] = False
 plt.rcParams["axes.grid"] = True
 plt.rcParams["grid.alpha"] = 1
 plt.rcParams["grid.color"] = "#cccccc"
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 import plotly.graph_objects as go
 import plotly.subplots as sp
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
 def plot_matrices(list_matrices: List[np.ndarray], title: Optional[str] = None) -> None:

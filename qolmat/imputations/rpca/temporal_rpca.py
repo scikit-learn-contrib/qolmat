@@ -1,14 +1,13 @@
 from __future__ import annotations
-from typing import Optional, List
-from unittest import result
+
+from typing import List, Optional
 
 import numpy as np
 import scipy as scp
 from numpy.typing import ArrayLike, NDArray
-from sklearn.utils.extmath import randomized_svd
-
 from qolmat.imputations.rpca.rpca import RPCA
 from qolmat.imputations.rpca.utils import utils
+from sklearn.utils.extmath import randomized_svd
 
 
 class TemporalRPCA(RPCA):

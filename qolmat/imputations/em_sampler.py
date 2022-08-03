@@ -1,17 +1,19 @@
 from __future__ import annotations
-from typing import Optional
+
 import logging
+from typing import Optional
 from warnings import WarningMessage
-import numpy as np
-import scipy
-import pandas as pd
-from numpy import linalg as nl
-from scipy import linalg as sl
+
 import bottleneck
-from sklearn.preprocessing import StandardScaler
-from sklearn.impute._base import _BaseImputer
-from scipy.ndimage import shift
+import numpy as np
+import pandas as pd
+import scipy
+from numpy import linalg as nl
 from numpy.typing import ArrayLike
+from scipy import linalg as sl
+from scipy.ndimage import shift
+from sklearn.impute._base import _BaseImputer
+from sklearn.preprocessing import StandardScaler
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +41,8 @@ class ImputeEM(_BaseImputer):  # type: ignore
     verbose : int, optional
         Verbosity flag, controls the debug messages that are issued as functions are evaluated.
         The higher, the more verbose. Can be 0, 1, or 2. By default 0.
+    temporal: bool, optional
+        if temporal data, extend the matrix to have -1 and +1 shift
 
     Attributes
     ----------
@@ -56,7 +60,9 @@ class ImputeEM(_BaseImputer):  # type: ignore
         ampli: Optional[int] = 0.5,
         random_state: Optional[int] = 123,
         verbose: Optional[int] = 0,
+        temporal: Optional[bool] = True,
     ) -> None:
+
         self.strategy = strategy
         self.n_iter_em = n_iter_em
         self.n_iter_ou = n_iter_ou
@@ -65,8 +71,9 @@ class ImputeEM(_BaseImputer):  # type: ignore
         self.verbose = verbose
         self.mask_outliers = None
         self.cov = None
+        self.temporal = temporal
 
-    def pad(self, data):
+    def linear_interpolation(self, data):
         """
         Impute missing data with a linear interpolation, column-wise
 
@@ -285,7 +292,6 @@ class ImputeEM(_BaseImputer):  # type: ignore
             Return Array.
         """
         if not isinstance(X, np.ndarray):
-            self.type_X = type(X)
             if (not isinstance(X, pd.DataFrame)) & (not isinstance(X, list)):
                 raise ValueError(
                     "Input array is not a list, np.array, nor pd.DataFrame."
@@ -310,7 +316,7 @@ class ImputeEM(_BaseImputer):  # type: ignore
             The class itself.
         """
         X = self._convert_numpy(X)
-        X_nonan = np.apply_along_axis(self.pad, 0, X)
+        X_nonan = np.apply_along_axis(self.linear_interpolation, 0, X)
         self.means = np.mean(X_nonan, axis=0)
         self.cov = np.cov(X_nonan.T)
 
@@ -348,39 +354,53 @@ class ImputeEM(_BaseImputer):  # type: ignore
         ArrayLike
             Final array after EM sampling.
         """
-        X = self._convert_numpy(X)
-        X_ = X.copy()
+
+        X_ = self._convert_numpy(X)
+        # X_ = X.copy()
         n, m = X.shape
 
         if np.nansum(X_) == 0:
             return X_
         rng = np.random.default_rng(self.random_state)
-        X_ = np.apply_along_axis(self.pad, 0, X_)
-        mask_na = np.isnan(self._add_shift(X_, ystd=True, tmrw=True))
-        mask_na[:, : X.shape[1]] = np.isnan(X)
+        X_ = np.apply_along_axis(self.linear_interpolation, 0, X_)
+        if self.temporal:
+            mask_na = np.zeros(
+                self._add_shift(X_, ystd=True, tmrw=True).shape, dtype=bool
+            )
+        else:
+            mask_na = np.zeros(X_.shape, dtype=bool)
+        mask_na[:, :m] = np.isnan(X)
         scaler = StandardScaler()
         X_ = scaler.fit_transform(X_)
         X_intermediate_ = []
         for i in range(self.n_iter_em):
-            X_extended = self._add_shift(X_, ystd=True, tmrw=True)
-            X_extended = bottleneck.push(X_extended, axis=0)
-            X_extended = bottleneck.push(X_extended[::-1], axis=0)[::-1]
-            self.fit(X_extended)
+            if self.temporal:
+                X_ = self._add_shift(X_, ystd=True, tmrw=True)
+                X_ = bottleneck.push(X_, axis=0)
+                X_ = bottleneck.push(X_[::-1], axis=0)[::-1]
+            self.fit(X_)
             if self.strategy == "sample":
-                X_extended = self._sample_ou(X_extended, mask_na, rng, dt=2e-2)
+                X_ = self._sample_ou(X_, mask_na, rng, dt=2e-2)
             elif self.strategy == "argmax":
-                X_extended = self._argmax_posterior(X_extended)
+                X_ = self._argmax_posterior(X_)
             else:
                 raise AssertionError(
                     "Invalid 'method' argument. Choose among 'argmax' or 'sample'."
                 )
-            X_ = X_extended[:, :m]
+            if self.temporal:
+                X_ = X_[:, :m]
             X_intermediate_.append(X_.copy())
         X_ = scaler.inverse_transform(X_)
         self.X_intermediate = [
             scaler.inverse_transform(X_inter_) for X_inter_ in X_intermediate_
         ]
         self.fit(X_)
+
+        if isinstance(X, np.ndarray):
+            return X_
+        elif isinstance(X, pd.DataFrame):
+            return pd.DataFrame(X_, index=X.index, columns=X.columns)
+
         return X_
 
     def fit_transform(self, X: ArrayLike) -> ArrayLike:
@@ -397,12 +417,9 @@ class ImputeEM(_BaseImputer):  # type: ignore
         ArrayLike
             Final array after EM sampling.
         """
-        self.fit(X)
-        if isinstance(X, np.ndarray):
-            return self.transform(X)
-        elif isinstance(X, pd.DataFrame):
-            return pd.DataFrame(self.transform(X), index=X.index, columns=X.columns)
-        else:
+        if not ((isinstance(X, np.ndarray)) or (isinstance(X, pd.DataFrame))):
             raise AssertionError(
                 "Invalid type. X must be either pd.DataFrame or np.ndarray."
             )
+        self.fit(X)
+        return self.transform(X)

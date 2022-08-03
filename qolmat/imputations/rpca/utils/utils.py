@@ -3,14 +3,15 @@ Modular utility functions for RPCA
 """
 
 from __future__ import annotations
+
 from typing import Optional, Tuple
 
-from numpy.typing import NDArray
 import numpy as np
 import pandas as pd
-from sklearn.neighbors import kneighbors_graph
 import scipy
+from numpy.typing import NDArray
 from scipy.linalg import toeplitz
+from sklearn.neighbors import kneighbors_graph
 
 
 def get_period(signal: NDArray, max_period: Optional[int] = None) -> int:

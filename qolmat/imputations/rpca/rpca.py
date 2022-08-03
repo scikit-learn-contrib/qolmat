@@ -1,12 +1,12 @@
 from __future__ import annotations
+
 from typing import Optional
 from xmlrpc.client import boolean
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
-from sklearn.base import BaseEstimator, TransformerMixin
-
 from qolmat.imputations.rpca.utils import utils
+from sklearn.base import BaseEstimator, TransformerMixin
 
 
 class RPCA(BaseEstimator, TransformerMixin):

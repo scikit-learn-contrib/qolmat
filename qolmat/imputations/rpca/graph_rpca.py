@@ -1,11 +1,9 @@
 from __future__ import annotations
-from typing import Optional, Tuple, List, Type
+
+from typing import Optional
 
 import numpy as np
-import skopt
-
 from numpy.typing import NDArray
-
 from qolmat.imputations.rpca.rpca import RPCA
 from qolmat.imputations.rpca.utils import utils
 
