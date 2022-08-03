@@ -88,27 +88,29 @@
 <h1>Focus on EM sampler<a class="headerlink" href="#focus-on-em-sampler" title="Permalink to this headline"></a></h1>
 <p>This method allows the imputation of missing values in multivariate data using a multivariate Gaussian model
 via EM (expectation-maximisation) sampling or argmax.</p>
-<p>We assume the data <span class="math notranslate nohighlight">\(\mathbf{X} \in \mathbb{R}^{n \times m}\)</span> follows a multivariate Gaussian distribution <span class="math notranslate nohighlight">\(\mathcal{N}(\mu, \Sigma)\)</span>.
+<p>We assume the data <span class="math notranslate nohighlight">\(\mathbf{X} \in \mathbb{R}^{n \times m}\)</span> follows a
+multivariate Gaussian distribution <span class="math notranslate nohighlight">\(\mathcal{N}(\mathbf{\mu}, \mathbf{\Sigma})\)</span>.
 Each row <span class="math notranslate nohighlight">\(t\)</span> of the matrix represents a time, <span class="math notranslate nohighlight">\(1 \leq  t \leq n\)</span>,
 and each column <span class="math notranslate nohighlight">\(i\)</span>.
-The mean is denoted by <span class="math notranslate nohighlight">\(\mathbf{\bar{X}}\)</span> and the covariance matrix by <span class="math notranslate nohighlight">\(\mathbf{\Sigma}\)</span>.
+The mean is denoted by <span class="math notranslate nohighlight">\(\mathbf{\mu}\)</span> and the covariance matrix by <span class="math notranslate nohighlight">\(\mathbf{\Sigma}\)</span>.
 The superscript <span class="math notranslate nohighlight">\(^{-1}\)</span> stands for the inverse while <span class="math notranslate nohighlight">\(^\top\)</span> is for the transpose of a matrix.
 We note <span class="math notranslate nohighlight">\(\Omega\)</span> the set of observed values.</p>
 <p>This is an iterative method.
-We start with <span class="math notranslate nohighlight">\(\mathbf{X}\)</span>. At each iteration (the number of iterations is set by the user),</p>
-<ol class="arabic simple">
-<li><p>We compute <span class="math notranslate nohighlight">\(\mathbf{\bar{X}}\)</span> and <span class="math notranslate nohighlight">\(\mathbf{\Sigma}\)</span>;</p></li>
-</ol>
-<p>2. The estimated matrix <span class="math notranslate nohighlight">\(\mathbf{\hat{X}}\)</span> is updated via the maximum likelihood estimation or an Ornstein-Uhlenbeck sampling,
+We start with a first estimation <span class="math notranslate nohighlight">\(\mathbf{\hat{X}}\)</span> of <span class="math notranslate nohighlight">\(\mathbf{X}\)</span>, obtained via a simple
+imputation method, i.e. linear interpolation.
+At each iteration (the number of iterations is set by the user):
+1) We compute <span class="math notranslate nohighlight">\(\mathbf{\mu}_{\mathbf{\hat{X}}}\)</span> and <span class="math notranslate nohighlight">\(\mathbf{\Sigma}_\mathbf{\hat{X}}\)</span>;
+2) The estimated matrix <span class="math notranslate nohighlight">\(\mathbf{\hat{X}}\)</span> is updated via the maximum likelihood estimation or an Ornstein-Uhlenbeck sampling,
 with the constraint <span class="math notranslate nohighlight">\(\mathbf{\hat{X}_{\Omega}} = \mathbf{X_{\Omega}}\)</span>.</p>
 <section id="maximum-likelihood-estimation">
 <h2>Maximum likelihood estimation<a class="headerlink" href="#maximum-likelihood-estimation" title="Permalink to this headline"></a></h2>
 <p>Suppose the covariance matrix in invertible, we define the log-likelihood as</p>
 <div class="math notranslate nohighlight">
-\[\text{LL}(\mathbf{X}) = - \Sigma_t (\mathbf{X}_t -  \mathbf{\bar{X}}) \mathbf{\Sigma}^{-1} (\mathbf{X}_t -  \mathbf{\bar{X}})^\top
+\[\text{LL}(\mathbf{X}) = - \Sigma_t (\mathbf{X}_t -  \mathbf{\mu}) \mathbf{\Sigma}^{-1}
+(\mathbf{X}_t -  \mathbf{\mu})^\top
 := - \Sigma_t \text{LL}_t (\mathbf{X}_t)\]</div>
 <p>The objective is to maximise this log-likelihood, given <span class="math notranslate nohighlight">\(\mathbf{X_{\Omega}}\)</span> are set, i.e.
-<span class="math notranslate nohighlight">\(\max \limits_{\substack{ \mathbf{\hat{X}} \\ \text{ s.t. } \mathbf{\hat{X}_{\Omega}} = \mathbf{X_{\Omega}} }} \text{LL}(\mathbf{\hat{X}})\)</span>.</p>
+<span class="math notranslate nohighlight">\(\max \limits_{\substack{ \mathbf{\mu} \\ \text{ s.t. } \mathbf{\hat{X}_{\Omega}} = \mathbf{X_{\Omega}} }} \text{LL}(\mathbf{\hat{X}})\)</span>.</p>
 <p>The <a class="reference external" href="https://en.wikipedia.org/wiki/Conjugate_gradient_method#:~:text=In%20mathematics,%20the%20conjugate%20gradient,whose%20matrix%20is%20positive-definite.">conjugate gradient method</a> is used to solve this problem.
 In particular, we compute in parallel a gradient algorithm for each data and at each iteration,
 the data is projected on <span class="math notranslate nohighlight">\(\Omega\)</span> such that the constraint <span class="math notranslate nohighlight">\(\mathbf{\hat{X}_{\Omega}} = \mathbf{X_{\Omega}}\)</span> is respected.</p>

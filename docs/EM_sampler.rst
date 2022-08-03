@@ -4,18 +4,20 @@ Focus on EM sampler
 This method allows the imputation of missing values in multivariate data using a multivariate Gaussian model
 via EM (expectation-maximisation) sampling or argmax.
 
-We assume the data :math:`\mathbf{X} \in \mathbb{R}^{n \times m}` follows a multivariate Gaussian distribution :math:`\mathcal{N}(\mu, \Sigma)`. 
+We assume the data :math:`\mathbf{X} \in \mathbb{R}^{n \times m}` follows a 
+multivariate Gaussian distribution :math:`\mathcal{N}(\mathbf{\mu}, \mathbf{\Sigma})`. 
 Each row :math:`t` of the matrix represents a time, :math:`1 \leq  t \leq n`, 
 and each column :math:`i`represents a variable, :math:`1 \leq  i \leq m`.
-The mean is denoted by :math:`\mathbf{\bar{X}}` and the covariance matrix by :math:`\mathbf{\Sigma}`.
-The superscript :math:`^{-1}` stands for the inverse while :math:`^\top` is for the transpose of a matrix. 
+The mean is denoted by :math:`\mathbf{\mu}` and the covariance matrix by :math:`\mathbf{\Sigma}`.
+The superscript :math:`^{-1}` stands for the inverse while :math:`^\top` is for the transpose of a matrix.
 We note :math:`\Omega` the set of observed values.
 
 This is an iterative method. 
-We start with :math:`\mathbf{X}`. At each iteration (the number of iterations is set by the user), 
-
-1. We compute :math:`\mathbf{\bar{X}}` and :math:`\mathbf{\Sigma}`;
-2. The estimated matrix :math:`\mathbf{\hat{X}}` is updated via the maximum likelihood estimation or an Ornstein-Uhlenbeck sampling,
+We start with a first estimation :math:`\mathbf{\hat{X}}` of :math:`\mathbf{X}`, obtained via a simple
+imputation method, i.e. linear interpolation.  
+At each iteration (the number of iterations is set by the user):
+1) We compute :math:`\mathbf{\mu}_{\mathbf{\hat{X}}}` and :math:`\mathbf{\Sigma}_\mathbf{\hat{X}}`;
+2) The estimated matrix :math:`\mathbf{\hat{X}}` is updated via the maximum likelihood estimation or an Ornstein-Uhlenbeck sampling,
 with the constraint :math:`\mathbf{\hat{X}_{\Omega}} = \mathbf{X_{\Omega}}`.
 
 
@@ -26,11 +28,12 @@ Suppose the covariance matrix in invertible, we define the log-likelihood as
 
 .. math::
 
-    \text{LL}(\mathbf{X}) = - \Sigma_t (\mathbf{X}_t -  \mathbf{\bar{X}}) \mathbf{\Sigma}^{-1} (\mathbf{X}_t -  \mathbf{\bar{X}})^\top 
+    \text{LL}(\mathbf{X}) = - \Sigma_t (\mathbf{X}_t -  \mathbf{\mu}) \mathbf{\Sigma}^{-1} 
+    (\mathbf{X}_t -  \mathbf{\mu})^\top 
     := - \Sigma_t \text{LL}_t (\mathbf{X}_t)
 
 The objective is to maximise this log-likelihood, given :math:`\mathbf{X_{\Omega}}` are set, i.e. 
-:math:`\max \limits_{\substack{ \mathbf{\hat{X}} \\ \text{ s.t. } \mathbf{\hat{X}_{\Omega}} = \mathbf{X_{\Omega}} }} \text{LL}(\mathbf{\hat{X}})`.
+:math:`\max \limits_{\substack{ \mathbf{\mu} \\ \text{ s.t. } \mathbf{\hat{X}_{\Omega}} = \mathbf{X_{\Omega}} }} \text{LL}(\mathbf{\hat{X}})`.
 
 The `conjugate gradient method <https://en.wikipedia.org/wiki/Conjugate_gradient_method#:~:text=In%20mathematics,%20the%20conjugate%20gradient,whose%20matrix%20is%20positive-definite.>`__ is used to solve this problem. 
 In particular, we compute in parallel a gradient algorithm for each data and at each iteration, 
