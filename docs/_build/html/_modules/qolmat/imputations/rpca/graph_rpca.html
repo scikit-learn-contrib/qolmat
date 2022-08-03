@@ -76,13 +76,11 @@
              
   <h1>Source code for qolmat.imputations.rpca.graph_rpca</h1><div class="highlight"><pre>
 <span></span><span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Type</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">skopt</span>
-
 <span class="kn">from</span> <span class="nn">numpy.typing</span> <span class="kn">import</span> <span class="n">NDArray</span>
-
 <span class="kn">from</span> <span class="nn">qolmat.imputations.rpca.rpca</span> <span class="kn">import</span> <span class="n">RPCA</span>
 <span class="kn">from</span> <span class="nn">qolmat.imputations.rpca.utils</span> <span class="kn">import</span> <span class="n">utils</span>
 

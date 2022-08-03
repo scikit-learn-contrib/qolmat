@@ -87,30 +87,35 @@
   <section id="focus-on-em-sampler">
 <h1>Focus on EM sampler<a class="headerlink" href="#focus-on-em-sampler" title="Permalink to this headline"></a></h1>
 <p>This method allows the imputation of missing values in multivariate data using a multivariate Gaussian model
-via EM (expectation-maximisation) sampling.</p>
-<p>We assume the complete data <span class="math notranslate nohighlight">\(\mathbf{X}\)</span> follows a multivariate Gaussian distribution <span class="math notranslate nohighlight">\(\mathcal{N}(\mu, \Sigma)\)</span>.
-We are interested in the estimation of the parameters <span class="math notranslate nohighlight">\(\theta \in \mathbb{R}^d\)</span> characterising the model
-(i.e. <span class="math notranslate nohighlight">\(\mu\)</span> and <span class="math notranslate nohighlight">\(\Sigma\)</span>). We note <span class="math notranslate nohighlight">\(\mathbf{X}_{\Omega}\)</span> (resp. <span class="math notranslate nohighlight">\(\mathbf{X}_{\Omega^c}\)</span>)
-the observed (resp. missing) data. For all <span class="math notranslate nohighlight">\(\theta \in \mathbb{R}^d\)</span>, let <span class="math notranslate nohighlight">\(f(\mathbf{X}; \theta)\)</span>
-be the probability density function of <span class="math notranslate nohighlight">\(\mathbf{X} = (\mathbf{X}_{\Omega}, \mathbf{X}_{\Omega^c})\)</span>.
-The EM algorithm can be used to find the estimate <span class="math notranslate nohighlight">\(\theta\)</span> that maximise the log-likelihood of the observed data,
-i.e.</p>
-<div class="math notranslate nohighlight">
-\[L(\theta; \mathbf{X}_{\Omega}) = \log f(\mathbf{X}_{\Omega}; \theta) = \log \int f(\mathbf{X}_{\Omega}, \mathbf{X}_{\Omega^c}; \theta) \, d\mathbf{X}_{\Omega^c}\]</div>
+via EM (expectation-maximisation) sampling or argmax.</p>
+<p>We assume the data <span class="math notranslate nohighlight">\(\mathbf{X} \in \mathbb{R}^{n \times m}\)</span> follows a multivariate Gaussian distribution <span class="math notranslate nohighlight">\(\mathcal{N}(\mu, \Sigma)\)</span>.
+Each row <span class="math notranslate nohighlight">\(t\)</span> of the matrix represents a time, <span class="math notranslate nohighlight">\(1 \leq  t \leq n\)</span>,
+and each column <span class="math notranslate nohighlight">\(i\)</span>.
+The mean is denoted by <span class="math notranslate nohighlight">\(\mathbf{\bar{X}}\)</span> and the covariance matrix by <span class="math notranslate nohighlight">\(\mathbf{\Sigma}\)</span>.
+The superscript <span class="math notranslate nohighlight">\(^{-1}\)</span> stands for the inverse while <span class="math notranslate nohighlight">\(^\top\)</span> is for the transpose of a matrix.
+We note <span class="math notranslate nohighlight">\(\Omega\)</span> the set of observed values.</p>
+<p>This is an iterative method.
+We start with <span class="math notranslate nohighlight">\(\mathbf{X}\)</span>. At each iteration (the number of iterations is set by the user),</p>
+<ol class="arabic simple">
+<li><p>We compute <span class="math notranslate nohighlight">\(\mathbf{\bar{X}}\)</span> and <span class="math notranslate nohighlight">\(\mathbf{\Sigma}\)</span>;</p></li>
+</ol>
+<p>2. The estimated matrix <span class="math notranslate nohighlight">\(\mathbf{\hat{X}}\)</span> is updated via the maximum likelihood estimation or an Ornstein-Uhlenbeck sampling,
+with the constraint <span class="math notranslate nohighlight">\(\mathbf{\hat{X}_{\Omega}} = \mathbf{X_{\Omega}}\)</span>.</p>
 <section id="maximum-likelihood-estimation">
 <h2>Maximum likelihood estimation<a class="headerlink" href="#maximum-likelihood-estimation" title="Permalink to this headline"></a></h2>
-<p>We note the complete-data log-likelihood as <span class="math notranslate nohighlight">\(l(\mathbf{X}; \theta) = \log f(\mathbf{X}_{\Omega}, \mathbf{X}_{\Omega^c}; \theta)\)</span>.
-Starting with an initial guess <span class="math notranslate nohighlight">\(\theta_0\)</span>,</p>
-<p>1. E-step: Compute the expectation of complete-data log-likelihood, with respect to the conditional distribution of missing
-covariate parameterized by <span class="math notranslate nohighlight">\(\theta_n\)</span>:</p>
+<p>Suppose the covariance matrix in invertible, we define the log-likelihood as</p>
 <div class="math notranslate nohighlight">
-\[\mathcal{Q}(\theta, \theta_n) := \mathbb{E} [l(\mathbf{X}; \theta) \vert \mathbf{X}_{\Omega} ; \theta_n] = \int l(\mathbf{X}; \theta) f(\mathbf{X}_{\Omega^c} \vert \mathbf{X}_{\Omega} ; \theta_n) \, d\mathbf{X}_{\Omega^c}\]</div>
-<p>2. M-step: Determine <span class="math notranslate nohighlight">\(\theta_{n+1}\)</span> by maximising the function <span class="math notranslate nohighlight">\(\mathcal{Q}\)</span>:
-<span class="math notranslate nohighlight">\(\theta_{n+1} = \text{argmax}_{\theta} \mathcal{Q}(\theta, \theta_n)\)</span>.</p>
+\[\text{LL}(\mathbf{X}) = - \Sigma_t (\mathbf{X}_t -  \mathbf{\bar{X}}) \mathbf{\Sigma}^{-1} (\mathbf{X}_t -  \mathbf{\bar{X}})^\top
+:= - \Sigma_t \text{LL}_t (\mathbf{X}_t)\]</div>
+<p>The objective is to maximise this log-likelihood, given <span class="math notranslate nohighlight">\(\mathbf{X_{\Omega}}\)</span> are set, i.e.
+<span class="math notranslate nohighlight">\(\max \limits_{\substack{ \mathbf{\hat{X}} \\ \text{ s.t. } \mathbf{\hat{X}_{\Omega}} = \mathbf{X_{\Omega}} }} \text{LL}(\mathbf{\hat{X}})\)</span>.</p>
+<p>The <a class="reference external" href="https://en.wikipedia.org/wiki/Conjugate_gradient_method#:~:text=In%20mathematics,%20the%20conjugate%20gradient,whose%20matrix%20is%20positive-definite.">conjugate gradient method</a> is used to solve this problem.
+In particular, we compute in parallel a gradient algorithm for each data and at each iteration,
+the data is projected on <span class="math notranslate nohighlight">\(\Omega\)</span> such that the constraint <span class="math notranslate nohighlight">\(\mathbf{\hat{X}_{\Omega}} = \mathbf{X_{\Omega}}\)</span> is respected.</p>
 </section>
 <section id="ornstein-uhlenbeck-sampling">
 <h2>Ornstein-Uhlenbeck sampling<a class="headerlink" href="#ornstein-uhlenbeck-sampling" title="Permalink to this headline"></a></h2>
-<p>The (<a class="reference external" href="https://en.wikipedia.org/wiki/Ornstein%E2%80%93Uhlenbeck_process#:~:text=The%20Ornstein%E2%80%93Uhlenbeck%20process%20is%20a%20stationary%20Gauss%E2%80%93Markov%20process,the%20space%20and%20time%20variables.">Ornstein-Uhlenbeck</a>) (OU) process is a stationary Gauss-Markov process, which means that it is a Gaussian process,
+<p>The <a class="reference external" href="https://en.wikipedia.org/wiki/Ornstein%E2%80%93Uhlenbeck_process#:~:text=The%20Ornstein%E2%80%93Uhlenbeck%20process%20is%20a%20stationary%20Gauss%E2%80%93Markov%20process,the%20space%20and%20time%20variables.">Ornstein-Uhlenbeck</a> (OU) process is a stationary Gauss-Markov process, which means that it is a Gaussian process,
 a Markov process, and is temporally homogeneous.</p>
 <p>Here, the idea is to sample the Gaussian distribution under the constraint that the observed values <span class="math notranslate nohighlight">\(\mathbf{X}_{\Omega}\)</span>
 remain unchanged, using a projected OU process.
@@ -118,21 +123,23 @@ More precisely, we start with an inital dataset to be imputed, which should have
 simple method (e.g. linear interpolation). This first imputation will be used as an initial guess.
 Then we iterate an OU process, the more iterations there are, the less biased the sample is:</p>
 <div class="math notranslate nohighlight">
-\[d\mathbf{X}_n = -\gamma \mathbf{X}_n \,dt + \sqrt{2 \gamma dt} \, d\mathbf{B}_n\]</div>
-<p>with <span class="math notranslate nohighlight">\(\gamma = \text{diag}(\Sigma)\)</span>, <span class="math notranslate nohighlight">\(dt\)</span> the process integration time step
-and <span class="math notranslate nohighlight">\((\mathbf{B}_n)_{n\geq 0}\)</span> is a standard Brownian motion.</p>
-<p>Note that we only sample for <span class="math notranslate nohighlight">\(\mathbf{X}_{\Omega^c}\)</span></p>
+\[d\mathbf{X}_n = - \Gamma \mathbf{X}_n \Sigma^{-1} \,dt + \sqrt{2 \Gamma dt} \, d\mathbf{B}_n\]</div>
+<p>with <span class="math notranslate nohighlight">\(\Gamma = \text{diag}(\Sigma)\)</span>, <span class="math notranslate nohighlight">\(dt\)</span> the process integration time step
+and <span class="math notranslate nohighlight">\((\mathbf{B}_n)_{n\geq 0}\)</span> is a standard Brownian motion.
+Note that we only sample for <span class="math notranslate nohighlight">\(\mathbf{X}_{\Omega^c}\)</span> such that the constraint
+<span class="math notranslate nohighlight">\(\mathbf{\hat{X}_{\Omega}} = \mathbf{X_{\Omega}}\)</span> is respected.</p>
 </section>
 <section id="multivariate-time-series">
 <h2>Multivariate time series<a class="headerlink" href="#multivariate-time-series" title="Permalink to this headline"></a></h2>
 <p>To explicitely take into account the temporal aspect of the data
 (temporal correlations), we construct an extended matrix <span class="math notranslate nohighlight">\(\mathbf{X}^{ext}\)</span>
 by considering the shifted columns, i.e.
-<span class="math notranslate nohighlight">\(\mathbf{X}^{ext} := [\mathbf{X}, \mathbf{X}^{s-1}, \mathbf{X}^{s+1}]\)</span> where
-<span class="math notranslate nohighlight">\(\mathbf{X}^{s-1}\)</span> (resp. <span class="math notranslate nohighlight">\(\mathbf{X}^{s+1}\)</span>) is the <span class="math notranslate nohighlight">\(\mathbf{X}\)</span> matrix
-where all columns are shifted -1 for one step backward in time (resp. +1 for one step forward in time).
+<span class="math notranslate nohighlight">\(\mathbf{X}^{ext} := [\mathbf{X}, \mathbf{X}^{s+1}, \mathbf{X}^{s-1}]\)</span> where
+<span class="math notranslate nohighlight">\(\mathbf{X}^{s+1}\)</span> (resp. <span class="math notranslate nohighlight">\(\mathbf{X}^{s-1}\)</span>) is the <span class="math notranslate nohighlight">\(\mathbf{X}\)</span> matrix
+where all columns are shifted +1 for one step backward in time (resp. -1 for one step forward in time).
 The covariance matrix <span class="math notranslate nohighlight">\(\mathbf{\Sigma}^{ext}\)</span> is therefore richer in information since the presence of additional
 (temporal) correlations.</p>
+<img alt="_images/extended_matrix.png" src="_images/extended_matrix.png" />
 </section>
 <section id="references">
 <h2>References<a class="headerlink" href="#references" title="Permalink to this headline"></a></h2>
