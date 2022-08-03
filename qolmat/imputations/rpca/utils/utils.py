@@ -55,7 +55,10 @@ def signal_to_matrix(signal: NDArray, n_rows: int) -> Tuple[NDArray, int]:
         (if len(signal)%period != 0)
     """
     n_cols = len(signal) // n_rows + (len(signal) % n_rows >= 1)
-    M = np.append(signal, [np.nan] * (n_rows - (len(signal) % n_rows)))
+    if (len(signal) % n_rows) > 0:
+        M = np.append(signal, [np.nan] * (n_rows - (len(signal) % n_rows)))
+    else:
+        M = signal.copy()
     M = M.reshape(-1, n_rows)
     nb_add_val = (M.shape[0] * M.shape[1]) - len(signal)
     return M.T, nb_add_val
@@ -72,6 +75,8 @@ def approx_rank(M: NDArray, threshold: Optional[float] = 0.95) -> int:
     th : float, optional
         fraction of the cumulative sum of the singular values, by default 0.95
     """
+    if threshold == 1:
+        return min(M.shape)
     _, svd, _ = np.linalg.svd(M, full_matrices=True)
     nuclear = np.sum(svd)
     cum_sum = np.cumsum([sv / nuclear for sv in svd])
