@@ -462,8 +462,6 @@ class OnlineTemporalRPCA(TemporalRPCA):
         proj_D = utils.impute_nans(D_init, method="median")
         approx_rank = utils.approx_rank(proj_D[:, :burnin], threshold=1)
 
-        _, sigmas_hat, _ = np.linalg.svd(Lhat)
-
         if self.tau is None:
             self.tau = 1.0 / np.sqrt(max(m, n))
         if self.lam is None:
@@ -476,9 +474,10 @@ class OnlineTemporalRPCA(TemporalRPCA):
         if len(self.online_list_etas) == 0:
             self.online_list_etas = self.list_etas
 
-        Uhat, sigmas_hat, Vhat = randomized_svd(
-            Lhat, n_components=approx_rank, n_iter=5, random_state=0
-        )
+        # Uhat, sigmas_hat, Vhat = randomized_svd(
+        #     Lhat, n_components=approx_rank, n_iter=5, random_state=0
+        # )
+        Uhat, sigmas_hat, Vhat = np.linalg.svd(Lhat, full_matrices=False)
         U = Uhat[:, :approx_rank].dot(np.sqrt(np.diag(sigmas_hat[:approx_rank])))
 
         if self.nwin == 0:
@@ -492,8 +491,9 @@ class OnlineTemporalRPCA(TemporalRPCA):
         for col in range(Vhat_win.shape[1]):
             sums = np.zeros(A.shape)
             for index, period in enumerate(self.list_periods):
-                vec = Vhat_win[:, col] - Vhat_win[:, col - period]
-                sums += 2 * self.list_etas[index] * (np.outer(vec, vec))
+                if col >= period:
+                    vec = Vhat_win[:, col] - Vhat_win[:, col - period]
+                    sums += 2 * self.list_etas[index] * (np.outer(vec, vec))
             A = A + np.outer(Vhat_win[:, col], Vhat_win[:, col]) + sums
 
             if nwin == 0:
@@ -504,7 +504,21 @@ class OnlineTemporalRPCA(TemporalRPCA):
                     Vhat_win[:, col],
                 )
 
-        lv = []
+        m_lhat, _ = Lhat.shape
+        m_shat, n_shat = Shat.shape
+        m_vhat, n_vhat = Vhat.shape
+
+        lv = np.empty(shape=(m_vhat, n - burnin), dtype=float)
+
+        Shat_grow = np.empty((m_shat, (n - burnin) + n_shat), dtype=float)
+        Shat_grow[:, :n_shat] = Shat
+
+        Vhat_win_grow = np.empty((m_vhat, (n - burnin) + n_vhat), dtype=float)
+        Vhat_win_grow[:, : Vhat_win.shape[1]] = Vhat_win
+
+        Lhat_grow = np.empty((m_lhat, n), dtype=float)
+        Lhat_grow[:, : Lhat.shape[1]] = Lhat
+
         for i in range(burnin, n):
             ri = proj_D[:, i]
             vi, si = utils.solve_projection(
@@ -514,20 +528,29 @@ class OnlineTemporalRPCA(TemporalRPCA):
                 self.online_lam,
                 self.online_list_etas,
                 self.list_periods,
-                Lhat,
+                Lhat_grow[:, :i],
             )
-            lv.append(vi)
-            Shat = np.hstack((Shat, si.reshape(m, 1)))
-            vi_delete = Vhat_win[:, 0]
-            Vhat_win = np.hstack((Vhat_win[:, 1:], vi.reshape(approx_rank, 1)))
-            if (len(self.list_periods) > 0) and (len(lv) > max(self.list_periods)):
+            lv[:, i - burnin] = vi
+
+            Shat_grow[:, i] = si
+            Vhat_win_grow[:, nwin + (i - burnin)] = vi
+            vi_delete = Vhat_win_grow[:, (i - burnin)]
+
+            if len(self.list_periods) > 0:
                 sums = np.zeros((len(vi), len(vi)))
-                for k in range(len(self.list_periods)):
-                    vec = vi - lv[i - self.list_periods[k] - burnin]
-                    sums += 2 * self.online_list_etas[k] * (np.outer(vec, vec))
-                A = A + np.outer(vi, vi) + sums
+                for k, period in enumerate(self.list_periods):
+                    if i - burnin >= period:
+                        vec = vi - lv[:, i - period - burnin]
+                        sums += 2 * self.online_list_etas[k] * (np.outer(vec, vec))
+                if self.nwin == 0:
+                    A = A + np.outer(vi, vi) + sums
+                else:
+                    A = A + np.outer(vi, vi) + sums - np.outer(vi_delete, vi_delete)
             else:
-                A = A + np.outer(vi, vi) - np.outer(vi_delete, vi_delete)
+                if self.nwin == 0:
+                    A = A + np.outer(vi, vi)
+                else:
+                    A = A + np.outer(vi, vi) - np.outer(vi_delete, vi_delete)
             if self.nwin == 0:
                 B = B + np.outer(ri - si, vi)
             else:
@@ -535,21 +558,22 @@ class OnlineTemporalRPCA(TemporalRPCA):
                     B
                     + np.outer(ri - si, vi)
                     - np.outer(
-                        self.D[:, i - self.nwin] - Shat[:, i - self.nwin], vi_delete
+                        proj_D[:, i - self.nwin] - Shat_grow[:, i - self.nwin],
+                        vi_delete,
                     )
                 )
             U = utils.update_col(self.online_tau, U, A, B)
-            Lhat = np.hstack((Lhat, U.dot(vi).reshape(m, 1)))
+            Lhat_grow[:, i] = U.dot(vi)
 
         if n_add_values > 0:
-            Lhat.flat[-n_add_values:] = np.nan
-            Shat.flat[-n_add_values:] = np.nan
+            Lhat_grow.flat[-n_add_values:] = np.nan
+            Shat_grow.flat[-n_add_values:] = np.nan
 
         if self.input_data_shape == "2DArray":
-            return Lhat, Shat
+            return Lhat_grow, Shat_grow
         elif self.input_data_shape == "1DArray":
-            ts_X = Lhat.T.flatten()
-            ts_A = Shat.T.flatten()
+            ts_X = Lhat_grow.T.flatten()
+            ts_A = Shat_grow.T.flatten()
             return ts_X[~np.isnan(ts_X)], ts_A[~np.isnan(ts_A)]
         else:
             raise ValueError("Data shape not recognized")
