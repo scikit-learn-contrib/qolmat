@@ -54,9 +54,9 @@ Then we iterate an OU process, the more iterations there are, the less biased th
 
 .. math::
 
-    d\mathbf{X}_n = - \Gamma \mathbf{X}_n \Sigma^{-1} \,dt + \sqrt{2 \Gamma dt} \, d\mathbf{B}_n
+    d\mathbf{X}_n = - \mathbf{\Gamma} \mathbf{X}_n \mathbf{\Sigma}^{-1} \,dt + \sqrt{2 \mathbf{\Gamma} dt} \, d\mathbf{B}_n
 
-with :math:`\Gamma = \text{diag}(\Sigma)`, :math:`dt` the process integration time step 
+with :math:`\mathbf{\Gamma} = \text{diag}(\mathbf{\Sigma})`, :math:`dt` the process integration time step 
 and :math:`(\mathbf{B}_n)_{n\geq 0}` is a standard Brownian motion.
 Note that we only sample for :math:`\mathbf{X}_{\Omega^c}` such that the constraint 
 :math:`\mathbf{\hat{X}_{\Omega}} = \mathbf{X_{\Omega}}` is respected. 

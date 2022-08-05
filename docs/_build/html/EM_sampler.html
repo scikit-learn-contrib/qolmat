@@ -125,8 +125,8 @@ More precisely, we start with an inital dataset to be imputed, which should have
 simple method (e.g. linear interpolation). This first imputation will be used as an initial guess.
 Then we iterate an OU process, the more iterations there are, the less biased the sample is:</p>
 <div class="math notranslate nohighlight">
-\[d\mathbf{X}_n = - \Gamma \mathbf{X}_n \Sigma^{-1} \,dt + \sqrt{2 \Gamma dt} \, d\mathbf{B}_n\]</div>
-<p>with <span class="math notranslate nohighlight">\(\Gamma = \text{diag}(\Sigma)\)</span>, <span class="math notranslate nohighlight">\(dt\)</span> the process integration time step
+\[d\mathbf{X}_n = - \mathbf{\Gamma} \mathbf{X}_n \mathbf{\Sigma}^{-1} \,dt + \sqrt{2 \mathbf{\Gamma} dt} \, d\mathbf{B}_n\]</div>
+<p>with <span class="math notranslate nohighlight">\(\mathbf{\Gamma} = \text{diag}(\mathbf{\Sigma})\)</span>, <span class="math notranslate nohighlight">\(dt\)</span> the process integration time step
 and <span class="math notranslate nohighlight">\((\mathbf{B}_n)_{n\geq 0}\)</span> is a standard Brownian motion.
 Note that we only sample for <span class="math notranslate nohighlight">\(\mathbf{X}_{\Omega^c}\)</span> such that the constraint
 <span class="math notranslate nohighlight">\(\mathbf{\hat{X}_{\Omega}} = \mathbf{X_{\Omega}}\)</span> is respected.</p>
