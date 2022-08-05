@@ -3,6 +3,11 @@ import sys
 from typing import Dict, Union, Optional
 
 import datetime
+from MissForestExtra import MissForestExtra
+import sklearn.neighbors._base
+
+sys.modules["sklearn.neighbors.base"] = sklearn.neighbors._base
+from missingpy import MissForest
 import numpy as np
 import pandas as pd
 from pykalman import KalmanFilter
@@ -719,3 +724,73 @@ class ImputeStochasticRegressor:
 
     def create_features(self, df):
         return None
+
+
+class ImputeMissForest:
+    """
+    This class implements an imputation for multivariate data with MissForest
+
+    Parameters
+    ----------
+    max_features: int, optional (default = 10)
+        The maximum iterations of the imputation process. Each column with a
+        missing value is imputed exactly once in a given iteration.
+    n_estimators : integer, optional (default=100)
+        The number of trees in the forest.
+    criterion: str
+        The function to measure the quality of a split.The first element of
+        the tuple is for the Random Forest Regressor (for imputing numerical
+        variables) while the second element is for the Random Forest
+        Classifier (for imputing categorical variables).
+    missing_values : np.nan, integer, optional (default = np.nan)
+        The placeholder for the missing values. All occurrences of
+        `missing_values` will be imputed.
+    max_features : int, float, string or None, optional (default="auto")
+        The number of features to consider when looking for the best split:
+        - If int, then consider `max_features` features at each split.
+        - If float, then `max_features` is a fraction and
+        `int(max_features * n_features)` features are considered at each
+        split.
+        - If "auto", then `max_features=sqrt(n_features)`.
+        - If "sqrt", then `max_features=sqrt(n_features)` (same as "auto").
+        - If "log2", then `max_features=log2(n_features)`.
+        - If None, then `max_features=n_features`.
+        Note: the search for a split does not stop until at least one
+        valid partition of the node samples is found, even if it requires to
+        effectively inspect more than ``max_features`` features.
+    verbose : int, optional (default=0)
+        Controls the verbosity when fitting and predicting.
+
+    """
+
+    def __init__(
+        self,
+        criterion: Optional[str] = "squared_error",
+        n_estimators: Optional[int] = 100,
+        missing_values: Optional[Union[int, str]] = np.nan,
+        max_features: Optional[Union[int, float, str]] = 1.0,
+        verbose: Optional[int] = 0,
+    ) -> None:
+        self.max_features = max_features
+        self.criterion = criterion
+        self.n_estimators = n_estimators
+        self.missing_values = missing_values
+        self.verbose = verbose
+
+    def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+
+        imputer = MissForest(
+            max_features=self.max_features,
+            criterion=self.criterion,
+            n_estimators=self.n_estimators,
+            missing_values=self.missing_values,
+            verbose=self.verbose,
+        )
+
+        if isinstance(df, np.ndarray):
+            return imputer.fit_transform(df)
+        elif isinstance(df, pd.DataFrame):
+            imputed = imputer.fit_transform(df.values)
+            return pd.DataFrame(data=imputed, columns=df.columns, index=df.index)
+        else:
+            raise ValueError("Input array is not a list, np.array, nor pd.DataFrame.")
