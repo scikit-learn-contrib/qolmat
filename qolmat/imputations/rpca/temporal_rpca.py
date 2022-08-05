@@ -1,14 +1,13 @@
 from __future__ import annotations
-from typing import Optional, List
-from unittest import result
+
+from typing import List, Optional
 
 import numpy as np
 import scipy as scp
 from numpy.typing import ArrayLike, NDArray
-from sklearn.utils.extmath import randomized_svd
-
 from qolmat.imputations.rpca.rpca import RPCA
 from qolmat.imputations.rpca.utils import utils
+from sklearn.utils.extmath import randomized_svd
 
 
 class TemporalRPCA(RPCA):
@@ -25,16 +24,26 @@ class TemporalRPCA(RPCA):
 
     Parameters
     ----------
-    rank: Optional
+    n_rows: Optional[int]
+        number of rows of the reshaped matrix if the signal is a time series
+    rank: Optional[int]
         (estimated) low-rank of the matrix D
-    tau: Optional
+    tau: Optional[float]
         penalizing parameter for the nuclear norm
-    lam: Optional
+    lam: Optional[float]
         penalizing parameter for the sparse matrix
-    list_periods: Optional
+    list_periods: Optional[List[int]]
         list of periods, linked to the Toeplitz matrices
-    list_etas: Optional
+    list_etas: Optional[List[float]]
         list of penalizing parameters for the corresponding period in list_periods
+    maxIter: Optional[int]
+        stopping criteria, maximum number of iterations. By default, the value is set to 10_000
+    tol: Optional[float]
+        stoppign critera, minimum difference between 2 consecutive iterations. By default, the value is set to 1e-6
+    verbose: Optional[bool]
+        verbosity. By default, the value is set to False
+    norm: Optional[str]
+        error norm, can be "L1" or "L2". By default, the value is set to "L2"
     """
 
     def __init__(
@@ -357,7 +366,35 @@ class OnlineTemporalRPCA(TemporalRPCA):
 
     Parameters
     ----------
-    TemporalRPCA
+    n_rows: Optional[int]
+        number of rows of the reshaped matrix if the signal is a time series
+    rank: Optional[int]
+        (estimated) low-rank of the matrix D
+    tau: Optional[float]
+        penalizing parameter for the nuclear norm
+    lam: Optional[float]
+        penalizing parameter for the sparse matrix
+    list_periods: Optional[List[int]]
+        list of periods, linked to the Toeplitz matrices
+    list_etas: Optional[List[float]]
+        list of penalizing parameters for the corresponding period in list_periods
+    maxIter: Optional[int]
+        stopping criteria, maximum number of iterations. By default, the value is set to 10_000
+    tol: Optional[float]
+        stoppign critera, minimum difference between 2 consecutive iterations. By default, the value is set to 1e-6
+    verbose: Optional[bool]
+        verbosity. By default, the value is set to False
+    burnin: Optional[float]
+        proportion of the entire matrix (the first (burnin x 100)% columns) for the batch part. Has to be between 0 and 1.
+        By default, the value is set to 0.
+    nwin: Optional[int]
+        size of the sliding window (number of column). By default, the value is set to 0.
+    online_tau: Optional[float]
+        penalizing parameter for the nuclear norm, online part
+    online_lam: Optional[float]
+        penalizing parameter for the sparse matrix, online part
+    online_list_etas: Optional[List[float]]
+        list of penalizing parameters for the corresponding period in list_periods, online part
     """
 
     def __init__(
@@ -371,7 +408,6 @@ class OnlineTemporalRPCA(TemporalRPCA):
         maxIter: Optional[int] = int(1e4),
         tol: Optional[float] = 1e-6,
         verbose: Optional[bool] = False,
-        norm: Optional[str] = "L2",
         burnin: Optional[float] = 0,
         nwin: Optional[float] = 0,
         online_tau: Optional[float] = None,
@@ -388,7 +424,6 @@ class OnlineTemporalRPCA(TemporalRPCA):
             maxIter=maxIter,
             tol=tol,
             verbose=verbose,
-            norm=norm,
         )
 
         self.burnin = burnin
@@ -396,6 +431,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
         self.online_tau = online_tau
         self.online_lam = online_lam
         self.online_list_etas = online_list_etas
+        self.norm = "L2"
 
     def fit_transform(
         self,
@@ -408,8 +444,14 @@ class OnlineTemporalRPCA(TemporalRPCA):
         ----------
         signal : NDArray
         """
+
+        if len(signal.shape) == 1:
+            self.input_data_shape = "1DArray"
+        elif len(signal.shape) == 2:
+            self.input_data_shape = "2DArray"
+
         D_init, n_add_values = self._prepare_data(signal=signal)
-        burnin = self.burnin
+        burnin = int(self.burnin * D_init.shape[1])
         nwin = self.nwin
 
         m, n = D_init.shape
@@ -418,9 +460,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
         )
 
         proj_D = utils.impute_nans(D_init, method="median")
-        approx_rank = utils.approx_rank(proj_D[:, :burnin], th=0.99)
-
-        _, sigmas_hat, _ = np.linalg.svd(Lhat)
+        approx_rank = utils.approx_rank(proj_D[:, :burnin], threshold=1)
 
         if self.tau is None:
             self.tau = 1.0 / np.sqrt(max(m, n))
@@ -434,12 +474,16 @@ class OnlineTemporalRPCA(TemporalRPCA):
         if len(self.online_list_etas) == 0:
             self.online_list_etas = self.list_etas
 
-        Uhat, sigmas_hat, Vhat = randomized_svd(
-            Lhat, n_components=approx_rank, n_iter=5, random_state=0
-        )
+        # Uhat, sigmas_hat, Vhat = randomized_svd(
+        #     Lhat, n_components=approx_rank, n_iter=5, random_state=0
+        # )
+        Uhat, sigmas_hat, Vhat = np.linalg.svd(Lhat, full_matrices=False)
         U = Uhat[:, :approx_rank].dot(np.sqrt(np.diag(sigmas_hat[:approx_rank])))
 
-        Vhat_win = Vhat[:, nwin:].copy()
+        if self.nwin == 0:
+            Vhat_win = Vhat.copy()
+        else:
+            Vhat_win = Vhat[:, -nwin:]
 
         A = np.zeros((approx_rank, approx_rank))
         B = np.zeros((m, approx_rank))
@@ -447,8 +491,9 @@ class OnlineTemporalRPCA(TemporalRPCA):
         for col in range(Vhat_win.shape[1]):
             sums = np.zeros(A.shape)
             for index, period in enumerate(self.list_periods):
-                vec = Vhat_win[:, col] - Vhat_win[:, col - period]
-                sums += 2 * self.list_etas[index] * (np.outer(vec, vec))
+                if col >= period:
+                    vec = Vhat_win[:, col] - Vhat_win[:, col - period]
+                    sums += 2 * self.list_etas[index] * (np.outer(vec, vec))
             A = A + np.outer(Vhat_win[:, col], Vhat_win[:, col]) + sums
 
             if nwin == 0:
@@ -459,22 +504,23 @@ class OnlineTemporalRPCA(TemporalRPCA):
                     Vhat_win[:, col],
                 )
 
-        lv = np.empty(shape=(n - burnin, proj_D.shape[0]), dtype=float)
+        m_lhat, n_lhat = Lhat.shape
+        m_shat, n_shat = Shat.shape
+        m_vhat, n_vhat = Vhat.shape
 
-        Shat_grow = np.full(D_init.shape, np.nan, dtype=float)
-        Shat_grow[:, : Shat.shape[1]] = Shat
+        lv = np.empty(shape=(m_vhat, n - burnin), dtype=float)
 
-        n_vhat = Vhat.shape[1]
-        Vhat_win_grow = np.full((m, (n - burnin) + n_vhat), np.nan, dtype=float)
-        print(Vhat_win_grow.shape)
-        print(Vhat_win.shape)
-        Vhat_win_grow[:, Vhat_win.shape[1]] = Vhat_win
+        Shat_grow = np.empty((m_shat, (n - burnin) + n_shat), dtype=float)
+        Shat_grow[:, :n_shat] = Shat
 
-        Lhat_grow = np.full(D_init.shape, np.nan, dtype=float)
-        Lhat_grow[:, Lhat.shape[1]] = Lhat
+        Vhat_win_grow = np.empty((m_vhat, (n - burnin) + n_vhat), dtype=float)
+        Vhat_win_grow[:, : Vhat_win.shape[1]] = Vhat_win
 
-        for row in range(burnin, n):
-            ri = proj_D[:, row]
+        Lhat_grow = np.empty((m_lhat, n), dtype=float)
+        Lhat_grow[:, : n_lhat] = Lhat
+
+        for i in range(burnin, n):
+            ri = proj_D[:, i]
             vi, si = utils.solve_projection(
                 ri,
                 U,
@@ -482,46 +528,52 @@ class OnlineTemporalRPCA(TemporalRPCA):
                 self.online_lam,
                 self.online_list_etas,
                 self.list_periods,
-                Lhat_grow[:, (row - burnin) : ((row - burnin) + Lhat.shape[1])],
+                Lhat_grow[:, :i],
             )
-            lv[row - burnin, :] = vi
+            lv[:, i - burnin] = vi
 
-            Shat_grow[:, row] = si.reshape(m, 1)
+            Shat_grow[:, i] = si
+            Vhat_win_grow[:, nwin + (i - burnin)] = vi
+            vi_delete = Vhat_win_grow[:, (i - burnin)]
 
-            Vhat_win_grow[:, n_vhat + (row - burnin)] = vi.reshape(approx_rank, 1)
-            vi_delete = Vhat_win_grow[:, (row - burnin)]
-            Vhat_win = Vhat_win_grow[:, (row - burnin + 1) : ((row - burnin) + n_vhat)]
-
-            if (len(self.list_periods) > 0) and (row >= max(self.list_periods)):
-                sums = np.zeros((lv.shape[1], lv.shape[1]))
-                for index, period in enumerate(self.list_periods):
-                    vec = vi - lv[row - period - burnin, :]
-                    sums += 2 * self.online_list_etas[index] * (np.outer(vec, vec))
-                A = A + np.outer(vi, vi) + sums
+            if len(self.list_periods) > 0:
+                sums = np.zeros((len(vi), len(vi)))
+                for k, period in enumerate(self.list_periods):
+                    if i - burnin >= period:
+                        vec = vi - lv[:, i - period - burnin]
+                        sums += 2 * self.online_list_etas[k] * (np.outer(vec, vec))
+                if self.nwin == 0:
+                    A = A + np.outer(vi, vi) + sums
+                else:
+                    A = A + np.outer(vi, vi) + sums - np.outer(vi_delete, vi_delete)
             else:
-                A = A + np.outer(vi, vi) - np.outer(vi_delete, vi_delete)
-            if nwin == 0:
+                if self.nwin == 0:
+                    A = A + np.outer(vi, vi)
+                else:
+                    A = A + np.outer(vi, vi) - np.outer(vi_delete, vi_delete)
+            if self.nwin == 0:
                 B = B + np.outer(ri - si, vi)
             else:
                 B = (
                     B
                     + np.outer(ri - si, vi)
                     - np.outer(
-                        proj_D[:, row - nwin] - Shat_grow[:, row - nwin], vi_delete
+                        proj_D[:, i - self.nwin] - Shat_grow[:, i - self.nwin],
+                        vi_delete,
                     )
                 )
             U = utils.update_col(self.online_tau, U, A, B)
-            Lhat_grow[:, row] = U.dot(vi).reshape(m, 1)
+            Lhat_grow[:, i] = U.dot(vi)
 
         if n_add_values > 0:
             Lhat_grow.flat[-n_add_values:] = np.nan
             Shat_grow.flat[-n_add_values:] = np.nan
 
-        if self.input_data == "2DArray":
+        if self.input_data_shape == "2DArray":
             return Lhat_grow, Shat_grow
-        elif self.input_data == "1DArray":
-            ts_X = Lhat_grow.flatten()
-            ts_A = Shat_grow.flatten()
+        elif self.input_data_shape == "1DArray":
+            ts_X = Lhat_grow.T.flatten()
+            ts_A = Shat_grow.T.flatten()
             return ts_X[~np.isnan(ts_X)], ts_A[~np.isnan(ts_A)]
         else:
             raise ValueError("Data shape not recognized")

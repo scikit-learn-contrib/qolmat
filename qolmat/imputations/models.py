@@ -1,14 +1,14 @@
-from typing import Optional, Tuple, List, Dict, Union
-import numpy as np
-import pandas as pd
-
-from sklearn.experimental import enable_iterative_imputer
-from sklearn.impute import KNNImputer, IterativeImputer
-from qolmat.imputations.rpca.pcp_rpca import RPCA
-from qolmat.imputations.rpca.temporal_rpca import TemporalRPCA, OnlineTemporalRPCA
-from qolmat.benchmark import utils
 import os
 import sys
+from typing import Dict, Union
+
+import numpy as np
+import pandas as pd
+from qolmat.benchmark import utils
+from qolmat.imputations.rpca.pcp_rpca import RPCA
+from qolmat.imputations.rpca.temporal_rpca import OnlineTemporalRPCA, TemporalRPCA
+from sklearn.experimental import enable_iterative_imputer
+from sklearn.impute import IterativeImputer, KNNImputer
 
 
 class ImputeColumnWise:
@@ -240,7 +240,7 @@ class ImputeNOCB(ImputeColumnWise):
 
     def fit_transform_col(self, signal: pd.Series) -> pd.Series:
         """
-        Fit/transform by imputing missing values by carrying carrying the next observation backward.
+        Fit/transform by imputing missing values by carrying the next observation backward.
         If the last observation is missing, it is imputed by the median of the series
 
         Parameters
@@ -508,7 +508,7 @@ class ImputeIterative:
 class ImputeRegressor:
     """
     This class implements a regression imputer in the multivariate case.
-    It imputes each Series with missign value within a DataFrame using the complete ones.
+    It imputes each Series with missing value within a DataFrame using the complete ones.
 
     Parameters
     ----------
@@ -566,7 +566,7 @@ class ImputeRegressor:
 class ImputeStochasticRegressor:
     """
     This class implements a stochastic regression imputer in the multivariate case.
-    It imputes each Series with missign value within a DataFrame using the complete ones.
+    It imputes each Series with missing value within a DataFrame using the complete ones.
 
     Parameters
     ----------

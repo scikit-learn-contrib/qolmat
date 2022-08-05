@@ -38,13 +38,12 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../explanation.html">Qolmat methods</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../RPCA.html">Focus on RPCA</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../EM_sampler.html">Focus on EM_sampler</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../EM_sampler.html">Focus on EM sampler</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Simple examples</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../../examples/time_series.html">Example for anomaly detection in time series</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../examples/background.html">Example for background and foreground separation with robust PCA</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../examples/denoise_images.html">Example for image denoising with robust PCA</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../examples/imputation_example.html">Imputation examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../examples/RPCA_example.html">RPCA examples</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API</span></p>
 <ul>
@@ -77,16 +76,15 @@
              
   <h1>Source code for qolmat.imputations.rpca.temporal_rpca</h1><div class="highlight"><pre>
 <span></span><span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">List</span>
-<span class="kn">from</span> <span class="nn">unittest</span> <span class="kn">import</span> <span class="n">result</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">scipy</span> <span class="k">as</span> <span class="nn">scp</span>
 <span class="kn">from</span> <span class="nn">numpy.typing</span> <span class="kn">import</span> <span class="n">ArrayLike</span><span class="p">,</span> <span class="n">NDArray</span>
-<span class="kn">from</span> <span class="nn">sklearn.utils.extmath</span> <span class="kn">import</span> <span class="n">randomized_svd</span>
-
 <span class="kn">from</span> <span class="nn">qolmat.imputations.rpca.rpca</span> <span class="kn">import</span> <span class="n">RPCA</span>
 <span class="kn">from</span> <span class="nn">qolmat.imputations.rpca.utils</span> <span class="kn">import</span> <span class="n">utils</span>
+<span class="kn">from</span> <span class="nn">sklearn.utils.extmath</span> <span class="kn">import</span> <span class="n">randomized_svd</span>
 
 
 <div class="viewcode-block" id="TemporalRPCA"><a class="viewcode-back" href="../../../../generated/qolmat.imputations.rpca.temporal_rpca.TemporalRPCA.html#qolmat.imputations.rpca.temporal_rpca.TemporalRPCA">[docs]</a><span class="k">class</span> <span class="nc">TemporalRPCA</span><span class="p">(</span><span class="n">RPCA</span><span class="p">):</span>
@@ -103,16 +101,26 @@
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    rank: Optional</span>
+<span class="sd">    n_rows: Optional[int]</span>
+<span class="sd">        number of rows of the reshaped matrix if the signal is a time series</span>
+<span class="sd">    rank: Optional[int]</span>
 <span class="sd">        (estimated) low-rank of the matrix D</span>
-<span class="sd">    tau: Optional</span>
+<span class="sd">    tau: Optional[float]</span>
 <span class="sd">        penalizing parameter for the nuclear norm</span>
-<span class="sd">    lam: Optional</span>
+<span class="sd">    lam: Optional[float]</span>
 <span class="sd">        penalizing parameter for the sparse matrix</span>
-<span class="sd">    list_periods: Optional</span>
+<span class="sd">    list_periods: Optional[List[int]]</span>
 <span class="sd">        list of periods, linked to the Toeplitz matrices</span>
-<span class="sd">    list_etas: Optional</span>
+<span class="sd">    list_etas: Optional[List[float]]</span>
 <span class="sd">        list of penalizing parameters for the corresponding period in list_periods</span>
+<span class="sd">    maxIter: Optional[int]</span>
+<span class="sd">        stopping criteria, maximum number of iterations. By default, the value is set to 10_000</span>
+<span class="sd">    tol: Optional[float]</span>
+<span class="sd">        stoppign critera, minimum difference between 2 consecutive iterations. By default, the value is set to 1e-6</span>
+<span class="sd">    verbose: Optional[bool]</span>
+<span class="sd">        verbosity. By default, the value is set to False</span>
+<span class="sd">    norm: Optional[str]</span>
+<span class="sd">        error norm, can be &quot;L1&quot; or &quot;L2&quot;. By default, the value is set to &quot;L2&quot;</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
@@ -435,7 +443,35 @@
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    TemporalRPCA</span>
+<span class="sd">    n_rows: Optional[int]</span>
+<span class="sd">        number of rows of the reshaped matrix if the signal is a time series</span>
+<span class="sd">    rank: Optional[int]</span>
+<span class="sd">        (estimated) low-rank of the matrix D</span>
+<span class="sd">    tau: Optional[float]</span>
+<span class="sd">        penalizing parameter for the nuclear norm</span>
+<span class="sd">    lam: Optional[float]</span>
+<span class="sd">        penalizing parameter for the sparse matrix</span>
+<span class="sd">    list_periods: Optional[List[int]]</span>
+<span class="sd">        list of periods, linked to the Toeplitz matrices</span>
+<span class="sd">    list_etas: Optional[List[float]]</span>
+<span class="sd">        list of penalizing parameters for the corresponding period in list_periods</span>
+<span class="sd">    maxIter: Optional[int]</span>
+<span class="sd">        stopping criteria, maximum number of iterations. By default, the value is set to 10_000</span>
+<span class="sd">    tol: Optional[float]</span>
+<span class="sd">        stoppign critera, minimum difference between 2 consecutive iterations. By default, the value is set to 1e-6</span>
+<span class="sd">    verbose: Optional[bool]</span>
+<span class="sd">        verbosity. By default, the value is set to False</span>
+<span class="sd">    burnin: Optional[float]</span>
+<span class="sd">        proportion of the entire matrix (the first (burnin x 100)% columns) for the batch part. Has to be between 0 and 1.</span>
+<span class="sd">        By default, the value is set to 0.</span>
+<span class="sd">    nwin: Optional[int]</span>
+<span class="sd">        size of the sliding window (number of column). By default, the value is set to 0.</span>
+<span class="sd">    online_tau: Optional[float]</span>
+<span class="sd">        penalizing parameter for the nuclear norm, online part</span>
+<span class="sd">    online_lam: Optional[float]</span>
+<span class="sd">        penalizing parameter for the sparse matrix, online part</span>
+<span class="sd">    online_list_etas: Optional[List[float]]</span>
+<span class="sd">        list of penalizing parameters for the corresponding period in list_periods, online part</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
@@ -449,7 +485,6 @@
         <span class="n">maxIter</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mf">1e4</span><span class="p">),</span>
         <span class="n">tol</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">,</span>
         <span class="n">verbose</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="n">norm</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;L2&quot;</span><span class="p">,</span>
         <span class="n">burnin</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
         <span class="n">nwin</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
         <span class="n">online_tau</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -466,7 +501,6 @@
             <span class="n">maxIter</span><span class="o">=</span><span class="n">maxIter</span><span class="p">,</span>
             <span class="n">tol</span><span class="o">=</span><span class="n">tol</span><span class="p">,</span>
             <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span>
-            <span class="n">norm</span><span class="o">=</span><span class="n">norm</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">burnin</span> <span class="o">=</span> <span class="n">burnin</span>
@@ -474,6 +508,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">online_tau</span> <span class="o">=</span> <span class="n">online_tau</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">online_lam</span> <span class="o">=</span> <span class="n">online_lam</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">online_list_etas</span> <span class="o">=</span> <span class="n">online_list_etas</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">norm</span> <span class="o">=</span> <span class="s2">&quot;L2&quot;</span>
 
     <span class="k">def</span> <span class="nf">fit_transform</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -486,8 +521,14 @@
 <span class="sd">        ----------</span>
 <span class="sd">        signal : NDArray</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">input_data_shape</span> <span class="o">=</span> <span class="s2">&quot;1DArray&quot;</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">input_data_shape</span> <span class="o">=</span> <span class="s2">&quot;2DArray&quot;</span>
+
         <span class="n">D_init</span><span class="p">,</span> <span class="n">n_add_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_data</span><span class="p">(</span><span class="n">signal</span><span class="o">=</span><span class="n">signal</span><span class="p">)</span>
-        <span class="n">burnin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">burnin</span>
+        <span class="n">burnin</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">burnin</span> <span class="o">*</span> <span class="n">D_init</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
         <span class="n">nwin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nwin</span>
 
         <span class="n">m</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="n">D_init</span><span class="o">.</span><span class="n">shape</span>
@@ -496,7 +537,7 @@
         <span class="p">)</span>
 
         <span class="n">proj_D</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">impute_nans</span><span class="p">(</span><span class="n">D_init</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;median&quot;</span><span class="p">)</span>
-        <span class="n">approx_rank</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">approx_rank</span><span class="p">(</span><span class="n">proj_D</span><span class="p">[:,</span> <span class="p">:</span><span class="n">burnin</span><span class="p">],</span> <span class="n">th</span><span class="o">=</span><span class="mf">0.99</span><span class="p">)</span>
+        <span class="n">approx_rank</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">approx_rank</span><span class="p">(</span><span class="n">proj_D</span><span class="p">[:,</span> <span class="p">:</span><span class="n">burnin</span><span class="p">],</span> <span class="n">threshold</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
         <span class="n">_</span><span class="p">,</span> <span class="n">sigmas_hat</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">Lhat</span><span class="p">)</span>
 
@@ -517,7 +558,10 @@
         <span class="p">)</span>
         <span class="n">U</span> <span class="o">=</span> <span class="n">Uhat</span><span class="p">[:,</span> <span class="p">:</span><span class="n">approx_rank</span><span class="p">]</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">sigmas_hat</span><span class="p">[:</span><span class="n">approx_rank</span><span class="p">])))</span>
 
-        <span class="n">Vhat_win</span> <span class="o">=</span> <span class="n">Vhat</span><span class="p">[:,</span> <span class="n">nwin</span><span class="p">:]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">nwin</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">Vhat_win</span> <span class="o">=</span> <span class="n">Vhat</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">Vhat_win</span> <span class="o">=</span> <span class="n">Vhat</span><span class="p">[:,</span> <span class="o">-</span><span class="n">nwin</span><span class="p">:]</span>
 
         <span class="n">A</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">approx_rank</span><span class="p">,</span> <span class="n">approx_rank</span><span class="p">))</span>
         <span class="n">B</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">m</span><span class="p">,</span> <span class="n">approx_rank</span><span class="p">))</span>
@@ -537,22 +581,9 @@
                     <span class="n">Vhat_win</span><span class="p">[:,</span> <span class="n">col</span><span class="p">],</span>
                 <span class="p">)</span>
 
-        <span class="n">lv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="n">burnin</span><span class="p">,</span> <span class="n">proj_D</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-
-        <span class="n">Shat_grow</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">D_init</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-        <span class="n">Shat_grow</span><span class="p">[:,</span> <span class="p">:</span> <span class="n">Shat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="n">Shat</span>
-
-        <span class="n">n_vhat</span> <span class="o">=</span> <span class="n">Vhat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-        <span class="n">Vhat_win_grow</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">m</span><span class="p">,</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="n">burnin</span><span class="p">)</span> <span class="o">+</span> <span class="n">n_vhat</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="n">Vhat_win_grow</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="n">Vhat_win</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
-        <span class="n">Vhat_win_grow</span><span class="p">[:,</span> <span class="n">Vhat_win</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="n">Vhat_win</span>
-
-        <span class="n">Lhat_grow</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">D_init</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-        <span class="n">Lhat_grow</span><span class="p">[:,</span> <span class="n">Lhat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="n">Lhat</span>
-
-        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">burnin</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
-            <span class="n">ri</span> <span class="o">=</span> <span class="n">proj_D</span><span class="p">[:,</span> <span class="n">row</span><span class="p">]</span>
+        <span class="n">lv</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">burnin</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+            <span class="n">ri</span> <span class="o">=</span> <span class="n">proj_D</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span>
             <span class="n">vi</span><span class="p">,</span> <span class="n">si</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">solve_projection</span><span class="p">(</span>
                 <span class="n">ri</span><span class="p">,</span>
                 <span class="n">U</span><span class="p">,</span>
@@ -560,46 +591,42 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">online_lam</span><span class="p">,</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">online_list_etas</span><span class="p">,</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">list_periods</span><span class="p">,</span>
-                <span class="n">Lhat_grow</span><span class="p">[:,</span> <span class="p">(</span><span class="n">row</span> <span class="o">-</span> <span class="n">burnin</span><span class="p">)</span> <span class="p">:</span> <span class="p">((</span><span class="n">row</span> <span class="o">-</span> <span class="n">burnin</span><span class="p">)</span> <span class="o">+</span> <span class="n">Lhat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])],</span>
+                <span class="n">Lhat</span><span class="p">,</span>
             <span class="p">)</span>
-            <span class="n">lv</span><span class="p">[</span><span class="n">row</span> <span class="o">-</span> <span class="n">burnin</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">vi</span>
-
-            <span class="n">Shat_grow</span><span class="p">[:,</span> <span class="n">row</span><span class="p">]</span> <span class="o">=</span> <span class="n">si</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-
-            <span class="n">Vhat_win_grow</span><span class="p">[:,</span> <span class="n">n_vhat</span> <span class="o">+</span> <span class="p">(</span><span class="n">row</span> <span class="o">-</span> <span class="n">burnin</span><span class="p">)]</span> <span class="o">=</span> <span class="n">vi</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">approx_rank</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-            <span class="n">vi_delete</span> <span class="o">=</span> <span class="n">Vhat_win_grow</span><span class="p">[:,</span> <span class="p">(</span><span class="n">row</span> <span class="o">-</span> <span class="n">burnin</span><span class="p">)]</span>
-            <span class="n">Vhat_win</span> <span class="o">=</span> <span class="n">Vhat_win_grow</span><span class="p">[:,</span> <span class="p">(</span><span class="n">row</span> <span class="o">-</span> <span class="n">burnin</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="p">:</span> <span class="p">((</span><span class="n">row</span> <span class="o">-</span> <span class="n">burnin</span><span class="p">)</span> <span class="o">+</span> <span class="n">n_vhat</span><span class="p">)]</span>
-
-            <span class="k">if</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">list_periods</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">row</span> <span class="o">&gt;=</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">list_periods</span><span class="p">)):</span>
-                <span class="n">sums</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">lv</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">lv</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
-                <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">period</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">list_periods</span><span class="p">):</span>
-                    <span class="n">vec</span> <span class="o">=</span> <span class="n">vi</span> <span class="o">-</span> <span class="n">lv</span><span class="p">[</span><span class="n">row</span> <span class="o">-</span> <span class="n">period</span> <span class="o">-</span> <span class="n">burnin</span><span class="p">]</span>
-                    <span class="n">sums</span> <span class="o">+=</span> <span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">online_list_etas</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">vec</span><span class="p">,</span> <span class="n">vec</span><span class="p">))</span>
+            <span class="n">lv</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">vi</span><span class="p">)</span>
+            <span class="n">Shat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">Shat</span><span class="p">,</span> <span class="n">si</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
+            <span class="n">vi_delete</span> <span class="o">=</span> <span class="n">Vhat_win</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+            <span class="n">Vhat_win</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">Vhat_win</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:],</span> <span class="n">vi</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">approx_rank</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
+            <span class="k">if</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">list_periods</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">lv</span><span class="p">)</span> <span class="o">&gt;</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">list_periods</span><span class="p">)):</span>
+                <span class="n">sums</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">vi</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">vi</span><span class="p">)))</span>
+                <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">list_periods</span><span class="p">)):</span>
+                    <span class="n">vec</span> <span class="o">=</span> <span class="n">vi</span> <span class="o">-</span> <span class="n">lv</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">list_periods</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">-</span> <span class="n">burnin</span><span class="p">]</span>
+                    <span class="n">sums</span> <span class="o">+=</span> <span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">online_list_etas</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">vec</span><span class="p">,</span> <span class="n">vec</span><span class="p">))</span>
                 <span class="n">A</span> <span class="o">=</span> <span class="n">A</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">vi</span><span class="p">,</span> <span class="n">vi</span><span class="p">)</span> <span class="o">+</span> <span class="n">sums</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">A</span> <span class="o">=</span> <span class="n">A</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">vi</span><span class="p">,</span> <span class="n">vi</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">vi_delete</span><span class="p">,</span> <span class="n">vi_delete</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">nwin</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">nwin</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="n">B</span> <span class="o">=</span> <span class="n">B</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">ri</span> <span class="o">-</span> <span class="n">si</span><span class="p">,</span> <span class="n">vi</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">B</span> <span class="o">=</span> <span class="p">(</span>
                     <span class="n">B</span>
                     <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">ri</span> <span class="o">-</span> <span class="n">si</span><span class="p">,</span> <span class="n">vi</span><span class="p">)</span>
                     <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span>
-                        <span class="n">proj_D</span><span class="p">[:,</span> <span class="n">row</span> <span class="o">-</span> <span class="n">nwin</span><span class="p">]</span> <span class="o">-</span> <span class="n">Shat_grow</span><span class="p">[:,</span> <span class="n">row</span> <span class="o">-</span> <span class="n">nwin</span><span class="p">],</span> <span class="n">vi_delete</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">D</span><span class="p">[:,</span> <span class="n">i</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">nwin</span><span class="p">]</span> <span class="o">-</span> <span class="n">Shat</span><span class="p">[:,</span> <span class="n">i</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">nwin</span><span class="p">],</span> <span class="n">vi_delete</span>
                     <span class="p">)</span>
                 <span class="p">)</span>
             <span class="n">U</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">update_col</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">online_tau</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">)</span>
-            <span class="n">Lhat_grow</span><span class="p">[:,</span> <span class="n">row</span><span class="p">]</span> <span class="o">=</span> <span class="n">U</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">vi</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">Lhat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">Lhat</span><span class="p">,</span> <span class="n">U</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">vi</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
 
         <span class="k">if</span> <span class="n">n_add_values</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">Lhat_grow</span><span class="o">.</span><span class="n">flat</span><span class="p">[</span><span class="o">-</span><span class="n">n_add_values</span><span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
-            <span class="n">Shat_grow</span><span class="o">.</span><span class="n">flat</span><span class="p">[</span><span class="o">-</span><span class="n">n_add_values</span><span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+            <span class="n">Lhat</span><span class="o">.</span><span class="n">flat</span><span class="p">[</span><span class="o">-</span><span class="n">n_add_values</span><span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+            <span class="n">Shat</span><span class="o">.</span><span class="n">flat</span><span class="p">[</span><span class="o">-</span><span class="n">n_add_values</span><span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_data</span> <span class="o">==</span> <span class="s2">&quot;2DArray&quot;</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">Lhat_grow</span><span class="p">,</span> <span class="n">Shat_grow</span>
-        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_data</span> <span class="o">==</span> <span class="s2">&quot;1DArray&quot;</span><span class="p">:</span>
-            <span class="n">ts_X</span> <span class="o">=</span> <span class="n">Lhat_grow</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
-            <span class="n">ts_A</span> <span class="o">=</span> <span class="n">Shat_grow</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_data_shape</span> <span class="o">==</span> <span class="s2">&quot;2DArray&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Lhat</span><span class="p">,</span> <span class="n">Shat</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_data_shape</span> <span class="o">==</span> <span class="s2">&quot;1DArray&quot;</span><span class="p">:</span>
+            <span class="n">ts_X</span> <span class="o">=</span> <span class="n">Lhat</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+            <span class="n">ts_A</span> <span class="o">=</span> <span class="n">Shat</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
             <span class="k">return</span> <span class="n">ts_X</span><span class="p">[</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">ts_X</span><span class="p">)],</span> <span class="n">ts_A</span><span class="p">[</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">ts_A</span><span class="p">)]</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Data shape not recognized&quot;</span><span class="p">)</span>

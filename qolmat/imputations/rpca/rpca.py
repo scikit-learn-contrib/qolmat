@@ -1,12 +1,12 @@
 from __future__ import annotations
+
 from typing import Optional
 from xmlrpc.client import boolean
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
-from sklearn.base import BaseEstimator, TransformerMixin
-
 from qolmat.imputations.rpca.utils import utils
+from sklearn.base import BaseEstimator, TransformerMixin
 
 
 class RPCA(BaseEstimator, TransformerMixin):
@@ -69,11 +69,7 @@ class RPCA(BaseEstimator, TransformerMixin):
                 setattr(self, param_key, kargs[param_key])
         return self
 
-    def fit_transform(
-        self,
-        signal: NDArray,
-        return_basis: boolean = False
-    ) -> RPCA:
+    def fit_transform(self, signal: NDArray, return_basis: boolean = False) -> RPCA:
         self.input_data = "2DArray"
         X, _ = self._prepare_data(signal=signal)
         A = np.zeros(X.shape, dtype=float)

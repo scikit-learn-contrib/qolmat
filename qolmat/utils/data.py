@@ -141,6 +141,11 @@ def KL(P: pd.Series, Q: pd.Series) -> float:
     """
     epsilon = 0.00001
 
+    P = (P - P.min()) / (P.max() - P.min())
+    Q = (Q - Q.min()) / (Q.max() - Q.min())
+    P = P / P.sum()
+    Q = Q / Q.sum()
+
     P = P.copy() + epsilon
     Q = Q.copy() + epsilon
 

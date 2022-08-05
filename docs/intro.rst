@@ -21,8 +21,6 @@ Install directly from the gitlab repository:
 ===============
 
 This work is under development. And a lot of changes will still be made.
-Therefore, feel free to contribute by signaling a bug, suggest a new feature, 
-or even contribute with some code. To do so, open an issue or contact us at flastname@quantmetry.com 
 
 🔍  Further reading
 ===================

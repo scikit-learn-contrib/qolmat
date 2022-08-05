@@ -88,24 +88,20 @@ For the online version, we test with and without a moving window.
 
 .. code-block:: python
 
-    a = PcpRPCA(period=25)
-    a.fit(signal=samples.tolist())
-    Afilter, noise = utils.get_anomaly(a.A, a.X, e=2)
-    s1_pcp, s2_pcp, s3_pcp = utils.resultRPCA_to_signal(a.D, a.X, Afilter, a.rest)
+    pcp_rpca = PcpRPCA(n_rows=25)
+    X_pcp_rpca, A_pcp_rpca, errors_pcp_rpca = pcp_rpca.fit_transform(signal=samples)
 
-    a = TemporalRPCA(period=25, lam1=2, lam2=0.3, list_periods=[20], list_etas=[0.01], norm="L2")
-    a.fit(signal=samples.tolist())
-    s1_temp, s2_temp, s3_temp = utils.resultRPCA_to_signal(a.D, a.X, a.A, a.rest)
+    temp_rpca = TemporalRPCA(n_rows=25, lam1=2, lam2=0.3, list_periods=[20], list_etas=[0.01], norm="L2")
+    X_temp_rpca, A_temp_rpca, errors_temp_rpca = temp_rpca.fit_transform(signal=samples)
 
-    a = OnlineTemporalRPCA(period=25, lam1=2, lam2=0.4, list_periods=[20], list_etas=[0.01], norm="L2",
-                        burnin=0.4, online_list_periods=[20], online_list_etas=[0.2])
-    a.fit(signal=samples.tolist())
-    s1_on, s2_on, s3_on = utils.resultRPCA_to_signal(a.D, a.X, a.A, a.rest)
+    otemp_rpca = OnlineTemporalRPCA(n_rows=25, tau=2, lam=0.4, list_periods=[20], list_etas=[0.01], norm="L2",
+                       burnin=0.2, online_list_etas=[0.3])
+    X_otemp_rpca, A_otemp_rpca, errors_otemp_rpca = otemp_rpca.fit_transform(signal=samples)
 
-    a = OnlineTemporalRPCA(period=25, lam1=2, lam2=0.4, list_periods=[20], list_etas=[0.01], norm="L2",
-                        burnin=0.4, nwin=50, online_list_periods=[20], online_list_etas=[0.2])
-    a.fit(signal=samples.tolist())
-    s1_onw, s2_onw, s3_onw = utils.resultRPCA_to_signal(a.D, a.X, a.A, a.rest)
+    owtemp_rpca = OnlineTemporalRPCA(n_rows=25, tau=2, lam=0.4, list_periods=[20], list_etas=[0.01], norm="L2",
+                       burnin=0.2, nwin=50, online_list_etas=[0.3])
+    X_owtemp_rpca, A_owtemp_rpca, errors_owtemp_rpca = owtemp_rpca.fit_transform(signal=samples)
+
 
 Let's take a look at these results.
 
@@ -115,7 +111,10 @@ Let's take a look at these results.
     colors = ["darkblue", "tab:red"]
 
     fig, ax = plt.subplots(4, 2, sharex=True,  sharey=False, figsize=(20,8))
-    for j, s in enumerate(zip([s2_pcp, s3_pcp], [s2_temp, s3v], [s2_on, s_on], [s2_onw, s_onw])):
+    for j, s in enumerate(zip(
+        [X_pcp_rpca, A_pcp_rpca], [X_temp_rpca, A_temp_rpca], 
+        [X_otemp_rpca, A_otemp_rpca], [X_owtemp_rpca, A_owtemp_rpca]
+        )):
         for i,e in enumerate(s):
             ax[i][j].plot(x, e, c=colors[j])
             ax[i][j].set_yticks([-2, 0, 2])
@@ -193,9 +192,9 @@ which are concatenate to form an image.
 
     res = []
     for i in range(noisy_image.shape[2]):
-        rpca = RPCA()
-        rpca.fit(D=noisy_image[:,:,i])
-        res.append(rpca.X)
+        rpca = PcpRPCA()
+        X, _, _ = rpca.fit_transform(signal=noisy_image[:,:,i])
+        res.append(X)
     restored_image = np.stack(res, axis=-1).astype(np.uint8)
 
     print(f"similarity score between the original and the noisy image: {utils_images.similarity_images(img, noisy_image)}")
@@ -292,8 +291,8 @@ and are correctly imputed: the background --low-rank part-- is correctly retriev
 
 .. code-block:: python
     
-    rpca = PcpRPCA().
-    rpca.fit(D=M)
-    drawing.plot_images(M, rpca.X, rpca.A, [1500, 1800, 2800], dimension) 
+    rpca = PcpRPCA()
+    X, A, _ = rpca.fit_transform(signal=M)
+    drawing.plot_images(M, X, A, [1500, 1800, 2800], dimension) 
 
 .. image:: ../images/background_2.png

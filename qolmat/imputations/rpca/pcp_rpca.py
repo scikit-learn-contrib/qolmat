@@ -1,13 +1,12 @@
 from __future__ import annotations
-from multiprocessing.sharedctypes import Value
+
 from typing import Optional
 from xmlrpc.client import boolean
 
 import numpy as np
-from numpy.typing import ArrayLike, NDArray
-
+from numpy.typing import NDArray
 from qolmat.imputations.rpca.rpca import RPCA
-from qolmat.imputations.rpca import utils
+from qolmat.imputations.rpca.utils import utils
 
 
 class PcpRPCA(RPCA):
@@ -55,11 +54,7 @@ class PcpRPCA(RPCA):
         dict_params = {"mu": mu, "lam": lam}
         return dict_params
 
-    def fit_transform(
-        self,
-        signal: NDArray,
-        return_basis: boolean = False
-    ) -> PcpRPCA:
+    def fit_transform(self, signal: NDArray, return_basis: boolean = False) -> PcpRPCA:
         """
         Compute the RPCA decomposition of a matrix based on the PCP method
 
@@ -73,10 +68,10 @@ class PcpRPCA(RPCA):
         proj_D = utils.impute_nans(D_init, method="median")
 
         if self.mu is None:
-            self.mu = np.prod(proj_D.shape) / (4.0 * utils.l1_norm(self.proj_D))
+            self.mu = np.prod(proj_D.shape) / (4.0 * utils.l1_norm(proj_D))
 
         if self.lam is None:
-            self.lam = 1 / np.sqrt(np.max(self.proj_D.shape))
+            self.lam = 1 / np.sqrt(np.max(proj_D.shape))
 
         D_norm = np.linalg.norm(proj_D, "fro")
 
@@ -95,6 +90,7 @@ class PcpRPCA(RPCA):
                 if self.verbose:
                     print(f"Converged in {iteration} iterations")
                 break
+
         if return_basis:
             U, _, Vh = np.linalg.svd(X, full_matrices=False, compute_uv=True)
             result = [U, Vh]
@@ -108,7 +104,7 @@ class PcpRPCA(RPCA):
         if self.input_data == "2DArray":
             result = [X, A, errors] + result
         elif self.input_data == "1DArray":
-            result = [X.flatten(), A.flatten(), errors] + result
+            result = [X.T.flatten(), A.T.flatten(), errors] + result
         else:
             raise ValueError("Data shape not recognized")
         return tuple(result)

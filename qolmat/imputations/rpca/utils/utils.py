@@ -3,14 +3,15 @@ Modular utility functions for RPCA
 """
 
 from __future__ import annotations
+
 from typing import Optional, Tuple
 
-from numpy.typing import NDArray
 import numpy as np
 import pandas as pd
-from sklearn.neighbors import kneighbors_graph
 import scipy
+from numpy.typing import NDArray
 from scipy.linalg import toeplitz
+from sklearn.neighbors import kneighbors_graph
 
 
 def get_period(signal: NDArray, max_period: Optional[int] = None) -> int:
@@ -54,8 +55,11 @@ def signal_to_matrix(signal: NDArray, n_rows: int) -> Tuple[NDArray, int]:
         (if len(signal)%period != 0)
     """
     n_cols = len(signal) // n_rows + (len(signal) % n_rows >= 1)
-    M = np.full((n_cols, n_rows), fill_value=np.nan, dtype=float)
-    M.flat[: len(signal)] = signal
+    if (len(signal) % n_rows) > 0:
+        M = np.append(signal, [np.nan] * (n_rows - (len(signal) % n_rows)))
+    else:
+        M = signal.copy()
+    M = M.reshape(-1, n_rows)
     nb_add_val = (M.shape[0] * M.shape[1]) - len(signal)
     return M.T, nb_add_val
 
@@ -71,6 +75,8 @@ def approx_rank(M: NDArray, threshold: Optional[float] = 0.95) -> int:
     th : float, optional
         fraction of the cumulative sum of the singular values, by default 0.95
     """
+    if threshold == 1:
+        return min(M.shape)
     _, svd, _ = np.linalg.svd(M, full_matrices=True)
     nuclear = np.sum(svd)
     cum_sum = np.cumsum([sv / nuclear for sv in svd])
@@ -135,9 +141,9 @@ def svd_thresholding(X: NDArray, threshold: float) -> NDArray:
             s are the singular values as a diagonal matrix
     """
 
-    U, SVD, Vh = np.linalg.svd(X, full_matrices=False, compute_uv=True)
-    SVD = soft_thresholding(SVD, threshold)
-    return np.multiply(U, SVD) @ Vh
+    U, s, Vh = np.linalg.svd(X, full_matrices=False)  # , compute_uv=True)
+    s = soft_thresholding(s, threshold)
+    return np.dot(U, np.dot(np.diag(s), Vh))  # np.multiply(U, SVD) @ Vh
 
 
 def impute_nans(M: NDArray, method: str = "zeros") -> NDArray:

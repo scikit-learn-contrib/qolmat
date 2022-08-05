@@ -3,8 +3,8 @@ General utility functions for images
 """
 
 import numpy as np
-from PIL import Image
 import tqdm
+from PIL import Image
 
 
 def corrupt_image(image: np.ndarray, ratio: float) -> np.ndarray:

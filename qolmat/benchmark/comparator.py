@@ -146,13 +146,13 @@ class Comparator:
             search_space = utils.get_search_space(tested_model, self.search_params)
 
             df = self.df[self.cols_to_impute]
-            errors = self.evaluate_errors_cv(tested_model, df, search_space)
+            errors = self.evaluate_errors_sample(tested_model, df, search_space)
 
             results[name] = {k: np.mean(v) for k, v in errors.items()}
 
         return pd.DataFrame(results)
 
-    def evaluate_errors_cv(
+    def evaluate_errors_sample(
         self, tested_model, df: pd.DataFrame, search_space: Optional[dict] = None
     ):
         """Evaluate the errors in the cross-validation
