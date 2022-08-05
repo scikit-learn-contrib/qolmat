@@ -456,7 +456,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
 
         m, n = D_init.shape
         Lhat, Shat, _ = super().fit_transform(
-            signal=D_init[:, :burnin], return_basis=False
+            signal = D_init[:, :burnin], return_basis=False
         )
 
         proj_D = utils.impute_nans(D_init, method="median")
@@ -504,7 +504,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
                     Vhat_win[:, col],
                 )
 
-        m_lhat, _ = Lhat.shape
+        m_lhat, n_lhat = Lhat.shape
         m_shat, n_shat = Shat.shape
         m_vhat, n_vhat = Vhat.shape
 
@@ -517,7 +517,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
         Vhat_win_grow[:, : Vhat_win.shape[1]] = Vhat_win
 
         Lhat_grow = np.empty((m_lhat, n), dtype=float)
-        Lhat_grow[:, : Lhat.shape[1]] = Lhat
+        Lhat_grow[:, : n_lhat] = Lhat
 
         for i in range(burnin, n):
             ri = proj_D[:, i]
