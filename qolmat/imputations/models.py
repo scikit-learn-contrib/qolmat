@@ -1,14 +1,17 @@
 import os
 import sys
-from typing import Dict, Union
+from typing import Dict, Union, Optional
 
+import datetime
 import numpy as np
 import pandas as pd
+from pykalman import KalmanFilter
 from qolmat.benchmark import utils
 from qolmat.imputations.rpca.pcp_rpca import RPCA
 from qolmat.imputations.rpca.temporal_rpca import OnlineTemporalRPCA, TemporalRPCA
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer, KNNImputer
+from statsmodels.tsa.seasonal import seasonal_decompose
 
 
 class ImputeColumnWise:
@@ -261,54 +264,6 @@ class ImputeNOCB(ImputeColumnWise):
         return imputed.fillna(np.nanmedian(imputed))
 
 
-class ImputeKNN(ImputeColumnWise):
-    """
-    This class implements an imputation by the k-nearest neighbors, column wise
-
-    Parameters
-    ----------
-    k : int
-        number of nearest neighbors
-    """
-
-    def __init__(self, **kwargs) -> None:
-        for name, value in kwargs.items():
-            setattr(self, name, value)
-
-    def fit_transform_col(self, signal: pd.Series) -> pd.Series:
-        """
-        Fit/transform by imputing missing values with the KNN method.
-
-        Parameters
-        ----------
-        signal : pd.Series
-            series to impute
-
-        Returns
-        -------
-        pd.Series
-            imputed series
-        """
-        col = signal.name
-        signal = signal.reset_index()
-        imputed = np.asarray(signal[col]).reshape(-1, 1)
-        imputer = KNNImputer(n_neighbors=self.k)
-        imputed = imputer.fit_transform(imputed)
-        imputed = pd.Series([a[0] for a in imputed], index=signal.index)
-        return imputed.fillna(np.nanmedian(imputed))
-
-    def get_hyperparams(self) -> Dict[str, int]:
-        """
-        Get the value of the hyperparameter of the method, i.e. number of nearest neighbors
-
-        Returns
-        -------
-        Dict[str, int]
-            number of nearest neighbors
-        """
-        return {"k": self.k}
-
-
 class ImputeByInterpolation(ImputeColumnWise):
     """
     This class implements a way to impute using some interpolation strategies
@@ -383,6 +338,148 @@ class ImputeBySpline(ImputeColumnWise):
         signal = signal.reset_index()
         signal = signal.set_index("datetime")
         return signal[col].interpolate(option="spline")
+
+
+class ImputeOnResiduals(ImputeColumnWise):
+    """
+    This class implements an imputation on residuals.
+    The series are de-seasonalised, residuals are imputed, then residuals are re-seasonalised.
+
+    Parameters
+    ----------
+    model : {"additive", "multiplicative"}, optional
+        Type of seasonal component. Abbreviations are accepted.
+    period : int, optional
+        Period of the series. Must be used if x is not a pandas object or if
+        the index of x does not have  a frequency. Overrides default
+        periodicity of x if x is a pandas object with a timeseries index.
+    extrapolate_trend : int or 'freq', optional
+        If set to > 0, the trend resulting from the convolution is
+        linear least-squares extrapolated on both ends (or the single one
+        if two_sided is False) considering this many (+1) closest points.
+        If set to 'freq', use `freq` closest points. Setting this parameter
+        results in no NaN values in trend or resid components.
+    method_interpolation : str
+        methof for the residuals interpolation
+
+    """
+
+    def __init__(
+        self,
+        model: str,
+        period: int,
+        extrapolate_trend: Optional[Union[int, str]],
+        method_interpolation: str,
+    ):
+        self.model = model
+        self.period = period
+        self.extrapolate_trend = extrapolate_trend
+        self.method_interpolation = method_interpolation
+
+    def fit_transform_col(self, signal: pd.Series) -> pd.Series:
+        """
+        Fit/transform missing values on residuals.
+
+        Parameters
+        ----------
+        signal : pd.Series
+            series to impute
+
+        Returns
+        -------
+        pd.Series
+            imputed series
+        """
+        col = signal.name
+        signal = signal.reset_index()
+        signal = signal.set_index("datetime")
+
+        result = seasonal_decompose(
+            signal[col].interpolate().bfill().ffill(),
+            model=self.model,
+            period=self.period,
+            extrapolate_trend=self.extrapolate_trend,
+        )
+
+        residuals = result.resid
+        residuals[signal[col].isnull()] = np.nan
+        residuals = residuals.interpolate(method=self.method_interpolation)
+
+        return result.seasonal + result.trend + residuals
+
+
+class ImputeKalman(ImputeColumnWise):
+    def __init__(self, initial_state_mean: int, n_dim_obs: int) -> None:
+        self.initial_state_mean = initial_state_mean
+        self.n_dim_obs = n_dim_obs
+
+    def fit_transform_col(self, signal: pd.Series) -> pd.Series:
+        kf = KalmanFilter(
+            initial_state_mean=self.initial_state_mean, n_dim_obs=self.n_dim_obs
+        )
+
+        col = signal.name
+        signal = signal.reset_index()
+        signal = signal[col]
+
+        signal_copy = signal.copy()
+        signal_copy = np.ma.asarray(signal_copy)
+        nan_index = signal[signal.isna()].index
+        for i in nan_index:
+            signal_copy[i] = np.ma.masked
+
+        smoothed_state_means, _ = kf.em(signal_copy, n_iter=20).smooth(signal_copy)
+        res = pd.Series(smoothed_state_means.flatten())
+        for i in nan_index:
+            signal_copy[i] = res[i]
+
+        return pd.Series(signal_copy)
+
+
+class ImputeKNN:
+    """
+    This class implements an imputation by the k-nearest neighbors, column wise
+
+    Parameters
+    ----------
+    k : int
+        number of nearest neighbors
+    """
+
+    def __init__(self, **kwargs) -> None:
+        for name, value in kwargs.items():
+            setattr(self, name, value)
+
+    def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Fit/transform by imputing missing values with the KNN method.
+
+        Parameters
+        ----------
+        signal : pd.DataFrame
+            DataFrame to impute
+
+        Returns
+        -------
+        pd.DataFrame
+            imputed DataFrame
+        """
+        imputer = KNNImputer(
+            n_neighbors=self.k, weights="distance", metric="nan_euclidean"
+        )
+        results = imputer.fit_transform(df)
+        return pd.DataFrame(data=results, columns=df.columns, index=df.index)
+
+    def get_hyperparams(self) -> Dict[str, int]:
+        """
+        Get the value of the hyperparameter of the method, i.e. number of nearest neighbors
+
+        Returns
+        -------
+        Dict[str, int]
+            number of nearest neighbors
+        """
+        return {"k": self.k}
 
 
 class ImputeRPCA:
