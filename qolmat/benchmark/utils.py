@@ -101,8 +101,6 @@ def mean_absolute_error(df1, df2):
 
 
 def weighted_mean_absolute_percentage_error(df_true, df_pred):
-    # print((df_true - df_pred).abs().mean())
-    # print(df_true.mean())
     return ((df_true - df_pred).abs().mean() / df_true.abs().mean()).mean()
 
 

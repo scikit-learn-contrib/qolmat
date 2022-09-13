@@ -4,6 +4,7 @@ __pycache__/
 .ipynb_checkpoints
 /data
 /figures
+/notebooks/figures
 *.egg-info
 /dist
 /build

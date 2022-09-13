@@ -781,7 +781,7 @@ class ImputeMissForest:
             criterion=self.criterion,
             n_estimators=self.n_estimators,
             missing_values=self.missing_values,
-            verbose=self.verbose,
+            verbose=0,
         )
 
         if isinstance(df, np.ndarray):

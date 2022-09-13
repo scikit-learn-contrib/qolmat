@@ -112,42 +112,10 @@ def compare_covariances(df1, df2, var_x, var_y, ax):
     ax : matplotlib.axes._subplots.AxesSubplot
         axes
     """
-    ax.scatter(df1[var_x], df1[var_y], marker=".", color="C3")
-    ax.scatter(df2[var_x], df2[var_y], marker=".", color="C0")
+    ax.scatter(df1[var_x], df1[var_y], marker=".", color="tab:red")
+    ax.scatter(df2[var_x], df2[var_y], marker=".", color="tab:blue")
     make_ellipses(df1[[var_x, var_y]], ax, "turquoise")
     make_ellipses(df2[[var_x, var_y]], ax, "crimson")
     ax.set_xlabel(var_x)
     ax.set_ylabel(var_y)
     ax.legend(["Raw data", "After imputation"])
-
-
-def KL(P: pd.Series, Q: pd.Series) -> float:
-    """
-    Compute the Kullback-Leibler divergence between distributions P and Q
-    Epsilon is used here to avoid conditional code for
-    checking that neither P nor Q is equal to 0.
-
-    Parameters
-    ----------
-    P : pd.Series
-        "true" distribution
-    Q : pd.Series
-        distribution
-
-    Return
-    ------
-    float
-        KL(P,Q)
-    """
-    epsilon = 0.00001
-
-    P = (P - P.min()) / (P.max() - P.min())
-    Q = (Q - Q.min()) / (Q.max() - Q.min())
-    P = P / P.sum()
-    Q = Q / Q.sum()
-
-    P = P.copy() + epsilon
-    Q = Q.copy() + epsilon
-
-    divergence = np.sum(P * np.log(P / Q))
-    return divergence

@@ -341,3 +341,36 @@ def resultRPCA_to_signal(
         s3 = M3.flatten().tolist()
 
     return s1, s2, s3
+
+
+def compute_distri(sample):
+    return np.unique(sample, return_counts=True)[1] / len(sample)
+
+
+def KL(P: pd.Series, Q: pd.Series) -> float:
+    """
+    Compute the Kullback-Leibler divergence between distributions P and Q
+    Epsilon is used here to avoid conditional code for
+    checking that neither P nor Q is equal to 0.
+
+    Parameters
+    ----------
+    P : pd.Series
+        "true" distribution
+    Q : pd.Series
+        sugggesetd distribution
+
+    Return
+    ------
+    float
+        KL(P,Q)
+    """
+    epsilon = 0.00001
+
+    # P = compute_distri(P)
+    # Q = compute_distri(Q)
+
+    P = P.copy() + epsilon
+    Q = Q.copy() + epsilon
+
+    return np.sum(P * np.log(P / Q))
