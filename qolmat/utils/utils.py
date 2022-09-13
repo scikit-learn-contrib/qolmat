@@ -367,9 +367,6 @@ def KL(P: pd.Series, Q: pd.Series) -> float:
     """
     epsilon = 0.00001
 
-    # P = compute_distri(P)
-    # Q = compute_distri(Q)
-
     P = P.copy() + epsilon
     Q = Q.copy() + epsilon
 
