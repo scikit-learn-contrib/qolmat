@@ -4,7 +4,6 @@ import numpy as np
 from sklearn.utils import resample
 from math import floor
 from scipy.optimize import lsq_linear
-from scipy.optimize import LinearConstraint
 from scipy.optimize import Bounds
 import scipy.sparse as sparse
 
