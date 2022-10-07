@@ -17,9 +17,7 @@
         <script src="../_static/doctools.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
-    <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="qolmat.imputations.rpca.utils.drawing.plot_matrices" href="qolmat.imputations.rpca.utils.drawing.plot_matrices.html" />
-    <link rel="prev" title="qolmat.imputations.rpca.utils.utils.toeplitz_matrix" href="qolmat.imputations.rpca.utils.utils.toeplitz_matrix.html" /> 
+    <link rel="search" title="Search" href="../search.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -49,26 +47,8 @@
 <li class="toctree-l1"><a class="reference internal" href="../examples/RPCA_example.html">RPCA examples</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API</span></p>
-<ul class="current">
-<li class="toctree-l1 current"><a class="reference internal" href="../api.html">Qolmat API</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="../api.html#classes">Classes</a></li>
-<li class="toctree-l2 current"><a class="reference internal" href="../api.html#utils">Utils</a><ul class="current">
-<li class="toctree-l3"><a class="reference internal" href="qolmat.imputations.rpca.utils.utils.get_period.html">qolmat.imputations.rpca.utils.utils.get_period</a></li>
-<li class="toctree-l3"><a class="reference internal" href="qolmat.imputations.rpca.utils.utils.signal_to_matrix.html">qolmat.imputations.rpca.utils.utils.signal_to_matrix</a></li>
-<li class="toctree-l3"><a class="reference internal" href="qolmat.imputations.rpca.utils.utils.approx_rank.html">qolmat.imputations.rpca.utils.utils.approx_rank</a></li>
-<li class="toctree-l3"><a class="reference internal" href="qolmat.imputations.rpca.utils.utils.proximal_operator.html">qolmat.imputations.rpca.utils.utils.proximal_operator</a></li>
-<li class="toctree-l3"><a class="reference internal" href="qolmat.imputations.rpca.utils.utils.soft_thresholding.html">qolmat.imputations.rpca.utils.utils.soft_thresholding</a></li>
-<li class="toctree-l3"><a class="reference internal" href="qolmat.imputations.rpca.utils.utils.svd_thresholding.html">qolmat.imputations.rpca.utils.utils.svd_thresholding</a></li>
-<li class="toctree-l3"><a class="reference internal" href="qolmat.imputations.rpca.utils.utils.ortho_proj.html">qolmat.imputations.rpca.utils.utils.ortho_proj</a></li>
-<li class="toctree-l3"><a class="reference internal" href="qolmat.imputations.rpca.utils.utils.toeplitz_matrix.html">qolmat.imputations.rpca.utils.utils.toeplitz_matrix</a></li>
-<li class="toctree-l3 current"><a class="current reference internal" href="#">qolmat.imputations.rpca.utils.utils.construct_graph</a></li>
-<li class="toctree-l3"><a class="reference internal" href="qolmat.imputations.rpca.utils.drawing.plot_matrices.html">qolmat.imputations.rpca.utils.drawing.plot_matrices</a></li>
-<li class="toctree-l3"><a class="reference internal" href="qolmat.imputations.rpca.utils.drawing.plot_signal.html">qolmat.imputations.rpca.utils.drawing.plot_signal</a></li>
-<li class="toctree-l3"><a class="reference internal" href="qolmat.imputations.rpca.utils.drawing.plot_images.html">qolmat.imputations.rpca.utils.drawing.plot_images</a></li>
-</ul>
-</li>
-</ul>
-</li>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api.html">Qolmat API</a></li>
 </ul>
 
         </div>
@@ -85,7 +65,6 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
-          <li><a href="../api.html">Qolmat API</a> &raquo;</li>
       <li>qolmat.imputations.rpca.utils.utils.construct_graph</li>
       <li class="wy-breadcrumbs-aside">
             <a href="../_sources/generated/qolmat.imputations.rpca.utils.utils.construct_graph.rst.txt" rel="nofollow"> View page source</a>
@@ -98,41 +77,12 @@
              
   <section id="qolmat-imputations-rpca-utils-utils-construct-graph">
 <h1>qolmat.imputations.rpca.utils.utils.construct_graph<a class="headerlink" href="#qolmat-imputations-rpca-utils-utils-construct-graph" title="Permalink to this headline"></a></h1>
-<dl class="py function">
-<dt class="sig sig-object py" id="qolmat.imputations.rpca.utils.utils.construct_graph">
-<span class="sig-prename descclassname"><span class="pre">qolmat.imputations.rpca.utils.utils.</span></span><span class="sig-name descname"><span class="pre">construct_graph</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">[</span></span><span class="pre">Any</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">numpy.dtype</span><span class="p"><span class="pre">[</span></span><span class="pre">numpy.typing._generic_alias.ScalarType</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_neighbors</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">distance</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'euclidean'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_jobs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">[</span></span><span class="pre">Any</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">numpy.dtype</span><span class="p"><span class="pre">[</span></span><span class="pre">numpy.typing._generic_alias.ScalarType</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/qolmat/imputations/rpca/utils/utils.html#construct_graph"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#qolmat.imputations.rpca.utils.utils.construct_graph" title="Permalink to this definition"></a></dt>
-<dd><p>Construct a graph based on the distance (similarity) between data</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><dl class="simple">
-<dt><strong>X</strong><span class="classifier">NDArray</span></dt><dd><p>Observations</p>
-</dd>
-<dt><strong>n_neighbors</strong><span class="classifier">int, optional</span></dt><dd><p>Number of neighbors for each node, by default 10</p>
-</dd>
-<dt><strong>distance</strong><span class="classifier">str, optional</span></dt><dd><p>Method to construct the weight of the links, by default ‘euclidean’</p>
-</dd>
-<dt><strong>n_jobs</strong><span class="classifier">int, optional</span></dt><dd><p>Number of jobs to run in parallel, by default 1</p>
-</dd>
-</dl>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><dl class="simple">
-<dt>NDArray</dt><dd><p>Graph’s adjacency matrix</p>
-</dd>
-</dl>
-</dd>
-</dl>
-</dd></dl>
-
 </section>
 
 
            </div>
           </div>
-          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="qolmat.imputations.rpca.utils.utils.toeplitz_matrix.html" class="btn btn-neutral float-left" title="qolmat.imputations.rpca.utils.utils.toeplitz_matrix" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="qolmat.imputations.rpca.utils.drawing.plot_matrices.html" class="btn btn-neutral float-right" title="qolmat.imputations.rpca.utils.drawing.plot_matrices" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
-    </div>
+          <footer>
 
   <hr/>
 
