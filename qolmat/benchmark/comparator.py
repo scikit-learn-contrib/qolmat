@@ -1,18 +1,15 @@
-import pandas as pd
-import numpy as np
-from qolmat.benchmark import cross_validation
-from qolmat.benchmark import utils
-from qolmat.utils import missing_patterns
-from sklearn.metrics import (
-    mean_squared_error,
-    mean_absolute_error,
-)
-from sklearn.utils import resample
 from collections import defaultdict
-from typing import Optional
 from math import floor
-from skopt.space import Categorical, Real, Integer
+from typing import Optional
+
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from qolmat.benchmark import cross_validation, utils
+from qolmat.utils import missing_patterns
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.utils import resample
+from skopt.space import Categorical, Integer, Real
 
 
 class Comparator:
@@ -54,7 +51,7 @@ class Comparator:
         filter_value_nan=-1e10,
     ):
 
-        self.df = data[cols_to_impute]
+        self.df = data
         self.ratio_missing = ratio_missing
         self.cols_to_impute = cols_to_impute
         self.n_samples = n_samples
@@ -91,8 +88,9 @@ class Comparator:
         #     mode_anomaly=mode_anomaly,
         # )
 
+        df_corrupted_select = df[self.cols_to_impute].copy()
         res = missing_patterns.produce_NA(
-            df,
+            df_corrupted_select,
             self.ratio_missing,
             mecha=self.missing_mechanism,
             opt=self.opt,
@@ -102,14 +100,14 @@ class Comparator:
         )
 
         self.df_is_altered = res["mask"]
-
-        self.corrupted_df = df.copy()
         if self.corruption == "missing":
-            self.corrupted_df[self.df_is_altered] = np.nan
+            df_corrupted_select[self.df_is_altered] = np.nan
         elif self.corruption == "outlier":
-            self.corrupted_df[self.df_is_altered] = np.random.randint(
+            df_corrupted_select[self.df_is_altered] = np.random.randint(
                 0, high=3 * np.max(df), size=(int(len(df) * self.ratio_missing))
             )
+        self.df_corrupted = df.copy()
+        self.df_corrupted[self.cols_to_impute] = df_corrupted_select
 
     def get_errors(
         self,
@@ -166,8 +164,7 @@ class Comparator:
 
             search_space = utils.get_search_space(tested_model, self.search_params)
 
-            df = self.df[self.cols_to_impute]
-            errors = self.evaluate_errors_sample(tested_model, df, search_space)
+            errors = self.evaluate_errors_sample(tested_model, self.df, search_space)
 
             results[name] = {k: np.mean(v) for k, v in errors.items()}
 
@@ -202,7 +199,9 @@ class Comparator:
                 ratio_missing=self.ratio_missing,
                 corruption=self.corruption,
             )
-            imputed_df = cv.fit_transform(self.corrupted_df)
-            for metric, value in self.get_errors(df, imputed_df).items():
+            df_imputed_full = cv.fit_transform(self.df_corrupted)
+            df_imputed = self.df_corrupted.copy()
+            df_imputed[self.cols_to_impute] = df_imputed_full[self.cols_to_impute]
+            for metric, value in self.get_errors(df, df_imputed).items():
                 errors[metric].append(value)
         return errors
