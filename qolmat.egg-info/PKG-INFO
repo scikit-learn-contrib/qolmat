@@ -9,9 +9,7 @@ jroussel@quantmetry.com,
 tmorzadec@quantmetry.com
 
 License: new BSD
-Platform: UNKNOWN
 Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 
 Tools to compute different formulations of RPCA for matrices and times series.
-

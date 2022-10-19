@@ -11,7 +11,8 @@ import pandas as pd
 import scipy
 from numpy.typing import NDArray
 from scipy.linalg import toeplitz
-from sklearn.neighbors import kneighbors_graph
+
+# from sklearn.neighbors import kneighbors_graph
 
 
 def get_period(signal: NDArray, max_period: Optional[int] = None) -> int:
@@ -257,38 +258,38 @@ def toeplitz_matrix(T: int, dimension: int, model: str) -> NDArray:
         return H[:, T:]
 
 
-def construct_graph(
-    X: NDArray,
-    n_neighbors: Optional[int] = 10,
-    distance: Optional[str] = "euclidean",
-    n_jobs: Optional[int] = 1,
-) -> NDArray:
-    """
-    Construct a graph based on the distance (similarity) between data
+# def construct_graph(
+#     X: NDArray,
+#     n_neighbors: Optional[int] = 10,
+#     distance: Optional[str] = "euclidean",
+#     n_jobs: Optional[int] = 1,
+# ) -> NDArray:
+#     """
+#     Construct a graph based on the distance (similarity) between data
 
-    Parameters
-    ----------
-    X : NDArray
-        Observations
-    n_neighbors : int, optional
-        Number of neighbors for each node, by default 10
-    distance : str, optional
-        Method to construct the weight of the links, by default 'euclidean'
-    n_jobs : int, optional
-        Number of jobs to run in parallel, by default 1
+#     Parameters
+#     ----------
+#     X : NDArray
+#         Observations
+#     n_neighbors : int, optional
+#         Number of neighbors for each node, by default 10
+#     distance : str, optional
+#         Method to construct the weight of the links, by default 'euclidean'
+#     n_jobs : int, optional
+#         Number of jobs to run in parallel, by default 1
 
-    Returns
-    -------
-    NDArray
-        Graph's adjacency matrix
-    """
-    G_val = kneighbors_graph(
-        X=X, n_neighbors=n_neighbors, metric=distance, mode="distance", n_jobs=n_jobs
-    ).toarray()
+#     Returns
+#     -------
+#     NDArray
+#         Graph's adjacency matrix
+#     """
+#     G_val = kneighbors_graph(
+#         X=X, n_neighbors=n_neighbors, metric=distance, mode="distance", n_jobs=n_jobs
+#     ).toarray()
 
-    G_val = np.exp(-G_val)
-    G_val[G_val < 1.0] = 0
-    return G_val
+#     G_val = np.exp(-G_val)
+#     G_val[G_val < 1.0] = 0
+#     return G_val
 
 
 def get_laplacian(M: NDArray, normalised: Optional[bool] = True) -> NDArray:

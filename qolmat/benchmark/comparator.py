@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from qolmat.benchmark import cross_validation
 from qolmat.benchmark import utils
+from qolmat.utils import missing_patterns
 from sklearn.metrics import (
     mean_squared_error,
     mean_absolute_error,
@@ -46,6 +47,10 @@ class Comparator:
         n_samples=1,
         search_params={},
         corruption="missing",
+        missing_mechanism="MCAR",
+        opt=None,
+        p_obs=None,
+        quantile=None,
         filter_value_nan=-1e10,
     ):
 
@@ -57,9 +62,13 @@ class Comparator:
         self.dict_models = dict_models
         self.search_params = search_params
         self.corruption = corruption
+        self.missing_mechanism = missing_mechanism
+        self.opt = opt
+        self.p_obs = p_obs
+        self.quantile = quantile
 
     def create_corruptions(
-        self, df: pd.DataFrame, random_state: Optional[int] = 29, mode_anomaly="iid"
+        self, df: pd.DataFrame  # , random_state: Optional[int] = 29, mode_anomaly="iid"
     ):
         """Create corruption in a dataframe
 
@@ -73,14 +82,26 @@ class Comparator:
             way to generate corruptions, by default "iid"
         """
 
-        self.df_is_altered = utils.choice_with_mask(
+        # self.df_is_altered = utils.choice_with_mask(
+        #     df,
+        #     df.notna(),
+        #     self.ratio_missing,
+        #     self.filter_value_nan,
+        #     random_state,
+        #     mode_anomaly=mode_anomaly,
+        # )
+
+        res = missing_patterns.produce_NA(
             df,
-            df.notna(),
             self.ratio_missing,
-            self.filter_value_nan,
-            random_state,
-            mode_anomaly=mode_anomaly,
+            mecha=self.missing_mechanism,
+            opt=self.opt,
+            p_obs=self.p_obs,
+            q=self.quantile,
+            filter_value=self.filter_value_nan,
         )
+
+        self.df_is_altered = res["mask"]
 
         self.corrupted_df = df.copy()
         if self.corruption == "missing":
@@ -174,7 +195,7 @@ class Comparator:
         errors = defaultdict(list)
         for _ in range(self.n_samples):
             random_state = np.random.randint(0, 10 * 9)
-            self.create_corruptions(df, random_state=random_state)
+            self.create_corruptions(df)  # , random_state=random_state)
             cv = cross_validation.CrossValidation(
                 tested_model,
                 search_space=search_space,

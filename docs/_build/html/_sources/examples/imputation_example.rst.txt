@@ -17,7 +17,7 @@ First, import some usefull libraries and functions
     import sys
     from qolmat.benchmark import comparator
     from qolmat.imputations import models
-    from qolmat.utils import data
+    from qolmat.utils import data, missing_patterns
     from qolmat.imputations.em_sampler import ImputeEM
 
     from sklearn.linear_model import LinearRegression
@@ -41,18 +41,11 @@ Then we create some missing entries.
 .. code-block:: python
 
     df_corrupted = df[cols_to_impute].copy()
+    X_miss_mcar = missing_patterns.produce_NA(df_corrupted, p_miss=0.4, mecha="MCAR")
 
-    p = 0.17
-    mask_temp = np.random.choice(a=[False, True], size=(len(df_corrupted),), p=[p, 1-p])
-    p = 0.67
-    mask_pres = np.random.choice(a=[False, True], size=(len(df_corrupted),), p=[p, 1-p])
-    p = 0.7
-    mask_dewp = np.random.choice(a=[False, True], size=(len(df_corrupted),), p=[p, 1-p])
-    masks = {cols_to_impute[0]: df_corrupted.index, cols_to_impute[1]: mask_pres, cols_to_impute[2]: mask_dewp}
+    df_corrupted = X_miss_mcar["X_incomp"]
+    R_mcar = X_miss_mcar["mask"]
 
-    df_corrupted.loc[mask_pres, "TEMP"] = np.nan
-    df_corrupted.loc[mask_pres, "PRES"] = np.nan
-    df_corrupted.loc[mask_dewp, "DEWP"] = np.nan
 
 Once we have a dataframe with missign values, we can define multiple imputation methods.
 Some methods take arguments. For instance, if we want to impute by the mean, we can specify some groups.

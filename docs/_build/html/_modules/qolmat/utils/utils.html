@@ -38,13 +38,16 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../explanation.html">Qolmat methods</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../RPCA.html">Focus on RPCA</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../EM_sampler.html">Focus on EM_sampler</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../EM_sampler.html">Focus on EM sampler</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Simple examples</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../examples/time_series.html">Example for anomaly detection in time series</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../examples/background.html">Example for background and foreground separation with robust PCA</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../examples/denoise_images.html">Example for image denoising with robust PCA</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples/imputation_example.html">Imputation examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples/RPCA_example.html">RPCA examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">Qolmat API</a></li>
 </ul>
 
         </div>
@@ -77,13 +80,16 @@
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">List</span>
+<span class="kn">from</span> <span class="nn">optparse</span> <span class="kn">import</span> <span class="n">Option</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+<span class="kn">from</span> <span class="nn">numpy.typing</span> <span class="kn">import</span> <span class="n">NDArray</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
-<span class="kn">from</span> <span class="nn">sklearn.neighbors</span> <span class="kn">import</span> <span class="n">kneighbors_graph</span>
-<span class="kn">from</span> <span class="nn">numpy.typing</span> <span class="kn">import</span> <span class="n">NDArray</span>
 <span class="kn">import</span> <span class="nn">scipy</span>
+
+<span class="c1"># from sklearn.neighbors import kneighbors_graph</span>
 
 
 <div class="viewcode-block" id="get_period"><a class="viewcode-back" href="../../../generated/qolmat.utils.utils.get_period.html#qolmat.utils.utils.get_period">[docs]</a><span class="k">def</span> <span class="nf">get_period</span><span class="p">(</span><span class="n">signal</span><span class="p">:</span> <span class="n">List</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
@@ -309,41 +315,41 @@
     <span class="k">return</span> <span class="n">H</span></div>
 
 
-<div class="viewcode-block" id="construct_graph"><a class="viewcode-back" href="../../../generated/qolmat.utils.utils.construct_graph.html#qolmat.utils.utils.construct_graph">[docs]</a><span class="k">def</span> <span class="nf">construct_graph</span><span class="p">(</span>
-    <span class="n">X</span><span class="p">:</span> <span class="n">NDArray</span><span class="p">,</span>
-    <span class="n">n_neighbors</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
-    <span class="n">distance</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;euclidean&quot;</span><span class="p">,</span>
-    <span class="n">n_jobs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Construct a graph based on the distance (similarity) between data</span>
+<span class="c1"># def construct_graph(</span>
+<span class="c1">#     X: NDArray,</span>
+<span class="c1">#     n_neighbors: Optional[int] = 10,</span>
+<span class="c1">#     distance: Optional[str] = &quot;euclidean&quot;,</span>
+<span class="c1">#     n_jobs: Optional[int] = 1,</span>
+<span class="c1"># ) -&gt; np.ndarray:</span>
+<span class="c1">#     &quot;&quot;&quot;</span>
+<span class="c1">#     Construct a graph based on the distance (similarity) between data</span>
 
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    X : np.ndarray</span>
-<span class="sd">        Observations</span>
-<span class="sd">    n_neighbors : int, optional</span>
-<span class="sd">        Number of neighbors for each node, by default 10</span>
-<span class="sd">    distance : str, optional</span>
-<span class="sd">        Method to construct the weight of the links, by default &#39;euclidean&#39;</span>
-<span class="sd">    n_jobs : int, optional</span>
-<span class="sd">        Number of jobs to run in parallel, by default 1</span>
+<span class="c1">#     Parameters</span>
+<span class="c1">#     ----------</span>
+<span class="c1">#     X : np.ndarray</span>
+<span class="c1">#         Observations</span>
+<span class="c1">#     n_neighbors : int, optional</span>
+<span class="c1">#         Number of neighbors for each node, by default 10</span>
+<span class="c1">#     distance : str, optional</span>
+<span class="c1">#         Method to construct the weight of the links, by default &#39;euclidean&#39;</span>
+<span class="c1">#     n_jobs : int, optional</span>
+<span class="c1">#         Number of jobs to run in parallel, by default 1</span>
 
-<span class="sd">    Returns</span>
-<span class="sd">    -------</span>
-<span class="sd">    np.ndarray</span>
-<span class="sd">        Graph&#39;s adjacency matrix</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="c1">#     Returns</span>
+<span class="c1">#     -------</span>
+<span class="c1">#     np.ndarray</span>
+<span class="c1">#         Graph&#39;s adjacency matrix</span>
+<span class="c1">#     &quot;&quot;&quot;</span>
 
-    <span class="n">G_bin</span> <span class="o">=</span> <span class="n">kneighbors_graph</span><span class="p">(</span>
-        <span class="n">X</span><span class="p">,</span> <span class="n">n_neighbors</span><span class="o">=</span><span class="n">n_neighbors</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="n">distance</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;connectivity&quot;</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="n">n_jobs</span>
-    <span class="p">)</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span>
-    <span class="n">G_val</span> <span class="o">=</span> <span class="n">kneighbors_graph</span><span class="p">(</span>
-        <span class="n">X</span><span class="p">,</span> <span class="n">n_neighbors</span><span class="o">=</span><span class="n">n_neighbors</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="n">distance</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;distance&quot;</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="n">n_jobs</span>
-    <span class="p">)</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span>
-    <span class="n">G_val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">G_val</span><span class="p">)</span>
-    <span class="n">G_val</span><span class="p">[</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">G_bin</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">bool</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">0</span>
-    <span class="k">return</span> <span class="n">G_val</span></div>
+<span class="c1">#     G_bin = kneighbors_graph(</span>
+<span class="c1">#         X, n_neighbors=n_neighbors, metric=distance, mode=&quot;connectivity&quot;, n_jobs=n_jobs</span>
+<span class="c1">#     ).toarray()</span>
+<span class="c1">#     G_val = kneighbors_graph(</span>
+<span class="c1">#         X, n_neighbors=n_neighbors, metric=distance, mode=&quot;distance&quot;, n_jobs=n_jobs</span>
+<span class="c1">#     ).toarray()</span>
+<span class="c1">#     G_val = np.exp(-G_val)</span>
+<span class="c1">#     G_val[~np.array(G_bin, dtype=np.bool)] = 0</span>
+<span class="c1">#     return G_val</span>
 
 
 <span class="k">def</span> <span class="nf">get_laplacian</span><span class="p">(</span><span class="n">M</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">normalised</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
@@ -415,6 +421,36 @@
         <span class="n">s3</span> <span class="o">=</span> <span class="n">M3</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
 
     <span class="k">return</span> <span class="n">s1</span><span class="p">,</span> <span class="n">s2</span><span class="p">,</span> <span class="n">s3</span>
+
+
+<span class="k">def</span> <span class="nf">compute_distri</span><span class="p">(</span><span class="n">sample</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">sample</span><span class="p">,</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">sample</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">KL</span><span class="p">(</span><span class="n">P</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">,</span> <span class="n">Q</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute the Kullback-Leibler divergence between distributions P and Q</span>
+<span class="sd">    Epsilon is used here to avoid conditional code for</span>
+<span class="sd">    checking that neither P nor Q is equal to 0.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    P : pd.Series</span>
+<span class="sd">        &quot;true&quot; distribution</span>
+<span class="sd">    Q : pd.Series</span>
+<span class="sd">        sugggesetd distribution</span>
+
+<span class="sd">    Return</span>
+<span class="sd">    ------</span>
+<span class="sd">    float</span>
+<span class="sd">        KL(P,Q)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">epsilon</span> <span class="o">=</span> <span class="mf">0.00001</span>
+
+    <span class="n">P</span> <span class="o">=</span> <span class="n">P</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="o">+</span> <span class="n">epsilon</span>
+    <span class="n">Q</span> <span class="o">=</span> <span class="n">Q</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="o">+</span> <span class="n">epsilon</span>
+
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">P</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">P</span> <span class="o">/</span> <span class="n">Q</span><span class="p">))</span>
 </pre></div>
 
            </div>
