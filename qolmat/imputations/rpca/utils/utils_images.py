@@ -5,6 +5,7 @@ General utility functions for images
 import numpy as np
 import tqdm
 from PIL import Image
+from moviepy.editor import *
 
 
 def corrupt_image(image: np.ndarray, ratio: float) -> np.ndarray:
