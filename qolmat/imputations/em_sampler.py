@@ -24,7 +24,7 @@ class ImputeEM(_BaseImputer):  # type: ignore
     Parameters
     ----------
     method : str
-        Method for imputation, choose among "sample" or "maximum".
+        Method for imputation, choose among "sample" or "argmax".
     n_iter_em : int, optional
         Number of shifts added for temporal memory,
         is equivalent to n_iter (index) of memory padding, by default 14.
@@ -52,7 +52,7 @@ class ImputeEM(_BaseImputer):  # type: ignore
 
     def __init__(
         self,
-        strategy: Optional[str] = "sample",
+        strategy: Optional[str] = "argmax",
         n_iter_em: Optional[int] = 7,
         n_iter_ou: Optional[int] = 50,
         ampli: Optional[int] = 0.5,
@@ -223,7 +223,7 @@ class ImputeEM(_BaseImputer):  # type: ignore
             sigma_MM_O = sigma_MM - sigma_MO @ np.linalg.inv(sigma_OO) @ sigma_OM
             sigma_tilde[i][np.ix_(missing_i, missing_i)] = sigma_MM_O
 
-            if self.strategy == "maximum":
+            if self.strategy == "argmax":
                 X[i, missing_i] = mu_tilde[i]
             if self.strategy == "sample":
                 X[i, missing_i] = np.random.multivariate_normal(mu_tilde[i], sigma_MM_O)
