@@ -1,19 +1,17 @@
 from __future__ import annotations
 
+from functools import reduce
 import logging
 from typing import Optional
 from warnings import WarningMessage
 
-import bottleneck
 import numpy as np
 import pandas as pd
 import scipy
 from numpy import linalg as nl
 from numpy.typing import ArrayLike
-from scipy import linalg as sl
-from scipy.ndimage import shift
 from sklearn.impute._base import _BaseImputer
-from sklearn.preprocessing import StandardScaler
+import sys
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +24,7 @@ class ImputeEM(_BaseImputer):  # type: ignore
     Parameters
     ----------
     method : str
-        Method for imputation, choose among "sample" or "argmax".
+        Method for imputation, choose among "sample" or "maximum".
     n_iter_em : int, optional
         Number of shifts added for temporal memory,
         is equivalent to n_iter (index) of memory padding, by default 14.
@@ -61,6 +59,8 @@ class ImputeEM(_BaseImputer):  # type: ignore
         random_state: Optional[int] = 123,
         verbose: Optional[int] = 0,
         temporal: Optional[bool] = True,
+        dt: Optional[float] = 2e-2,
+        convergence_threshold: Optional[float] = 1e-6,
     ) -> None:
 
         self.strategy = strategy
@@ -72,86 +72,89 @@ class ImputeEM(_BaseImputer):  # type: ignore
         self.mask_outliers = None
         self.cov = None
         self.temporal = temporal
+        self.dt = dt
+        self.convergence_threshold = convergence_threshold
 
-    def linear_interpolation(self, data):
+    def _linear_interpolation(self, X: np.ndarray) -> np.ndarray:
         """
         Impute missing data with a linear interpolation, column-wise
 
         Parameters
         ----------
-        data : np.ndarray
+        X : np.ndarray
             array with missing values
 
         Returns
         -------
-        np.ndarray
-            imputed array
+        X_interpolated : np.ndarray
+            imputed array, by linear interpolation
         """
-        interpolated_data = data.copy()
-        bad_indexes = np.isnan(interpolated_data)
-        good_indexes = np.logical_not(bad_indexes)
-        good_data = data[good_indexes]
-        interpolated = np.interp(
-            bad_indexes.nonzero()[0], good_indexes.nonzero()[0], good_data
-        )
-        interpolated_data[bad_indexes] = interpolated
-        return interpolated_data
+        # X_interpolated = X.copy()
+        # bad_indexes = np.isnan(X_interpolated)
+        # good_indexes = np.logical_not(bad_indexes)
+        # good_data = X[good_indexes]
+        # interpolated = np.interp(
+        #     bad_indexes.nonzero()[0], good_indexes.nonzero()[0], good_data
+        # )
+        # X_interpolated[bad_indexes] = interpolated
+        # return X_interpolated
 
-    def _gradient_conjugue(
-        self, A: ArrayLike, X: ArrayLike, tol: float = 1e-6
-    ) -> ArrayLike:
+        X_interpolated = X.copy()
+        nans, x = np.isnan(X_interpolated), lambda z: z.nonzero()[0]
+        X_interpolated[nans] = np.interp(x(nans), x(~nans), X_interpolated[~nans])
+        return X_interpolated
+
+    def _convert_numpy(self, X: ArrayLike) -> np.ndarray:
         """
-        Minimize np.sum(X * AX) by imputing missing values.
-        To this aim, we compute in parallel a gradient algorithm for each data.
+        Convert X pd.DataFrame to an array for internal calculations.
 
         Parameters
         ----------
-        A : ArrayLike
-            A array
         X : ArrayLike
-            X array
-        tol : float, optional
-            Tolerance, by default 1e-6
+            Input Array.
 
         Returns
         -------
-        ArrayLike
-            Minimized array.
+        np.ndarray
+            Return Array.
         """
+        if not isinstance(X, np.ndarray):
+            if (not isinstance(X, pd.DataFrame)) & (not isinstance(X, list)):
+                raise ValueError(
+                    "Input array is not a list, np.array, nor pd.DataFrame."
+                )
+            X = X.to_numpy()
+        return X
 
-        index_imputed = np.any(np.isnan(X), axis=1)
-        X_temp = X[index_imputed].transpose().copy()
-        n_iter = (
-            np.max(np.sum(np.isnan(X_temp), axis=0))
-            if len(np.sum(np.isnan(X_temp), axis=0)) > 0
-            else 10
+    def _check_convergence(
+        self,
+        mu: np.ndarray,
+        mu_prec: np.ndarray,
+        cov: np.ndarray,
+        cov_prec: np.ndarray,
+    ) -> bool:
+        """Check if the EM algorithm has converged
+
+        Parameters
+        ----------
+        mu : np.ndarray
+            the actual value of the mean
+        mu_prec : np.ndarray
+            the previous value of the mean
+        cov : np.ndarray
+            the actual value of the covariance
+        cov_prec : np.ndarray
+            the previous value of the covariance
+
+        Returns
+        -------
+        bool
+            True/False if the algorithm has converged
+        """
+        return (
+            np.linalg.norm(mu - mu_prec) < self.convergence_threshold
+            and np.linalg.norm(cov - cov_prec, ord=2) < self.convergence_threshold
         )
-        n_var, n_ind = X_temp.shape
-        mask = np.isnan(X_temp)
-        X_temp[mask] = 0
-        b = -A @ X_temp
-        b[~mask] = 0
-        xn, pn, rn = np.zeros(X_temp.shape), b, b  # Initialisation
-
-        for n in range(n_iter + 2):
-            Apn = A @ pn
-            Apn[~mask] = 0
-            alphan = np.sum(rn ** 2, axis=0) / np.sum(pn * Apn, axis=0)
-            alphan[
-                np.isnan(alphan)
-            ] = 0  # we stop updating if convergence is reached for this date
-            xn, rnp1 = xn + alphan * pn, rn - alphan * Apn
-            betan = np.sum(rnp1 ** 2, axis=0) / np.sum(rn ** 2, axis=0)
-            betan[
-                np.isnan(betan)
-            ] = 0  # we stop updating if convergence is reached for this date
-            pn, rn = rnp1 + betan * pn, rnp1
-
-        X_temp[mask] = xn[mask]
-        X_final = X.copy()
-        X_final[index_imputed] = X_temp.transpose()
-
-        return X_final
 
     def _add_shift(
         self, X: ArrayLike, ystd: bool = True, tmrw: bool = False
@@ -177,231 +180,132 @@ class ImputeEM(_BaseImputer):  # type: ignore
 
         X_shifted = X.copy()
         if ystd:
-            X_ystd = np.c_[X, X[:, -1]]
-            X_ystd = shift(X_ystd, 1, cval=np.NaN)[:, 1:]
+            X_ystd = np.roll(X, 1, axis=0).astype("float")
+            X_ystd[:1, :] = np.nan
             X_shifted = np.hstack([X_shifted, X_ystd])
         if tmrw:
-            X_tmrw = np.c_[X[:, 0], X]
-            X_tmrw = shift(X_tmrw, -1, cval=np.NaN)[:, :-1]
+            X_tmrw = np.roll(X, -1, axis=0).astype("float")
+            X_tmrw[-1:, :] = np.nan
             X_shifted = np.hstack([X_shifted, X_tmrw])
         return X_shifted
 
-    def _argmax_posterior(self, df: ArrayLike) -> ArrayLike:
-        """
-        Get the argmax of a posterior distribution. Called by `impute_mapem_ts`.
+    def _em(
+        self, X: np.ndarray, observed: np.ndarray, missing: np.ndarray
+    ) -> np.ndarray:
+        """EM step
 
         Parameters
         ----------
-        df : ArrayLike
-            Input DataFrame.
-
-        Returns
-        -------
-        ArrayLike
-            DataFrame with imputed values.
-        """
-        df_imputed = self.means + self._gradient_conjugue(self.inv_cov, df - self.means)
-        return df_imputed
-
-    def _sample_ou(
-        self,
-        X: ArrayLike,
-        mask_na: ArrayLike,
-        rng: int,
-        dt: float = 2e-2,
-    ) -> ArrayLike:
-        """
-        Samples the Gaussian distribution under the constraint that not na values must remain
-        unchanged, using a projected Ornstein-Uhlenbeck process.
-        The sampled distribution tends to the target one in the limit dt -> 0 and
-        n_iter_ou x dt -> infty.
-        Called by `impute_sample_ts`.
-
-        Parameters
-        ----------
-        df : ArrayLike
-            Inital dataframe to be imputed, which should have been already imputed using a simple
-            method. This first imputation will be used as an initial guess.
-        mask_na : ArrayLike
-            Boolean dataframe indicating which coefficients should be resampled.
-        rng : int
-            Random number generator to be used (for reproducibility).
-        n_iter_ou : int
-            Number of iterations for the OU process, a large value decreases the sample bias
-            but increases the computation time.
-        dt : float
-            Process integration time step, a large value increases the sample bias and can make
-            the algorithm unstable, but compensates for a smaller n_iter_ou. By default, 2e-2.
-        ampli : float
-            Amplification of the noise, if less than 1 the variance is reduced. By default, 1.
-
-        Returns
-        -------
-        ArrayLike
-            DataFrame after Ornstein-Uhlenbeck process.
-        """
-        n_samples, n_variables = X.shape
-
-        X = (X - self.means).copy()
-        X_init = X.copy()
-        beta = self.cov.copy()
-        beta[:] = sl.inv(beta)
-        gamma = np.diagonal(self.cov)
-        for i in range(self.n_iter_ou):
-            noise = self.ampli * rng.normal(0, 1, size=(n_samples, n_variables))
-            X += -dt * gamma * (X @ beta) + noise * np.sqrt(2 * gamma * dt)
-            X[~mask_na] = X_init[~mask_na]
-        return X + self.means
-
-    def _check_X(self, X: ArrayLike) -> pd.DataFrame:
-        """
-        Convert X array to a pd.DataFrame for internal calculations.
-
-        Parameters
-        ----------
-        X : ArrayLike
-            Input Array.
-
-        Returns
-        -------
-        pd.DataFrame
-            Return DataFrame.
-        """
-        if not isinstance(X, pd.DataFrame):
-            self.type_X = type(X)
-            if (not isinstance(X, np.ndarray)) & (not isinstance(X, list)):
-                raise ValueError(
-                    "Input array is not a list, np.array, nor pd.DataFrame."
-                )
-            X = pd.DataFrame(X)
-            X.columns = X.columns.astype(str)
-        return X
-
-    def _convert_numpy(self, X: ArrayLike) -> np.ndarray:
-        """
-        Convert X pd.DataFrame to an array for internal calculations.
-
-        Parameters
-        ----------
-        X : ArrayLike
-            Input Array.
+        X : np.ndarray
+            array with the current imputations
+        observed : np.ndarray
+            mask of the observed values
+        missing : np.ndarray
+            mask of the missing values
 
         Returns
         -------
         np.ndarray
-            Return Array.
+            new imputed dataset
         """
-        if not isinstance(X, np.ndarray):
-            if (not isinstance(X, pd.DataFrame)) & (not isinstance(X, list)):
-                raise ValueError(
-                    "Input array is not a list, np.array, nor pd.DataFrame."
-                )
-            X = X.to_numpy()
+
+        nr, nc = X.shape
+
+        one_to_nc = np.arange(1, nc + 1, step=1)
+        mu_tilde, sigma_tilde = {}, {}
+
+        for i in range(nr):
+            sigma_tilde[i] = np.zeros(nc**2).reshape(nc, nc)
+            if set(observed[i, :]) == set(one_to_nc - 1):
+                continue
+
+            missing_i = missing[i, :][missing[i, :] != -1]
+            observed_i = observed[i, :][observed[i, :] != -1]
+
+            sigma_MM = self.cov[np.ix_(missing_i, missing_i)]
+            sigma_MO = self.cov[np.ix_(missing_i, observed_i)]
+            sigma_OM = sigma_MO.T
+            sigma_OO = self.cov[np.ix_(observed_i, observed_i)]
+
+            mu_tilde[i] = self.means[np.ix_(missing_i)] + sigma_MO @ np.linalg.inv(
+                sigma_OO
+            ) @ (X[i, observed_i] - self.means[np.ix_(observed_i)])
+            sigma_MM_O = sigma_MM - sigma_MO @ np.linalg.inv(sigma_OO) @ sigma_OM
+            sigma_tilde[i][np.ix_(missing_i, missing_i)] = sigma_MM_O
+
+            if self.strategy == "maximum":
+                X[i, missing_i] = mu_tilde[i]
+            if self.strategy == "sample":
+                X[i, missing_i] = np.random.multivariate_normal(mu_tilde[i], sigma_MM_O)
+
+        self.means = np.mean(X, axis=0)
+        self.cov = np.cov(X.T, bias=1) + reduce(np.add, sigma_tilde.values()) / nr
+
         return X
 
-    def fit(self, X: ArrayLike) -> ImputeEM:
-        """
-        Fits covariance and compute inverted matrix.
-        A penalization is applied to avoid singularity.
-        Starts off with an interpolation as initialization to be able to compute covariance.
+    def impute_em(self, X: ArrayLike) -> ArrayLike:
+        """Imputation via EM algorithm
 
         Parameters
         ----------
-        df : ArrayLike
-            Sparse array to be imputed.
+        X : ArrayLike
+            array with missing values
 
         Returns
         -------
-        ImputeEMNumpy
-            The class itself.
+        X_transformed
+            imputed array
         """
-        X = self._convert_numpy(X)
-        X_nonan = np.apply_along_axis(self.linear_interpolation, 0, X)
-        self.means = np.mean(X_nonan, axis=0)
-        self.cov = np.cov(X_nonan.T)
 
+        X_ = self._convert_numpy(X)
+        if np.nansum(X_) == 0:
+            return X_
+
+        _, nc_init = X_.shape
+
+        if self.temporal:
+            X_ = self._add_shift(X_, ystd=True, tmrw=True)
+            _, nc = X_.shape
+
+        mask = ~np.isnan(X_)
+        one_to_nc = np.arange(1, nc + 1, step=1)
+        observed = one_to_nc * (~mask) - 1
+        missing = one_to_nc * mask - 1
+
+        # X_ = self._convert_numpy(X)
+
+        # first imputation
+        X_transformed = np.apply_along_axis(self._linear_interpolation, 0, X_)
+
+        # first estimation of params
+        self.means = np.mean(X_transformed, axis=0)
+        self.cov = np.cov(X_transformed.T)
         # In case of inversibility problem, one can add a penalty term
         eps = 1e-2
         self.cov -= eps * (self.cov - np.diag(self.cov.diagonal()))
-
         if scipy.linalg.eigh(self.cov)[0].min() < 0:
             raise WarningMessage(
                 f"Negative eigenvalue, some variables may be constant or colinear, "
                 f"min value of {scipy.linalg.eigh(self.cov)[0].min():.3g} found."
             )
         if np.abs(np.linalg.eigh(self.cov)[0].min()) > 1e20:
-            raise WarningMessage("Large eigenvalues, imputation may be inflated")
-
+            raise WarningMessage("Large eigenvalues, imputation may be inflated.")
         self.inv_cov = nl.pinv(self.cov)
-        # self.inv_cov_nodiag = self.inv_cov.copy()
-        # self.inv_cov_nodiag = np.fill_diagonal(self.inv_cov_nodiag, 0)
-        # self.inv_cov_diag = np.diagonal(self.inv_cov)
 
-        return self
+        for _ in range(self.n_iter_em):
+            try:
+                X_transformed = self._em(X_transformed, observed, missing)
 
-    def transform(self, X: ArrayLike) -> ArrayLike:
-        """
-        Imputes every missing value in df via EM (expectation-maximisation) sampling or
-        maximum likelihood estimation.
+            except BaseException:
+                raise WarningMessage("EM step failed.")
 
-        Parameters
-        ----------
-        X : ArrayLike
-            Sparse array to be imputed.
-
-        Returns
-        -------
-        ArrayLike
-            Final array after EM sampling.
-        """
-
-        X_ = self._convert_numpy(X)
-        # X_ = X.copy()
-        n, m = X.shape
-
-        if np.nansum(X_) == 0:
-            return X_
-        rng = np.random.default_rng(self.random_state)
-        X_ = np.apply_along_axis(self.linear_interpolation, 0, X_)
         if self.temporal:
-            mask_na = np.zeros(
-                self._add_shift(X_, ystd=True, tmrw=True).shape, dtype=bool
-            )
-        else:
-            mask_na = np.zeros(X_.shape, dtype=bool)
-        mask_na[:, :m] = np.isnan(X)
-        scaler = StandardScaler()
-        X_ = scaler.fit_transform(X_)
-        X_intermediate_ = []
-        for i in range(self.n_iter_em):
-            if self.temporal:
-                X_ = self._add_shift(X_, ystd=True, tmrw=True)
-                X_ = bottleneck.push(X_, axis=0)
-                X_ = bottleneck.push(X_[::-1], axis=0)[::-1]
-            self.fit(X_)
-            if self.strategy == "sample":
-                X_ = self._sample_ou(X_, mask_na, rng, dt=2e-2)
-            elif self.strategy == "argmax":
-                X_ = self._argmax_posterior(X_)
-            else:
-                raise AssertionError(
-                    "Invalid 'method' argument. Choose among 'argmax' or 'sample'."
-                )
-            if self.temporal:
-                X_ = X_[:, :m]
-            X_intermediate_.append(X_.copy())
-        X_ = scaler.inverse_transform(X_)
-        self.X_intermediate = [
-            scaler.inverse_transform(X_inter_) for X_inter_ in X_intermediate_
-        ]
-        self.fit(X_)
+            X_transformed = X_transformed[:, :nc_init]
 
-        if isinstance(X, np.ndarray):
-            return X_
-        elif isinstance(X, pd.DataFrame):
-            return pd.DataFrame(X_, index=X.index, columns=X.columns)
+        if np.all(np.isnan(X_transformed)):
+            raise WarningMessage("Result contains NaN. This is a bug.")
 
-        return X_
+        return X_transformed
 
     def fit_transform(self, X: ArrayLike) -> ArrayLike:
         """
@@ -421,5 +325,14 @@ class ImputeEM(_BaseImputer):  # type: ignore
             raise AssertionError(
                 "Invalid type. X must be either pd.DataFrame or np.ndarray."
             )
-        self.fit(X)
-        return self.transform(X)
+
+        X_imputed = self.impute_em(X)
+
+        if isinstance(X, np.ndarray):
+            return X_imputed
+        elif isinstance(X, pd.DataFrame):
+            return pd.DataFrame(X_imputed, index=X.index, columns=X.columns)
+        else:
+            raise AssertionError(
+                "Invalid type. X must be either pd.DataFrame or np.ndarray."
+            )

@@ -43,8 +43,12 @@
 <li class="toctree-l1"><a class="reference internal" href="explanation.html">Qolmat methods</a></li>
 <li class="toctree-l1"><a class="reference internal" href="RPCA.html">Focus on RPCA</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Focus on EM sampler</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#maximum-likelihood-estimation">Maximum likelihood estimation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#ornstein-uhlenbeck-sampling">Ornstein-Uhlenbeck sampling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#basics-of-gaussians">Basics of Gaussians</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#em-algorithm">EM algorithm</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#how-it-works">How it works</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#computation">Computation</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="#multivariate-time-series">Multivariate time series</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#references">References</a></li>
 </ul>
@@ -87,49 +91,157 @@
   <section id="focus-on-em-sampler">
 <h1>Focus on EM sampler<a class="headerlink" href="#focus-on-em-sampler" title="Permalink to this headline"></a></h1>
 <p>This method allows the imputation of missing values in multivariate data using a multivariate Gaussian model
-via EM (expectation-maximisation) sampling or argmax.</p>
-<p>We assume the data <span class="math notranslate nohighlight">\(\mathbf{X} \in \mathbb{R}^{n \times m}\)</span> follows a
-multivariate Gaussian distribution <span class="math notranslate nohighlight">\(\mathcal{N}(\mathbf{\mu}, \mathbf{\Sigma})\)</span>.
-Each row <span class="math notranslate nohighlight">\(t\)</span> of the matrix represents a time, <span class="math notranslate nohighlight">\(1 \leq  t \leq n\)</span>,
-and each column <span class="math notranslate nohighlight">\(i\)</span>.
-The mean is denoted by <span class="math notranslate nohighlight">\(\mathbf{\mu}\)</span> and the covariance matrix by <span class="math notranslate nohighlight">\(\mathbf{\Sigma}\)</span>.
-The superscript <span class="math notranslate nohighlight">\(^{-1}\)</span> stands for the inverse while <span class="math notranslate nohighlight">\(^\top\)</span> is for the transpose of a matrix.
-We note <span class="math notranslate nohighlight">\(\Omega\)</span> the set of observed values.</p>
-<p>This is an iterative method.
-We start with a first estimation <span class="math notranslate nohighlight">\(\mathbf{\hat{X}}\)</span> of <span class="math notranslate nohighlight">\(\mathbf{X}\)</span>, obtained via a simple
-imputation method, i.e. linear interpolation.
-At each iteration (the number of iterations is set by the user):
-1) We compute <span class="math notranslate nohighlight">\(\mathbf{\mu}_{\mathbf{\hat{X}}}\)</span> and <span class="math notranslate nohighlight">\(\mathbf{\Sigma}_\mathbf{\hat{X}}\)</span>;
-2) The estimated matrix <span class="math notranslate nohighlight">\(\mathbf{\hat{X}}\)</span> is updated via the maximum likelihood estimation or an Ornstein-Uhlenbeck sampling,
-with the constraint <span class="math notranslate nohighlight">\(\mathbf{\hat{X}_{\Omega}} = \mathbf{X_{\Omega}}\)</span>.</p>
-<section id="maximum-likelihood-estimation">
-<h2>Maximum likelihood estimation<a class="headerlink" href="#maximum-likelihood-estimation" title="Permalink to this headline"></a></h2>
-<p>Suppose the covariance matrix in invertible, we define the log-likelihood as</p>
+via EM algorithm.</p>
+<section id="basics-of-gaussians">
+<h2>Basics of Gaussians<a class="headerlink" href="#basics-of-gaussians" title="Permalink to this headline"></a></h2>
+<p>We assume the data <span class="math notranslate nohighlight">\(\mathbf{X} \in \mathbb{R}^{n \times p}\)</span> follows a
+multivariate Gaussian distribution <span class="math notranslate nohighlight">\(\mathcal{N}(\mathbf{m}, \mathbf{\Sigma})\)</span>.
+Hence, the density of <span class="math notranslate nohighlight">\(\mathbf{x}\)</span> is given by</p>
 <div class="math notranslate nohighlight">
-\[\text{LL}(\mathbf{X}) = - \Sigma_t (\mathbf{X}_t -  \mathbf{\mu}) \mathbf{\Sigma}^{-1}
-(\mathbf{X}_t -  \mathbf{\mu})^\top
-:= - \Sigma_t \text{LL}_t (\mathbf{X}_t)\]</div>
-<p>The objective is to maximise this log-likelihood, given <span class="math notranslate nohighlight">\(\mathbf{X_{\Omega}}\)</span> are set, i.e.
-<span class="math notranslate nohighlight">\(\max \limits_{\substack{ \mathbf{\mu} \\ \text{ s.t. } \mathbf{\hat{X}_{\Omega}} = \mathbf{X_{\Omega}} }} \text{LL}(\mathbf{\hat{X}})\)</span>.</p>
-<p>The <a class="reference external" href="https://en.wikipedia.org/wiki/Conjugate_gradient_method#:~:text=In%20mathematics,%20the%20conjugate%20gradient,whose%20matrix%20is%20positive-definite.">conjugate gradient method</a> is used to solve this problem.
-In particular, we compute in parallel a gradient algorithm for each data and at each iteration,
-the data is projected on <span class="math notranslate nohighlight">\(\Omega\)</span> such that the constraint <span class="math notranslate nohighlight">\(\mathbf{\hat{X}_{\Omega}} = \mathbf{X_{\Omega}}\)</span> is respected.</p>
+\[p(\mathbf{x}) = \frac{1}{\sqrt{\det (2 \pi \mathbf{\Sigma})}} \exp \left[-\frac{1}{2} (\mathbf{x} - \mathbf{m})^\top \mathbf{\Sigma}^{-1}  (\mathbf{x} - \mathbf{m}) \right]\]</div>
+<p>We define <span class="math notranslate nohighlight">\(\Omega := \{ (i,j) \, | \, X_{ij} \text{ is observed} \}\)</span>,
+and <span class="math notranslate nohighlight">\(\Omega_i := \{ j \, | \, X_{ij} \text{ is observed} \}\)</span>.
+The complementary of these sets are <span class="math notranslate nohighlight">\(\Omega^c := \{ (i,j) \, | \, X_{ij} \text{ is missing} \}\)</span>
+and <span class="math notranslate nohighlight">\(\Omega_i^c := \{ j \, | \, X_{ij} \text{ is missing} \}\)</span>.</p>
+<p>Each row <span class="math notranslate nohighlight">\(i\)</span> of the matrix represents a time, <span class="math notranslate nohighlight">\(1 \leq  i \leq n\)</span>,
+and each column <span class="math notranslate nohighlight">\(j\)</span> represents a variable, <span class="math notranslate nohighlight">\(1 \leq  j \leq m\)</span>.</p>
+<p>Let <span class="math notranslate nohighlight">\(\mathbf{x}_i \in \mathbb{R}^p\)</span> be an observation, i.e. <span class="math notranslate nohighlight">\(\mathbf{x}_i \overset{iid}{\sim} \mathcal{N}_{\mathbf{x}_i}(\mu, \mathbf{\Sigma})\)</span>.
+We can rearrange the entries of <span class="math notranslate nohighlight">\(\mathbf{x}_i\)</span> such that we can write</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\mathbf{x}_i =
+    \begin{bmatrix}
+        \mathbf{x}_{i, \Omega} \\
+        \mathbf{x}_{i, \Omega^c}
+    \end{bmatrix}
+    \sim
+    \mathcal{N}_{\mathbf{x}_i}
+    \left(
+        \begin{bmatrix}
+            \mathbf{\mu}_{\Omega_i} \\
+            \mathbf{\mu}_{\Omega^c_i}
+        \end{bmatrix},
+        \begin{bmatrix}
+            \mathbf{\Sigma}_{\Omega_i \Omega_i} &amp; \mathbf{\Sigma}_{\Omega_i \Omega^c_i} \\
+            \mathbf{\Sigma}_{\Omega^c_i \Omega_i} &amp; \mathbf{\Sigma}_{\Omega^c_i \Omega^c_i}
+        \end{bmatrix}
+    \right)\end{split}\]</div>
+<p>Thus formulated, the conditional distributions can be expressed as</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\begin{array}{l}
+    p(\mathbf{x}_{i, \Omega^c_i} | \mathbf{x}_{i, \Omega})
+        = \mathcal{N}_{\mathbf{x}_i}(\tilde{\mu_i}, \tilde{\mathbf{\Sigma}_{i,\Omega_i^c}}) \\
+    \text{where } \tilde{\mu}_i =
+        \mu_{\Omega^c_i} + \mathbf{\Sigma}_{\Omega^c_i \Omega_i} \mathbf{\Sigma}^{-1}_{\Omega_i \Omega_i} (\mathbf{x}_{i, \Omega_i} - \mathbf{\mu}_{\Omega_i}) \\
+    \phantom{\text{ where }} \tilde{\mathbf{\Sigma}}_{i,\Omega_i^c} =
+        \mathbf{\Sigma}_{\Omega^c_i \Omega^c_i} - \mathbf{\Sigma}_{\Omega^c_i \Omega_i} \mathbf{\Sigma}^{-1}_{\Omega_i \Omega_i} \mathbf{\Sigma}_{\Omega_i \Omega^c_i}
+\end{array}\end{split}\]</div>
+<p>Note, that the covariance matrices are the Schur complement of the block matrix.</p>
+<p>Recall also the mean of square forms, i.e.</p>
+<div class="math notranslate nohighlight">
+\[E \left[ (\mathbf{x} - \mathbf{m}')^\top \mathbf{A} (\mathbf{x} - \mathbf{m}') \right] = (\mathbf{m} - \mathbf{m}')^\top \mathbf{A} (\mathbf{m} - \mathbf{m}') + \text{Tr}(\mathbf{A}\mathbf{\Sigma}),\]</div>
+<p>for all square matrices <span class="math notranslate nohighlight">\(\mathbf{A}\)</span>.</p>
 </section>
-<section id="ornstein-uhlenbeck-sampling">
-<h2>Ornstein-Uhlenbeck sampling<a class="headerlink" href="#ornstein-uhlenbeck-sampling" title="Permalink to this headline"></a></h2>
-<p>The <a class="reference external" href="https://en.wikipedia.org/wiki/Ornstein%E2%80%93Uhlenbeck_process#:~:text=The%20Ornstein%E2%80%93Uhlenbeck%20process%20is%20a%20stationary%20Gauss%E2%80%93Markov%20process,the%20space%20and%20time%20variables.">Ornstein-Uhlenbeck</a> (OU) process is a stationary Gauss-Markov process, which means that it is a Gaussian process,
-a Markov process, and is temporally homogeneous.</p>
-<p>Here, the idea is to sample the Gaussian distribution under the constraint that the observed values <span class="math notranslate nohighlight">\(\mathbf{X}_{\Omega}\)</span>
-remain unchanged, using a projected OU process.
-More precisely, we start with an inital dataset to be imputed, which should have been already imputed using a
-simple method (e.g. linear interpolation). This first imputation will be used as an initial guess.
-Then we iterate an OU process, the more iterations there are, the less biased the sample is:</p>
+<section id="em-algorithm">
+<h2>EM algorithm<a class="headerlink" href="#em-algorithm" title="Permalink to this headline"></a></h2>
+<p>The EM algorithm is an optimisation algorithm that maximises the “expected complete data log likelihood” by some iterative
+means under the (conditional) distribution of unobserved components.
+In this way it is possible to calculate the statistics of interest.</p>
+<section id="how-it-works">
+<h3>How it works<a class="headerlink" href="#how-it-works" title="Permalink to this headline"></a></h3>
+<p>We start with a first estimation <span class="math notranslate nohighlight">\(\mathbf{\hat{X}}\)</span> of <span class="math notranslate nohighlight">\(\mathbf{X}\)</span>, obtained via a simple
+imputation method, i.e. linear interpolation.</p>
+<p>the expectation step (or E-step) at iteration <em>t</em> computes:</p>
 <div class="math notranslate nohighlight">
-\[d\mathbf{X}_n = - \mathbf{\Gamma} \mathbf{X}_n \mathbf{\Sigma}^{-1} \,dt + \sqrt{2 \mathbf{\Gamma} dt} \, d\mathbf{B}_n\]</div>
-<p>with <span class="math notranslate nohighlight">\(\mathbf{\Gamma} = \text{diag}(\mathbf{\Sigma})\)</span>, <span class="math notranslate nohighlight">\(dt\)</span> the process integration time step
-and <span class="math notranslate nohighlight">\((\mathbf{B}_n)_{n\geq 0}\)</span> is a standard Brownian motion.
-Note that we only sample for <span class="math notranslate nohighlight">\(\mathbf{X}_{\Omega^c}\)</span> such that the constraint
-<span class="math notranslate nohighlight">\(\mathbf{\hat{X}_{\Omega}} = \mathbf{X_{\Omega}}\)</span> is respected.</p>
+\[\begin{split}\begin{array}{ll}
+    \mathcal{Q}(\theta \, | \, \theta^{(t)}) &amp;:= &amp;E \left[ \log L(\theta ; \mathbf{X}) \, | \, \mathbf{X}_{\Omega}, \theta^{(t)} \right] \\
+    &amp; = &amp; \sum_{i=1}^n E \left[ \log L(\theta ; \mathbf{x}_i) \, | \, \mathbf{x}_{i, \Omega_i}, \theta^{(t)} \right].
+\end{array}\end{split}\]</div>
+<p>The maximization step (or M-step) at iteration <em>t</em> finds:</p>
+<div class="math notranslate nohighlight">
+\[\theta^{(t+1)} := \underset{\theta}{\mathrm{argmax}} \left\{ \mathcal{Q} \left( \theta \, | \, \theta^{(t)} \right) \right\}.\]</div>
+<p>These two steps are repeated until the parameter estimate converges.</p>
+</section>
+<section id="computation">
+<h3>Computation<a class="headerlink" href="#computation" title="Permalink to this headline"></a></h3>
+<p>At iteration <span class="math notranslate nohighlight">\(\textit{t}\)</span> with <span class="math notranslate nohighlight">\(\theta^{(t)} = (\mu^{(t)}, \mathbf{\Sigma}^{(t)})\)</span>, let’s
+<span class="math notranslate nohighlight">\(\mathbf{x}_i \sim \mathcal{N}_p(\mu, \Sigma)\)</span>. The expected log likelihhod is equal to</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\begin{array}{ll}
+    \mathcal{Q}_i(\theta \, | \, \theta^{(t)})
+    &amp;=&amp; E \left[ - \frac{1}{2} \log \det \mathbf{\Sigma} - \frac{1}{2} (\mathbf{x}_i - \mu)^\top \mathbf{\Sigma}^{-1} (\mathbf{x}_i - \mu) \, | \, \mathbf{x}_{i, \Omega_i}, \theta^{(t)} \right] \\
+    &amp;=&amp; - \frac{1}{2} \log \det \mathbf{\Sigma} - \frac{1}{2} \Big(
+            (\mathbf{x}_{i,\Omega_i} - \mu_{\Omega_i})^\top \mathbf{\Sigma}_{\Omega_i\Omega_i}^{-1} (\mathbf{x}_{i,\Omega_i} - \mu_{\Omega_i})
+            \\
+            &amp;&amp; \phantom{- \frac{1}{2}}  +
+            2 (\mathbf{x}_{i,\Omega_i} - \mu_{\Omega_i})^\top \mathbf{\Sigma}_{\Omega_i\Omega^c_i}^{-1} E \left[ \mathbf{x}_{i,\Omega^c_i} - \mu_{\Omega^c_i} \, | \, \mathbf{x}_{i, \Omega_i}, \theta^{(t)} \right]
+            \\
+            &amp;&amp; \phantom{- \frac{1}{2}}  +
+            E \left[ (\mathbf{x}_{i,\Omega^c_i} - \mu_{\Omega^c_i})^\top \mathbf{\Sigma}_{\Omega^c_i\Omega^c_i}^{-1} (\mathbf{x}_{i,\Omega^c_i} - \mu_{\Omega^c_i}) \, | \, \mathbf{x}_{i, \Omega_i}, \theta^{(t)} \right]
+            \Big) \\
+    &amp;=&amp; - \frac{1}{2} \log \det \mathbf{\Sigma}
+        - \frac{1}{2} \Big(
+            (\mathbf{x}_{i,\Omega_i} - \mu_{\Omega_i})^\top \mathbf{\Sigma}_{\Omega_i\Omega_i}^{-1} (\mathbf{x}_{i,\Omega_i} - \mu_{\Omega_i})
+            \\
+            &amp;&amp; \phantom{- \frac{1}{2}}  +
+            2 (\mathbf{x}_{i,\Omega_i} - \mu_{\Omega_i})^\top \mathbf{\Sigma}_{\Omega_i\Omega^c_i}^{-1} (\tilde{\mu}_{i}^{(t)} - \mu_{\Omega^c_i})
+            \\
+            &amp;&amp; \phantom{- \frac{1}{2}}  +
+            (\tilde{\mu}_{i}^{(t)} - \mu_{\Omega^c_i})^\top \mathbf{\Sigma}^{-1}_{\Omega_i^c\Omega_i^c} (\tilde{\mu}_{i}^{(t)} - \mu_{\Omega^c_i})
+            \\
+            &amp;&amp; \phantom{- \frac{1}{2}}  +
+            \text{Tr} \left( \mathbf{\Sigma}^{-1}_{\Omega_i^c\Omega_i^c} \tilde{\mathbf{\Sigma}}_{i,\Omega_i^c}^{(t)} \right)
+        \Big) \\
+    &amp;=&amp; - \frac{1}{2} \log \det \mathbf{\Sigma}
+        - \frac{1}{2} \left[
+            (\hat{\mathbf{x}}_{i}^{(t)} - \mu)^\top \mathbf{\Sigma}^{-1} (\hat{\mathbf{x}}_{i}^{(t)} - \mu)
+            + \text{Tr} \left( \mathbf{\Sigma}^{-1}_{\Omega_i^c\Omega_i^c} \tilde{\mathbf{\Sigma}}_{i,\Omega_i^c}^{(t)} \right)
+        \right]
+\end{array}\end{split}\]</div>
+<p>where <span class="math notranslate nohighlight">\(\hat{\mathbf{x}}_{i}^{(t)} = [\hat{x}_{i1}^{(t)}, ..., \hat{x}_{ip}^{(t)}]\)</span>
+is the data point such that <span class="math notranslate nohighlight">\(\mathbf{x}_{i\Omega_i^c}^{(t)}\)</span> is replaced by <span class="math notranslate nohighlight">\(\tilde{\mu}_{i}^{(t)}\)</span>.</p>
+<p>And finally, one has</p>
+<div class="math notranslate nohighlight">
+\[\mathcal{Q}(\theta \, | \, \theta^{(t)})  = \sum_{i=1}^n \mathcal{Q}_i(\theta \, | \, \theta^{(t)})\]</div>
+<p>For the M-step, one has to find <span class="math notranslate nohighlight">\(\theta\)</span> that maximises the previous expression. Since it is concave, it suffices
+to zeroing the derivatives.
+For the mean, one has</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\begin{array}{l}
+    \nabla_{\mu} \mathcal{Q}(\theta \, | \, \theta^{(t)})
+    &amp;= -\frac{1}{2} \sum_{i=1}^n \nabla_{\mu} (\hat{\mathbf{x}}_{i}^{(t)} - \mu)^\top \mathbf{\Sigma}^{-1} (\hat{\mathbf{x}}_{i}^{(t)} - \mu) \\
+    &amp;= \mathbf{\Sigma}^{-1} \sum_{i=1}^n  (\hat{\mathbf{x}}_{i}^{(t)} - \mu) \\
+    &amp;= 0.
+\end{array}\end{split}\]</div>
+<p>Therefore</p>
+<div class="math notranslate nohighlight">
+\[\mu^{(t+1)} = \frac{1}{n} \sum_{i=1}^n \hat{\mathbf{x}}_{i}^{(t)}.\]</div>
+<p>For the variance, one has</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}\begin{array}{ll}
+    \nabla_{\Sigma^{-1}} \mathcal{Q}(\theta \, | \, \theta^{(t)})
+    &amp;=&amp; \frac{1}{2} \sum_{i=1}^n \nabla_{\Sigma^{-1}} \log \det \Sigma^{-1}
+        \\
+        &amp;&amp; \phantom{\frac{1}{2}}
+        - \nabla_{\Sigma^{-1}} \text{Tr} \left( \mathbf{\Sigma}^{-1}_{\Omega_i^c\Omega_i^c} \tilde{\mathbf{\Sigma}}_i^{(t)} \right)
+        \\
+        &amp;&amp; \phantom{\frac{1}{2}}
+        - \frac{1}{2} \sum_{i=1}^n \nabla_{\Sigma^{-1}} (\hat{\mathbf{x}}_{i}^{(t)} - \mu)^\top \mathbf{\Sigma}^{-1} (\hat{\mathbf{x}}_{i}^{(t)} - \mu) \\
+    &amp;=&amp; \frac{1}{2} \left[n \mathbf{\Sigma} - \sum_{i=1}^n \tilde{\mathbf{\Sigma}}_i^{(t)} \right]
+        - \frac{1}{2} \sum_{i=1}^n (\hat{\mathbf{x}}_{i}^{(t)} - \mu) (\hat{\mathbf{x}}_{i}^{(t)} - \mu)^\top \\
+    &amp;=&amp; 0
+\end{array}\end{split}\]</div>
+<p>where <span class="math notranslate nohighlight">\(\tilde{\mathbf{\Sigma}}_i^{(t)}\)</span> is the <span class="math notranslate nohighlight">\(p \times p\)</span> matrix having zero everywhere
+expect the <span class="math notranslate nohighlight">\(\Omega_i^c\Omega_i^c\)</span> block replaced by <span class="math notranslate nohighlight">\(\tilde{\mathbf{\Sigma}}_{i,\Omega_i^c}^{(t)}\)</span>.</p>
+<p>Therefore</p>
+<div class="math notranslate nohighlight">
+\[\mathbf{\Sigma}^{(t+1)} = \frac{1}{n} \sum_{i=1}^n \left[ (\hat{\mathbf{x}}_{i}^{(t)} - \mu) (\hat{\mathbf{x}}_{i}^{(t)} - \mu)^\top + \tilde{\mathbf{\Sigma}}_i^{(t)} \right].\]</div>
+<p>We can test the convergence of the algorithm by checking some sort of metric between
+two consecutive estimates of the means or the covariances
+(it is assumed to converge since the sequences are Cauchy).</p>
+<p>Thus, at each iteration, the missing values are replaced either by their corresponding mean or by smapling from
+a multivarite normal distribution with fitted mean and variance.
+The resulting imputed data is the final imputed array, obtained at convergence.</p>
+</section>
 </section>
 <section id="multivariate-time-series">
 <h2>Multivariate time series<a class="headerlink" href="#multivariate-time-series" title="Permalink to this headline"></a></h2>
@@ -147,6 +259,7 @@ The covariance matrix <span class="math notranslate nohighlight">\(\mathbf{\Sigm
 <h2>References<a class="headerlink" href="#references" title="Permalink to this headline"></a></h2>
 <p>[1] Borman, Sean. “The expectation maximization algorithm-a short tutorial.” Submitted for publication 41 (2004).
 (<a class="reference external" href="https://www.lri.fr/~sebag/COURS/EM_algorithm.pdf">pdf</a>)</p>
+<p>[2] <a class="reference external" href="https://joon3216.github.io/research_materials.html">https://joon3216.github.io/research_materials.html</a></p>
 </section>
 </section>
 

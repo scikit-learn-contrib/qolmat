@@ -2,64 +2,209 @@ Focus on EM sampler
 ===================
 
 This method allows the imputation of missing values in multivariate data using a multivariate Gaussian model
-via EM (expectation-maximisation) sampling or argmax.
+via EM algorithm.
 
-We assume the data :math:`\mathbf{X} \in \mathbb{R}^{n \times m}` follows a 
-multivariate Gaussian distribution :math:`\mathcal{N}(\mathbf{\mu}, \mathbf{\Sigma})`. 
-Each row :math:`t` of the matrix represents a time, :math:`1 \leq  t \leq n`, 
-and each column :math:`i`represents a variable, :math:`1 \leq  i \leq m`.
-The mean is denoted by :math:`\mathbf{\mu}` and the covariance matrix by :math:`\mathbf{\Sigma}`.
-The superscript :math:`^{-1}` stands for the inverse while :math:`^\top` is for the transpose of a matrix.
-We note :math:`\Omega` the set of observed values.
+Basics of Gaussians
+******************
 
-This is an iterative method. 
+We assume the data :math:`\mathbf{X} \in \mathbb{R}^{n \times p}` follows a 
+multivariate Gaussian distribution :math:`\mathcal{N}(\mathbf{m}, \mathbf{\Sigma})`. 
+Hence, the density of :math:`\mathbf{x}` is given by
+
+.. math:: 
+
+   p(\mathbf{x}) = \frac{1}{\sqrt{\det (2 \pi \mathbf{\Sigma})}} \exp \left[-\frac{1}{2} (\mathbf{x} - \mathbf{m})^\top \mathbf{\Sigma}^{-1}  (\mathbf{x} - \mathbf{m}) \right] 
+
+We define :math:`\Omega := \{ (i,j) \, | \, X_{ij} \text{ is observed} \}`, 
+and :math:`\Omega_i := \{ j \, | \, X_{ij} \text{ is observed} \}`. 
+The complementary of these sets are :math:`\Omega^c := \{ (i,j) \, | \, X_{ij} \text{ is missing} \}`
+and :math:`\Omega_i^c := \{ j \, | \, X_{ij} \text{ is missing} \}`. 
+
+
+Each row :math:`i` of the matrix represents a time, :math:`1 \leq  i \leq n`, 
+and each column :math:`j` represents a variable, :math:`1 \leq  j \leq m`.
+
+Let :math:`\mathbf{x}_i \in \mathbb{R}^p` be an observation, i.e. :math:`\mathbf{x}_i \overset{iid}{\sim} \mathcal{N}_{\mathbf{x}_i}(\mu, \mathbf{\Sigma})`.
+We can rearrange the entries of :math:`\mathbf{x}_i` such that we can write 
+
+.. math::
+
+    \mathbf{x}_i = 
+        \begin{bmatrix}
+            \mathbf{x}_{i, \Omega} \\
+            \mathbf{x}_{i, \Omega^c}
+        \end{bmatrix}
+        \sim 
+        \mathcal{N}_{\mathbf{x}_i}
+        \left(
+            \begin{bmatrix}
+                \mathbf{\mu}_{\Omega_i} \\
+                \mathbf{\mu}_{\Omega^c_i}
+            \end{bmatrix}, 
+            \begin{bmatrix}
+                \mathbf{\Sigma}_{\Omega_i \Omega_i} & \mathbf{\Sigma}_{\Omega_i \Omega^c_i} \\
+                \mathbf{\Sigma}_{\Omega^c_i \Omega_i} & \mathbf{\Sigma}_{\Omega^c_i \Omega^c_i}
+            \end{bmatrix}
+        \right)
+
+Thus formulated, the conditional distributions can be expressed as
+
+.. math::
+
+    \begin{array}{l}
+        p(\mathbf{x}_{i, \Omega^c_i} | \mathbf{x}_{i, \Omega}) 
+            = \mathcal{N}_{\mathbf{x}_i}(\tilde{\mu_i}, \tilde{\mathbf{\Sigma}_{i,\Omega_i^c}}) \\
+        \text{where } \tilde{\mu}_i = 
+            \mu_{\Omega^c_i} + \mathbf{\Sigma}_{\Omega^c_i \Omega_i} \mathbf{\Sigma}^{-1}_{\Omega_i \Omega_i} (\mathbf{x}_{i, \Omega_i} - \mathbf{\mu}_{\Omega_i}) \\
+        \phantom{\text{ where }} \tilde{\mathbf{\Sigma}}_{i,\Omega_i^c} = 
+            \mathbf{\Sigma}_{\Omega^c_i \Omega^c_i} - \mathbf{\Sigma}_{\Omega^c_i \Omega_i} \mathbf{\Sigma}^{-1}_{\Omega_i \Omega_i} \mathbf{\Sigma}_{\Omega_i \Omega^c_i}
+    \end{array}
+
+Note, that the covariance matrices are the Schur complement of the block matrix.
+
+
+Recall also the mean of square forms, i.e.
+
+.. math::
+    E \left[ (\mathbf{x} - \mathbf{m}')^\top \mathbf{A} (\mathbf{x} - \mathbf{m}') \right] = (\mathbf{m} - \mathbf{m}')^\top \mathbf{A} (\mathbf{m} - \mathbf{m}') + \text{Tr}(\mathbf{A}\mathbf{\Sigma}), 
+
+for all square matrices :math:`\mathbf{A}`.
+
+EM algorithm
+************
+
+The EM algorithm is an optimisation algorithm that maximises the "expected complete data log likelihood" by some iterative 
+means under the (conditional) distribution of unobserved components. 
+In this way it is possible to calculate the statistics of interest.
+
+How it works
+------------
+
 We start with a first estimation :math:`\mathbf{\hat{X}}` of :math:`\mathbf{X}`, obtained via a simple
 imputation method, i.e. linear interpolation.  
-At each iteration (the number of iterations is set by the user):
-1) We compute :math:`\mathbf{\mu}_{\mathbf{\hat{X}}}` and :math:`\mathbf{\Sigma}_\mathbf{\hat{X}}`;
-2) The estimated matrix :math:`\mathbf{\hat{X}}` is updated via the maximum likelihood estimation or an Ornstein-Uhlenbeck sampling,
-with the constraint :math:`\mathbf{\hat{X}_{\Omega}} = \mathbf{X_{\Omega}}`.
 
-
-
-Maximum likelihood estimation
-*****************************
-Suppose the covariance matrix in invertible, we define the log-likelihood as 
+the expectation step (or E-step) at iteration *t* computes:
 
 .. math::
 
-    \text{LL}(\mathbf{X}) = - \Sigma_t (\mathbf{X}_t -  \mathbf{\mu}) \mathbf{\Sigma}^{-1} 
-    (\mathbf{X}_t -  \mathbf{\mu})^\top 
-    := - \Sigma_t \text{LL}_t (\mathbf{X}_t)
+    \begin{array}{ll}
+        \mathcal{Q}(\theta \, | \, \theta^{(t)}) &:= &E \left[ \log L(\theta ; \mathbf{X}) \, | \, \mathbf{X}_{\Omega}, \theta^{(t)} \right] \\
+        & = & \sum_{i=1}^n E \left[ \log L(\theta ; \mathbf{x}_i) \, | \, \mathbf{x}_{i, \Omega_i}, \theta^{(t)} \right].
+    \end{array}
 
-The objective is to maximise this log-likelihood, given :math:`\mathbf{X_{\Omega}}` are set, i.e. 
-:math:`\max \limits_{\substack{ \mathbf{\mu} \\ \text{ s.t. } \mathbf{\hat{X}_{\Omega}} = \mathbf{X_{\Omega}} }} \text{LL}(\mathbf{\hat{X}})`.
-
-The `conjugate gradient method <https://en.wikipedia.org/wiki/Conjugate_gradient_method#:~:text=In%20mathematics,%20the%20conjugate%20gradient,whose%20matrix%20is%20positive-definite.>`__ is used to solve this problem. 
-In particular, we compute in parallel a gradient algorithm for each data and at each iteration, 
-the data is projected on :math:`\Omega` such that the constraint :math:`\mathbf{\hat{X}_{\Omega}} = \mathbf{X_{\Omega}}` is respected. 
-
-
-
-Ornstein-Uhlenbeck sampling 
-***************************
-The `Ornstein-Uhlenbeck <https://en.wikipedia.org/wiki/Ornstein%E2%80%93Uhlenbeck_process#:~:text=The%20Ornstein%E2%80%93Uhlenbeck%20process%20is%20a%20stationary%20Gauss%E2%80%93Markov%20process,the%20space%20and%20time%20variables.>`__ (OU) process is a stationary Gauss-Markov process, which means that it is a Gaussian process, 
-a Markov process, and is temporally homogeneous.
-
-Here, the idea is to sample the Gaussian distribution under the constraint that the observed values :math:`\mathbf{X}_{\Omega}` 
-remain unchanged, using a projected OU process.
-More precisely, we start with an inital dataset to be imputed, which should have been already imputed using a 
-simple method (e.g. linear interpolation). This first imputation will be used as an initial guess.
-Then we iterate an OU process, the more iterations there are, the less biased the sample is:
+The maximization step (or M-step) at iteration *t* finds:
 
 .. math::
 
-    d\mathbf{X}_n = - \mathbf{\Gamma} \mathbf{X}_n \mathbf{\Sigma}^{-1} \,dt + \sqrt{2 \mathbf{\Gamma} dt} \, d\mathbf{B}_n
+    \theta^{(t+1)} := \underset{\theta}{\mathrm{argmax}} \left\{ \mathcal{Q} \left( \theta \, | \, \theta^{(t)} \right) \right\}.
 
-with :math:`\mathbf{\Gamma} = \text{diag}(\mathbf{\Sigma})`, :math:`dt` the process integration time step 
-and :math:`(\mathbf{B}_n)_{n\geq 0}` is a standard Brownian motion.
-Note that we only sample for :math:`\mathbf{X}_{\Omega^c}` such that the constraint 
-:math:`\mathbf{\hat{X}_{\Omega}} = \mathbf{X_{\Omega}}` is respected. 
+These two steps are repeated until the parameter estimate converges.
+
+
+Computation
+-----------
+
+At iteration :math:`\textit{t}` with :math:`\theta^{(t)} = (\mu^{(t)}, \mathbf{\Sigma}^{(t)})`, let's 
+:math:`\mathbf{x}_i \sim \mathcal{N}_p(\mu, \Sigma)`. The expected log likelihhod is equal to 
+
+.. math::
+
+    \begin{array}{ll}
+        \mathcal{Q}_i(\theta \, | \, \theta^{(t)}) 
+        &=& E \left[ - \frac{1}{2} \log \det \mathbf{\Sigma} - \frac{1}{2} (\mathbf{x}_i - \mu)^\top \mathbf{\Sigma}^{-1} (\mathbf{x}_i - \mu) \, | \, \mathbf{x}_{i, \Omega_i}, \theta^{(t)} \right] \\
+        &=& - \frac{1}{2} \log \det \mathbf{\Sigma} - \frac{1}{2} \Big(
+                (\mathbf{x}_{i,\Omega_i} - \mu_{\Omega_i})^\top \mathbf{\Sigma}_{\Omega_i\Omega_i}^{-1} (\mathbf{x}_{i,\Omega_i} - \mu_{\Omega_i})  
+                \\
+                && \phantom{- \frac{1}{2}}  + 
+                2 (\mathbf{x}_{i,\Omega_i} - \mu_{\Omega_i})^\top \mathbf{\Sigma}_{\Omega_i\Omega^c_i}^{-1} E \left[ \mathbf{x}_{i,\Omega^c_i} - \mu_{\Omega^c_i} \, | \, \mathbf{x}_{i, \Omega_i}, \theta^{(t)} \right]  
+                \\
+                && \phantom{- \frac{1}{2}}  + 
+                E \left[ (\mathbf{x}_{i,\Omega^c_i} - \mu_{\Omega^c_i})^\top \mathbf{\Sigma}_{\Omega^c_i\Omega^c_i}^{-1} (\mathbf{x}_{i,\Omega^c_i} - \mu_{\Omega^c_i}) \, | \, \mathbf{x}_{i, \Omega_i}, \theta^{(t)} \right]
+                \Big) \\
+        &=& - \frac{1}{2} \log \det \mathbf{\Sigma}  
+            - \frac{1}{2} \Big(
+                (\mathbf{x}_{i,\Omega_i} - \mu_{\Omega_i})^\top \mathbf{\Sigma}_{\Omega_i\Omega_i}^{-1} (\mathbf{x}_{i,\Omega_i} - \mu_{\Omega_i})
+                \\
+                && \phantom{- \frac{1}{2}}  +
+                2 (\mathbf{x}_{i,\Omega_i} - \mu_{\Omega_i})^\top \mathbf{\Sigma}_{\Omega_i\Omega^c_i}^{-1} (\tilde{\mu}_{i}^{(t)} - \mu_{\Omega^c_i})
+                \\
+                && \phantom{- \frac{1}{2}}  +
+                (\tilde{\mu}_{i}^{(t)} - \mu_{\Omega^c_i})^\top \mathbf{\Sigma}^{-1}_{\Omega_i^c\Omega_i^c} (\tilde{\mu}_{i}^{(t)} - \mu_{\Omega^c_i})
+                \\
+                && \phantom{- \frac{1}{2}}  +
+                \text{Tr} \left( \mathbf{\Sigma}^{-1}_{\Omega_i^c\Omega_i^c} \tilde{\mathbf{\Sigma}}_{i,\Omega_i^c}^{(t)} \right)
+            \Big) \\
+        &=& - \frac{1}{2} \log \det \mathbf{\Sigma}  
+            - \frac{1}{2} \left[
+                (\hat{\mathbf{x}}_{i}^{(t)} - \mu)^\top \mathbf{\Sigma}^{-1} (\hat{\mathbf{x}}_{i}^{(t)} - \mu)
+                + \text{Tr} \left( \mathbf{\Sigma}^{-1}_{\Omega_i^c\Omega_i^c} \tilde{\mathbf{\Sigma}}_{i,\Omega_i^c}^{(t)} \right)
+            \right]
+    \end{array}
+
+where :math:`\hat{\mathbf{x}}_{i}^{(t)} = [\hat{x}_{i1}^{(t)}, ..., \hat{x}_{ip}^{(t)}]` 
+is the data point such that :math:`\mathbf{x}_{i\Omega_i^c}^{(t)}` is replaced by :math:`\tilde{\mu}_{i}^{(t)}`.
+
+And finally, one has
+
+.. math::
+
+    \mathcal{Q}(\theta \, | \, \theta^{(t)})  = \sum_{i=1}^n \mathcal{Q}_i(\theta \, | \, \theta^{(t)}) 
+
+
+For the M-step, one has to find :math:`\theta` that maximises the previous expression. Since it is concave, it suffices 
+to zeroing the derivatives. 
+For the mean, one has
+
+.. math::
+
+    \begin{array}{l}
+        \nabla_{\mu} \mathcal{Q}(\theta \, | \, \theta^{(t)})
+        &= -\frac{1}{2} \sum_{i=1}^n \nabla_{\mu} (\hat{\mathbf{x}}_{i}^{(t)} - \mu)^\top \mathbf{\Sigma}^{-1} (\hat{\mathbf{x}}_{i}^{(t)} - \mu) \\
+        &= \mathbf{\Sigma}^{-1} \sum_{i=1}^n  (\hat{\mathbf{x}}_{i}^{(t)} - \mu) \\
+        &= 0.
+    \end{array}
+
+Therefore
+
+.. math::
+
+    \mu^{(t+1)} = \frac{1}{n} \sum_{i=1}^n \hat{\mathbf{x}}_{i}^{(t)}.
+
+For the variance, one has
+
+.. math::
+
+    \begin{array}{ll}
+        \nabla_{\Sigma^{-1}} \mathcal{Q}(\theta \, | \, \theta^{(t)})
+        &=& \frac{1}{2} \sum_{i=1}^n \nabla_{\Sigma^{-1}} \log \det \Sigma^{-1} 
+            \\
+            && \phantom{\frac{1}{2}} 
+            - \nabla_{\Sigma^{-1}} \text{Tr} \left( \mathbf{\Sigma}^{-1}_{\Omega_i^c\Omega_i^c} \tilde{\mathbf{\Sigma}}_i^{(t)} \right)
+            \\
+            && \phantom{\frac{1}{2}}
+            - \frac{1}{2} \sum_{i=1}^n \nabla_{\Sigma^{-1}} (\hat{\mathbf{x}}_{i}^{(t)} - \mu)^\top \mathbf{\Sigma}^{-1} (\hat{\mathbf{x}}_{i}^{(t)} - \mu) \\
+        &=& \frac{1}{2} \left[n \mathbf{\Sigma} - \sum_{i=1}^n \tilde{\mathbf{\Sigma}}_i^{(t)} \right] 
+            - \frac{1}{2} \sum_{i=1}^n (\hat{\mathbf{x}}_{i}^{(t)} - \mu) (\hat{\mathbf{x}}_{i}^{(t)} - \mu)^\top \\
+        &=& 0
+    \end{array}
+
+where :math:`\tilde{\mathbf{\Sigma}}_i^{(t)}` is the :math:`p \times p` matrix having zero everywhere 
+expect the :math:`\Omega_i^c\Omega_i^c` block replaced by :math:`\tilde{\mathbf{\Sigma}}_{i,\Omega_i^c}^{(t)}`.
+
+Therefore
+
+.. math::
+
+    \mathbf{\Sigma}^{(t+1)} = \frac{1}{n} \sum_{i=1}^n \left[ (\hat{\mathbf{x}}_{i}^{(t)} - \mu) (\hat{\mathbf{x}}_{i}^{(t)} - \mu)^\top + \tilde{\mathbf{\Sigma}}_i^{(t)} \right].
+
+We can test the convergence of the algorithm by checking some sort of metric between 
+two consecutive estimates of the means or the covariances
+(it is assumed to converge since the sequences are Cauchy).
+
+Thus, at each iteration, the missing values are replaced either by their corresponding mean or by smapling from 
+a multivarite normal distribution with fitted mean and variance.
+The resulting imputed data is the final imputed array, obtained at convergence. 
+
 
 
 Multivariate time series
@@ -79,9 +224,9 @@ The covariance matrix :math:`\mathbf{\Sigma}^{ext}` is therefore richer in infor
 
 
 
-
-
 References
 **********
 [1] Borman, Sean. "The expectation maximization algorithm-a short tutorial." Submitted for publication 41 (2004).
 (`pdf <https://www.lri.fr/~sebag/COURS/EM_algorithm.pdf>`__)
+
+[2] https://joon3216.github.io/research_materials.html

@@ -122,7 +122,6 @@ class CrossValidation:
         all_params : Dict[str, Union[int, float, str]]
             dictionary containing the hyperparameters and their value
         """
-        print("sefsfsf:", all_params)
         if hasattr(self.model, "rpca"):
             for param_name, param_value in all_params.items():
                 setattr(self.model.rpca, param_name, param_value)
