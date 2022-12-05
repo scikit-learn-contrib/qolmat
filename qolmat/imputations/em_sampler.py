@@ -89,16 +89,6 @@ class ImputeEM(_BaseImputer):  # type: ignore
         X_interpolated : np.ndarray
             imputed array, by linear interpolation
         """
-        # X_interpolated = X.copy()
-        # bad_indexes = np.isnan(X_interpolated)
-        # good_indexes = np.logical_not(bad_indexes)
-        # good_data = X[good_indexes]
-        # interpolated = np.interp(
-        #     bad_indexes.nonzero()[0], good_indexes.nonzero()[0], good_data
-        # )
-        # X_interpolated[bad_indexes] = interpolated
-        # return X_interpolated
-
         X_interpolated = X.copy()
         nans, x = np.isnan(X_interpolated), lambda z: z.nonzero()[0]
         X_interpolated[nans] = np.interp(x(nans), x(~nans), X_interpolated[~nans])
@@ -271,8 +261,6 @@ class ImputeEM(_BaseImputer):  # type: ignore
         one_to_nc = np.arange(1, nc + 1, step=1)
         observed = one_to_nc * (~mask) - 1
         missing = one_to_nc * mask - 1
-
-        # X_ = self._convert_numpy(X)
 
         # first imputation
         X_transformed = np.apply_along_axis(self._linear_interpolation, 0, X_)
