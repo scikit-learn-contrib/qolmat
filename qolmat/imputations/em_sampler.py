@@ -283,8 +283,9 @@ class ImputeEM(_BaseImputer):  # type: ignore
             noise = self.ampli * rng.normal(0, 1, size=(n_samples, n_variables))
             X += -dt * gamma * (X @ beta) + noise * np.sqrt(2 * gamma * dt)
             X[~mask_na] = X_init[~mask_na]
-            if iter_ou > self.n_iter_ou - 10:
+            if iter_ou > self.n_iter_ou - 50:
                 X_stack.append(X)
+        X += self.means
 
         X_stack = np.vstack(X_stack)
         X_stack += self.means
@@ -294,8 +295,8 @@ class ImputeEM(_BaseImputer):  # type: ignore
         eps = 1e-2
         self.cov -= eps * (self.cov - np.diag(self.cov.diagonal()))
 
-        X = np.random.multivariate_normal(self.means, self.cov, n_samples)
-        X[~mask_na] = X_init[~mask_na]
+        # X = np.random.multivariate_normal(self.means, self.cov, n_samples)
+        # X[~mask_na] = X_init[~mask_na]
 
         return X
 
@@ -349,7 +350,8 @@ class ImputeEM(_BaseImputer):  # type: ignore
         if np.abs(scipy.linalg.eigh(self.cov)[0].min()) > 1e20:
             raise WarningMessage("Large eigenvalues, imputation may be inflated.")
 
-        list_diff_means, list_diff_cov = [], []
+        list_diff_means, list_diff_cov = [np.inf] * 5, [np.inf] * 5
+        min_means, min_cov = np.inf, np.inf
         for iter_em in range(self.n_iter_em):
             mu_prec, cov_prec = self.means.copy(), self.cov.copy()
             try:
@@ -363,8 +365,17 @@ class ImputeEM(_BaseImputer):  # type: ignore
                 converged, diff_means, diff_cov = self._check_convergence(
                     self.means, mu_prec, self.cov, cov_prec
                 )
+
                 list_diff_means.append(diff_means)
                 list_diff_cov.append(diff_cov)
+                if iter_em > 10:
+                    if (np.min(list_diff_means[-5:]) >= min_means) and (
+                        np.min(list_diff_cov[-5:]) >= min_cov
+                    ):
+                        converged = True
+                    min_means = np.min(list_diff_means)
+                    min_cov = np.min(list_diff_cov)
+
                 if converged:
                     print(f"EM converged after {iter_em} iterations.")
                     break
@@ -378,7 +389,10 @@ class ImputeEM(_BaseImputer):  # type: ignore
         if np.all(np.isnan(X_transformed)):
             raise WarningMessage("Result contains NaN. This is a bug.")
 
-        return X_transformed, list_diff_means, list_diff_cov
+        self.delta_means = list_diff_means
+        self.delta_cov = list_diff_cov
+
+        return X_transformed
 
     def fit_transform(self, X: ArrayLike) -> ArrayLike:
         """
@@ -401,17 +415,14 @@ class ImputeEM(_BaseImputer):  # type: ignore
 
         scaler = StandardScaler()
         X_sc = scaler.fit_transform(X)
-        X_imputed, list_diff_means, list_diff_cov = self.impute_em(X_sc)
+        X_imputed = self.impute_em(X_sc)
         X_imputed = scaler.inverse_transform(X_imputed)
 
         if isinstance(X, np.ndarray):
-            return X_imputed, list_diff_means, list_diff_cov
+            return X_imputed
         elif isinstance(X, pd.DataFrame):
-            return (
-                pd.DataFrame(X_imputed, index=X.index, columns=X.columns),
-                list_diff_means,
-                list_diff_cov,
-            )
+            return pd.DataFrame(X_imputed, index=X.index, columns=X.columns)
+
         else:
             raise AssertionError(
                 "Invalid type. X must be either pd.DataFrame or np.ndarray."
