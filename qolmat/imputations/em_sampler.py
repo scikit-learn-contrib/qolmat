@@ -8,10 +8,9 @@ from warnings import WarningMessage
 import numpy as np
 import pandas as pd
 import scipy
-from numpy import linalg as nl
 from numpy.typing import ArrayLike
 from sklearn.impute._base import _BaseImputer
-import sys
+from sklearn.preprocessing import StandardScaler
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +52,7 @@ class ImputeEM(_BaseImputer):  # type: ignore
     def __init__(
         self,
         strategy: Optional[str] = "argmax",
-        n_iter_em: Optional[int] = 7,
+        n_iter_em: Optional[int] = 10,
         n_iter_ou: Optional[int] = 50,
         ampli: Optional[int] = 0.5,
         random_state: Optional[int] = 123,
@@ -142,8 +141,13 @@ class ImputeEM(_BaseImputer):  # type: ignore
             True/False if the algorithm has converged
         """
         return (
-            np.linalg.norm(mu - mu_prec) < self.convergence_threshold
-            and np.linalg.norm(cov - cov_prec, ord=2) < self.convergence_threshold
+            (
+                scipy.linalg.norm(mu - mu_prec, np.inf) < self.convergence_threshold
+                and scipy.linalg.norm(cov - cov_prec, np.inf)
+                < self.convergence_threshold
+            ),
+            scipy.linalg.norm(mu - mu_prec),
+            scipy.linalg.norm(cov - cov_prec),
         )
 
     def _add_shift(
@@ -223,13 +227,75 @@ class ImputeEM(_BaseImputer):  # type: ignore
             sigma_MM_O = sigma_MM - sigma_MO @ np.linalg.inv(sigma_OO) @ sigma_OM
             sigma_tilde[i][np.ix_(missing_i, missing_i)] = sigma_MM_O
 
-            if self.strategy == "argmax":
-                X[i, missing_i] = mu_tilde[i]
-            if self.strategy == "sample":
-                X[i, missing_i] = np.random.multivariate_normal(mu_tilde[i], sigma_MM_O)
+            X[i, missing_i] = mu_tilde[i]
 
         self.means = np.mean(X, axis=0)
         self.cov = np.cov(X.T, bias=1) + reduce(np.add, sigma_tilde.values()) / nr
+
+        return X
+
+    def _sample_ou(
+        self,
+        X: ArrayLike,
+        mask_na: ArrayLike,
+        rng: int,
+        dt: float = 2e-2,
+    ) -> ArrayLike:
+        """
+        Samples the Gaussian distribution under the constraint that not na values must remain
+        unchanged, using a projected Ornstein-Uhlenbeck process.
+        The sampled distribution tends to the target one in the limit dt -> 0 and
+        n_iter_ou x dt -> infty.
+        Called by `impute_sample_ts`.
+
+        Parameters
+        ----------
+        df : ArrayLike
+            Inital dataframe to be imputed, which should have been already imputed using a simple
+            method. This first imputation will be used as an initial guess.
+        mask_na : ArrayLike
+            Boolean dataframe indicating which coefficients should be resampled.
+        rng : int
+            Random number generator to be used (for reproducibility).
+        n_iter_ou : int
+            Number of iterations for the OU process, a large value decreases the sample bias
+            but increases the computation time.
+        dt : float
+            Process integration time step, a large value increases the sample bias and can make
+            the algorithm unstable, but compensates for a smaller n_iter_ou. By default, 2e-2.
+        ampli : float
+            Amplification of the noise, if less than 1 the variance is reduced. By default, 1.
+
+        Returns
+        -------
+        ArrayLike
+            DataFrame after Ornstein-Uhlenbeck process.
+        """
+        n_samples, n_variables = X.shape
+
+        X = (X - self.means).copy()
+        X_init = X.copy()
+        beta = self.cov.copy()
+        beta[:] = scipy.linalg.inv(beta)
+        gamma = np.diagonal(self.cov)
+        X_stack = []
+        for iter_ou in range(self.n_iter_ou):
+            noise = self.ampli * rng.normal(0, 1, size=(n_samples, n_variables))
+            X += -dt * gamma * (X @ beta) + noise * np.sqrt(2 * gamma * dt)
+            X[~mask_na] = X_init[~mask_na]
+            if iter_ou > self.n_iter_ou - 10:
+                X_stack.append(X)
+
+        X_stack = np.vstack(X_stack)
+        X_stack += self.means
+
+        self.means = np.mean(X_stack, axis=0)
+        self.cov = np.cov(X_stack.T, bias=1)
+        eps = 1e-2
+        self.cov -= eps * (self.cov - np.diag(self.cov.diagonal()))
+
+        X = np.random.multivariate_normal(self.means, self.cov, n_samples)
+        X[~mask_na] = X_init[~mask_na]
 
         return X
 
@@ -251,16 +317,20 @@ class ImputeEM(_BaseImputer):  # type: ignore
         if np.nansum(X_) == 0:
             return X_
 
-        _, nc_init = X_.shape
+        rng = np.random.default_rng(self.random_state)
+        _, nc = X_.shape
 
         if self.temporal:
             X_ = self._add_shift(X_, ystd=True, tmrw=True)
             _, nc = X_.shape
 
-        mask = ~np.isnan(X_)
-        one_to_nc = np.arange(1, nc + 1, step=1)
-        observed = one_to_nc * (~mask) - 1
-        missing = one_to_nc * mask - 1
+        if self.strategy == "argmax":
+            mask = ~np.isnan(X_)
+            one_to_nc = np.arange(1, nc + 1, step=1)
+            observed = one_to_nc * mask - 1
+            missing = one_to_nc * (~mask) - 1
+        elif self.strategy == "sample":
+            mask_na = np.isnan(X)
 
         # first imputation
         X_transformed = np.apply_along_axis(self._linear_interpolation, 0, X_)
@@ -276,24 +346,39 @@ class ImputeEM(_BaseImputer):  # type: ignore
                 f"Negative eigenvalue, some variables may be constant or colinear, "
                 f"min value of {scipy.linalg.eigh(self.cov)[0].min():.3g} found."
             )
-        if np.abs(np.linalg.eigh(self.cov)[0].min()) > 1e20:
+        if np.abs(scipy.linalg.eigh(self.cov)[0].min()) > 1e20:
             raise WarningMessage("Large eigenvalues, imputation may be inflated.")
-        self.inv_cov = nl.pinv(self.cov)
 
-        for _ in range(self.n_iter_em):
+        list_diff_means, list_diff_cov = [], []
+        for iter_em in range(self.n_iter_em):
+            mu_prec, cov_prec = self.means.copy(), self.cov.copy()
             try:
-                X_transformed = self._em(X_transformed, observed, missing)
+                if self.strategy == "argmax":
+                    X_transformed = self._em(X_transformed, observed, missing)
+                elif self.strategy == "sample":
+                    X_transformed = self._sample_ou(
+                        X_transformed, mask_na, rng, dt=2e-2
+                    )
+
+                converged, diff_means, diff_cov = self._check_convergence(
+                    self.means, mu_prec, self.cov, cov_prec
+                )
+                list_diff_means.append(diff_means)
+                list_diff_cov.append(diff_cov)
+                if converged:
+                    print(f"EM converged after {iter_em} iterations.")
+                    break
 
             except BaseException:
                 raise WarningMessage("EM step failed.")
 
         if self.temporal:
-            X_transformed = X_transformed[:, :nc_init]
+            X_transformed = X_transformed[:, : int(X.shape[1])]
 
         if np.all(np.isnan(X_transformed)):
             raise WarningMessage("Result contains NaN. This is a bug.")
 
-        return X_transformed
+        return X_transformed, list_diff_means, list_diff_cov
 
     def fit_transform(self, X: ArrayLike) -> ArrayLike:
         """
@@ -314,12 +399,19 @@ class ImputeEM(_BaseImputer):  # type: ignore
                 "Invalid type. X must be either pd.DataFrame or np.ndarray."
             )
 
-        X_imputed = self.impute_em(X)
+        scaler = StandardScaler()
+        X_sc = scaler.fit_transform(X)
+        X_imputed, list_diff_means, list_diff_cov = self.impute_em(X_sc)
+        X_imputed = scaler.inverse_transform(X_imputed)
 
         if isinstance(X, np.ndarray):
-            return X_imputed
+            return X_imputed, list_diff_means, list_diff_cov
         elif isinstance(X, pd.DataFrame):
-            return pd.DataFrame(X_imputed, index=X.index, columns=X.columns)
+            return (
+                pd.DataFrame(X_imputed, index=X.index, columns=X.columns),
+                list_diff_means,
+                list_diff_cov,
+            )
         else:
             raise AssertionError(
                 "Invalid type. X must be either pd.DataFrame or np.ndarray."
