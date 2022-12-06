@@ -273,7 +273,6 @@ class ImputeEM(_BaseImputer):  # type: ignore
         """
         n_samples, n_variables = X.shape
 
-        X = (X - self.means).copy()
         X_init = X.copy()
         beta = self.cov.copy()
         beta[:] = scipy.linalg.inv(beta)
@@ -285,18 +284,13 @@ class ImputeEM(_BaseImputer):  # type: ignore
             X[~mask_na] = X_init[~mask_na]
             if iter_ou > self.n_iter_ou - 50:
                 X_stack.append(X)
-        X += self.means
 
         X_stack = np.vstack(X_stack)
-        X_stack += self.means
 
         self.means = np.mean(X_stack, axis=0)
         self.cov = np.cov(X_stack.T, bias=1)
         eps = 1e-2
         self.cov -= eps * (self.cov - np.diag(self.cov.diagonal()))
-
-        # X = np.random.multivariate_normal(self.means, self.cov, n_samples)
-        # X[~mask_na] = X_init[~mask_na]
 
         return X
 
