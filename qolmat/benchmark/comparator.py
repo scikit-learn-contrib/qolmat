@@ -1,6 +1,7 @@
 from collections import defaultdict
 from math import floor
-from typing import Optional
+from typing import Optional, Dict, List
+from numpy.typing import ArrayLike
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -37,18 +38,19 @@ class Comparator:
 
     def __init__(
         self,
-        data,
-        ratio_missing,
-        dict_models,
-        cols_to_impute,
-        n_samples=1,
-        search_params={},
-        corruption="missing",
-        missing_mechanism="MCAR",
-        opt=None,
-        p_obs=None,
-        quantile=None,
-        filter_value_nan=-1e10,
+        data: ArrayLike,
+        ratio_missing: float,
+        dict_models: Dict,
+        cols_to_impute: List[str],
+        n_samples: Optional[int] = 1,
+        search_params: Optional[Dict] = {},
+        corruption: Optional[str] = "missing",
+        missing_mechanism: Optional[str] = "MCAR",
+        opt: Optional[float] = None,
+        p_obs: Optional[float] = None,
+        quantile: Optional[float] = None,
+        filter_value_nan: Optional[str] = -1e10,
+        columnwise: Optional[bool] = True,
     ):
 
         self.df = data
@@ -63,6 +65,7 @@ class Comparator:
         self.opt = opt
         self.p_obs = p_obs
         self.quantile = quantile
+        self.columnwise = columnwise
 
     def create_corruptions(
         self, df: pd.DataFrame  # , random_state: Optional[int] = 29, mode_anomaly="iid"
@@ -133,12 +136,17 @@ class Comparator:
             signal_ref[self.df_is_altered],
             signal_imputed[self.df_is_altered],
             squared=False,
+            columnwise=self.columnwise,
         )
         mae = utils.mean_absolute_error(
-            signal_ref[self.df_is_altered], signal_imputed[self.df_is_altered]
+            signal_ref[self.df_is_altered],
+            signal_imputed[self.df_is_altered],
+            columnwise=self.columnwise,
         )
         wmape = utils.weighted_mean_absolute_percentage_error(
-            signal_ref[self.df_is_altered], signal_imputed[self.df_is_altered]
+            signal_ref[self.df_is_altered],
+            signal_imputed[self.df_is_altered],
+            columnwise=self.columnwise,
         )
         return {"rmse": round(rmse, 4), "mae": round(mae, 4), "wmape": round(wmape, 4)}
 
@@ -165,10 +173,25 @@ class Comparator:
             search_space = utils.get_search_space(tested_model, self.search_params)
 
             errors = self.evaluate_errors_sample(tested_model, self.df, search_space)
+            if self.columnwise:
+                results[name] = {
+                    k: pd.concat([v1 for v1 in v], axis=1).mean(axis=1).to_dict()
+                    for k, v in errors.items()
+                }
+            else:
+                results[name] = {k: np.mean(v) for k, v in errors.items()}
 
-            results[name] = {k: np.mean(v) for k, v in errors.items()}
-
-        return pd.DataFrame(results)
+        if self.columnwise:
+            results_d = {}
+            for k, v in results.items():
+                results_d[k] = pd.DataFrame(v).T
+            return (
+                pd.concat(results_d.values(), keys=results_d.keys())
+                .swaplevel()
+                .sort_index(0)
+            )
+        else:
+            return pd.DataFrame(results)
 
     def evaluate_errors_sample(
         self, tested_model, df: pd.DataFrame, search_space: Optional[dict] = None

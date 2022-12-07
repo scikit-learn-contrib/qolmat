@@ -84,23 +84,32 @@ def choice_with_mask(
     )
 
 
-def mean_squared_error(df1, df2, squared=True):
+def mean_squared_error(df1, df2, squared=True, columnwise=False):
     """
     We provide an implementation robust to nans.
     """
-    squared_errors = ((df1 - df2) ** 2).sum().sum()
+    if columnwise:
+        squared_errors = ((df1 - df2) ** 2).sum()
+    else:
+        squared_errors = ((df1 - df2) ** 2).sum().sum()
     if squared:
         return squared_errors
     else:
         return np.sqrt(squared_errors)
 
 
-def mean_absolute_error(df1, df2):
-    return (df1 - df2).abs().sum().sum()
+def mean_absolute_error(df1, df2, columnwise=False):
+    if columnwise:
+        return (df1 - df2).abs().sum()
+    else:
+        return (df1 - df2).abs().sum().sum()
 
 
-def weighted_mean_absolute_percentage_error(df_true, df_pred):
-    return ((df_true - df_pred).abs().mean() / df_true.abs().mean()).mean()
+def weighted_mean_absolute_percentage_error(df_true, df_pred, columnwise=False):
+    if columnwise:
+        return (df_true - df_pred).abs().mean() / df_true.abs().mean()
+    else:
+        return ((df_true - df_pred).abs().mean() / df_true.abs().mean()).mean()
 
 
 def get_agg_matrix(x, y, freq):
