@@ -7,7 +7,7 @@ import scipy as scp
 from numpy.typing import ArrayLike, NDArray
 from qolmat.imputations.rpca.rpca import RPCA
 from qolmat.imputations.rpca.utils import utils
-from sklearn.utils.extmath import randomized_svd
+import tqdm
 
 
 class TemporalRPCA(RPCA):
@@ -101,7 +101,7 @@ class TemporalRPCA(RPCA):
 
         errors = np.full((self.maxIter,), np.nan, dtype=float)
 
-        for iteration in range(self.maxIter):
+        for iteration in tqdm.tqdm(range(self.maxIter)):
             # save current variable values
             X_temp = X.copy()
             A_temp = A.copy()
@@ -204,7 +204,7 @@ class TemporalRPCA(RPCA):
 
         errors = np.full((self.maxIter,), np.nan, dtype=float)
 
-        for iteration in range(self.maxIter):
+        for iteration in tqdm.tqdm(range(self.maxIter)):
             # print(f"iteration={iteration}")
             X_temp = X.copy()
             A_temp = A.copy()
@@ -456,7 +456,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
 
         m, n = D_init.shape
         Lhat, Shat, _ = super().fit_transform(
-            signal = D_init[:, :burnin], return_basis=False
+            signal=D_init[:, :burnin], return_basis=False
         )
 
         proj_D = utils.impute_nans(D_init, method="median")
@@ -517,7 +517,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
         Vhat_win_grow[:, : Vhat_win.shape[1]] = Vhat_win
 
         Lhat_grow = np.empty((m_lhat, n), dtype=float)
-        Lhat_grow[:, : n_lhat] = Lhat
+        Lhat_grow[:, :n_lhat] = Lhat
 
         for i in range(burnin, n):
             ri = proj_D[:, i]

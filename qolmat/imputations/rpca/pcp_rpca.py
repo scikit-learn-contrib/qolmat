@@ -7,6 +7,7 @@ import numpy as np
 from numpy.typing import NDArray
 from qolmat.imputations.rpca.rpca import RPCA
 from qolmat.imputations.rpca.utils import utils
+import tqdm
 
 
 class PcpRPCA(RPCA):
@@ -80,7 +81,7 @@ class PcpRPCA(RPCA):
         Y = np.zeros((n, m))
 
         errors = []
-        for iteration in range(self.maxIter):
+        for iteration in tqdm.tqdm(range(self.maxIter)):
             X = utils.svd_thresholding(proj_D - A + Y / self.mu, 1 / self.mu)
             A = utils.soft_thresholding(proj_D - X + Y / self.mu, self.lam / self.mu)
             Y += self.mu * (proj_D - X - A)

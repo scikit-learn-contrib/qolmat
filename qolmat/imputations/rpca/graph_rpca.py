@@ -6,6 +6,7 @@ import numpy as np
 from numpy.typing import NDArray
 from qolmat.imputations.rpca.rpca import RPCA
 from qolmat.imputations.rpca.utils import utils
+import tqdm
 
 
 class GraphRPCA(RPCA):
@@ -101,7 +102,7 @@ class GraphRPCA(RPCA):
         )
 
         errors = np.full((self.maxIter,), np.nan, dtype=float)
-        for iteration in range(self.maxIter):
+        for iteration in tqdm.tqdm(range(self.maxIter)):
 
             X_past = X.copy()
             Y_past = Y.copy()
@@ -109,7 +110,7 @@ class GraphRPCA(RPCA):
             grad_g = 2 * (self.gamma1 * Y @ laplacian1 + self.gamma2 * laplacian2 @ Y)
 
             X = utils.proximal_operator(Y_past - lam * grad_g, proj_D, lam)
-            t = (1 + (1 + 4 * t_past ** 2) ** 0.5) / 2
+            t = (1 + (1 + 4 * t_past**2) ** 0.5) / 2
             Y = X + (t_past - 1) / t * (X - X_past)
 
             error = np.linalg.norm(Y - Y_past, "fro") / np.linalg.norm(Y_past, "fro")
