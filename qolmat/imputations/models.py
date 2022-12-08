@@ -84,7 +84,7 @@ class ImputeByMean(ImputeColumnWise):
 
     def __init__(
         self,
-        groups=[],
+        groups: Optional[List[str]] = [],
     ) -> None:
         super().__init__(groups=groups)
 
@@ -126,7 +126,7 @@ class ImputeByMedian(ImputeColumnWise):
 
     def __init__(
         self,
-        groups=[],
+        groups: Optional[List[str]] = [],
     ) -> None:
         super().__init__(groups=groups)
 
@@ -168,7 +168,7 @@ class ImputeByMode(ImputeColumnWise):
 
     def __init__(
         self,
-        groups=[],
+        groups: Optional[List[str]] = [],
     ) -> None:
         super().__init__(groups=groups)
 
@@ -194,7 +194,7 @@ class ImputeByMode(ImputeColumnWise):
         return imputed
 
 
-class RandomImpute(ImputeColumnWise):
+class ImputeRandom(ImputeColumnWise):
     """
     This class implements the imputation by a random value (from th eobserved ones) of each column
 
@@ -202,8 +202,8 @@ class RandomImpute(ImputeColumnWise):
     --------
     >>> import numpy as np
     >>> import pandas as pd
-    >>> from qolmat.imputations.models import RandomImpute
-    >>> imputor = RandomImpute()
+    >>> from qolmat.imputations.models import ImputeRandom
+    >>> imputor = ImputeRandom()
     >>> X = pd.DataFrame(data=[[1, 1, 1, 1], [np.nan, np.nan, np.nan, np.nan], [1, 2, 2, 5], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
     >>> imputor.fit_transform(X)
     """
@@ -253,7 +253,7 @@ class ImputeLOCF(ImputeColumnWise):
 
     def __init__(
         self,
-        groups=[],
+        groups: Optional[List[str]] = [],
     ) -> None:
         super().__init__(groups=groups)
 
@@ -296,7 +296,7 @@ class ImputeNOCB(ImputeColumnWise):
 
     def __init__(
         self,
-        groups=[],
+        groups: Optional[List[str]] = [],
     ) -> None:
         super().__init__(groups=groups)
 
