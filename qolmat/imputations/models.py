@@ -1,22 +1,22 @@
 import sys
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, List
 
 import sklearn.neighbors._base
 
 sys.modules["sklearn.neighbors.base"] = sklearn.neighbors._base
 import numpy as np
 import pandas as pd
-from missingpy import MissForest
-from pykalman import KalmanFilter
 from qolmat.benchmark import utils
+from qolmat.imputations.miss_forest import missforest
 from qolmat.imputations.rpca.pcp_rpca import RPCA
 from qolmat.imputations.rpca.temporal_rpca import OnlineTemporalRPCA, TemporalRPCA
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer, KNNImputer
+from sklearn.impute._base import _BaseImputer
 from statsmodels.tsa.seasonal import seasonal_decompose
 
 
-class ImputeColumnWise:
+class ImputeColumnWise(_BaseImputer):
     """
     This class implements the imputation column wise.
 
@@ -28,7 +28,7 @@ class ImputeColumnWise:
 
     def __init__(
         self,
-        groups=[],
+        groups: Optional[List] = [],
     ) -> None:
         self.groups = groups
 
@@ -46,6 +46,9 @@ class ImputeColumnWise:
         pd.DataFrame
             imputed dataframe
         """
+        if not isinstance(df, pd.DataFrame):
+            raise ValueError("Input has to be a pandas.DataFrame.")
+
         col_to_impute = df.columns
         imputed = df.copy()
         for col in col_to_impute:
@@ -68,6 +71,15 @@ class ImputeColumnWise:
 class ImputeByMean(ImputeColumnWise):
     """
     This class implements the implementation by the mean of each column
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> from qolmat.imputations.models import ImputeByMean
+    >>> imputor = ImputeByMean()
+    >>> X = pd.DataFrame(data=[[1, 1, 1, 1], [np.nan, np.nan, np.nan, np.nan], [1, 2, 2, 5], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
+    >>> imputor.fit_transform(X)
     """
 
     def __init__(
@@ -93,7 +105,7 @@ class ImputeByMean(ImputeColumnWise):
         col = signal.name
         signal = signal.reset_index()
         imputed = signal[col].fillna(
-            utils.custom_groupby(signal, self.groups)[col].transform("mean")
+            utils.custom_groupby(signal, self.groups)[col].apply("mean")
         )
         return imputed
 
@@ -101,6 +113,15 @@ class ImputeByMean(ImputeColumnWise):
 class ImputeByMedian(ImputeColumnWise):
     """
     This class implements the implementation by the median of each column
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> from qolmat.imputations.models import ImputeByMedian
+    >>> imputor = ImputeByMedian()
+    >>> X = pd.DataFrame(data=[[1, 1, 1, 1], [np.nan, np.nan, np.nan, np.nan], [1, 2, 2, 5], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
+    >>> imputor.fit_transform(X)
     """
 
     def __init__(
@@ -126,7 +147,7 @@ class ImputeByMedian(ImputeColumnWise):
         col = signal.name
         signal = signal.reset_index()
         imputed = signal[col].fillna(
-            utils.custom_groupby(signal, self.groups)[col].transform("median")
+            utils.custom_groupby(signal, self.groups)[col].apply("median")
         )
         return imputed
 
@@ -134,6 +155,15 @@ class ImputeByMedian(ImputeColumnWise):
 class ImputeByMode(ImputeColumnWise):
     """
     This class implements the implementation by the mode of each column
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> from qolmat.imputations.models import ImputeByMode
+    >>> imputor = ImputeByMode()
+    >>> X = pd.DataFrame(data=[[1, 1, 1, 1], [np.nan, np.nan, np.nan, np.nan], [1, 2, 2, 5], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
+    >>> imputor.fit_transform(X)
     """
 
     def __init__(
@@ -167,6 +197,15 @@ class ImputeByMode(ImputeColumnWise):
 class RandomImpute(ImputeColumnWise):
     """
     This class implements the imputation by a random value (from th eobserved ones) of each column
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> from qolmat.imputations.models import RandomImpute
+    >>> imputor = RandomImpute()
+    >>> X = pd.DataFrame(data=[[1, 1, 1, 1], [np.nan, np.nan, np.nan, np.nan], [1, 2, 2, 5], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
+    >>> imputor.fit_transform(X)
     """
 
     def __init__(
@@ -201,6 +240,15 @@ class RandomImpute(ImputeColumnWise):
 class ImputeLOCF(ImputeColumnWise):
     """
     This class implements a forward imputation, column wise
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> from qolmat.imputations.models import ImputeLOCF
+    >>> imputor = ImputeLOCF()
+    >>> X = pd.DataFrame(data=[[1, 1, 1, 1], [np.nan, np.nan, np.nan, np.nan], [1, 2, 2, 5], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
+    >>> imputor.fit_transform(X)
     """
 
     def __init__(
@@ -235,6 +283,15 @@ class ImputeLOCF(ImputeColumnWise):
 class ImputeNOCB(ImputeColumnWise):
     """
     This class implements a backawrd imputation, column wise
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> from qolmat.imputations.models import ImputeNOCB
+    >>> imputor = ImputeNOCB()
+    >>> X = pd.DataFrame(data=[[1, 1, 1, 1], [np.nan, np.nan, np.nan, np.nan], [1, 2, 2, 5], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
+    >>> imputor.fit_transform(X)
     """
 
     def __init__(
@@ -279,9 +336,17 @@ class ImputeByInterpolation(ImputeColumnWise):
     method : Optional[str] = "linear"
         name of the method for interpolation: "linear", "cubic", "spline", "slinear", ...
         see pd.Series.interpolate for more example.
-        By default, the value is set to "linear"
+        By default, the value is set to "linear".
     order : Optional[int]
         order for the spline interpolation
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from qolmat.imputations.models import ImputeByInterpolation
+    >>> imputor = ImputeByInterpolation()
+    >>> X = pd.DataFrame(data=[[1, 1, 1, 1], [np.nan, np.nan, np.nan, np.nan], [1, 2, 2, 5], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
+    >>> imputor.fit_transform(X)
     """
 
     def __init__(self, **kwargs) -> None:
@@ -305,41 +370,9 @@ class ImputeByInterpolation(ImputeColumnWise):
         """
         col = signal.name
         signal = signal.reset_index()
-        signal = signal.set_index("datetime")
         if self.method in ["spline", "polynomial"]:
             return signal[col].interpolate(method=self.method, order=self.order)
         return signal[col].interpolate(method=self.method)
-
-
-class ImputeBySpline(ImputeColumnWise):
-    """
-    This class implements a way to impute using splines.
-    Note : overlapping with ImputeByInterpolation since same function but with other parameters ..?
-    """
-
-    def __init__(
-        self,
-    ) -> None:
-        pass
-
-    def fit_transform_col(self, signal: pd.Series) -> pd.Series:
-        """
-        Fit/transform missing values using splines.
-
-        Parameters
-        ----------
-        signal : pd.Series
-            series to impute
-
-        Returns
-        -------
-        pd.Series
-            imputed series
-        """
-        col = signal.name
-        signal = signal.reset_index()
-        signal = signal.set_index("datetime")
-        return signal[col].interpolate(option="spline")
 
 
 class ImputeOnResiduals(ImputeColumnWise):
@@ -349,12 +382,13 @@ class ImputeOnResiduals(ImputeColumnWise):
 
     Parameters
     ----------
-    model : {"additive", "multiplicative"}, optional
-        Type of seasonal component. Abbreviations are accepted.
-    period : int, optional
+    period : int
         Period of the series. Must be used if x is not a pandas object or if
         the index of x does not have  a frequency. Overrides default
         periodicity of x if x is a pandas object with a timeseries index.
+    model : Optional[str]
+        Type of seasonal component "additive" or "multiplicative". Abbreviations are accepted.
+        By default, the value is set to "additive"
     extrapolate_trend : int or 'freq', optional
         If set to > 0, the trend resulting from the convolution is
         linear least-squares extrapolated on both ends (or the single one
@@ -364,14 +398,33 @@ class ImputeOnResiduals(ImputeColumnWise):
     method_interpolation : str
         methof for the residuals interpolation
 
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> from qolmat.imputations.models import ImputeOnResiduals
+    >>> df = pd.DataFrame(index=pd.date_range('2015-01-01','2020-01-01'))
+    >>> mean = 5
+    >>> offset = 10
+    >>> df['y'] = np.cos(df.index.dayofyear/365*2*np.pi - np.pi)*mean + offset
+    >>> trend = 5
+    >>> df['y'] = df['y'] + trend*np.arange(0,df.shape[0])/df.shape[0]
+    >>> noise_mean = 0
+    >>> noise_var = 2
+    >>> df['y'] = df['y'] + np.random.normal(noise_mean, noise_var, df.shape[0])
+    >>> np.random.seed(100)
+    >>> mask = np.random.choice([True, False], size=df.shape)
+    >>> df = df.mask(mask)
+    >>> imputor = ImputeOnResiduals(period=365, model="additive")
+    >>> imputor.fit_transform(df)
     """
 
     def __init__(
         self,
-        model: str,
         period: int,
-        extrapolate_trend: Optional[Union[int, str]],
-        method_interpolation: str,
+        model: Optional[str] = "additive",
+        extrapolate_trend: Optional[Union[int, str]] = "freq",
+        method_interpolation: Optional[str] = "linear",
     ):
         self.model = model
         self.period = period
@@ -394,7 +447,6 @@ class ImputeOnResiduals(ImputeColumnWise):
         """
         col = signal.name
         signal = signal.reset_index()
-        signal = signal.set_index("datetime")
 
         result = seasonal_decompose(
             signal[col].interpolate().bfill().ffill(),
@@ -410,35 +462,7 @@ class ImputeOnResiduals(ImputeColumnWise):
         return result.seasonal + result.trend + residuals
 
 
-class ImputeKalman(ImputeColumnWise):
-    def __init__(self, initial_state_mean: int, n_dim_obs: int) -> None:
-        self.initial_state_mean = initial_state_mean
-        self.n_dim_obs = n_dim_obs
-
-    def fit_transform_col(self, signal: pd.Series) -> pd.Series:
-        kf = KalmanFilter(
-            initial_state_mean=self.initial_state_mean, n_dim_obs=self.n_dim_obs
-        )
-
-        col = signal.name
-        signal = signal.reset_index()
-        signal = signal[col]
-
-        signal_copy = signal.copy()
-        signal_copy = np.ma.asarray(signal_copy)
-        nan_index = signal[signal.isna()].index
-        for i in nan_index:
-            signal_copy[i] = np.ma.masked
-
-        smoothed_state_means, _ = kf.em(signal_copy, n_iter=20).smooth(signal_copy)
-        res = pd.Series(smoothed_state_means.flatten())
-        for i in nan_index:
-            signal_copy[i] = res[i]
-
-        return pd.Series(signal_copy)
-
-
-class ImputeKNN:
+class ImputeKNN(_BaseImputer):
     """
     This class implements an imputation by the k-nearest neighbors, column wise
 
@@ -446,6 +470,15 @@ class ImputeKNN:
     ----------
     k : int
         number of nearest neighbors
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> from qolmat.imputations.models import ImputeKNN
+    >>> imputor = ImputeKNN(k=2)
+    >>> X = pd.DataFrame(data=[[1, 1, 1, 1], [np.nan, np.nan, np.nan, np.nan], [1, 2, 2, 5], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
+    >>> imputor.fit_transform(X)
     """
 
     def __init__(self, **kwargs) -> None:
@@ -466,6 +499,9 @@ class ImputeKNN:
         pd.DataFrame
             imputed DataFrame
         """
+        if not isinstance(df, pd.DataFrame):
+            raise ValueError("Input has to be a pandas.DataFrame.")
+
         imputer = KNNImputer(
             n_neighbors=self.k, weights="distance", metric="nan_euclidean"
         )
@@ -484,7 +520,7 @@ class ImputeKNN:
         return {"k": self.k}
 
 
-class ImputeRPCA:
+class ImputeRPCA(_BaseImputer):
     """
     This class implements the RPCA imputation
 
@@ -556,7 +592,7 @@ class ImputeRPCA:
         }
 
 
-class ImputeIterative:
+class ImputeMICE(_BaseImputer):
     """
     This class implements an iterative imputer in the multivariate case.
     It imputes each Series within a DataFrame multiple times using an iteration of fits
@@ -573,6 +609,16 @@ class ImputeIterative:
         By default, the value is set to 100
     missing_values : Optional[float] = np.nan
         By default, the value is set to np.nan
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> from qolmat.imputations.models import ImputeIterative
+    >>> from sklearn.ensemble import ExtraTreesRegressor
+    >>> imputor = ImputeIterative(estimator=ExtraTreesRegressor(), sample_posterior=False, max_iter=100, missing_values=np.nan)
+    >>> X = pd.DataFrame(data=[[1, 1, 1, 1], [np.nan, np.nan, np.nan, np.nan], [1, 2, 2, 5], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
+    >>> imputor.fit_transform(X)
     """
 
     def __init__(self, **kwargs) -> None:
@@ -592,6 +638,9 @@ class ImputeIterative:
         pd.DataFrame
             imputed dataframe
         """
+        if not isinstance(df, pd.DataFrame):
+            raise ValueError("Input has to be a pandas.DataFrame.")
+
         iterative_imputer = IterativeImputer(**(self.kwargs))
         res = iterative_imputer.fit_transform(df.values)
         imputed = pd.DataFrame(columns=df.columns)
@@ -604,7 +653,7 @@ class ImputeIterative:
         return self.__dict__["kwargs"]
 
 
-class ImputeRegressor:
+class ImputeRegressor(_BaseImputer):
     """
     This class implements a regression imputer in the multivariate case.
     It imputes each Series with missing value within a DataFrame using the complete ones.
@@ -613,6 +662,16 @@ class ImputeRegressor:
     ----------
     model :
         regression model
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> from qolmat.imputations.models import ImputeRegressor
+    >>> from sklearn.ensemble import ExtraTreesRegressor
+    >>> imputor = ImputeRegressor(model=ExtraTreesRegressor(), cols_to_impute=["var1", "var2"])
+    >>> X = pd.DataFrame(data=[[1, 1, 1, 1], [np.nan, np.nan, 2, 3], [1, 2, 2, 5], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
+    >>> imputor.fit_transform(X)
     """
 
     def __init__(self, model, cols_to_impute=[], **kwargs) -> None:
@@ -635,6 +694,9 @@ class ImputeRegressor:
         pd.DataFrame
             imputed dataframe
         """
+        if not isinstance(df, pd.DataFrame):
+            raise
+
         df_imp = df.copy()
         if self.cols_to_impute == []:
             self.cols_to_impute = df.columns.tolist()
@@ -662,7 +724,7 @@ class ImputeRegressor:
         return None
 
 
-class ImputeStochasticRegressor:
+class ImputeStochasticRegressor(_BaseImputer):
     """
     This class implements a stochastic regression imputer in the multivariate case.
     It imputes each Series with missing value within a DataFrame using the complete ones.
@@ -671,6 +733,16 @@ class ImputeStochasticRegressor:
     ----------
     model :
         regression model
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> from qolmat.imputations.models import ImputeStochasticRegressor
+    >>> from sklearn.ensemble import ExtraTreesRegressor
+    >>> imputor = ImputeStochasticRegressor(model=ExtraTreesRegressor(), cols_to_impute=["var1", "var2"])
+    >>> X = pd.DataFrame(data=[[1, 1, 1, 1], [np.nan, np.nan, 2, 3], [1, 2, 2, 5], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
+    >>> imputor.fit_transform(X)
     """
 
     def __init__(self, model, cols_to_impute=[], **kwargs) -> None:
@@ -723,7 +795,7 @@ class ImputeStochasticRegressor:
         return None
 
 
-class ImputeMissForest:
+class ImputeMissForest(_BaseImputer):
     """
     This class implements an imputation for multivariate data with MissForest
 
@@ -758,6 +830,14 @@ class ImputeMissForest:
     verbose : int, optional (default=0)
         Controls the verbosity when fitting and predicting.
 
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> from qolmat.imputations.models import ImputeMissForest
+    >>> imputor = ImputeMissForest()
+    >>> X = pd.DataFrame(data=[[1, 1, 1, 1], [np.nan, np.nan, 2, 3], [1, 2, 2, 5], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
+    >>> imputor.fit_transform(X)
     """
 
     def __init__(
@@ -776,7 +856,7 @@ class ImputeMissForest:
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
 
-        imputer = MissForest(
+        imputer = missforest.MissForest(
             max_features=self.max_features,
             criterion=self.criterion,
             n_estimators=self.n_estimators,

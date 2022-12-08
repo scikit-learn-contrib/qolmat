@@ -23,7 +23,7 @@ class ImputeEM(_BaseImputer):  # type: ignore
     Parameters
     ----------
     method : str
-        Method for imputation, choose among "sample" or "argmax".
+        Method for imputation, choose among "sample" or "mle".
     n_iter_em : int, optional
         Number of shifts added for temporal memory,
         is equivalent to n_iter (index) of memory padding, by default 14.
@@ -47,19 +47,27 @@ class ImputeEM(_BaseImputer):  # type: ignore
         List of pd.DataFrame giving the results of the EM process as function of the
         iteration number.
 
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> from qolmat.imputations.em_sampler import ImputeEM
+    >>> imputor = ImputeEM(strategy="sample")
+    >>> X = pd.DataFrame(data=[[1, 1, 1, 1], [np.nan, np.nan, 3, 2], [1, 2, 2, 1], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
+    >>> imputor.fit_transform(X)
     """
 
     def __init__(
         self,
-        strategy: Optional[str] = "argmax",
+        strategy: Optional[str] = "mle",
         n_iter_em: Optional[int] = 10,
         n_iter_ou: Optional[int] = 50,
-        ampli: Optional[int] = 0.5,
+        ampli: Optional[int] = 1,
         random_state: Optional[int] = 123,
         verbose: Optional[int] = 0,
         temporal: Optional[bool] = True,
         dt: Optional[float] = 2e-2,
-        convergence_threshold: Optional[float] = 1e-6,
+        convergence_threshold: Optional[float] = 1e-4,
     ) -> None:
 
         self.strategy = strategy
@@ -183,7 +191,7 @@ class ImputeEM(_BaseImputer):  # type: ignore
             X_shifted = np.hstack([X_shifted, X_tmrw])
         return X_shifted
 
-    def _em(
+    def _em_mle(
         self, X: np.ndarray, observed: np.ndarray, missing: np.ndarray
     ) -> np.ndarray:
         """EM step
@@ -273,6 +281,7 @@ class ImputeEM(_BaseImputer):  # type: ignore
         """
         n_samples, n_variables = X.shape
 
+        # X = (X - self.means).copy()
         X_init = X.copy()
         beta = self.cov.copy()
         beta[:] = scipy.linalg.inv(beta)
@@ -284,8 +293,10 @@ class ImputeEM(_BaseImputer):  # type: ignore
             X[~mask_na] = X_init[~mask_na]
             if iter_ou > self.n_iter_ou - 50:
                 X_stack.append(X)
+        # X += self.means
 
         X_stack = np.vstack(X_stack)
+        # X_stack += self.means
 
         self.means = np.mean(X_stack, axis=0)
         self.cov = np.cov(X_stack.T, bias=1)
@@ -315,11 +326,7 @@ class ImputeEM(_BaseImputer):  # type: ignore
         rng = np.random.default_rng(self.random_state)
         _, nc = X_.shape
 
-        if self.temporal:
-            X_ = self._add_shift(X_, ystd=True, tmrw=True)
-            _, nc = X_.shape
-
-        if self.strategy == "argmax":
+        if self.strategy == "mle":
             mask = ~np.isnan(X_)
             one_to_nc = np.arange(1, nc + 1, step=1)
             observed = one_to_nc * mask - 1
@@ -349,8 +356,8 @@ class ImputeEM(_BaseImputer):  # type: ignore
         for iter_em in range(self.n_iter_em):
             mu_prec, cov_prec = self.means.copy(), self.cov.copy()
             try:
-                if self.strategy == "argmax":
-                    X_transformed = self._em(X_transformed, observed, missing)
+                if self.strategy == "mle":
+                    X_transformed = self._em_mle(X_transformed, observed, missing)
                 elif self.strategy == "sample":
                     X_transformed = self._sample_ou(
                         X_transformed, mask_na, rng, dt=2e-2
@@ -376,9 +383,6 @@ class ImputeEM(_BaseImputer):  # type: ignore
 
             except BaseException:
                 raise WarningMessage("EM step failed.")
-
-        if self.temporal:
-            X_transformed = X_transformed[:, : int(X.shape[1])]
 
         if np.all(np.isnan(X_transformed)):
             raise WarningMessage("Result contains NaN. This is a bug.")
@@ -411,6 +415,9 @@ class ImputeEM(_BaseImputer):  # type: ignore
         X_sc = scaler.fit_transform(X)
         X_imputed = self.impute_em(X_sc)
         X_imputed = scaler.inverse_transform(X_imputed)
+
+        if np.isnan(np.sum(X_imputed)):
+            raise WarningMessage("Result contains NaN. This is a bug.")
 
         if isinstance(X, np.ndarray):
             return X_imputed

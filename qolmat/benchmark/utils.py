@@ -1,3 +1,4 @@
+from typing import List, Optional, Dict
 from skopt.space import Categorical, Real, Integer
 import pandas as pd
 import numpy as np
@@ -11,7 +12,7 @@ import scipy.sparse as sparse
 BOUNDS = Bounds(1, np.inf, keep_feasible=True)
 
 
-def get_search_space(tested_model, search_params):
+def get_search_space(tested_model, search_params: Dict):
     search_space = None
     if str(type(tested_model).__name__) in search_params.keys():
         search_space = []
@@ -49,7 +50,7 @@ def get_search_space(tested_model, search_params):
     return search_space
 
 
-def custom_groupby(df, groups):
+def custom_groupby(df: pd.DataFrame, groups: List[str]):
     if len(groups) > 0:
         groupby = []
         for g in groups:
@@ -60,7 +61,11 @@ def custom_groupby(df, groups):
 
 
 def choice_with_mask(
-    df, mask, ratio, filter_value=None, random_state=None, mode_anomaly="iid"
+    df: pd.DataFrame,
+    mask: pd.DataFrame,
+    ratio: float,
+    filter_value: Optional[float] = None,
+    random_state: Optional[int] = None,
 ):
 
     mask = mask.to_numpy().flatten()
@@ -84,7 +89,11 @@ def choice_with_mask(
     )
 
 
-def mean_squared_error(df1, df2, squared=True, columnwise=False):
+def mean_squared_error(
+    df1: pd.DataFrame,
+    squared: Optional[bool] = True,
+    columnwise: Optional[bool] = False,
+):
     """
     We provide an implementation robust to nans.
     """
@@ -105,7 +114,9 @@ def mean_absolute_error(df1, df2, columnwise=False):
         return (df1 - df2).abs().sum().sum()
 
 
-def weighted_mean_absolute_percentage_error(df_true, df_pred, columnwise=False):
+def weighted_mean_absolute_percentage_error(
+    df_true: pd.DataFrame, df_pred: pd.DataFrame, columnwise: Optional[bool] = False
+):
     if columnwise:
         return (df_true - df_pred).abs().mean() / df_true.abs().mean()
     else:
