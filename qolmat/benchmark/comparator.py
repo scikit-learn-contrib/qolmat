@@ -82,15 +82,6 @@ class Comparator:
             way to generate corruptions, by default "iid"
         """
 
-        # self.df_is_altered = utils.choice_with_mask(
-        #     df,
-        #     df.notna(),
-        #     self.ratio_missing,
-        #     self.filter_value_nan,
-        #     random_state,
-        #     mode_anomaly=mode_anomaly,
-        # )
-
         df_corrupted_select = df[self.cols_to_impute].copy()
         res = missing_patterns.produce_NA(
             df_corrupted_select,
@@ -173,6 +164,7 @@ class Comparator:
             search_space = utils.get_search_space(tested_model, self.search_params)
 
             errors = self.evaluate_errors_sample(tested_model, self.df, search_space)
+
             if self.columnwise:
                 results[name] = {
                     k: pd.concat([v1 for v1 in v], axis=1).mean(axis=1).to_dict()
@@ -195,7 +187,7 @@ class Comparator:
 
     def evaluate_errors_sample(
         self, tested_model, df: pd.DataFrame, search_space: Optional[dict] = None
-    ):
+    ) -> Dict:
         """Evaluate the errors in the cross-validation
 
         Parameters
@@ -215,16 +207,112 @@ class Comparator:
         errors = defaultdict(list)
         for _ in range(self.n_samples):
             random_state = np.random.randint(0, 10 * 9)
-            self.create_corruptions(df)  # , random_state=random_state)
+            self.create_corruptions(df)
             cv = cross_validation.CrossValidation(
                 tested_model,
                 search_space=search_space,
                 ratio_missing=self.ratio_missing,
                 corruption=self.corruption,
             )
-            df_imputed_full = cv.fit_transform(self.df_corrupted)
             df_imputed = self.df_corrupted.copy()
-            df_imputed[self.cols_to_impute] = df_imputed_full[self.cols_to_impute]
+            df_imputed[self.cols_to_impute] = cv.fit_transform(self.df_corrupted)[
+                self.cols_to_impute
+            ]
+
+            # df_imputed[self.cols_to_impute] = df_imputed_full[self.cols_to_impute]
             for metric, value in self.get_errors(df, df_imputed).items():
+                errors[metric].append(value)
+        return errors
+
+
+from sklearn.model_selection import GroupShuffleSplit
+
+
+class ComparatorGroups(Comparator):
+    def __init__(
+        self,
+        data: ArrayLike,
+        ratio_missing: float,
+        dict_models: Dict,
+        cols_to_impute: List[str],
+        n_samples: Optional[int] = 1,
+        search_params: Optional[Dict] = {},
+        corruption: Optional[str] = "missing",
+        missing_mechanism: Optional[str] = "MCAR",
+        opt: Optional[float] = None,
+        p_obs: Optional[float] = None,
+        quantile: Optional[float] = None,
+        filter_value_nan: Optional[str] = -1e10,
+        columnwise: Optional[bool] = True,
+        column_groups: Optional[List[str]] = [],
+    ) -> None:
+        super().__init__(
+            data,
+            ratio_missing,
+            dict_models,
+            cols_to_impute,
+            n_samples,
+            search_params,
+            corruption,
+            missing_mechanism,
+            opt,
+            p_obs,
+            quantile,
+            filter_value_nan,
+            columnwise,
+        )
+        try:
+            self.column_groups = column_groups
+        except:
+            raise ValueError("No column_groups passed!")
+
+    def create_groups(self):
+        self.groups = self.df.groupby(self.column_groups).ngroup().values
+
+        if self.n_samples > len(np.unique(self.groups)):
+            raise ValueError("n_samples has to be smaller than the number of groups.")
+
+    def evaluate_errors_sample(
+        self, tested_model, df: pd.DataFrame, search_space: Optional[dict] = None
+    ) -> Dict:
+
+        errors = defaultdict(list)
+
+        self.create_groups()
+
+        gss = GroupShuffleSplit(
+            n_splits=self.n_samples,
+            train_size=0.7,
+            random_state=42,
+        )
+        for _, (observed_indices, missing_indices) in enumerate(
+            gss.split(X=df, y=None, groups=self.groups)
+        ):
+            # create the boolean mask of missing values
+            self.df_is_altered = pd.DataFrame(
+                data=np.full((self.df[self.cols_to_impute].shape), True),
+                columns=self.cols_to_impute,
+                index=self.df.index,
+            )
+            self.df_is_altered.iloc[observed_indices, :] = False
+
+            # create the corrupted (with artificial missing values) dataframe
+            self.df_corrupted = self.df[self.cols_to_impute].copy()
+            self.df_corrupted.iloc[missing_indices, :] = np.nan
+
+            cv = cross_validation.CrossValidation(
+                tested_model,
+                search_space=search_space,
+                ratio_missing=self.ratio_missing,
+                corruption=self.corruption,
+            )
+            df_imputed = self.df_corrupted.copy()
+            df_imputed[self.cols_to_impute] = cv.fit_transform(self.df_corrupted)[
+                self.cols_to_impute
+            ]
+
+            for metric, value in self.get_errors(
+                df[self.cols_to_impute], df_imputed
+            ).items():
                 errors[metric].append(value)
         return errors

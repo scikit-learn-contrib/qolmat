@@ -91,6 +91,7 @@ def choice_with_mask(
 
 def mean_squared_error(
     df1: pd.DataFrame,
+    df2: pd.DataFrame,
     squared: Optional[bool] = True,
     columnwise: Optional[bool] = False,
 ):
@@ -107,7 +108,9 @@ def mean_squared_error(
         return np.sqrt(squared_errors)
 
 
-def mean_absolute_error(df1, df2, columnwise=False):
+def mean_absolute_error(
+    df1: pd.DataFrame, df2: pd.DataFrame, columnwise: Optional[bool] = False
+):
     if columnwise:
         return (df1 - df2).abs().sum()
     else:

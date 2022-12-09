@@ -160,14 +160,14 @@ class CrossValidation:
         return obj_func
 
     def fit_transform(
-        self, signal: pd.DataFrame, return_hyper_params: Optional[bool] = False
+        self, X: pd.DataFrame, return_hyper_params: Optional[bool] = False
     ) -> pd.DataFrame:
         """
         Fit and transform estimator and impute the missing values.
 
         Parameters
         ----------
-        signal : pd.DataFrame
+        X : pd.DataFrame
             dataframe to impute
         return_hyper_params : Optional[bool], optional
             _description_, by default False
@@ -177,10 +177,10 @@ class CrossValidation:
         pd.DataFrame
             imputed dataframe
         """
-        self.signal = signal
+        self.X = X
 
         if self.search_space is None:
-            imputed_signal = self.model.fit_transform(self.signal)
+            imputed_X = self.model.fit_transform(self.X)
 
         else:
             res = skopt.gp_minimize(
@@ -196,9 +196,9 @@ class CrossValidation:
                 for param in range(len(res["x"]))
             }
             self._set_params(all_params=best_params)
-            imputed_signal = self.model.fit_transform(self.signal)
+            imputed_X = self.model.fit_transform(self.X)
 
-        res = imputed_signal
+        res = imputed_X
 
         if return_hyper_params:
             res = list(res) + [best_params]
