@@ -3,6 +3,8 @@ from __future__ import annotations
 import pytest
 import pandas as pd
 import numpy as np
+
+
 from qolmat.imputations import models
 from qolmat.utils import missing_patterns
 from qolmat.benchmark import utils
@@ -12,12 +14,12 @@ def test_impute_by_mean_fit_transform() -> None:
     test_imputer = models.ImputeByMean()
     res = test_imputer.fit_transform(
         pd.DataFrame(
-            [[1, 1, 1, 1], [np.nan, np.nan, np.nan, np.nan], [3, 3, 9, 9], [2, 2, 2, 2]]
+            [[1, 1, 1, 1], [np.nan, np.nan, np.nan, np.nan], [3, 3, 9, 9], [2, 2, 2, 3]]
         )
     )
 
     np.testing.assert_array_equal(
-        res, [[1, 1, 1, 1], [2, 2, 4, 4], [3, 3, 9, 9], [2, 2, 2, 2]]
+        res, [[1, 1, 1, 1], [2, 2, 4, 4], [3, 3, 9, 9], [2, 2, 2, 3]]
     )
 
 

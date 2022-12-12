@@ -1,16 +1,11 @@
 from collections import defaultdict
-from math import floor
 from typing import Optional, Dict, List
 from numpy.typing import ArrayLike
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from qolmat.benchmark import cross_validation, utils
 from qolmat.utils import missing_patterns
-from sklearn.metrics import mean_absolute_error, mean_squared_error
-from sklearn.utils import resample
-from skopt.space import Categorical, Integer, Real
 
 
 class Comparator:
@@ -177,11 +172,7 @@ class Comparator:
             results_d = {}
             for k, v in results.items():
                 results_d[k] = pd.DataFrame(v).T
-            return (
-                pd.concat(results_d.values(), keys=results_d.keys())
-                .swaplevel()
-                .sort_index(0)
-            )
+            return pd.concat(results_d.values(), keys=results_d.keys()).swaplevel().sort_index(0)
         else:
             return pd.DataFrame(results)
 
@@ -219,8 +210,7 @@ class Comparator:
                 self.cols_to_impute
             ]
 
-            # df_imputed[self.cols_to_impute] = df_imputed_full[self.cols_to_impute]
-            for metric, value in self.get_errors(df, df_imputed).items():
+            for metric, value in self.get_errors(df[self.cols_to_impute], df_imputed).items():
                 errors[metric].append(value)
         return errors
 
@@ -311,8 +301,6 @@ class ComparatorGroups(Comparator):
                 self.cols_to_impute
             ]
 
-            for metric, value in self.get_errors(
-                df[self.cols_to_impute], df_imputed
-            ).items():
+            for metric, value in self.get_errors(df[self.cols_to_impute], df_imputed).items():
                 errors[metric].append(value)
         return errors
