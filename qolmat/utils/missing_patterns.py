@@ -363,11 +363,36 @@ def produce_NA_mechanism(
         If mecha = "MNAR" and opt = "quanti", quantile level at which the cuts should occur.
 
     Returns
-    ----------
+    -------
     A dictionnary containing:
     'X_init': the initial data matrix.
     'X_incomp': the data with the generated missing values.
-    'mask': a matrix indexing the generated missing values.s
+    'mask': a matrix indexing the generated missing values.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> df = pd.DataFrame(data=np.random.rand(20,4), columns=[f"var{i}" for i n range(1,5)])
+    >>> # MCAR patterns
+    >>> X_miss_mcar = missing_patterns.produce_NA(df, p_miss=0.4, mecha="MCAR")
+    >>> X_mcar = X_miss_mcar['X_incomp']
+    >>> R_mcar = X_miss_mcar['mask']
+    >>> # MAR patterns
+    >>> X_miss_mar = missing_patterns.produce_NA(df, p_miss=0.4, mecha="MAR", p_obs=0.5)
+    >>> X_mar = X_miss_mar['X_incomp']
+    >>> R_mar = X_miss_mar['mask']
+    >>> # MNAR patterns with logistic model
+    >>> X_miss_mnar = missing_patterns.produce_NA(df, p_miss=0.50, mecha="MNAR", opt="logistic", p_obs=0.2)
+    >>> X_mar = X_miss_mnar['X_incomp']
+    >>> R_mar = X_miss_mnar['mask']
+    >>> # MNAR patterns with self masked model
+    >>> X_miss_mnar = missing_patterns.produce_NA(df, p_miss=0.50, mecha="MNAR", opt="selfmasked")
+    >>> X_mar = X_miss_mnar['X_incomp']
+    >>> R_mar = X_miss_mnar['mask']
+    >>> # MNAR patterns with quantiles
+    >>> X_miss_mnar = missing_patterns.produce_NA(df, p_miss=0.50, mecha="MNAR", opt="quantile", p_obs=0.5, q=0.3)
+    >>> X_mar = X_miss_mnar['X_incomp']
+    >>> R_mar = X_miss_mnar['mask']
     """
 
     X_copy = X.copy()
@@ -467,6 +492,15 @@ def produce_NA_markov_chain(
     -------
     mask : pd.DataFrame
         mask of missing values, True if missing, False if observed
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> df = pd.DataFrame(data=np.random.rand(20,4), columns=[f"var{i}" for i n range(1,5)])
+    >>> df = df.mask(np.random.random(df.shape) < 0.3) # already missing values since the idea is to artificially reproduce the same distribution of missing data sizes
+    >>> res = produce_NA_markov_chain(df, columnwise_missing=False)
+
+
     """
     mask_init = np.isnan(df)
     mask = df.copy()
