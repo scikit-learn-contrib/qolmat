@@ -4,8 +4,8 @@ from typing import Optional
 from xmlrpc.client import boolean
 
 import numpy as np
-from numpy.typing import ArrayLike, NDArray
-from qolmat.imputations.rpca.utils import utils
+from numpy.typing import NDArray
+from qolmat.imputations.rpca import utils
 from sklearn.base import BaseEstimator, TransformerMixin
 
 

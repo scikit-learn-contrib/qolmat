@@ -6,7 +6,7 @@ import numpy as np
 import scipy as scp
 from numpy.typing import ArrayLike, NDArray
 from qolmat.imputations.rpca.rpca import RPCA
-from qolmat.imputations.rpca.utils import utils
+from qolmat.imputations.rpca import utils
 import tqdm
 
 

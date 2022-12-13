@@ -1,14 +1,13 @@
+from typing import Optional
 import urllib
 import os
-import sys
 import pandas as pd
 import numpy as np
 import zipfile
-import matplotlib as mpl
 from datetime import datetime
 
 
-def get_data(datapath: str = "data/", download: bool = True):
+def get_data(datapath: str = "data/", download: Optional[bool] = True):
     """Download or generate data
 
     Parameters
@@ -52,7 +51,7 @@ def get_data(datapath: str = "data/", download: bool = True):
 
 
 def preprocess_data(df: pd.DataFrame):
-    """_summary_
+    """Put data into dataframe
 
     Parameters
     ----------
@@ -68,54 +67,9 @@ def preprocess_data(df: pd.DataFrame):
     df.set_index(["station", "datetime"], inplace=True)
     df.drop(columns=["year", "month", "day", "hour", "wd", "No"], inplace=True)
     df.sort_index(inplace=True)
-    # cols_sum = ["RAIN"]
-    # cols_mean = list(set(df.columns) - set(cols_sum))
-    # df[cols_mean] = df.groupby(["station", df.index.get_level_values("datetime").date]).apply(np.mean)
-    # df[cols_sum] = df.groupby(["station", df.index.get_level_values("datetime").date]).apply(np.sum)
     dict_agg = {key: np.mean for key in df.columns}
     dict_agg["RAIN"] = np.mean
     df = df.groupby(["station", df.index.get_level_values("datetime").floor("d")]).agg(
         dict_agg
     )
     return df
-
-
-def make_ellipses(X, ax, color):
-    covariances = X.cov()  # gmm.covariances_[0] # [n][:2, :2]
-    v, w = np.linalg.eigh(covariances)
-    u = w[0] / np.linalg.norm(w[0])
-    angle = np.arctan2(u[1], u[0])
-    angle = 180 * angle / np.pi  # convert to degrees
-    center = X.mean()  # .means_[0]
-    v = 2.0 * np.sqrt(2.0) * np.sqrt(v)
-    ell = mpl.patches.Ellipse(center, v[0], v[1], 180 + angle, color=color)
-    ell.set_clip_box(ax.bbox)
-    ell.set_alpha(0.5)
-    ax.add_artist(ell)
-    ax.set_aspect("equal", "datalim")
-
-
-def compare_covariances(df1, df2, var_x, var_y, ax):
-    """
-    Covariance plot: scatter plot with ellipses
-
-    Parameters
-    ----------
-    df1 : pd.DataFrame
-        dataframe with raw data
-    df2 : pd.DataFrame
-        dataframe with imputations
-    var_x : str
-        variable x, column's name of dataframe df1 to compare with
-    var_y : str
-        variable y, column's name of dataframe df2 to compare with
-    ax : matplotlib.axes._subplots.AxesSubplot
-        axes
-    """
-    ax.scatter(df1[var_x], df1[var_y], marker=".", color="tab:red")
-    ax.scatter(df2[var_x], df2[var_y], marker=".", color="tab:blue")
-    make_ellipses(df1[[var_x, var_y]], ax, "turquoise")
-    make_ellipses(df2[[var_x, var_y]], ax, "crimson")
-    ax.set_xlabel(var_x)
-    ax.set_ylabel(var_y)
-    ax.legend(["Raw data", "After imputation"])

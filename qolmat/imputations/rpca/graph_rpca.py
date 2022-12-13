@@ -5,7 +5,7 @@ from typing import Optional
 import numpy as np
 from numpy.typing import NDArray
 from qolmat.imputations.rpca.rpca import RPCA
-from qolmat.imputations.rpca.utils import utils
+from qolmat.imputations.rpca import utils
 import tqdm
 
 
