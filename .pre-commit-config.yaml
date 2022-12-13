@@ -11,7 +11,7 @@ repos:
       - id: black
         exclude: (tests/)
         args:
-          - "-l 99"
+          - "-l 88"
   # Flake8
   # - repo: https://github.com/PyCQA/flake8
   #   rev: 4.0.1

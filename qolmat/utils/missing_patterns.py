@@ -112,9 +112,13 @@ def MNAR_mask_logistic(
     )  ## number of variables masked with the logistic model
 
     ## sample variables that will be parameters for the LR
-    idxs_params = np.random.choice(d, d_params, replace=False) if exclude_inputs else np.arange(d)
+    idxs_params = (
+        np.random.choice(d, d_params, replace=False) if exclude_inputs else np.arange(d)
+    )
     idxs_nas = (
-        np.array([i for i in range(d) if i not in idxs_params]) if exclude_inputs else np.arange(d)
+        np.array([i for i in range(d) if i not in idxs_params])
+        if exclude_inputs
+        else np.arange(d)
     )
 
     ## other variables will have NA proportions selected bu a logistic model
