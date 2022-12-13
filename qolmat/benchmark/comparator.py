@@ -28,39 +28,40 @@ class Comparator:
         dictionary of search space for each implementation method. By default, the value is set to {}.
     corruption: Optional[str] = "missing"
         type of corruptions to create: missing or outlier. By default, the value is set to "missing".
-    filter_value_nan: Optional[float] = -1e10
     """
 
     def __init__(
         self,
         data: ArrayLike,
-        ratio_missing: float,
         dict_models: Dict,
         cols_to_impute: List[str],
         n_samples: Optional[int] = 1,
         search_params: Optional[Dict] = {},
-        corruption: Optional[str] = "missing",
+        markov: Optional[bool] = True,
+        columnwise_missing: Optional[bool] = False,
+        ratio_missing: Optional[float] = 0.05,
         missing_mechanism: Optional[str] = "MCAR",
+        corruption: Optional[str] = "missing",
         opt: Optional[float] = None,
         p_obs: Optional[float] = None,
         quantile: Optional[float] = None,
-        filter_value_nan: Optional[str] = -1e10,
-        columnwise: Optional[bool] = True,
+        columnwise_evaluation: Optional[bool] = True,
     ):
 
         self.df = data
         self.ratio_missing = ratio_missing
         self.cols_to_impute = cols_to_impute
         self.n_samples = n_samples
-        self.filter_value_nan = filter_value_nan
         self.dict_models = dict_models
         self.search_params = search_params
         self.corruption = corruption
+        self.markov = markov
+        self.columnwise_missing = columnwise_missing
         self.missing_mechanism = missing_mechanism
         self.opt = opt
         self.p_obs = p_obs
         self.quantile = quantile
-        self.columnwise = columnwise
+        self.columnwise_evaluation = columnwise_evaluation
 
     def create_corruptions(
         self, df: pd.DataFrame  # , random_state: Optional[int] = 29, mode_anomaly="iid"
@@ -78,15 +79,21 @@ class Comparator:
         """
 
         df_corrupted_select = df[self.cols_to_impute].copy()
-        res = missing_patterns.produce_NA(
-            df_corrupted_select,
-            self.ratio_missing,
-            mecha=self.missing_mechanism,
-            opt=self.opt,
-            p_obs=self.p_obs,
-            q=self.quantile,
-            filter_value=self.filter_value_nan,
-        )
+
+        if self.markov:
+            res = missing_patterns.produce_NA_markov_chain(
+                df_corrupted_select, columnwise_missing=False
+            )
+
+        else:
+            res = missing_patterns.produce_NA_mechanism(
+                df_corrupted_select,
+                self.ratio_missing,
+                mecha=self.missing_mechanism,
+                opt=self.opt,
+                p_obs=self.p_obs,
+                q=self.quantile,
+            )
 
         self.df_is_altered = res["mask"]
         if self.corruption == "missing":
@@ -122,17 +129,17 @@ class Comparator:
             signal_ref[self.df_is_altered],
             signal_imputed[self.df_is_altered],
             squared=False,
-            columnwise=self.columnwise,
+            columnwise_evaluation=self.columnwise_evaluation,
         )
         mae = utils.mean_absolute_error(
             signal_ref[self.df_is_altered],
             signal_imputed[self.df_is_altered],
-            columnwise=self.columnwise,
+            columnwise_evaluation=self.columnwise_evaluation,
         )
         wmape = utils.weighted_mean_absolute_percentage_error(
             signal_ref[self.df_is_altered],
             signal_imputed[self.df_is_altered],
-            columnwise=self.columnwise,
+            columnwise_evaluation=self.columnwise_evaluation,
         )
         return {"rmse": round(rmse, 4), "mae": round(mae, 4), "wmape": round(wmape, 4)}
 
@@ -160,7 +167,7 @@ class Comparator:
 
             errors = self.evaluate_errors_sample(tested_model, self.df, search_space)
 
-            if self.columnwise:
+            if self.columnwise_evaluation:
                 results[name] = {
                     k: pd.concat([v1 for v1 in v], axis=1).mean(axis=1).to_dict()
                     for k, v in errors.items()
@@ -168,7 +175,7 @@ class Comparator:
             else:
                 results[name] = {k: np.mean(v) for k, v in errors.items()}
 
-        if self.columnwise:
+        if self.columnwise_evaluation:
             results_d = {}
             for k, v in results.items():
                 results_d[k] = pd.DataFrame(v).T
@@ -232,8 +239,7 @@ class ComparatorGroups(Comparator):
         opt: Optional[float] = None,
         p_obs: Optional[float] = None,
         quantile: Optional[float] = None,
-        filter_value_nan: Optional[str] = -1e10,
-        columnwise: Optional[bool] = True,
+        columnwise_evaluation: Optional[bool] = True,
         column_groups: Optional[List[str]] = [],
     ) -> None:
         super().__init__(
@@ -248,8 +254,7 @@ class ComparatorGroups(Comparator):
             opt,
             p_obs,
             quantile,
-            filter_value_nan,
-            columnwise,
+            columnwise_evaluation,
         )
         try:
             self.column_groups = column_groups
@@ -272,7 +277,7 @@ class ComparatorGroups(Comparator):
 
         gss = GroupShuffleSplit(
             n_splits=self.n_samples,
-            train_size=0.7,
+            train_size=1 - self.ratio_missing,
             random_state=42,
         )
         for _, (observed_indices, missing_indices) in enumerate(

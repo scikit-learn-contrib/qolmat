@@ -1,13 +1,13 @@
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from numpy.typing import NDArray
 import numpy as np
 import pandas as pd
 import scipy
 
 
-###########################
-# Missing data mechanisms #
-###########################
+###########################################################################
+# Missing data mechanisms depending on the categories of missing patterns #
+###########################################################################
 
 
 ### missing at random
@@ -112,13 +112,9 @@ def MNAR_mask_logistic(
     )  ## number of variables masked with the logistic model
 
     ## sample variables that will be parameters for the LR
-    idxs_params = (
-        np.random.choice(d, d_params, replace=False) if exclude_inputs else np.arange(d)
-    )
+    idxs_params = np.random.choice(d, d_params, replace=False) if exclude_inputs else np.arange(d)
     idxs_nas = (
-        np.array([i for i in range(d) if i not in idxs_params])
-        if exclude_inputs
-        else np.arange(d)
+        np.array([i for i in range(d) if i not in idxs_params]) if exclude_inputs else np.arange(d)
     )
 
     ## other variables will have NA proportions selected bu a logistic model
@@ -340,14 +336,13 @@ def fit_intercepts(
 # Function produce_NA for generating missing values ------------------------------------------------------
 
 
-def produce_NA(
+def produce_NA_mechanism(
     X: NDArray,
     p_miss: float,
     mecha: Optional[str] = "MCAR",
     opt: Optional[str] = None,
     p_obs: Optional[float] = None,
     q: Optional[float] = None,
-    filter_value: Optional[float] = None,
 ) -> Dict:
     """
     Generate missing values for specifics missing-data mechanism and proportion of missing values.
@@ -376,14 +371,13 @@ def produce_NA(
     """
 
     X_copy = X.copy()
-    X_copy = X_copy.fillna(X_copy.median())
+    mask_init = np.isnan(X_copy)
 
+    X_copy = X_copy.fillna(X_copy.median())
     if isinstance(X_copy, pd.DataFrame):
         X_nas = X_copy.values
     elif isinstance(X_copy, np.ndarray):
         X_nas = X_copy.copy()
-
-    mask_init = np.isnan(X_nas)
 
     if mecha == "MAR":
         mask = MAR_mask(X_nas, p_miss, p_obs)
@@ -396,15 +390,98 @@ def produce_NA(
     else:
         mask = np.random.rand(X_nas.shape[0], X_nas.shape[1]) < p_miss
 
-    if filter_value:
-        mask = np.logical_and(mask, X_nas > filter_value)
-
     X_nas[mask] = np.nan
     X_nas[mask_init] = np.nan
-    mask[mask_init] = True
+    mask[mask_init] = False  # initial missing values -> need to evaluate the imputation
 
     if isinstance(X, pd.DataFrame):
         X_nas = pd.DataFrame(X_nas, columns=X.columns, index=X.index)
         mask = pd.DataFrame(mask, columns=X.columns, index=X.index)
 
     return {"X_init": X, "X_incomp": X_nas, "mask": mask}
+
+
+######################################################
+# Missing data depending on the size of missing data #
+######################################################
+
+
+def transition_matrix(states: List[int]):
+    """Get the transition matrix from a list of states
+
+    Parameters
+    ----------
+    states : List[int]
+
+    Returns
+    -------
+    T : np.ndarray
+        transition matrix associatd to the states
+    """
+    n = 1 + max(states)
+    T = np.zeros((n, n))
+    for (i, j) in zip(states, states[1:]):
+        T[i][j] += 1
+    row_sums = T.sum(axis=1)
+    T = T / row_sums[:, np.newaxis]
+    return T
+
+
+def generate_realisation(matrix: np.ndarray, states: List[int], length: int):
+    """Generate a sequence of states "states" of length "length" from a transition matrix "matrix"
+
+    Parameters
+    ----------
+    matrix : np.ndarray
+        transition matrix (stochastic matrix)
+    states : List[int]
+        list of possible states
+    length : int
+        length of the output sequence
+
+    Returns
+    -------
+    realisation ; List[int]
+        sequence of states
+    """
+    states = sorted(list(set(states)))
+    realisation = [np.random.choice(states)]
+    for _ in range(length - 1):
+        realisation.append(np.random.choice(states, 1, p=matrix[realisation[-1], :])[0])
+    return realisation
+
+
+def produce_NA_markov_chain(
+    df: pd.DataFrame, columnwise_missing: Optional[bool] = False
+) -> pd.DataFrame:
+    """Create missing values based on markov chains
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        initial dataframe with missing values
+    columnwise_missing : Optional[bool], optional
+        True if each column has to be treated independently, by default False
+
+    Returns
+    -------
+    mask : pd.DataFrame
+        mask of missing values, True if missing, False if observed
+    """
+    mask_init = np.isnan(df)
+    mask = df.copy()
+
+    if columnwise_missing:
+        for column in df.columns:
+            states = np.isnan(df[column]).astype(int).values
+            T = transition_matrix(states)
+            sample = generate_realisation(T, states, mask.shape[0])
+            mask[column] = [bool((i + 1) % 2) for i in sample]
+    else:
+        u, states = np.unique(np.isnan(df), axis=0, return_inverse=True)
+        T = transition_matrix(states)
+        sample = generate_realisation(T, states, mask.shape[0])
+        mask = u[sample]
+
+    mask[mask_init] = False
+    return {"X_init": df, "X_incomp": df[~mask], "mask": mask}

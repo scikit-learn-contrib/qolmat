@@ -16,9 +16,7 @@ def get_search_space(tested_model, search_params: Dict):
     search_space = None
     if str(type(tested_model).__name__) in search_params.keys():
         search_space = []
-        for name_param, vals_params in search_params[
-            str(type(tested_model).__name__)
-        ].items():
+        for name_param, vals_params in search_params[str(type(tested_model).__name__)].items():
 
             if str(type(tested_model).__name__) == "ImputeRPCA":
                 if getattr(tested_model.rpca, name_param):
@@ -32,15 +30,11 @@ def get_search_space(tested_model, search_params: Dict):
 
             if vals_params["type"] == "Integer":
                 search_space.append(
-                    Integer(
-                        low=vals_params["min"], high=vals_params["max"], name=name_param
-                    )
+                    Integer(low=vals_params["min"], high=vals_params["max"], name=name_param)
                 )
             elif vals_params["type"] == "Real":
                 search_space.append(
-                    Real(
-                        low=vals_params["min"], high=vals_params["max"], name=name_param
-                    )
+                    Real(low=vals_params["min"], high=vals_params["max"], name=name_param)
                 )
             elif vals_params["type"] == "Categorical":
                 search_space.append(
@@ -84,21 +78,19 @@ def choice_with_mask(
 
     choosen = np.full(df.shape, False, dtype=bool)
     choosen.flat[indices] = True
-    return pd.DataFrame(
-        choosen.reshape(df.shape), index=df.index, columns=df.columns, dtype=bool
-    )
+    return pd.DataFrame(choosen.reshape(df.shape), index=df.index, columns=df.columns, dtype=bool)
 
 
 def mean_squared_error(
     df1: pd.DataFrame,
     df2: pd.DataFrame,
     squared: Optional[bool] = True,
-    columnwise: Optional[bool] = False,
+    columnwise_evaluation: Optional[bool] = False,
 ):
     """
     We provide an implementation robust to nans.
     """
-    if columnwise:
+    if columnwise_evaluation:
         squared_errors = ((df1 - df2) ** 2).sum()
     else:
         squared_errors = ((df1 - df2) ** 2).sum().sum()
@@ -109,18 +101,20 @@ def mean_squared_error(
 
 
 def mean_absolute_error(
-    df1: pd.DataFrame, df2: pd.DataFrame, columnwise: Optional[bool] = False
+    df1: pd.DataFrame, df2: pd.DataFrame, columnwise_evaluation: Optional[bool] = False
 ):
-    if columnwise:
+    if columnwise_evaluation:
         return (df1 - df2).abs().sum()
     else:
         return (df1 - df2).abs().sum().sum()
 
 
 def weighted_mean_absolute_percentage_error(
-    df_true: pd.DataFrame, df_pred: pd.DataFrame, columnwise: Optional[bool] = False
+    df_true: pd.DataFrame,
+    df_pred: pd.DataFrame,
+    columnwise_evaluation: Optional[bool] = False,
 ):
-    if columnwise:
+    if columnwise_evaluation:
         return (df_true - df_pred).abs().mean() / df_true.abs().mean()
     else:
         return ((df_true - df_pred).abs().mean() / df_true.abs().mean()).mean()
@@ -154,9 +148,7 @@ def agg_df_values(df, target, agg_time):
 def aggregate_time_data(df, target, agg_time):
     df.loc[:, "datetime"] = df.datetime.dt.tz_localize(tz=None)
     df["day_SNCF"] = (df["datetime"] - pd.Timedelta("4H")).dt.date
-    df_aggregated = df.groupby("day_SNCF").apply(
-        lambda x: agg_df_values(x, target, agg_time)
-    )
+    df_aggregated = df.groupby("day_SNCF").apply(lambda x: agg_df_values(x, target, agg_time))
     return df_aggregated
 
 
@@ -205,8 +197,7 @@ def impute_entropy_day(df, target, ts_agg, agg_time, zero_soil=0.0):
     df_day = df.drop_duplicates(subset=["datetime"])
     ts_agg = ts_agg.to_frame().reset_index()
     ts_agg = ts_agg.loc[
-        (ts_agg.agg_time >= df_day.datetime.min())
-        & (ts_agg.agg_time <= df_day.datetime.max())
+        (ts_agg.agg_time >= df_day.datetime.min()) & (ts_agg.agg_time <= df_day.datetime.max())
     ]
     if len(ts_agg) < 2:
         df_day = pd.DataFrame({"datetime": df_day.datetime.values})
@@ -215,26 +206,18 @@ def impute_entropy_day(df, target, ts_agg, agg_time, zero_soil=0.0):
         return df_res
 
     df_day["datetime_round"] = df_day.datetime.dt.round(agg_time)
-    df_day["n_train"] = df_day.groupby("datetime_round")[target].transform(
-        lambda x: x.shape[0]
-    )
+    df_day["n_train"] = df_day.groupby("datetime_round")[target].transform(lambda x: x.shape[0])
 
     df_day["hyp_values"] = (
         df_day[["datetime_round"]]
-        .merge(ts_agg, left_on="datetime_round", right_on="agg_time", how="left")[
-            col_name
-        ]
+        .merge(ts_agg, left_on="datetime_round", right_on="agg_time", how="left")[col_name]
         .values
     )
 
     df_day["hyp_values"] = df_day["hyp_values"] / df_day["n_train"]
-    df_day.loc[df_day[target].notna(), "hyp_values"] = df_day.loc[
-        df_day[target].notna(), target
-    ]
+    df_day.loc[df_day[target].notna(), "hyp_values"] = df_day.loc[df_day[target].notna(), target]
     ts_agg_zeros = ts_agg.loc[ts_agg[col_name] <= zero_soil, "agg_time"]
-    is_in_zero_slot = is_in_a_slot(
-        df_dt=df_day["datetime"], df_dt_agg=ts_agg_zeros, freq=agg_time
-    )
+    is_in_zero_slot = is_in_a_slot(df_dt=df_day["datetime"], df_dt_agg=ts_agg_zeros, freq=agg_time)
 
     df_day["impute"] = np.nan
     df_day.loc[is_in_zero_slot, "impute"] = 0

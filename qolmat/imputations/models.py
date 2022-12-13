@@ -30,10 +30,10 @@ class ImputeColumnWise(_BaseImputer):
     def __init__(
         self,
         groups: Optional[List[str]] = [],
-        col_to_impute: Optional[List[str]] = None,
+        cols_to_impute: Optional[List[str]] = None,
     ) -> None:
         self.groups = groups
-        self.col_to_impute = col_to_impute
+        self.cols_to_impute = cols_to_impute
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -52,13 +52,13 @@ class ImputeColumnWise(_BaseImputer):
         if not isinstance(df, pd.DataFrame):
             raise ValueError("Input has to be a pandas.DataFrame.")
 
-        if self.col_to_impute is None:
-            self.col_to_impute = df.columns
+        if self.cols_to_impute is None:
+            self.cols_to_impute = df.columns
         imputed = df.copy()
-        for col in self.col_to_impute:
+        for col in self.cols_to_impute:
             imputed[col] = self.fit_transform_col(df[col]).values
 
-        if imputed[self.col_to_impute].isna().sum().sum() > 0:
+        if imputed[self.cols_to_impute].isna().sum().sum() > 0:
             warnings.warn("There are still nan in the columns to be imputed")
         return imputed
 
@@ -83,7 +83,7 @@ class ImputeByMean(ImputeColumnWise):
     >>> import numpy as np
     >>> import pandas as pd
     >>> from qolmat.imputations.models import ImputeByMean
-    >>> imputor = ImputeByMean(col_to_impute=["var1", "var3"])
+    >>> imputor = ImputeByMean(cols_to_impute=["var1", "var3"])
     >>> X = pd.DataFrame(data=[[1, 1, 1, 1], [np.nan, np.nan, np.nan, np.nan], [1, 2, 2, 5], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
     >>> imputor.fit_transform(X)
     """
@@ -91,9 +91,9 @@ class ImputeByMean(ImputeColumnWise):
     def __init__(
         self,
         groups: Optional[List[str]] = [],
-        col_to_impute: Optional[List[str]] = None,
+        cols_to_impute: Optional[List[str]] = None,
     ) -> None:
-        super().__init__(groups=groups, col_to_impute=col_to_impute)
+        super().__init__(groups=groups, cols_to_impute=cols_to_impute)
 
     def fit_transform_col(self, signal: pd.Series) -> pd.Series:
         """
@@ -124,7 +124,7 @@ class ImputeByMedian(ImputeColumnWise):
     >>> import numpy as np
     >>> import pandas as pd
     >>> from qolmat.imputations.models import ImputeByMedian
-    >>> imputor = ImputeByMean(col_to_impute=["var1", "var3"])
+    >>> imputor = ImputeByMean(cols_to_impute=["var1", "var3"])
     >>> X = pd.DataFrame(data=[[1, 1, 1, 1], [np.nan, np.nan, np.nan, np.nan], [1, 2, 2, 5], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
     >>> imputor.fit_transform(X)
     """
@@ -132,9 +132,9 @@ class ImputeByMedian(ImputeColumnWise):
     def __init__(
         self,
         groups: Optional[List[str]] = [],
-        col_to_impute: Optional[List[str]] = None,
+        cols_to_impute: Optional[List[str]] = None,
     ) -> None:
-        super().__init__(groups=groups, col_to_impute=col_to_impute)
+        super().__init__(groups=groups, cols_to_impute=cols_to_impute)
 
     def fit_transform_col(self, signal: pd.Series) -> pd.Series:
         """
@@ -167,7 +167,7 @@ class ImputeByMode(ImputeColumnWise):
     >>> import numpy as np
     >>> import pandas as pd
     >>> from qolmat.imputations.models import ImputeByMode
-    >>> imputor = ImputeByMean(col_to_impute=["var1", "var3"])
+    >>> imputor = ImputeByMean(cols_to_impute=["var1", "var3"])
     >>> X = pd.DataFrame(data=[[1, 1, 1, 1], [np.nan, np.nan, np.nan, np.nan], [1, 2, 2, 5], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
     >>> imputor.fit_transform(X)
     """
@@ -175,9 +175,9 @@ class ImputeByMode(ImputeColumnWise):
     def __init__(
         self,
         groups: Optional[List[str]] = [],
-        col_to_impute: Optional[List[str]] = None,
+        cols_to_impute: Optional[List[str]] = None,
     ) -> None:
-        super().__init__(groups=groups, col_to_impute=col_to_impute)
+        super().__init__(groups=groups, cols_to_impute=cols_to_impute)
 
     def fit_transform_col(self, signal: pd.Series) -> pd.Series:
         """
@@ -208,16 +208,16 @@ class ImputeRandom(ImputeColumnWise):
     >>> import numpy as np
     >>> import pandas as pd
     >>> from qolmat.imputations.models import ImputeRandom
-    >>> imputor = ImputeByMean(col_to_impute=["var1", "var3"])
+    >>> imputor = ImputeByMean(cols_to_impute=["var1", "var3"])
     >>> X = pd.DataFrame(data=[[1, 1, 1, 1], [np.nan, np.nan, np.nan, np.nan], [1, 2, 2, 5], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
     >>> imputor.fit_transform(X)
     """
 
     def __init__(
         self,
-        col_to_impute: Optional[List[str]] = None,
+        cols_to_impute: Optional[List[str]] = None,
     ) -> None:
-        super().__init__(col_to_impute=col_to_impute)
+        super().__init__(cols_to_impute=cols_to_impute)
 
     def fit_transform_col(self, signal: pd.Series) -> pd.Series:
         """
@@ -252,7 +252,7 @@ class ImputeLOCF(ImputeColumnWise):
     >>> import numpy as np
     >>> import pandas as pd
     >>> from qolmat.imputations.models import ImputeLOCF
-    >>> imputor = ImputeByMean(col_to_impute=["var1", "var3"])
+    >>> imputor = ImputeByMean(cols_to_impute=["var1", "var3"])
     >>> X = pd.DataFrame(data=[[np.nan, np.nan, np.nan, np.nan], [1, 1, 1, 1], [np.nan, np.nan, np.nan, np.nan], [1, 2, 2, 5], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
     >>> imputor.fit_transform(X)
     """
@@ -260,9 +260,9 @@ class ImputeLOCF(ImputeColumnWise):
     def __init__(
         self,
         groups: Optional[List[str]] = [],
-        col_to_impute: Optional[List[str]] = None,
+        cols_to_impute: Optional[List[str]] = None,
     ) -> None:
-        super().__init__(groups=groups, col_to_impute=col_to_impute)
+        super().__init__(groups=groups, cols_to_impute=cols_to_impute)
 
     def fit_transform_col(self, signal: pd.Series) -> pd.Series:
         """
@@ -294,7 +294,7 @@ class ImputeNOCB(ImputeColumnWise):
     >>> import numpy as np
     >>> import pandas as pd
     >>> from qolmat.imputations.models import ImputeNOCB
-    >>> imputor = ImputeByMean(col_to_impute=["var1", "var3"])
+    >>> imputor = ImputeByMean(cols_to_impute=["var1", "var3"])
     >>> X = pd.DataFrame(data=[[1, 1, 1, 1], [np.nan, np.nan, np.nan, np.nan], [1, 2, 2, 5], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
     >>> imputor.fit_transform(X)
     """
@@ -302,9 +302,9 @@ class ImputeNOCB(ImputeColumnWise):
     def __init__(
         self,
         groups: Optional[List[str]] = [],
-        col_to_impute: Optional[List[str]] = None,
+        cols_to_impute: Optional[List[str]] = None,
     ) -> None:
-        super().__init__(groups=groups, col_to_impute=col_to_impute)
+        super().__init__(groups=groups, cols_to_impute=cols_to_impute)
 
     def fit_transform_col(self, signal: pd.Series) -> pd.Series:
         """
@@ -348,7 +348,7 @@ class ImputeByInterpolation(ImputeColumnWise):
     --------
     >>> import numpy as np
     >>> from qolmat.imputations.models import ImputeByInterpolation
-    >>> imputor = ImputeByInterpolation(method="spline", order=2, col_to_impute=["var1", "var2"])
+    >>> imputor = ImputeByInterpolation(method="spline", order=2, cols_to_impute=["var1", "var2"])
     >>> X = pd.DataFrame(data=[[1, 1, 1, 1], [np.nan, np.nan, np.nan, np.nan], [1, 2, 2, 5], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
     >>> imputor.fit_transform(X)
     """
@@ -429,13 +429,13 @@ class ImputeOnResiduals(ImputeColumnWise):
         model: Optional[str] = "additive",
         extrapolate_trend: Optional[Union[int, str]] = "freq",
         method_interpolation: Optional[str] = "linear",
-        col_to_impute: Optional[List[str]] = None,
+        cols_to_impute: Optional[List[str]] = None,
     ):
         self.model = model
         self.period = period
         self.extrapolate_trend = extrapolate_trend
         self.method_interpolation = method_interpolation
-        self.col_to_impute = col_to_impute
+        self.cols_to_impute = cols_to_impute
 
     def fit_transform_col(self, signal: pd.Series) -> pd.Series:
         """
