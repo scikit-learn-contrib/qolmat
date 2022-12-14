@@ -99,7 +99,19 @@ class Comparator:
             signal_imputed[self.df_is_altered],
             columnwise_evaluation=self.columnwise_evaluation,
         )
-        return {"rmse": round(rmse, 4), "mae": round(mae, 4), "wmape": round(wmape, 4)}
+        if not self.columnwise_evaluation:
+            frechet = utils.frechet_distance(
+                signal_ref,
+                signal_imputed,
+                normalized=False,
+            )
+
+        return {
+            "rmse": round(rmse, 4),
+            "mae": round(mae, 4),
+            "wmape": round(wmape, 4),
+            **({"frechet distance": frechet} if not self.columnwise_evaluation else {}),
+        }
 
     def compare(self, full: bool = True, verbose: bool = True):
         """Function to compare different imputation methods
