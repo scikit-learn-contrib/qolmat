@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 from skopt.space import Categorical, Real, Integer
 import pandas as pd
 import numpy as np
@@ -185,7 +185,7 @@ def weighted_mean_absolute_percentage_error(
     df_true: pd.DataFrame,
     df_pred: pd.DataFrame,
     columnwise_evaluation: Optional[bool] = False,
-) -> float:
+) -> Union[float, pd.Series]:
     if columnwise_evaluation:
         return (df_true - df_pred).abs().mean() / df_true.abs().mean()
     else:
@@ -196,7 +196,7 @@ def wasser_distance(
     df_true: pd.DataFrame,
     df_pred: pd.DataFrame,
     columnwise_evaluation: Optional[bool] = True,
-) -> float:
+) -> pd.Series:
     """_summary_
 
     Parameters
@@ -210,54 +210,66 @@ def wasser_distance(
 
     Returns
     -------
-    float
-        _description_
+    wasserstein distances : pd.Series
 
     Raises
     ------
     Exception
-        _description_
+        Wasserstein distance can only be computed on 1D array
     """
     if not columnwise_evaluation:
         raise Exception("Wasserstein distance is only for 1D setting.")
 
     cols = df_true.columns.tolist()
-    wd = []
-    for col in cols:
-        wd.append(
-            scipy.stats.wasserstein_distance(
-                df_true[col].dropna(), df_pred[col].ffill().bfill()
-            )
+    wd = [
+        scipy.stats.wasserstein_distance(
+            df_true[col].dropna(), df_pred[col].ffill().bfill()
         )
+        for col in cols
+    ]
     return pd.Series(wd, index=cols)
 
 
-def kl_divergence(df_true: pd.DataFrame, df_pred: pd.DataFrame) -> float:
-    """Kullback-Leibler divergence for the multivariate normal distribution
-    https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence
+def kl_divergence(
+    df_true: pd.DataFrame,
+    df_pred: pd.DataFrame,
+    columnwise_evaluation: Optional[bool] = False,
+) -> Union[float, pd.Series]:
+    """Kullback-Leibler divergence between distributions
+    If multivariate normal distributions: https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence
 
     Parameters
     ----------
     df_true : pd.DataFrame
     df_pred : pd.DataFrame
+    columnwise_evaluation: Optional[bool]
+        if the evalutation is computed column-wise. By default, is set to False
 
     Returns
     -------
-    Kullback-Leibler divergence : float
+    Kullback-Leibler divergence : Union[float, pd.Series]
     """
-    n = df_true.shape[0]
-    mu_true = np.nanmean(df_true, axis=0)
-    sigma_true = np.ma.cov(np.ma.masked_invalid(df_true), rowvar=False).data
-    mu_pred = np.nanmean(df_pred, axis=0)
-    sigma_pred = np.ma.cov(np.ma.masked_invalid(df_pred), rowvar=False).data
 
-    diff = mu_true - mu_pred
-    inv_sigma_pred = np.linalg.inv(sigma_pred)
-    quad_term = diff.T @ inv_sigma_pred @ diff
-    trace_term = np.trace(inv_sigma_pred @ sigma_true)
-    det_term = np.log(np.linalg.det(sigma_pred) / np.linalg.det(sigma_true))
-
-    return 0.5 * (quad_term + trace_term + det_term - n)
+    if columnwise_evaluation:
+        cols = df_true.columns.tolist()
+        kl = []
+        for col in cols:
+            p = np.histogram(df_true[col].dropna(), bins=20, density=True)[0]
+            q = np.histogram(df_pred[col].dropna(), bins=20, density=True)[0]
+            kl.append(scipy.stats.entropy(p + EPS, q + EPS))
+        return pd.Series(kl, index=cols)
+    else:
+        n = df_true.shape[0]
+        mu_true = np.nanmean(df_true, axis=0)
+        sigma_true = np.ma.cov(np.ma.masked_invalid(df_true), rowvar=False).data
+        mu_pred = np.nanmean(df_pred, axis=0)
+        sigma_pred = np.ma.cov(np.ma.masked_invalid(df_pred), rowvar=False).data
+        diff = mu_true - mu_pred
+        inv_sigma_pred = np.linalg.inv(sigma_pred)
+        quad_term = diff.T @ inv_sigma_pred @ diff
+        trace_term = np.trace(inv_sigma_pred @ sigma_true)
+        det_term = np.log(np.linalg.det(sigma_pred) / np.linalg.det(sigma_true))
+        return 0.5 * (quad_term + trace_term + det_term - n)
 
 
 def frechet_distance(
@@ -279,6 +291,8 @@ def frechet_distance(
         true dataframe
     df_pred : pd.DataFrame
         predicted dataframe
+    normalized: Optional[bool]
+        if the data has to be normalised. By default, is set to False
 
     Returns
     -------

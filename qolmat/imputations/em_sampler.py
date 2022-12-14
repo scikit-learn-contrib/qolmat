@@ -414,6 +414,11 @@ class ImputeEM(_BaseImputer):  # type: ignore
                 "Invalid type. X must be either pd.DataFrame or np.ndarray."
             )
 
+        if X.shape[1] < 2:
+            raise AssertionError(
+                "Invalid dimensions: X must be of dimension (n,m) with m>1."
+            )
+
         scaler = StandardScaler()
         X_sc = scaler.fit_transform(X)
         X_imputed = self.impute_em(X_sc)
