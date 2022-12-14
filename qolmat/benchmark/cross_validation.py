@@ -1,12 +1,8 @@
-from typing import Optional, Tuple, List, Dict, Union
-from inspect import Parameter
+from typing import Dict, Optional, Union
 import pandas as pd
 import numpy as np
 import skopt
-from typing import Optional
-from sklearn.utils import resample
-from math import floor
-from qolmat.benchmark import utils
+from . import utils
 
 
 class CrossValidation:
@@ -59,7 +55,9 @@ class CrossValidation:
         self.corruption = corruption
         self.verbose = verbose
 
-    def create_corruptions(self, df: pd.DataFrame, random_state: Optional[int] = 129):
+    def create_corruptions(
+        self, df: pd.DataFrame, random_state: Optional[int] = 129
+    ) -> None:
         """
         Create corrputions (missing data or outliers) in a dataframe
 
@@ -147,7 +145,19 @@ class CrossValidation:
                 print(all_params)
             errors = []
             for _ in range(self.cv):
-                self.create_corruptions(self.signal)
+                # self.create_corruptions(self.signal)
+                self.df_is_altered, self.df_corrupted = utils.create_missing_values(
+                    self.signal,
+                    self.cols_to_impute,
+                    self.markov,
+                    self.ratio_missing,
+                    self.missing_mechanism,
+                    self.opt,
+                    self.p_obs,
+                    self.quantile,
+                    self.corruption,
+                )
+
                 imputed = self.model.fit_transform(self.corrupted_df)
                 error = self.loss_function(self.signal, imputed)
                 errors.append(error)

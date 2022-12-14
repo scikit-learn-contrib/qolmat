@@ -70,6 +70,9 @@ class ImputeEM(_BaseImputer):  # type: ignore
         convergence_threshold: Optional[float] = 1e-4,
     ) -> None:
 
+        if strategy not in ["mle", "sample"]:
+            raise Exception("strategy has to be 'mle' or 'sample'")
+
         self.strategy = strategy
         self.n_iter_em = n_iter_em
         self.n_iter_ou = n_iter_ou

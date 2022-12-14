@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict
+from typing import Dict, List, Optional, Tuple
 from skopt.space import Categorical, Real, Integer
 import pandas as pd
 import numpy as np
@@ -7,6 +7,7 @@ from math import floor
 from scipy.optimize import lsq_linear
 from scipy.optimize import Bounds
 import scipy.sparse as sparse
+from . import missing_patterns
 
 
 BOUNDS = Bounds(1, np.inf, keep_feasible=True)
@@ -16,7 +17,9 @@ def get_search_space(tested_model, search_params: Dict):
     search_space = None
     if str(type(tested_model).__name__) in search_params.keys():
         search_space = []
-        for name_param, vals_params in search_params[str(type(tested_model).__name__)].items():
+        for name_param, vals_params in search_params[
+            str(type(tested_model).__name__)
+        ].items():
 
             if str(type(tested_model).__name__) == "ImputeRPCA":
                 if getattr(tested_model.rpca, name_param):
@@ -30,11 +33,15 @@ def get_search_space(tested_model, search_params: Dict):
 
             if vals_params["type"] == "Integer":
                 search_space.append(
-                    Integer(low=vals_params["min"], high=vals_params["max"], name=name_param)
+                    Integer(
+                        low=vals_params["min"], high=vals_params["max"], name=name_param
+                    )
                 )
             elif vals_params["type"] == "Real":
                 search_space.append(
-                    Real(low=vals_params["min"], high=vals_params["max"], name=name_param)
+                    Real(
+                        low=vals_params["min"], high=vals_params["max"], name=name_param
+                    )
                 )
             elif vals_params["type"] == "Categorical":
                 search_space.append(
@@ -60,7 +67,7 @@ def choice_with_mask(
     ratio: float,
     filter_value: Optional[float] = None,
     random_state: Optional[int] = None,
-):
+) -> pd.DataFrame:
 
     mask = mask.to_numpy().flatten()
     if filter_value:
@@ -78,7 +85,67 @@ def choice_with_mask(
 
     choosen = np.full(df.shape, False, dtype=bool)
     choosen.flat[indices] = True
-    return pd.DataFrame(choosen.reshape(df.shape), index=df.index, columns=df.columns, dtype=bool)
+    return pd.DataFrame(
+        choosen.reshape(df.shape), index=df.index, columns=df.columns, dtype=bool
+    )
+
+
+def create_missing_values(
+    df: pd.DataFrame,
+    cols_to_impute: List[str],
+    markov: Optional[bool] = True,
+    ratio_missing: Optional[float] = 0.1,
+    missing_mechanism: Optional[str] = "MCAR",
+    opt: Optional[str] = "selfmasked",
+    p_obs: Optional[float] = 0.1,
+    quantile: Optional[float] = 0.3,
+    corruption: Optional[str] = "missing",
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Create missing values in a dataframe
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        dataframe to be corrupted
+    cols_to_impute : List[str],
+    markov : Optional[bool] = True,
+    ratio_missing : Optional[float] = 0.1,
+    missing_mechanism : Optional[str] = "MCAR",
+    opt : Optional[str] = "selfmasked",
+    p_obs : Optional[float] = 0.1,
+    quantile : Optional[float] = 0.3,
+    corruption : Optional[str] = "missing",
+    """
+
+    df_corrupted_select = df[cols_to_impute].copy()
+
+    if markov:
+        res = missing_patterns.produce_NA_markov_chain(
+            df_corrupted_select, columnwise_missing=False
+        )
+
+    else:
+        res = missing_patterns.produce_NA_mechanism(
+            df_corrupted_select,
+            ratio_missing,
+            mecha=missing_mechanism,
+            opt=opt,
+            p_obs=p_obs,
+            q=quantile,
+        )
+
+    df_is_altered = res["mask"]
+    if corruption == "missing":
+        df_corrupted_select[df_is_altered] = np.nan
+    elif corruption == "outlier":
+        df_corrupted_select[df_is_altered] = np.random.randint(
+            0, high=3 * np.max(df), size=(int(len(df) * ratio_missing))
+        )
+
+    df_corrupted = df.copy()
+    df_corrupted[cols_to_impute] = df_corrupted_select
+
+    return (df_is_altered, df_corrupted)
 
 
 def mean_squared_error(
@@ -148,7 +215,9 @@ def agg_df_values(df, target, agg_time):
 def aggregate_time_data(df, target, agg_time):
     df.loc[:, "datetime"] = df.datetime.dt.tz_localize(tz=None)
     df["day_SNCF"] = (df["datetime"] - pd.Timedelta("4H")).dt.date
-    df_aggregated = df.groupby("day_SNCF").apply(lambda x: agg_df_values(x, target, agg_time))
+    df_aggregated = df.groupby("day_SNCF").apply(
+        lambda x: agg_df_values(x, target, agg_time)
+    )
     return df_aggregated
 
 
@@ -197,7 +266,8 @@ def impute_entropy_day(df, target, ts_agg, agg_time, zero_soil=0.0):
     df_day = df.drop_duplicates(subset=["datetime"])
     ts_agg = ts_agg.to_frame().reset_index()
     ts_agg = ts_agg.loc[
-        (ts_agg.agg_time >= df_day.datetime.min()) & (ts_agg.agg_time <= df_day.datetime.max())
+        (ts_agg.agg_time >= df_day.datetime.min())
+        & (ts_agg.agg_time <= df_day.datetime.max())
     ]
     if len(ts_agg) < 2:
         df_day = pd.DataFrame({"datetime": df_day.datetime.values})
@@ -206,18 +276,26 @@ def impute_entropy_day(df, target, ts_agg, agg_time, zero_soil=0.0):
         return df_res
 
     df_day["datetime_round"] = df_day.datetime.dt.round(agg_time)
-    df_day["n_train"] = df_day.groupby("datetime_round")[target].transform(lambda x: x.shape[0])
+    df_day["n_train"] = df_day.groupby("datetime_round")[target].transform(
+        lambda x: x.shape[0]
+    )
 
     df_day["hyp_values"] = (
         df_day[["datetime_round"]]
-        .merge(ts_agg, left_on="datetime_round", right_on="agg_time", how="left")[col_name]
+        .merge(ts_agg, left_on="datetime_round", right_on="agg_time", how="left")[
+            col_name
+        ]
         .values
     )
 
     df_day["hyp_values"] = df_day["hyp_values"] / df_day["n_train"]
-    df_day.loc[df_day[target].notna(), "hyp_values"] = df_day.loc[df_day[target].notna(), target]
+    df_day.loc[df_day[target].notna(), "hyp_values"] = df_day.loc[
+        df_day[target].notna(), target
+    ]
     ts_agg_zeros = ts_agg.loc[ts_agg[col_name] <= zero_soil, "agg_time"]
-    is_in_zero_slot = is_in_a_slot(df_dt=df_day["datetime"], df_dt_agg=ts_agg_zeros, freq=agg_time)
+    is_in_zero_slot = is_in_a_slot(
+        df_dt=df_day["datetime"], df_dt_agg=ts_agg_zeros, freq=agg_time
+    )
 
     df_day["impute"] = np.nan
     df_day.loc[is_in_zero_slot, "impute"] = 0

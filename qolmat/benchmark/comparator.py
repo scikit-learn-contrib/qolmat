@@ -5,7 +5,7 @@ from numpy.typing import ArrayLike
 import numpy as np
 import pandas as pd
 from qolmat.benchmark import cross_validation, utils
-from qolmat.utils import missing_patterns
+from . import missing_patterns
 
 
 class Comparator:
@@ -62,48 +62,6 @@ class Comparator:
         self.p_obs = p_obs
         self.quantile = quantile
         self.columnwise_evaluation = columnwise_evaluation
-
-    def create_corruptions(
-        self, df: pd.DataFrame  # , random_state: Optional[int] = 29, mode_anomaly="iid"
-    ):
-        """Create corruption in a dataframe
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            dataframe to be corrupted
-        random_state : Optional[int], optional
-            seed used by the ranom number generator, by default 29
-        mode_anomaly : str, optional
-            way to generate corruptions, by default "iid"
-        """
-
-        df_corrupted_select = df[self.cols_to_impute].copy()
-
-        if self.markov:
-            res = missing_patterns.produce_NA_markov_chain(
-                df_corrupted_select, columnwise_missing=False
-            )
-
-        else:
-            res = missing_patterns.produce_NA_mechanism(
-                df_corrupted_select,
-                self.ratio_missing,
-                mecha=self.missing_mechanism,
-                opt=self.opt,
-                p_obs=self.p_obs,
-                q=self.quantile,
-            )
-
-        self.df_is_altered = res["mask"]
-        if self.corruption == "missing":
-            df_corrupted_select[self.df_is_altered] = np.nan
-        elif self.corruption == "outlier":
-            df_corrupted_select[self.df_is_altered] = np.random.randint(
-                0, high=3 * np.max(df), size=(int(len(df) * self.ratio_missing))
-            )
-        self.df_corrupted = df.copy()
-        self.df_corrupted[self.cols_to_impute] = df_corrupted_select
 
     def get_errors(
         self,
@@ -179,7 +137,11 @@ class Comparator:
             results_d = {}
             for k, v in results.items():
                 results_d[k] = pd.DataFrame(v).T
-            return pd.concat(results_d.values(), keys=results_d.keys()).swaplevel().sort_index(0)
+            return (
+                pd.concat(results_d.values(), keys=results_d.keys())
+                .swaplevel()
+                .sort_index(0)
+            )
         else:
             return pd.DataFrame(results)
 
@@ -202,22 +164,41 @@ class Comparator:
         dict
             dictionary with the errors for eahc metric and at each fold
         """
+
         errors = defaultdict(list)
         for _ in range(self.n_samples):
-            random_state = np.random.randint(0, 10 * 9)
-            self.create_corruptions(df)
-            cv = cross_validation.CrossValidation(
-                tested_model,
-                search_space=search_space,
-                ratio_missing=self.ratio_missing,
-                corruption=self.corruption,
-            )
-            df_imputed = self.df_corrupted.copy()
-            df_imputed[self.cols_to_impute] = cv.fit_transform(self.df_corrupted)[
-                self.cols_to_impute
-            ]
 
-            for metric, value in self.get_errors(df[self.cols_to_impute], df_imputed).items():
+            self.df_is_altered, self.df_corrupted = utils.create_missing_values(
+                df,
+                self.cols_to_impute,
+                self.markov,
+                self.ratio_missing,
+                self.missing_mechanism,
+                self.opt,
+                self.p_obs,
+                self.quantile,
+                self.corruption,
+            )
+
+            df_imputed = self.df_corrupted.copy()
+            if search_space is None:
+                df_imputed[self.cols_to_impute] = tested_model.fit_transform(
+                    self.df_corrupted
+                )[self.cols_to_impute]
+            else:
+                cv = cross_validation.CrossValidation(
+                    tested_model,
+                    search_space=search_space,
+                    ratio_missing=self.ratio_missing,
+                    corruption=self.corruption,
+                )
+                df_imputed[self.cols_to_impute] = cv.fit_transform(self.df_corrupted)[
+                    self.cols_to_impute
+                ]
+
+            for metric, value in self.get_errors(
+                df[self.cols_to_impute], df_imputed
+            ).items():
                 errors[metric].append(value)
         return errors
 
@@ -306,6 +287,8 @@ class ComparatorGroups(Comparator):
                 self.cols_to_impute
             ]
 
-            for metric, value in self.get_errors(df[self.cols_to_impute], df_imputed).items():
+            for metric, value in self.get_errors(
+                df[self.cols_to_impute], df_imputed
+            ).items():
                 errors[metric].append(value)
         return errors
