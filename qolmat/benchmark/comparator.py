@@ -99,7 +99,17 @@ class Comparator:
             signal_imputed[self.df_is_altered],
             columnwise_evaluation=self.columnwise_evaluation,
         )
+        if self.columnwise_evaluation:
+            wd = utils.wasser_distance(
+                signal_ref,
+                signal_imputed,
+                columnwise_evaluation=self.columnwise_evaluation,
+            )
         if not self.columnwise_evaluation:
+            kl = utils.kl_divergence(
+                signal_ref,
+                signal_imputed,
+            )
             frechet = utils.frechet_distance(
                 signal_ref,
                 signal_imputed,
@@ -110,7 +120,12 @@ class Comparator:
             "rmse": round(rmse, 4),
             "mae": round(mae, 4),
             "wmape": round(wmape, 4),
-            **({"frechet distance": frechet} if not self.columnwise_evaluation else {}),
+            **({"wasserstein": wd} if self.columnwise_evaluation else {}),
+            **(
+                {"frechet distance": frechet, "KL": kl}
+                if not self.columnwise_evaluation
+                else {}
+            ),
         }
 
     def compare(self, full: bool = True, verbose: bool = True):

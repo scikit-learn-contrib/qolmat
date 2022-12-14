@@ -4,13 +4,13 @@ import pandas as pd
 import numpy as np
 from sklearn.utils import resample
 from math import floor
-from scipy.optimize import lsq_linear
-from scipy.optimize import Bounds
+import scipy
+from scipy.optimize import lsq_linear, Bounds
 import scipy.sparse as sparse
 from . import missing_patterns
 
-
 BOUNDS = Bounds(1, np.inf, keep_feasible=True)
+EPS = np.finfo(float).eps
 
 
 def get_search_space(tested_model, search_params: Dict):
@@ -148,12 +148,17 @@ def create_missing_values(
     return (df_is_altered, df_corrupted)
 
 
+######################
+# Evaluation metrics #
+######################
+
+
 def mean_squared_error(
     df1: pd.DataFrame,
     df2: pd.DataFrame,
     squared: Optional[bool] = True,
     columnwise_evaluation: Optional[bool] = False,
-):
+) -> float:
     """
     We provide an implementation robust to nans.
     """
@@ -169,7 +174,7 @@ def mean_squared_error(
 
 def mean_absolute_error(
     df1: pd.DataFrame, df2: pd.DataFrame, columnwise_evaluation: Optional[bool] = False
-):
+) -> float:
     if columnwise_evaluation:
         return (df1 - df2).abs().sum()
     else:
@@ -180,11 +185,138 @@ def weighted_mean_absolute_percentage_error(
     df_true: pd.DataFrame,
     df_pred: pd.DataFrame,
     columnwise_evaluation: Optional[bool] = False,
-):
+) -> float:
     if columnwise_evaluation:
         return (df_true - df_pred).abs().mean() / df_true.abs().mean()
     else:
         return ((df_true - df_pred).abs().mean() / df_true.abs().mean()).mean()
+
+
+def wasser_distance(
+    df_true: pd.DataFrame,
+    df_pred: pd.DataFrame,
+    columnwise_evaluation: Optional[bool] = True,
+) -> float:
+    """_summary_
+
+    Parameters
+    ----------
+    df_true : pd.DataFrame
+        _description_
+    df_pred : pd.DataFrame
+        _description_
+    columnwise_evaluation : Optional[bool], optional
+        _description_, by default True
+
+    Returns
+    -------
+    float
+        _description_
+
+    Raises
+    ------
+    Exception
+        _description_
+    """
+    if not columnwise_evaluation:
+        raise Exception("Wasserstein distance is only for 1D setting.")
+
+    cols = df_true.columns.tolist()
+    wd = []
+    for col in cols:
+        wd.append(
+            scipy.stats.wasserstein_distance(
+                df_true[col].dropna(), df_pred[col].ffill().bfill()
+            )
+        )
+    return pd.Series(wd, index=cols)
+
+
+def kl_divergence(df_true: pd.DataFrame, df_pred: pd.DataFrame) -> float:
+    """Kullback-Leibler divergence for the multivariate normal distribution
+    https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence
+
+    Parameters
+    ----------
+    df_true : pd.DataFrame
+    df_pred : pd.DataFrame
+
+    Returns
+    -------
+    Kullback-Leibler divergence : float
+    """
+    n = df_true.shape[0]
+    mu_true = np.nanmean(df_true, axis=0)
+    sigma_true = np.ma.cov(np.ma.masked_invalid(df_true), rowvar=False).data
+    mu_pred = np.nanmean(df_pred, axis=0)
+    sigma_pred = np.ma.cov(np.ma.masked_invalid(df_pred), rowvar=False).data
+
+    diff = mu_true - mu_pred
+    inv_sigma_pred = np.linalg.inv(sigma_pred)
+    quad_term = diff.T @ inv_sigma_pred @ diff
+    trace_term = np.trace(inv_sigma_pred @ sigma_true)
+    det_term = np.log(np.linalg.det(sigma_pred) / np.linalg.det(sigma_true))
+
+    return 0.5 * (quad_term + trace_term + det_term - n)
+
+
+def frechet_distance(
+    df_true: pd.DataFrame, df_pred: pd.DataFrame, normalized: Optional[bool] = False
+) -> float:
+    """Compute the Fréchet distance between two dataframes df_true and df_pred
+        frechet_distance = || mu_true - mu_pred ||_2^2 + Tr(Sigma_true + Sigma_pred - 2(Sigma_true . Sigma_pred)^(1/2))
+    if normalized, df_true and df_pred are first scaled by a factor
+        (std(df_true) + std(X_pred)) / 2
+    and then centered around
+        (mean(df_true) + mean(X_pred)) / 2
+
+    Dowson, D. C., and BV666017 Landau. "The Fréchet distance between multivariate normal distributions."
+    Journal of multivariate analysis 12.3 (1982): 450-455.
+
+    Parameters
+    ----------
+    df_true : pd.DataFrame
+        true dataframe
+    df_pred : pd.DataFrame
+        predicted dataframe
+
+    Returns
+    -------
+    frechet_distance : float
+    """
+
+    if df_true.shape != df_pred.shape:
+        raise Exception("inputs have to be of same dimensions.")
+
+    if normalized:
+        std = (np.std(df_true) + np.std(df_pred) + EPS) / 2
+        mu = (np.nanmean(df_true, axis=0) + np.nanmean(df_pred, axis=0)) / 2
+        df_true = (df_true - mu) / std
+        df_pred = (df_pred - mu) / std
+
+    mu_true = np.nanmean(df_true, axis=0)
+    sigma_true = np.ma.cov(np.ma.masked_invalid(df_true), rowvar=False).data
+    mu_pred = np.nanmean(df_pred, axis=0)
+    sigma_pred = np.ma.cov(np.ma.masked_invalid(df_pred), rowvar=False).data
+
+    ssdiff = np.sum((mu_true - mu_pred) ** 2.0)
+    product = np.array(sigma_true @ sigma_pred)
+    if product.ndim < 2:
+        product = product.reshape(-1, 1)
+    covmean = scipy.linalg.sqrtm(product)
+    if np.iscomplexobj(covmean):
+        covmean = covmean.real
+    frechet_dist = ssdiff + np.trace(sigma_true + sigma_pred - 2.0 * covmean)
+
+    if normalized:
+        return frechet_dist / df_true.shape[0]
+    else:
+        return frechet_dist
+
+
+###########################
+# Aggregation and entropy #
+###########################
 
 
 def get_agg_matrix(x, y, freq):
