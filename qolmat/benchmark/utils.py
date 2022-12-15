@@ -13,7 +13,22 @@ BOUNDS = Bounds(1, np.inf, keep_feasible=True)
 EPS = np.finfo(float).eps
 
 
-def get_search_space(tested_model, search_params: Dict):
+def get_search_space(tested_model: any, search_params: Dict) -> Union[None, List]:
+    """Construct the search space for the tested_model
+    based on the search_params
+
+    Parameters
+    ----------
+    tested_model : any
+        imputation model
+    search_params : Dict
+
+    Returns
+    -------
+    Union[None, List]
+        search space
+
+    """
     search_space = None
     if str(type(tested_model).__name__) in search_params.keys():
         search_space = []
@@ -22,13 +37,13 @@ def get_search_space(tested_model, search_params: Dict):
         ].items():
 
             if str(type(tested_model).__name__) == "ImputeRPCA":
-                if getattr(tested_model.rpca, name_param):
+                if hasattr(tested_model.rpca, name_param):
                     raise ValueError(
-                        f"Sorry, you set a value to {name_param} an asked for a search..."
+                        f"Sorry, you set a value to {name_param} and asked for a search..."
                     )
-            elif getattr(tested_model, name_param):
+            elif hasattr(tested_model, name_param):
                 raise ValueError(
-                    f"Sorry, you set a value to {name_param} an asked for a search..."
+                    f"Sorry, you set a value to {name_param} and asked for a search..."
                 )
 
             if vals_params["type"] == "Integer":
@@ -51,12 +66,27 @@ def get_search_space(tested_model, search_params: Dict):
     return search_space
 
 
-def custom_groupby(df: pd.DataFrame, groups: List[str]):
+def custom_groupby(
+    df: pd.DataFrame, groups: List[str]
+) -> Union[pd.DataFrame, pd.core.groupby.DataFrameGroupBy]:
+    """Groupby on dataframe
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+    groups : List[str]
+        list of columns for grouping
+    Returns
+    -------
+    Union[pd.DataFrame, pd.core.groupby.DataFrameGroupBy]
+        initial dataframe or initial dataframe group by the specified groups
+    """
     if len(groups) > 0:
-        groupby = []
-        for g in groups:
-            groupby.append(eval("df." + g))
-        return df.groupby(groupby)
+        # groupby = []
+        # for g in groups:
+        # groupby.append(eval("df." + g))
+        # groupby.append(df[g])
+        return df.groupby(groups)
     else:
         return df
 
@@ -68,6 +98,26 @@ def choice_with_mask(
     filter_value: Optional[float] = None,
     random_state: Optional[int] = None,
 ) -> pd.DataFrame:
+    """Create missing values in a dataframe
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        initial dataframe with missing values
+    mask : pd.DataFrame
+        mask of nan values of the initial dataframe df
+    ratio : float
+        ratio of missing values to be created
+    filter_value : Optional[float], optional
+        values above this filter_value are also considerd as nan, by default None
+    random_state : Optional[int], optional
+        random state for replicability, by default None
+
+    Returns
+    -------
+    pd.DataFrame
+        initial dataframe with additional missing values
+    """
 
     mask = mask.to_numpy().flatten()
     if filter_value:
@@ -158,9 +208,23 @@ def mean_squared_error(
     df2: pd.DataFrame,
     squared: Optional[bool] = True,
     columnwise_evaluation: Optional[bool] = False,
-) -> float:
-    """
-    We provide an implementation robust to nans.
+) -> Union[float, pd.Series]:
+    """Mean squared error between two dataframes.
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        True dataframe
+    df2 : pd.DataFrame
+        Predicted dataframe
+    squared : Optional[bool], optional
+        wheter returns MSE or RMSE, by default True
+    columnwise_evaluation : Optional[bool], optional
+        whether the metric should be calculated column-wise or not, by default False
+
+    Returns
+    -------
+    Union[float, pd.Series]
     """
     if columnwise_evaluation:
         squared_errors = ((df1 - df2) ** 2).sum()
@@ -174,7 +238,22 @@ def mean_squared_error(
 
 def mean_absolute_error(
     df1: pd.DataFrame, df2: pd.DataFrame, columnwise_evaluation: Optional[bool] = False
-) -> float:
+) -> Union[float, pd.Series]:
+    """Mean absolute error between two dataframes.
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        True dataframe
+    df2 : pd.DataFrame
+        Predicted dataframe
+    columnwise_evaluation : Optional[bool], optional
+        whether the metric should be calculated column-wise or not, by default False
+
+    Returns
+    -------
+    Union[float, pd.Series]
+    """
     if columnwise_evaluation:
         return (df1 - df2).abs().sum()
     else:
@@ -182,57 +261,60 @@ def mean_absolute_error(
 
 
 def weighted_mean_absolute_percentage_error(
-    df_true: pd.DataFrame,
-    df_pred: pd.DataFrame,
+    df1: pd.DataFrame,
+    df2: pd.DataFrame,
     columnwise_evaluation: Optional[bool] = False,
 ) -> Union[float, pd.Series]:
-    if columnwise_evaluation:
-        return (df_true - df_pred).abs().mean() / df_true.abs().mean()
-    else:
-        return ((df_true - df_pred).abs().mean() / df_true.abs().mean()).mean()
-
-
-def wasser_distance(
-    df_true: pd.DataFrame,
-    df_pred: pd.DataFrame,
-    columnwise_evaluation: Optional[bool] = True,
-) -> pd.Series:
-    """_summary_
+    """Weighted mean absolute percentage error between two dataframes.
 
     Parameters
     ----------
-    df_true : pd.DataFrame
-        _description_
-    df_pred : pd.DataFrame
-        _description_
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        True dataframe
+    df2 : pd.DataFrame
+        Predicted dataframe
     columnwise_evaluation : Optional[bool], optional
-        _description_, by default True
+        whether the metric should be calculated column-wise or not, by default False
+
+    Returns
+    -------
+    Union[float, pd.Series]
+    """
+    if columnwise_evaluation:
+        return (df1 - df2).abs().mean() / df1.abs().mean()
+    else:
+        return ((df1 - df2).abs().mean() / df1.abs().mean()).mean()
+
+
+def wasser_distance(
+    df1: pd.DataFrame,
+    df2: pd.DataFrame,
+) -> pd.Series:
+    """Wasserstein distances between columns of 2 dataframes.
+    Wasserstein distance can only be computed columnwise
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+    df2 : pd.DataFrame
 
     Returns
     -------
     wasserstein distances : pd.Series
-
-    Raises
-    ------
-    Exception
-        Wasserstein distance can only be computed on 1D array
     """
-    if not columnwise_evaluation:
-        raise Exception("Wasserstein distance is only for 1D setting.")
-
-    cols = df_true.columns.tolist()
+    cols = df1.columns.tolist()
     wd = [
-        scipy.stats.wasserstein_distance(
-            df_true[col].dropna(), df_pred[col].ffill().bfill()
-        )
+        scipy.stats.wasserstein_distance(df1[col].dropna(), df2[col].ffill().bfill())
         for col in cols
     ]
     return pd.Series(wd, index=cols)
 
 
 def kl_divergence(
-    df_true: pd.DataFrame,
-    df_pred: pd.DataFrame,
+    df1: pd.DataFrame,
+    df2: pd.DataFrame,
     columnwise_evaluation: Optional[bool] = False,
 ) -> Union[float, pd.Series]:
     """Kullback-Leibler divergence between distributions
@@ -240,8 +322,8 @@ def kl_divergence(
 
     Parameters
     ----------
-    df_true : pd.DataFrame
-    df_pred : pd.DataFrame
+    df1 : pd.DataFrame
+    df2 : pd.DataFrame
     columnwise_evaluation: Optional[bool]
         if the evalutation is computed column-wise. By default, is set to False
 
@@ -251,19 +333,19 @@ def kl_divergence(
     """
 
     if columnwise_evaluation:
-        cols = df_true.columns.tolist()
+        cols = df1.columns.tolist()
         kl = []
         for col in cols:
-            p = np.histogram(df_true[col].dropna(), bins=20, density=True)[0]
-            q = np.histogram(df_pred[col].dropna(), bins=20, density=True)[0]
+            p = np.histogram(df1[col].dropna(), bins=20, density=True)[0]
+            q = np.histogram(df2[col].dropna(), bins=20, density=True)[0]
             kl.append(scipy.stats.entropy(p + EPS, q + EPS))
         return pd.Series(kl, index=cols)
     else:
-        n = df_true.shape[0]
-        mu_true = np.nanmean(df_true, axis=0)
-        sigma_true = np.ma.cov(np.ma.masked_invalid(df_true), rowvar=False).data
-        mu_pred = np.nanmean(df_pred, axis=0)
-        sigma_pred = np.ma.cov(np.ma.masked_invalid(df_pred), rowvar=False).data
+        n = df1.shape[0]
+        mu_true = np.nanmean(df1, axis=0)
+        sigma_true = np.ma.cov(np.ma.masked_invalid(df1), rowvar=False).data
+        mu_pred = np.nanmean(df2, axis=0)
+        sigma_pred = np.ma.cov(np.ma.masked_invalid(df2), rowvar=False).data
         diff = mu_true - mu_pred
         inv_sigma_pred = np.linalg.inv(sigma_pred)
         quad_term = diff.T @ inv_sigma_pred @ diff
@@ -273,23 +355,23 @@ def kl_divergence(
 
 
 def frechet_distance(
-    df_true: pd.DataFrame, df_pred: pd.DataFrame, normalized: Optional[bool] = False
+    df1: pd.DataFrame, df2: pd.DataFrame, normalized: Optional[bool] = False
 ) -> float:
-    """Compute the Fréchet distance between two dataframes df_true and df_pred
-        frechet_distance = || mu_true - mu_pred ||_2^2 + Tr(Sigma_true + Sigma_pred - 2(Sigma_true . Sigma_pred)^(1/2))
-    if normalized, df_true and df_pred are first scaled by a factor
-        (std(df_true) + std(X_pred)) / 2
+    """Compute the Fréchet distance between two dataframes df1 and df2
+        frechet_distance = || mu_1 - mu_2 ||_2^2 + Tr(Sigma_1 + Sigma_2 - 2(Sigma_1 . Sigma_2)^(1/2))
+    if normalized, df1 and df_ are first scaled by a factor
+        (std(df1) + std(df2)) / 2
     and then centered around
-        (mean(df_true) + mean(X_pred)) / 2
+        (mean(df1) + mean(df2)) / 2
 
     Dowson, D. C., and BV666017 Landau. "The Fréchet distance between multivariate normal distributions."
     Journal of multivariate analysis 12.3 (1982): 450-455.
 
     Parameters
     ----------
-    df_true : pd.DataFrame
+    df1 : pd.DataFrame
         true dataframe
-    df_pred : pd.DataFrame
+    df2 : pd.DataFrame
         predicted dataframe
     normalized: Optional[bool]
         if the data has to be normalised. By default, is set to False
@@ -299,8 +381,11 @@ def frechet_distance(
     frechet_distance : float
     """
 
-    if df_true.shape != df_pred.shape:
+    if df1.shape != df2.shape:
         raise Exception("inputs have to be of same dimensions.")
+
+    df_true = df1.copy()
+    df_pred = df2.copy()
 
     if normalized:
         std = (np.std(df_true) + np.std(df_pred) + EPS) / 2

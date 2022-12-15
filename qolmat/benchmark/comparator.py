@@ -108,7 +108,6 @@ class Comparator:
             wd = utils.wasser_distance(
                 signal_ref,
                 signal_imputed,
-                columnwise_evaluation=self.columnwise_evaluation,
             )
         if not self.columnwise_evaluation:
             frechet = utils.frechet_distance(

@@ -65,7 +65,7 @@ class ImputeEM(_BaseImputer):  # type: ignore
         ampli: Optional[int] = 1,
         random_state: Optional[int] = 123,
         verbose: Optional[int] = 0,
-        temporal: Optional[bool] = True,
+        temporal: Optional[bool] = False,
         dt: Optional[float] = 2e-2,
         convergence_threshold: Optional[float] = 1e-4,
     ) -> None:
@@ -284,7 +284,6 @@ class ImputeEM(_BaseImputer):  # type: ignore
         """
         n_samples, n_variables = X.shape
 
-        # X = (X - self.means).copy()
         X_init = X.copy()
         beta = self.cov.copy()
         beta[:] = scipy.linalg.inv(beta)
@@ -292,14 +291,14 @@ class ImputeEM(_BaseImputer):  # type: ignore
         X_stack = []
         for iter_ou in range(self.n_iter_ou):
             noise = self.ampli * rng.normal(0, 1, size=(n_samples, n_variables))
-            X += -dt * gamma * (X @ beta) + noise * np.sqrt(2 * gamma * dt)
+            X += gamma * ((self.means - X) @ beta) * dt + noise * np.sqrt(
+                2 * gamma * dt
+            )
             X[~mask_na] = X_init[~mask_na]
             if iter_ou > self.n_iter_ou - 50:
                 X_stack.append(X)
-        # X += self.means
 
         X_stack = np.vstack(X_stack)
-        # X_stack += self.means
 
         self.means = np.mean(X_stack, axis=0)
         self.cov = np.cov(X_stack.T, bias=1)
@@ -354,10 +353,23 @@ class ImputeEM(_BaseImputer):  # type: ignore
         if np.abs(scipy.linalg.eigh(self.cov)[0].min()) > 1e20:
             raise WarningMessage("Large eigenvalues, imputation may be inflated.")
 
+        if self.temporal:
+            shift = 1
+            X_past = X_transformed.copy()
+            X_past = np.roll(X_past, shift, axis=0).astype(float)
+            X_past[:shift, :] = np.nan
+
         list_diff_means, list_diff_cov = [np.inf] * 5, [np.inf] * 5
         min_means, min_cov = np.inf, np.inf
         for iter_em in range(self.n_iter_em):
             mu_prec, cov_prec = self.means.copy(), self.cov.copy()
+
+            if self.temporal:
+                shift = 1
+                X_past = X_transformed.copy()
+                X_past = np.roll(X_past, shift, axis=0).astype(float)
+                X_past[:shift, :] = np.nan
+
             try:
                 if self.strategy == "mle":
                     X_transformed = self._em_mle(X_transformed, observed, missing)
