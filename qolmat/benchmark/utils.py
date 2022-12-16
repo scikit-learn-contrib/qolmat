@@ -7,6 +7,7 @@ from math import floor
 import scipy
 from scipy.optimize import lsq_linear, Bounds
 import scipy.sparse as sparse
+from sklearn.preprocessing import StandardScaler
 from . import missing_patterns
 
 BOUNDS = Bounds(1, np.inf, keep_feasible=True)
@@ -332,7 +333,7 @@ def kl_divergence(
     Kullback-Leibler divergence : Union[float, pd.Series]
     """
 
-    if columnwise_evaluation:
+    if columnwise_evaluation or df1.shape[1] == 1:
         cols = df1.columns.tolist()
         kl = []
         for col in cols:
@@ -341,11 +342,14 @@ def kl_divergence(
             kl.append(scipy.stats.entropy(p + EPS, q + EPS))
         return pd.Series(kl, index=cols)
     else:
-        n = df1.shape[0]
-        mu_true = np.nanmean(df1, axis=0)
-        sigma_true = np.ma.cov(np.ma.masked_invalid(df1), rowvar=False).data
-        mu_pred = np.nanmean(df2, axis=0)
-        sigma_pred = np.ma.cov(np.ma.masked_invalid(df2), rowvar=False).data
+        df_1 = StandardScaler().fit_transform(df1)
+        df_2 = StandardScaler().fit_transform(df2)
+
+        n = df_1.shape[0]
+        mu_true = np.nanmean(df_1, axis=0)
+        sigma_true = np.ma.cov(np.ma.masked_invalid(df_1), rowvar=False).data
+        mu_pred = np.nanmean(df_2, axis=0)
+        sigma_pred = np.ma.cov(np.ma.masked_invalid(df_2), rowvar=False).data
         diff = mu_true - mu_pred
         inv_sigma_pred = np.linalg.inv(sigma_pred)
         quad_term = diff.T @ inv_sigma_pred @ diff

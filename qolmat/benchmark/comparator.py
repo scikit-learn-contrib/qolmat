@@ -109,7 +109,7 @@ class Comparator:
                 signal_ref,
                 signal_imputed,
             )
-        if not self.columnwise_evaluation:
+        if not self.columnwise_evaluation and signal_ref.shape[1] > 1:
             frechet = utils.frechet_distance(
                 signal_ref,
                 signal_imputed,
@@ -132,7 +132,7 @@ class Comparator:
                 {
                     "frechet distance": round(frechet, 4),
                 }
-                if not self.columnwise_evaluation
+                if not self.columnwise_evaluation and signal_ref.shape[1] > 1
                 else {}
             ),
         }
@@ -278,15 +278,38 @@ class ComparatorGroups(Comparator):
         except:
             raise ValueError("No column_groups passed!")
 
-    def create_groups(self):
+    def create_groups(self) -> None:
+        """Creare the groups based on the column names (column_groups attribute)
+
+        Raises
+        ------
+        if the number of samples/splits is greater than the number of groups.
+            _description_
+        """
         self.groups = self.df.groupby(self.column_groups).ngroup().values
 
         if self.n_samples > len(np.unique(self.groups)):
             raise ValueError("n_samples has to be smaller than the number of groups.")
 
     def evaluate_errors_sample(
-        self, tested_model, df: pd.DataFrame, search_space: Optional[dict] = None
+        self, tested_model: any, df: pd.DataFrame, search_space: Optional[dict] = None
     ) -> Dict:
+        """Evalutate the imputation errors for each sample.
+
+        Parameters
+        ----------
+        tested_model : any
+            model imputation
+        df : pd.DataFrame
+            dataframe with missing values and to be imputed
+        search_space : Optional[dict], optional
+            search space of hyperparameters, by default None
+
+        Returns
+        -------
+        Dict[str, [list[float]]]
+            keys are the metrics and values are lists containing the values. The lists legnth equals the number of samples/splits (n_samples)
+        """
 
         errors = defaultdict(list)
 
