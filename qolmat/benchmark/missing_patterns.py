@@ -522,4 +522,12 @@ def produce_NA_markov_chain(
         mask = u[sample]
 
     mask[mask_init] = False
+    mask = pd.DataFrame(data=mask, columns=df.columns, index=df.index)
+
     return {"X_init": df, "X_incomp": df[~mask], "mask": mask}
+
+
+# def produce_NA_():
+#     C = np.cumsum(isnan.diff() != 0)
+#     C[~isnan] = -1
+#     C.value_.count().values().value_count()

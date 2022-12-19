@@ -174,7 +174,6 @@ def create_missing_values(
         res = missing_patterns.produce_NA_markov_chain(
             df_corrupted_select, columnwise_missing=False
         )
-
     else:
         res = missing_patterns.produce_NA_mechanism(
             df_corrupted_select,

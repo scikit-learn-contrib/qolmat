@@ -137,13 +137,11 @@ class Comparator:
             ),
         }
 
-    def compare(self, full: bool = True, verbose: bool = True):
+    def compare(self, verbose: bool = True):
         """Function to compare different imputation methods
 
         Parameters
         ----------
-        full : bool, optional
-            _description_, by default True
         verbose : bool, optional
             _description_, by default True
         Returns
@@ -233,9 +231,10 @@ class Comparator:
                 ]
 
             for metric, value in self.get_errors(
-                df[self.cols_to_impute], df_imputed
+                df[self.cols_to_impute], df_imputed[self.cols_to_impute]
             ).items():
                 errors[metric].append(value)
+
         return errors
 
 
