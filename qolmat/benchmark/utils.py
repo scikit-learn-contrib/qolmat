@@ -83,11 +83,10 @@ def custom_groupby(
         initial dataframe or initial dataframe group by the specified groups
     """
     if len(groups) > 0:
-        # groupby = []
-        # for g in groups:
-        # groupby.append(eval("df." + g))
-        # groupby.append(df[g])
-        return df.groupby(groups)
+        groupby = []
+        for g in groups:
+            groupby.append(eval("df." + g))
+        return df.groupby(groupby)
     else:
         return df
 

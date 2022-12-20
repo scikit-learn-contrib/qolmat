@@ -5,7 +5,7 @@ from numpy.typing import ArrayLike
 import numpy as np
 import pandas as pd
 from qolmat.benchmark import cross_validation, utils
-from . import missing_patterns
+from qolmat.benchmark.missing_patterns import HoleGenerator
 
 
 class Comparator:
@@ -35,32 +35,24 @@ class Comparator:
         data: ArrayLike,
         dict_models: Dict,
         cols_to_impute: List[str],
-        n_samples: Optional[int] = 1,
+        generated_holes: HoleGenerator,
         search_params: Optional[Dict] = {},
-        markov: Optional[bool] = True,
-        columnwise_missing: Optional[bool] = False,
-        ratio_missing: Optional[float] = 0.05,
-        missing_mechanism: Optional[str] = "MCAR",
-        corruption: Optional[str] = "missing",
-        opt: Optional[float] = None,
-        p_obs: Optional[float] = None,
-        quantile: Optional[float] = None,
+        # markov: Optional[bool] = True,
+        # columnwise_missing: Optional[bool] = False,
+        # ratio_missing: Optional[float] = 0.05,
+        # missing_mechanism: Optional[str] = "MCAR",
+        # corruption: Optional[str] = "missing",
+        # opt: Optional[float] = None,
+        # p_obs: Optional[float] = None,
+        # quantile: Optional[float] = None,
         columnwise_evaluation: Optional[bool] = True,
     ):
 
         self.df = data
-        self.ratio_missing = ratio_missing
         self.cols_to_impute = cols_to_impute
-        self.n_samples = n_samples
         self.dict_models = dict_models
+        self.generated_holes = generated_holes
         self.search_params = search_params
-        self.corruption = corruption
-        self.markov = markov
-        self.columnwise_missing = columnwise_missing
-        self.missing_mechanism = missing_mechanism
-        self.opt = opt
-        self.p_obs = p_obs
-        self.quantile = quantile
         self.columnwise_evaluation = columnwise_evaluation
 
     def get_errors(
@@ -200,19 +192,9 @@ class Comparator:
         """
 
         errors = defaultdict(list)
-        for _ in range(self.n_samples):
 
-            self.df_is_altered, self.df_corrupted = utils.create_missing_values(
-                df,
-                self.cols_to_impute,
-                self.markov,
-                self.ratio_missing,
-                self.missing_mechanism,
-                self.opt,
-                self.p_obs,
-                self.quantile,
-                self.corruption,
-            )
+        for df_mask, df_corrupted in self.generated_holes.split(df):
+            self.df_is_altered, self.df_corrupted = df_mask, df_corrupted
 
             df_imputed = self.df_corrupted.copy()
             if search_space is None:
@@ -234,6 +216,46 @@ class Comparator:
                 df[self.cols_to_impute], df_imputed[self.cols_to_impute]
             ).items():
                 errors[metric].append(value)
+
+        # ------------------------------------------------------------------------------
+
+        # errors = defaultdict(list)
+        # for _ in range(self.n_samples):
+
+        #     self.df_is_altered, self.df_corrupted = utils.create_missing_values(
+        #         df,
+        #         self.cols_to_impute,
+        #         self.markov,
+        #         self.ratio_missing,
+        #         self.missing_mechanism,
+        #         self.opt,
+        #         self.p_obs,
+        #         self.quantile,
+        #         self.corruption,
+        #     )
+
+        #     df_imputed = self.df_corrupted.copy()
+        #     if search_space is None:
+        #         df_imputed[self.cols_to_impute] = tested_model.fit_transform(
+        #             self.df_corrupted
+        #         )[self.cols_to_impute]
+        #     else:
+        #         cv = cross_validation.CrossValidation(
+        #             tested_model,
+        #             search_space=search_space,
+        #             ratio_missing=self.ratio_missing,
+        #             corruption=self.corruption,
+        #         )
+        #         df_imputed[self.cols_to_impute] = cv.fit_transform(self.df_corrupted)[
+        #             self.cols_to_impute
+        #         ]
+
+        #     for metric, value in self.get_errors(
+        #         df[self.cols_to_impute], df_imputed[self.cols_to_impute]
+        #     ).items():
+        #         errors[metric].append(value)
+
+        # ------------------------------------------------------------------------------
 
         return errors
 

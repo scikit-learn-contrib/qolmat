@@ -1,8 +1,9 @@
-from typing import Optional, Dict, List
+from typing import Dict, List, Optional, Tuple, Union
 from numpy.typing import NDArray
 import numpy as np
 import pandas as pd
 import scipy
+from sklearn.model_selection import GroupShuffleSplit
 
 
 ###########################################################################
@@ -531,3 +532,299 @@ def produce_NA_markov_chain(
 #     C = np.cumsum(isnan.diff() != 0)
 #     C[~isnan] = -1
 #     C.value_.count().values().value_count()
+
+
+# ------------------------------------------------------------------------------------------
+
+
+class HoleGenerator:
+    """
+    This class implements a method to get indices of observed and missing values.
+    """
+
+    def __init__(
+        self,
+        method: str,
+        n_splits: int,
+        columnwise: Optional[bool] = True,
+        column_groups: Optional[List[str]] = None,
+        ratio_missing: Optional[float] = 0.05,
+        random_state: Optional[int] = 42,
+    ) -> None:
+        self.method = method
+        self.n_splits = n_splits
+        self.columnwise = columnwise
+        self.column_groups = column_groups
+        self.ratio_missing = ratio_missing
+        self.random_state = random_state
+
+    @staticmethod
+    def transition_matrix(states: List[int]) -> np.ndarray:
+        """Get the transition matrix from a list of states
+
+        Parameters
+        ----------
+        states : List[int]
+
+        Returns
+        -------
+        T : np.ndarray
+            transition matrix associatd to the states
+        """
+        n = 1 + max(states)
+        T = np.zeros((n, n))
+        for (i, j) in zip(states, states[1:]):
+            T[i][j] += 1
+        row_sums = T.sum(axis=1)
+        T = T / row_sums[:, np.newaxis]
+        return T
+
+    @staticmethod
+    def generate_realisation(
+        matrix: np.ndarray, states: List[int], length: int
+    ) -> List[int]:
+        """Generate a sequence of states "states" of length "length" from a transition matrix "matrix"
+
+        Parameters
+        ----------
+        matrix : np.ndarray
+            transition matrix (stochastic matrix)
+        states : List[int]
+            list of possible states
+        length : int
+            length of the output sequence
+
+        Returns
+        -------
+        realisation ; List[int]
+            sequence of states
+        """
+        states = sorted(list(set(states)))
+        realisation = [np.random.choice(states)]
+        for _ in range(length - 1):
+            realisation.append(
+                np.random.choice(states, 1, p=matrix[realisation[-1], :])[0]
+            )
+        return realisation
+
+    def _create_missing_markov(self, X: pd.DataFrame) -> Dict[str, pd.DataFrame]:
+        """Create missing data in an arraylike object based on a markov chain.
+        States of the MC are the different masks of missing values:
+        there are at most pow(2,X.shape[1]) possible states.
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            initial dataframe with missing (true) entries
+
+        Returns
+        -------
+        Dict[str, pd.DataFrame]
+            the initial dataframe, the dataframe with additional missing entries and the created mask
+        """
+        mask_init = np.isnan(X)
+        mask = X.copy()
+
+        if self.columnwise:
+            for column in X.columns:
+                states = np.isnan(X[column]).astype(int).values
+                T = transition_matrix(states)
+                sample = generate_realisation(T, states, mask.shape[0])
+                mask[column] = [bool((i + 1) % 2) for i in sample]
+        else:
+            u, states = np.unique(np.isnan(X), axis=0, return_inverse=True)
+            T = transition_matrix(states)
+            sample = generate_realisation(T, states, mask.shape[0])
+            mask = u[sample]
+
+        mask[mask_init] = False
+        mask = pd.DataFrame(data=mask, columns=X.columns, index=X.index)
+
+        return {"X_init": X, "X_incomp": X[~mask], "mask": mask}
+
+    def _get_size_holes(self, df: pd.DataFrame) -> pd.Series:
+        """Compute the holes sizes of a dataframe.
+        Dataframe df has only one column
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            dataframe with one column
+
+        Returns
+        -------
+        sizes_holes : pd.Series
+            index: hole size ; value: number of occurrences
+        """
+        df_ = df.copy()
+        column_name = df_.columns[0]
+        df_["series_id"] = np.cumsum(df_.isna().diff() != 0)
+        df_.loc[df_[column_name].notna(), "series_id"] = 0
+        df_ = df_.drop((df_[df_["series_id"] == 0]).index)
+        sizes_holes = df_["series_id"].value_counts().value_counts()
+        # sizes_holes = sizes_holes.reindex(np.arange(sizes_holes.max() + 1)).fillna(0)
+        return sizes_holes
+
+    def _create_missing_empirical(
+        self, X: pd.DataFrame, nb_holes: Optional[int] = 10
+    ) -> Dict[str, pd.DataFrame]:
+        """Create missing data in an arraylike object based on the holes size distribution.
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            initial dataframe with missing (true) entries
+        nb_holes : Optional[int], optional
+            number of holes to create, by default 10
+
+        Returns
+        -------
+        Dict[str, pd.DataFrame]
+            the initial dataframe, the dataframe with additional missing entries and the created mask
+        """
+
+        mask_init = np.isnan(X)
+
+        X_with_nan = X.copy()
+
+        for column in X.columns:
+            nb_missing = X[column].isna().sum()
+            if nb_missing == 0:
+                continue
+
+            X_ = X[[column]]
+            sizes_holes = self._get_size_holes(X_)
+
+            if not nb_holes:
+                pass  # TO DO
+
+            chosen_sizes = np.random.choice(
+                sizes_holes.index, nb_holes, p=sizes_holes / sum(sizes_holes)
+            )
+            s = 0
+            for ind, chosen in enumerate(chosen_sizes):
+                s += chosen
+                if s > nb_missing:
+                    break
+            chosen_sizes = chosen_sizes[:ind]
+
+            states = np.isnan(X[column]).astype(int).values
+            T = transition_matrix(states)
+
+            initial_indexes = X_.index.names
+            X_ = X_.reset_index()
+
+            for hole_size in chosen_sizes:
+                for i in range(len(X_) - hole_size):
+                    if (~np.isnan(X_.loc[i, column])) and (
+                        np.random.uniform(0, 1) < T[1, 0]
+                    ):
+                        if X_.loc[i : i + hole_size, column].isna().sum() == 0:
+                            X_.loc[i : i + hole_size, column] = np.nan
+                            break
+                    elif (np.isnan(X_.loc[i, column])) and (
+                        np.random.uniform(0, 1) < T[0, 1]
+                    ):
+                        if X_.loc[i : i + hole_size, column].isna().sum() == 0:
+                            X_.loc[i : i + hole_size, column] = np.nan
+                            break
+
+            X_with_nan[column] = X_[column].values
+
+        mask = np.isnan(X_with_nan)
+        mask[mask_init] = False
+
+        return {"X_init": X, "X_incomp": X_with_nan, "mask": mask}
+
+    def _create_groups(self, X: pd.DataFrame) -> None:
+        """Creare the groups based on the column names (column_groups attribute)
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+
+        Raises
+        ------
+        if the number of samples/splits is greater than the number of groups.
+        """
+
+        groups = X.groupby(self.column_groups).ngroup().values
+
+        if self.n_splits > len(np.unique(groups)):
+            raise ValueError("n_samples has to be smaller than the number of groups.")
+
+        return groups
+
+    def split(self, X: pd.DataFrame) -> List[Tuple[pd.DataFrame, pd.DataFrame]]:
+        """Return a list of lists of training and testing indices.
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+
+        Returns
+        -------
+        List[Tuple[pd.DataFrame, pd.DataFrame]] # # List[Tuple[List[List[Tuple[int, int]]], List[List[Tuple[int, int]]]]]:
+            List of length n_splits.
+        """
+
+        train_indices, test_indices = [], []
+        mask_dfs, corrupted_dfs = [], []
+
+        if self.method == "grouped":
+
+            if self.column_groups is None:
+                raise Exception("column_group is empty.")
+
+            groups = self._create_groups(X)
+            gss = GroupShuffleSplit(
+                n_splits=self.n_splits,
+                train_size=1 - self.ratio_missing,
+                random_state=self.random_state,
+            )
+            for _, (observed_indices, missing_indices) in enumerate(
+                gss.split(X=X, y=None, groups=groups)
+            ):
+
+                # create the boolean mask of missing values
+                df_mask = pd.DataFrame(
+                    data=np.full((X.shape), True),
+                    columns=X.columns,
+                    index=X.index,
+                )
+                df_mask.iloc[observed_indices, :] = False
+                mask_dfs.append(df_mask)
+
+                # create the corrupted (with artificial missing values) dataframe
+                df_corrupted = X.copy()
+                df_corrupted.iloc[missing_indices, :] = np.nan
+                corrupted_dfs.append(df_corrupted)
+
+                # train_indices.append(
+                #     [(i, j) for i in observed_indices for j in range(X.shape[1])]
+                # )
+                # test_indices.append(
+                #     [(i, j) for i in missing_indices for j in range(X.shape[1])]
+                # )
+
+        else:
+            for _ in range(self.n_splits):
+                if self.method == "markov":
+                    results = self._create_missing_markov(X)
+                elif self.method == "empirical":
+                    results = self._create_missing_empirical(X)
+
+                mask_dfs.append(results["mask"])
+                corrupted_dfs.append(results["X_incomp"])
+
+                # mask = results["mask"]
+                # train_indices.append(
+                #     [(i, j) for i, j in zip(np.where(~mask)[0], np.where(~mask)[1])]
+                # )
+                # test_indices.append(
+                #     [(i, j) for i, j in zip(np.where(mask)[0], np.where(mask)[1])]
+                # )
+
+        return [
+            (i, j) for i, j in zip(mask_dfs, corrupted_dfs)
+        ]  # [(i, j) for i, j in zip(train_indices, test_indices)]

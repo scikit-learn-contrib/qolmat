@@ -144,8 +144,8 @@ class CrossValidation:
             if self.verbose:
                 print(all_params)
             errors = []
+
             for _ in range(self.cv):
-                # self.create_corruptions(self.signal)
                 self.df_is_altered, self.df_corrupted = utils.create_missing_values(
                     self.signal,
                     self.cols_to_impute,
