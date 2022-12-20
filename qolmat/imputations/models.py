@@ -111,7 +111,9 @@ class ImputeByMean(ImputeColumnWise):
         """
         col = signal.name
         signal = signal.reset_index()
-        imputed = signal[col].fillna(utils.custom_groupby(signal, self.groups)[col].apply("mean"))
+        imputed = signal[col].fillna(
+            utils.custom_groupby(signal, self.groups)[col].apply("mean")
+        )
         return imputed
 
 
@@ -195,7 +197,9 @@ class ImputeByMode(ImputeColumnWise):
         """
         col = signal.name
         signal = signal.reset_index()
-        imputed = signal[col].fillna(utils.custom_groupby(signal, self.groups)[col].mode().iloc[0])
+        imputed = signal[col].fillna(
+            utils.custom_groupby(signal, self.groups)[col].mode().iloc[0]
+        )
         return imputed
 
 
@@ -281,7 +285,9 @@ class ImputeLOCF(ImputeColumnWise):
         """
         col = signal.name
         imputed = signal.reset_index()
-        imputed = utils.custom_groupby(imputed, self.groups)[col].transform(lambda x: x.ffill())
+        imputed = utils.custom_groupby(imputed, self.groups)[col].transform(
+            lambda x: x.ffill()
+        )
         return imputed
 
 
@@ -323,7 +329,9 @@ class ImputeNOCB(ImputeColumnWise):
         """
         col = signal.name
         imputed = signal.reset_index()
-        imputed = utils.custom_groupby(imputed, self.groups)[col].transform(lambda x: x.bfill())
+        imputed = utils.custom_groupby(imputed, self.groups)[col].transform(
+            lambda x: x.bfill()
+        )
         return imputed
 
 
@@ -508,7 +516,9 @@ class ImputeKNN(_BaseImputer):
         if not isinstance(df, pd.DataFrame):
             raise ValueError("Input has to be a pandas.DataFrame.")
 
-        imputer = KNNImputer(n_neighbors=self.k, weights="distance", metric="nan_euclidean")
+        imputer = KNNImputer(
+            n_neighbors=self.k, weights="distance", metric="nan_euclidean"
+        )
         results = imputer.fit_transform(df)
         return pd.DataFrame(data=results, columns=df.columns, index=df.index)
 
@@ -706,7 +716,9 @@ class ImputeRegressor(_BaseImputer):
             self.cols_to_impute = df.columns.tolist()
         X = df[[col for col in df.columns if col not in self.cols_to_impute]]
         if X.isna().sum().sum() > 0:
-            raise ValueError("Columns that are not to be imputed should not contain nan")
+            raise ValueError(
+                "Columns that are not to be imputed should not contain nan"
+            )
 
         for col in self.cols_to_impute:
             y = df[col]
@@ -777,7 +789,9 @@ class ImputeStochasticRegressor(_BaseImputer):
             self.cols_to_impute = df.columns.tolist()
         X = df[[col for col in df.columns if col not in self.cols_to_impute]]
         if X.isna().sum().sum() > 0:
-            raise ValueError("Columns that are not to be imputed should not contain nan")
+            raise ValueError(
+                "Columns that are not to be imputed should not contain nan"
+            )
 
         for col in self.cols_to_impute:
             y = df[col]

@@ -62,6 +62,7 @@ class ImputeEM(_BaseImputer):  # type: ignore
         strategy: Optional[str] = "mle",
         n_iter_em: Optional[int] = 10,
         n_iter_ou: Optional[int] = 50,
+        n_iter_mh: Optional[int] = 20,
         ampli: Optional[int] = 1,
         random_state: Optional[int] = 123,
         verbose: Optional[int] = 0,
@@ -70,12 +71,13 @@ class ImputeEM(_BaseImputer):  # type: ignore
         convergence_threshold: Optional[float] = 1e-4,
     ) -> None:
 
-        if strategy not in ["mle", "sample"]:
-            raise Exception("strategy has to be 'mle' or 'sample'")
+        if strategy not in ["mle", "ou", "mh"]:
+            raise Exception("strategy has to be 'mle' or 'ou' or 'mh'")
 
         self.strategy = strategy
         self.n_iter_em = n_iter_em
         self.n_iter_ou = n_iter_ou
+        self.n_iter_mh = n_iter_mh
         self.ampli = ampli
         self.random_state = random_state
         self.verbose = verbose
@@ -237,7 +239,6 @@ class ImputeEM(_BaseImputer):  # type: ignore
             ) @ (X[i, observed_i] - self.means[np.ix_(observed_i)])
             sigma_MM_O = sigma_MM - sigma_MO @ np.linalg.inv(sigma_OO) @ sigma_OM
             sigma_tilde[i][np.ix_(missing_i, missing_i)] = sigma_MM_O
-
             X[i, missing_i] = mu_tilde[i]
 
         self.means = np.mean(X, axis=0)
@@ -307,6 +308,64 @@ class ImputeEM(_BaseImputer):  # type: ignore
 
         return X
 
+    def _normal(self, X: np.ndarray, mu: np.ndarray, cov: np.ndarray) -> float:
+        numerator = np.exp(-0.5 * (X - mu) @ np.linalg.inv(cov) @ (X - mu).T)
+        # denominator = np.sqrt((2 * np.pi) ** X.shape[1] * np.linalg.det(cov))
+        return numerator  # / denominator
+
+    def _tmultivariate(
+        self, X: np.ndarray, mu: np.ndarray, sigma: np.ndarray, nu: float
+    ) -> np.ndarray:
+        p = len(X)
+        # term1 = scipy.special.gamma((nu + p) / 2)
+        # term2 = (
+        #     scipy.special.gamma(nu / 2)
+        #     * (nu * np.pi) ** (p / 2)
+        #     * (np.linalg.det(sigma)) ** (1 / 2)
+        # )
+        term3 = (1 + (1.0 / nu) * (X - mu) @ np.linalg.inv(sigma) @ (X - mu).T) ** (
+            -1.0 * (nu + p) / 2
+        )
+        return term3
+
+    def _sample_mh(
+        self,
+        X: np.ndarray,
+        mask_na: np.ndarray,
+    ) -> float:
+
+        m, n = X.shape
+        X_ = X.copy()
+
+        for _ in range(self.n_iter_mh):
+
+            for i in range(X.shape[0]):
+                if mask_na[i, :].sum() == 0:
+                    continue
+                move = X_[i, :] + np.random.normal(0, 1, size=n)
+                # move = 0.5 * X_[i, :] + np.random.normal(scale=1, size=n)
+                move[~mask_na[i, :]] = X[i, ~mask_na[i, :]]
+
+                # curr_prob = self._normal(X_[i, :], mu=self.means, cov=self.cov)
+                # move_prob = self._normal(move, mu=self.means, cov=self.cov)
+                curr_prob = self._tmultivariate(
+                    X_[i, :], mu=self.means, sigma=self.cov, nu=n - 1
+                )
+                move_prob = self._tmultivariate(
+                    move, mu=self.means, sigma=self.cov, nu=n - 1
+                )
+
+                acceptance = min(move_prob / curr_prob, 1)
+                if np.random.uniform(0, 1) < acceptance:
+                    X_[i, :] = move
+
+        self.means = np.mean(X_, axis=0)
+        self.cov = np.cov(X_.T, bias=1)
+        eps = 1e-2
+        self.cov -= eps * (self.cov - np.diag(self.cov.diagonal()))
+
+        return X_
+
     def impute_em(self, X: ArrayLike) -> ArrayLike:
         """Imputation via EM algorithm
 
@@ -333,7 +392,7 @@ class ImputeEM(_BaseImputer):  # type: ignore
             one_to_nc = np.arange(1, nc + 1, step=1)
             observed = one_to_nc * mask - 1
             missing = one_to_nc * (~mask) - 1
-        elif self.strategy == "sample":
+        elif self.strategy in ["ou", "mh"]:
             mask_na = np.isnan(X)
 
         # first imputation
@@ -373,10 +432,12 @@ class ImputeEM(_BaseImputer):  # type: ignore
             try:
                 if self.strategy == "mle":
                     X_transformed = self._em_mle(X_transformed, observed, missing)
-                elif self.strategy == "sample":
+                elif self.strategy == "ou":
                     X_transformed = self._sample_ou(
                         X_transformed, mask_na, rng, dt=2e-2
                     )
+                elif self.strategy == "mh":
+                    X_transformed = self._sample_mh(X_transformed, mask_na)
 
                 converged, diff_means, diff_cov = self._check_convergence(
                     self.means, mu_prec, self.cov, cov_prec
