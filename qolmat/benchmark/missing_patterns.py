@@ -1,9 +1,11 @@
 import logging
 
 from typing import List, Optional, Tuple
+import math
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import GroupShuffleSplit
+from sklearn.utils import resample
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +40,51 @@ class HoleGenerator:
         self.subset = subset
         self.ratio_missing = ratio_missing
         self.random_state = random_state
+
+
+class RandomHoleGenerator(HoleGenerator):
+    def __init__(
+        self,
+        n_splits: int,
+        subset: Optional[List[str]] = None,
+        ratio_missing: Optional[float] = 0.05,
+        random_state: Optional[int] = 42,
+    ):
+        super().__init__(
+            n_splits=n_splits,
+            subset=subset,
+            random_state=random_state,
+            ratio_missing=ratio_missing,
+        )
+
+    def split(self, X: pd.DataFrame) -> List[pd.DataFrame]:
+
+        X_ = X[self.subset]
+
+        mask_init = X_.isna()
+        mask_init = mask_init.to_numpy().flatten()
+
+        df_masks = []
+        for _ in range(self.n_splits):
+            indices = np.argwhere(mask_init > 0)[:, 0]
+            indices = resample(
+                indices,
+                replace=False,
+                n_samples=math.floor(len(indices) * self.ratio_missing),
+                stratify=None,
+            )
+
+            mask = np.full(X_.shape, False)
+            mask.flat[indices] = True
+            mask = pd.DataFrame(
+                mask.reshape(X_.shape), index=X_.index, columns=X_.columns
+            )
+            complete_mask = pd.DataFrame(False, columns=X.columns, index=X.index)
+            complete_mask[self.subset] = mask[self.subset].values
+
+            df_masks.append(complete_mask)
+
+        return df_masks
 
 
 class MarkovHoleGenerator(HoleGenerator):
