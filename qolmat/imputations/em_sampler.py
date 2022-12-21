@@ -302,7 +302,7 @@ class ImputeEM(_BaseImputer):  # type: ignore
         X_stack = np.vstack(X_stack)
 
         self.means = np.mean(X_stack, axis=0)
-        self.cov = np.cov(X_stack.T, bias=1)
+        self.cov = np.cov(X_stack.T, bias=True)
         eps = 1e-2
         self.cov -= eps * (self.cov - np.diag(self.cov.diagonal()))
 

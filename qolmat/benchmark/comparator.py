@@ -46,6 +46,7 @@ class Comparator:
         # p_obs: Optional[float] = None,
         # quantile: Optional[float] = None,
         columnwise_evaluation: Optional[bool] = True,
+        cv_folds: Optional[int] = 5,
     ):
 
         self.df = data
@@ -54,6 +55,7 @@ class Comparator:
         self.generated_holes = generated_holes
         self.search_params = search_params
         self.columnwise_evaluation = columnwise_evaluation
+        self.cv_folds = cv_folds
 
     def get_errors(
         self,
@@ -129,6 +131,57 @@ class Comparator:
             ),
         }
 
+    def evaluate_errors_sample(
+        self, tested_model: any, df: pd.DataFrame, search_space: Optional[dict] = None
+    ) -> Dict:
+        """Evaluate the errors in the cross-validation
+
+        Parameters
+        ----------
+        tested_model : any
+            imputation model
+        df : pd.DataFrame
+            dataframe to impute
+        search_space : Optional[dict], optional
+            search space for tested_model's hyperparameters, by default None
+
+        Returns
+        -------
+        dict
+            dictionary with the errors for eahc metric and at each fold
+        """
+
+        errors = defaultdict(list)
+
+        for df_mask in self.generated_holes.split(df):
+
+            self.df_is_altered = df_mask
+            self.df_corrupted = df[df_mask]
+
+            df_imputed = self.df_corrupted.copy()
+            if search_space is None:
+                df_imputed[self.cols_to_impute] = tested_model.fit_transform(
+                    self.df_corrupted
+                )[self.cols_to_impute]
+            else:
+                cv = cross_validation.CrossValidation(
+                    tested_model,
+                    search_space=search_space,
+                    hole_generator=self.generated_holes,
+                    cv_folds=self.cv_folds,
+                )
+                df_imputed[self.cols_to_impute] = cv.fit_transform(self.df_corrupted)[
+                    self.cols_to_impute
+                ]
+
+            dict_errors = self.get_errors(
+                df[self.cols_to_impute], df_imputed[self.cols_to_impute]
+            )
+            for metric, value in dict_errors.items():
+                errors[metric].append(value)
+
+        return errors
+
     def compare(self, verbose: bool = True):
         """Function to compare different imputation methods
 
@@ -170,205 +223,3 @@ class Comparator:
             )
         else:
             return pd.DataFrame(results)
-
-    def evaluate_errors_sample(
-        self, tested_model, df: pd.DataFrame, search_space: Optional[dict] = None
-    ) -> Dict:
-        """Evaluate the errors in the cross-validation
-
-        Parameters
-        ----------
-        tested_model : _type_
-            imputation model
-        df : pd.DataFrame
-            dataframe to impute
-        search_space : Optional[dict], optional
-            search space for tested_model's hyperparameters , by default None
-
-        Returns
-        -------
-        dict
-            dictionary with the errors for eahc metric and at each fold
-        """
-
-        errors = defaultdict(list)
-
-        for df_mask, df_corrupted in self.generated_holes.split(df):
-            self.df_is_altered, self.df_corrupted = df_mask, df_corrupted
-
-            df_imputed = self.df_corrupted.copy()
-            if search_space is None:
-                df_imputed[self.cols_to_impute] = tested_model.fit_transform(
-                    self.df_corrupted
-                )[self.cols_to_impute]
-            else:
-                cv = cross_validation.CrossValidation(
-                    tested_model,
-                    search_space=search_space,
-                    ratio_missing=self.ratio_missing,
-                    corruption=self.corruption,
-                )
-                df_imputed[self.cols_to_impute] = cv.fit_transform(self.df_corrupted)[
-                    self.cols_to_impute
-                ]
-
-            for metric, value in self.get_errors(
-                df[self.cols_to_impute], df_imputed[self.cols_to_impute]
-            ).items():
-                errors[metric].append(value)
-
-        # ------------------------------------------------------------------------------
-
-        # errors = defaultdict(list)
-        # for _ in range(self.n_samples):
-
-        #     self.df_is_altered, self.df_corrupted = utils.create_missing_values(
-        #         df,
-        #         self.cols_to_impute,
-        #         self.markov,
-        #         self.ratio_missing,
-        #         self.missing_mechanism,
-        #         self.opt,
-        #         self.p_obs,
-        #         self.quantile,
-        #         self.corruption,
-        #     )
-
-        #     df_imputed = self.df_corrupted.copy()
-        #     if search_space is None:
-        #         df_imputed[self.cols_to_impute] = tested_model.fit_transform(
-        #             self.df_corrupted
-        #         )[self.cols_to_impute]
-        #     else:
-        #         cv = cross_validation.CrossValidation(
-        #             tested_model,
-        #             search_space=search_space,
-        #             ratio_missing=self.ratio_missing,
-        #             corruption=self.corruption,
-        #         )
-        #         df_imputed[self.cols_to_impute] = cv.fit_transform(self.df_corrupted)[
-        #             self.cols_to_impute
-        #         ]
-
-        #     for metric, value in self.get_errors(
-        #         df[self.cols_to_impute], df_imputed[self.cols_to_impute]
-        #     ).items():
-        #         errors[metric].append(value)
-
-        # ------------------------------------------------------------------------------
-
-        return errors
-
-
-from sklearn.model_selection import GroupShuffleSplit
-
-
-class ComparatorGroups(Comparator):
-    def __init__(
-        self,
-        data: ArrayLike,
-        ratio_missing: float,
-        dict_models: Dict,
-        cols_to_impute: List[str],
-        n_samples: Optional[int] = 1,
-        search_params: Optional[Dict] = {},
-        corruption: Optional[str] = "missing",
-        missing_mechanism: Optional[str] = "MCAR",
-        opt: Optional[float] = None,
-        p_obs: Optional[float] = None,
-        quantile: Optional[float] = None,
-        columnwise_evaluation: Optional[bool] = True,
-        column_groups: Optional[List[str]] = [],
-    ) -> None:
-        super().__init__(
-            data,
-            ratio_missing,
-            dict_models,
-            cols_to_impute,
-            n_samples,
-            search_params,
-            corruption,
-            missing_mechanism,
-            opt,
-            p_obs,
-            quantile,
-            columnwise_evaluation,
-        )
-        try:
-            self.column_groups = column_groups
-        except:
-            raise ValueError("No column_groups passed!")
-
-    def create_groups(self) -> None:
-        """Creare the groups based on the column names (column_groups attribute)
-
-        Raises
-        ------
-        if the number of samples/splits is greater than the number of groups.
-            _description_
-        """
-        self.groups = self.df.groupby(self.column_groups).ngroup().values
-
-        if self.n_samples > len(np.unique(self.groups)):
-            raise ValueError("n_samples has to be smaller than the number of groups.")
-
-    def evaluate_errors_sample(
-        self, tested_model: any, df: pd.DataFrame, search_space: Optional[dict] = None
-    ) -> Dict:
-        """Evalutate the imputation errors for each sample.
-
-        Parameters
-        ----------
-        tested_model : any
-            model imputation
-        df : pd.DataFrame
-            dataframe with missing values and to be imputed
-        search_space : Optional[dict], optional
-            search space of hyperparameters, by default None
-
-        Returns
-        -------
-        Dict[str, [list[float]]]
-            keys are the metrics and values are lists containing the values. The lists legnth equals the number of samples/splits (n_samples)
-        """
-
-        errors = defaultdict(list)
-
-        self.create_groups()
-
-        gss = GroupShuffleSplit(
-            n_splits=self.n_samples,
-            train_size=1 - self.ratio_missing,
-            random_state=42,
-        )
-        for _, (observed_indices, missing_indices) in enumerate(
-            gss.split(X=df, y=None, groups=self.groups)
-        ):
-            # create the boolean mask of missing values
-            self.df_is_altered = pd.DataFrame(
-                data=np.full((self.df[self.cols_to_impute].shape), True),
-                columns=self.cols_to_impute,
-                index=self.df.index,
-            )
-            self.df_is_altered.iloc[observed_indices, :] = False
-
-            # create the corrupted (with artificial missing values) dataframe
-            self.df_corrupted = self.df[self.cols_to_impute].copy()
-            self.df_corrupted.iloc[missing_indices, :] = np.nan
-
-            cv = cross_validation.CrossValidation(
-                tested_model,
-                search_space=search_space,
-                ratio_missing=self.ratio_missing,
-                corruption=self.corruption,
-            )
-            df_imputed = self.df_corrupted.copy()
-            df_imputed[self.cols_to_impute] = cv.fit_transform(self.df_corrupted)[
-                self.cols_to_impute
-            ]
-
-            for metric, value in self.get_errors(
-                df[self.cols_to_impute], df_imputed
-            ).items():
-                errors[metric].append(value)
-        return errors

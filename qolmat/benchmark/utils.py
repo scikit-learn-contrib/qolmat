@@ -140,63 +140,6 @@ def choice_with_mask(
     )
 
 
-def create_missing_values(
-    df: pd.DataFrame,
-    cols_to_impute: List[str],
-    markov: Optional[bool] = True,
-    ratio_missing: Optional[float] = 0.1,
-    missing_mechanism: Optional[str] = "MCAR",
-    opt: Optional[str] = "selfmasked",
-    p_obs: Optional[float] = 0.1,
-    quantile: Optional[float] = 0.3,
-    corruption: Optional[str] = "missing",
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """Create missing values in a dataframe
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        dataframe to be corrupted
-    cols_to_impute : List[str],
-    markov : Optional[bool] = True,
-    ratio_missing : Optional[float] = 0.1,
-    missing_mechanism : Optional[str] = "MCAR",
-    opt : Optional[str] = "selfmasked",
-    p_obs : Optional[float] = 0.1,
-    quantile : Optional[float] = 0.3,
-    corruption : Optional[str] = "missing",
-    """
-
-    df_corrupted_select = df[cols_to_impute].copy()
-
-    if markov:
-        res = missing_patterns.produce_NA_markov_chain(
-            df_corrupted_select, columnwise_missing=False
-        )
-    else:
-        res = missing_patterns.produce_NA_mechanism(
-            df_corrupted_select,
-            ratio_missing,
-            mecha=missing_mechanism,
-            opt=opt,
-            p_obs=p_obs,
-            q=quantile,
-        )
-
-    df_is_altered = res["mask"]
-    if corruption == "missing":
-        df_corrupted_select[df_is_altered] = np.nan
-    elif corruption == "outlier":
-        df_corrupted_select[df_is_altered] = np.random.randint(
-            0, high=3 * np.max(df), size=(int(len(df) * ratio_missing))
-        )
-
-    df_corrupted = df.copy()
-    df_corrupted[cols_to_impute] = df_corrupted_select
-
-    return (df_is_altered, df_corrupted)
-
-
 ######################
 # Evaluation metrics #
 ######################

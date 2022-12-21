@@ -36,50 +36,22 @@ class CrossValidation:
     def __init__(
         self,
         model,
-        search_space=None,
-        cv=2,
+        search_space,
+        hole_generator,
+        cv_folds=2,
         n_calls=10,
         n_jobs=-1,
         loss_norm=1,
-        ratio_missing=0.1,
-        corruption="missing",
         verbose=True,
     ):
         self.model = model
         self.search_space = search_space
-        self.cv = cv
+        self.hole_generator = hole_generator
+        self.cv_folds = cv_folds
         self.n_calls = n_calls
         self.n_jobs = n_jobs
         self.loss_norm = loss_norm
-        self.ratio_missing = ratio_missing
-        self.corruption = corruption
         self.verbose = verbose
-
-    def create_corruptions(
-        self, df: pd.DataFrame, random_state: Optional[int] = 129
-    ) -> None:
-        """
-        Create corrputions (missing data or outliers) in a dataframe
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            dataframe to corrupt
-        random_state : Optional[int], optional
-            random seed, by default 129
-        """
-
-        self.df_is_altered = utils.choice_with_mask(
-            df, df.notna(), self.ratio_missing, random_state
-        )
-
-        self.corrupted_df = df.copy()
-        if self.corruption == "missing":
-            self.corrupted_df[self.df_is_altered] = np.nan
-        elif self.corruption == "outlier":
-            self.corrupted_df[self.df_is_altered] = np.random.randint(
-                0, high=3 * np.max(df), size=(int(len(df) * self.ratio_missing))
-            )
 
     def loss_function(self, initial: pd.DataFrame, imputed: pd.DataFrame) -> float:
         """
@@ -145,21 +117,11 @@ class CrossValidation:
                 print(all_params)
             errors = []
 
-            for _ in range(self.cv):
-                self.df_is_altered, self.df_corrupted = utils.create_missing_values(
-                    self.signal,
-                    self.cols_to_impute,
-                    self.markov,
-                    self.ratio_missing,
-                    self.missing_mechanism,
-                    self.opt,
-                    self.p_obs,
-                    self.quantile,
-                    self.corruption,
-                )
-
-                imputed = self.model.fit_transform(self.corrupted_df)
-                error = self.loss_function(self.signal, imputed)
+            for df_mask in self.hole_generator.split(self.X):
+                self.df_is_altered = df_mask
+                self.df_corrupted = self.X[df_mask]
+                imputed = self.model.fit_transform(self.df_corrupted)
+                error = self.loss_function(self.X, imputed)
                 errors.append(error)
 
             mean_errors = np.mean(errors)
@@ -189,28 +151,22 @@ class CrossValidation:
         """
         self.X = X
 
-        if self.search_space is None:
-            imputed_X = self.model.fit_transform(self.X)
-
-        else:
-            res = skopt.gp_minimize(
-                self.objective(),
-                self.search_space,
-                n_calls=self.n_calls,
-                n_initial_points=self.n_calls // 5,
-                random_state=42,
-                n_jobs=self.n_jobs,
-            )
-            best_params = {
-                self.search_space[param].name: res["x"][param]
-                for param in range(len(res["x"]))
-            }
-            self._set_params(all_params=best_params)
-            imputed_X = self.model.fit_transform(self.X)
-
-        res = imputed_X
+        res = skopt.gp_minimize(
+            self.objective(),
+            self.search_space,
+            n_calls=self.n_calls,
+            n_initial_points=self.n_calls // 5,
+            random_state=42,
+            n_jobs=self.n_jobs,
+        )
+        best_params = {
+            self.search_space[param].name: res["x"][param]
+            for param in range(len(res["x"]))
+        }
+        self._set_params(all_params=best_params)
+        imputed_X = self.model.fit_transform(self.X)
 
         if return_hyper_params:
-            res = list(res) + [best_params]
-            return res
-        return res
+            imputed_X = list(imputed_X) + [best_params]
+            return imputed_X
+        return imputed_X
