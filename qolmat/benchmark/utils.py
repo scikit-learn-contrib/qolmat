@@ -93,55 +93,6 @@ def custom_groupby(
         return df
 
 
-def choice_with_mask(
-    df: pd.DataFrame,
-    mask: pd.DataFrame,
-    ratio: float,
-    filter_value: Optional[float] = None,
-    random_state: Optional[int] = None,
-) -> pd.DataFrame:
-    """Create missing values in a dataframe
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        initial dataframe with missing values
-    mask : pd.DataFrame
-        mask of nan values of the initial dataframe df
-    ratio : float
-        ratio of missing values to be created
-    filter_value : Optional[float], optional
-        values above this filter_value are also considerd as nan, by default None
-    random_state : Optional[int], optional
-        random state for replicability, by default None
-
-    Returns
-    -------
-    pd.DataFrame
-        initial dataframe with additional missing values
-    """
-
-    mask = mask.to_numpy().flatten()
-    if filter_value:
-        mask_filter = (df.values > filter_value).flatten()
-        mask += mask_filter
-
-    indices = np.argwhere(mask > 0)[:, 0]
-    indices = resample(
-        indices,
-        replace=False,
-        n_samples=floor(len(indices) * ratio),
-        random_state=random_state,
-        stratify=None,
-    )
-
-    choosen = np.full(df.shape, False, dtype=bool)
-    choosen.flat[indices] = True
-    return pd.DataFrame(
-        choosen.reshape(df.shape), index=df.index, columns=df.columns, dtype=bool
-    )
-
-
 ######################
 # Evaluation metrics #
 ######################

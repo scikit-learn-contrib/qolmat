@@ -1,9 +1,11 @@
 import logging
+import math
 from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import GroupShuffleSplit
+from sklearn.utils import resample
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +50,14 @@ class HoleGenerator:
         self.random_state = random_state
 
 
+    def fit(self, X: pd.DataFrame):
+        self._check_subset(X)
+        self.dict_ratios = {}
+        for column in self.subset:
+            df_isna = X[column].isna()
+            self.dict_ratios[column] = df_isna.sum() / df_isna.sum().sum()
+
+
     def split(self, X: pd.DataFrame) -> List[pd.DataFrame]:
         """Create missing data in an arraylike object based on a markov chain.
         States of the MC are the different masks of missing values:
@@ -67,7 +77,6 @@ class HoleGenerator:
         self.fit(X)
         list_masks = []
         for _ in range(self.n_splits):
-
             mask = self.generate_mask(X)
             list_masks.append(mask)
         return list_masks
@@ -82,6 +91,41 @@ class HoleGenerator:
                 raise Exception(f"No missing value in the columns {subset_without_nans}! You need to pass the relevant column name in the subset argument!")
 
 
+class RandomHoleGenerator(HoleGenerator):
+    def __init__(
+        self,
+        n_splits: int,
+        subset: Optional[List[str]] = None,
+        ratio_missing: Optional[float] = 0.05,
+        random_state: Optional[int] = 42,
+    ):
+        super().__init__(
+            n_splits=n_splits,
+            subset=subset,
+            random_state=random_state,
+            ratio_missing=ratio_missing,
+        )
+
+    def generate_mask(self, X: pd.DataFrame) -> pd.DataFrame:
+
+        df_mask = pd.DataFrame(False, index=X.index, columns=X.columns)
+
+        n_missing = X.size * self.ratio_missing
+        for column in self.subset:
+            n_missing_col = round(n_missing * self.dict_ratios[column])
+
+            indices = np.where(X[column].notna())[0]
+            indices = resample(
+                indices,
+                replace=False,
+                n_samples=n_missing_col,
+                stratify=None,
+            )
+            df_mask[column].iloc[indices] = True
+
+        return df_mask
+
+        
 class Markov1DHoleGenerator(HoleGenerator):
 
     def __init__(
@@ -111,7 +155,8 @@ class Markov1DHoleGenerator(HoleGenerator):
         states : pd.Series
 
         """
-        self._check_subset(X)
+        super().fit(X)
+        # self._check_subset(X)
         self.dict_probas_out = {}
         self.dict_ratios = {}
         for column in self.subset:
