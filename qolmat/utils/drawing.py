@@ -3,13 +3,19 @@ Useful drawing functions
 """
 
 from __future__ import annotations
+
 from typing import List, Optional, Tuple, Union
 
-import pandas as pd
-import numpy as np
-import scipy
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import scipy
+import seaborn as sns
+
+sns.set_context("paper")
+sns.set_style("whitegrid", {'axes.grid' : False})
+sns.set_theme(style="ticks")
 
 plt.rcParams["axes.spines.right"] = False
 plt.rcParams["axes.spines.top"] = False
@@ -210,3 +216,39 @@ def compare_covariances(
     ax.set_xlabel(var_x)
     ax.set_ylabel(var_y)
     ax.legend(["Raw data", "After imputation"])
+
+def display_bar_table(data: pd.DataFrame, ylabel: Optional[str]="", path: Optional[str]=None):
+    """Displaying barplot and table with the associated data side by side
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        dataframe containing the data to display. Indices = groups
+    ylabel : Optional[str], optional
+        ylabel of the plot, by default ""
+    path : Optional[str], optional
+        entire path for saving, by default None
+    """
+    colors = plt.cm.YlGnBu(np.linspace(0.2, 0.75, len(data)))
+
+    data.T.plot(
+        x=data.T.index.name,
+        kind='bar',
+        stacked=False,
+        color=colors)
+    sns.despine()
+
+    plt.table(cellText=np.around(data.values,4),
+                        rowLabels=data.index,
+                        rowColours=colors,
+                        colLabels=data.columns,
+                        bbox=[1.5,0,1.6,1])
+
+    plt.xticks(fontsize=14)
+    plt.ylabel(f"{ylabel}", fontsize=14)
+    sns.despine()
+
+    if path:
+        plt.savefig(f"{path}.png", transparent=True)
+    plt.show()
+    

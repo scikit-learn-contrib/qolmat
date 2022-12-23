@@ -1,13 +1,15 @@
-from typing import Dict, List, Optional, Tuple, Union
-from skopt.space import Categorical, Real, Integer
-import pandas as pd
-import numpy as np
-from sklearn.utils import resample
 from math import floor
+from typing import Dict, List, Optional, Tuple, Union
+
+import numpy as np
+import pandas as pd
 import scipy
-from scipy.optimize import lsq_linear, Bounds
 import scipy.sparse as sparse
+from scipy.optimize import Bounds, lsq_linear
 from sklearn.preprocessing import StandardScaler
+from sklearn.utils import resample
+from skopt.space import Categorical, Integer, Real
+
 from . import missing_patterns
 
 BOUNDS = Bounds(1, np.inf, keep_feasible=True)
@@ -148,9 +150,7 @@ def choice_with_mask(
 def mean_squared_error(
     df1: pd.DataFrame,
     df2: pd.DataFrame,
-    squared: Optional[bool] = True,
-    columnwise_evaluation: Optional[bool] = False,
-) -> Union[float, pd.Series]:
+) -> pd.Series:
     """Mean squared error between two dataframes.
 
     Parameters
@@ -159,28 +159,39 @@ def mean_squared_error(
         True dataframe
     df2 : pd.DataFrame
         Predicted dataframe
-    squared : Optional[bool], optional
-        wheter returns MSE or RMSE, by default True
-    columnwise_evaluation : Optional[bool], optional
-        whether the metric should be calculated column-wise or not, by default False
+    
 
     Returns
     -------
-    Union[float, pd.Series]
+    pd.Series
     """
-    if columnwise_evaluation:
-        squared_errors = ((df1 - df2) ** 2).sum()
-    else:
-        squared_errors = ((df1 - df2) ** 2).sum().sum()
-    if squared:
-        return squared_errors
-    else:
-        return np.sqrt(squared_errors)
+    return ((df1 - df2) ** 2).mean()
+
+
+def root_mean_squared_error(
+    df1: pd.DataFrame,
+    df2: pd.DataFrame,
+) -> pd.Series:
+    """Root mean squared error between two dataframes.
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        True dataframe
+    df2 : pd.DataFrame
+        Predicted dataframe
+
+    Returns
+    -------
+    pd.Series
+    """
+    mse = mean_squared_error(df1, df2)
+    return mse.pow(0.5)
 
 
 def mean_absolute_error(
-    df1: pd.DataFrame, df2: pd.DataFrame, columnwise_evaluation: Optional[bool] = False
-) -> Union[float, pd.Series]:
+    df1: pd.DataFrame, df2: pd.DataFrame
+) -> pd.Series:
     """Mean absolute error between two dataframes.
 
     Parameters
@@ -189,24 +200,18 @@ def mean_absolute_error(
         True dataframe
     df2 : pd.DataFrame
         Predicted dataframe
-    columnwise_evaluation : Optional[bool], optional
-        whether the metric should be calculated column-wise or not, by default False
 
     Returns
     -------
-    Union[float, pd.Series]
+    pd.Series
     """
-    if columnwise_evaluation:
-        return (df1 - df2).abs().sum()
-    else:
-        return (df1 - df2).abs().sum().sum()
+    return (df1 - df2).abs().mean()
 
 
 def weighted_mean_absolute_percentage_error(
     df1: pd.DataFrame,
     df2: pd.DataFrame,
-    columnwise_evaluation: Optional[bool] = False,
-) -> Union[float, pd.Series]:
+) -> pd.Series:
     """Weighted mean absolute percentage error between two dataframes.
 
     Parameters
@@ -217,17 +222,12 @@ def weighted_mean_absolute_percentage_error(
         True dataframe
     df2 : pd.DataFrame
         Predicted dataframe
-    columnwise_evaluation : Optional[bool], optional
-        whether the metric should be calculated column-wise or not, by default False
 
     Returns
     -------
     Union[float, pd.Series]
     """
-    if columnwise_evaluation:
-        return (df1 - df2).abs().mean() / df1.abs().mean()
-    else:
-        return ((df1 - df2).abs().mean() / df1.abs().mean()).mean()
+    return (df1 - df2).abs().mean() / df1.abs().mean()
 
 
 def wasser_distance(

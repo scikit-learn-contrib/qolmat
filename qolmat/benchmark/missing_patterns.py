@@ -1,11 +1,19 @@
 import logging
-
 from typing import List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import GroupShuffleSplit
 
 logger = logging.getLogger(__name__)
+
+
+def compute_transition_matrix(states: pd.Series):
+    df_couples = pd.DataFrame({"current": states, "next": states.shift(1)})
+    counts = df_couples.groupby(["current", "next"]).size()
+    df_counts = counts.unstack().fillna(0)
+    df_transition = df_counts.div(df_counts.sum(axis=1), axis=0)
+    return df_transition
 
 
 class HoleGenerator:
@@ -40,59 +48,6 @@ class HoleGenerator:
         self.random_state = random_state
 
 
-class MarkovHoleGenerator(HoleGenerator):
-    def __init__(
-        self,
-        n_splits: int,
-        subset: Optional[List[str]] = None,
-        ratio_missing: Optional[float] = 0.05,
-        random_state: Optional[int] = 42,
-    ):
-        super().__init__(
-            n_splits=n_splits,
-            subset=subset,
-            random_state=random_state,
-            ratio_missing=ratio_missing,
-        )
-
-    @staticmethod
-    def transition_matrix(states: pd.Series) -> pd.DataFrame:
-        """Get the transition matrix from a list of states
-
-        Parameters
-        ----------
-        states : pd.Series
-
-        Returns
-        -------
-        df_transition : pd.DataFrame
-            transition matrix associatd to the states
-        """
-        df_couples = pd.DataFrame({"current": states, "next": states.shift(1)})
-        counts = df_couples.groupby(["current", "next"]).size()
-        df_transition = counts.unstack().fillna(0)
-        return df_transition.div(df_transition.sum(axis=1), axis=0)
-
-    @staticmethod
-    def generate_hole_sizes(df_transition: pd.DataFrame, size: int) -> List[int]:
-        """Generate a sequence of states "states" of size "size" from a transition matrix "df_transition"
-
-        Parameters
-        ----------
-        df_transition: pd.DataFrame
-            transition matrix (stochastic matrix)
-            current in index, next in columns
-            1 is missing
-        size : int
-            length of the output sequence
-
-        Returns
-        -------
-        List[float]
-        """
-        prob_out = df_transition.loc[False, True]
-        return (np.random.poisson(lam=-np.log(prob_out), size=size) + 1).tolist()
-
     def split(self, X: pd.DataFrame) -> List[pd.DataFrame]:
         """Create missing data in an arraylike object based on a markov chain.
         States of the MC are the different masks of missing values:
@@ -109,45 +64,26 @@ class MarkovHoleGenerator(HoleGenerator):
             the initial dataframe, the dataframe with additional missing entries and the created mask
         """
 
-        if self.subset is None:
-            self.subset = X.columns
-
+        self.fit(X)
         list_masks = []
         for _ in range(self.n_splits):
-            mask = pd.DataFrame(False, columns=X.columns, index=X.index)
 
-            for column in self.subset:
-
-                if X[column].isna().sum() == 0:
-                    raise Exception(
-                        "There is no missing value in the column. You need to pass the relevant column name in the subset argument!"
-                    )
-
-                states = X[column].isna()
-                n_missing = round(len(X) * self.ratio_missing)
-                df_transition = self.transition_matrix(states)
-                samples_sizes = self.generate_hole_sizes(df_transition, n_missing)
-                for sample in samples_sizes:
-                    if sample > 0:
-                        is_valid = (
-                            ~(states | mask[column])
-                            .rolling(sample + 2)
-                            .max()
-                            .fillna(1)
-                            .astype(bool)
-                        )
-                        if not np.any(is_valid):
-                            logger.warning("No place to introduce sampled hole!")
-                            continue
-                        i_hole = np.random.choice(np.where(is_valid)[0])
-                        if mask[column].iloc[i_hole - sample + 1 : i_hole + 1].any():
-                            print("overriding existing hole!")
-                        mask[column].iloc[i_hole - sample : i_hole] = True
+            mask = self.generate_mask(X)
             list_masks.append(mask)
         return list_masks
 
+    def _check_subset(self, X: pd.DataFrame):
+        columns_with_nans = X.columns[X.isna().any()]
+        if self.subset is None:
+            self.subset = columns_with_nans
+        else:
+            subset_without_nans = [column for column in self.subset if column not in columns_with_nans]        
+            if len(subset_without_nans) > 0:
+                raise Exception(f"No missing value in the columns {subset_without_nans}! You need to pass the relevant column name in the subset argument!")
 
-class MultiMarkovHoleGenerator(MarkovHoleGenerator):
+
+class Markov1DHoleGenerator(HoleGenerator):
+
     def __init__(
         self,
         n_splits: int,
@@ -162,9 +98,128 @@ class MultiMarkovHoleGenerator(MarkovHoleGenerator):
             ratio_missing=ratio_missing,
         )
 
-    @staticmethod
+    def fit(self, X: pd.DataFrame) -> pd.DataFrame:
+        """
+        Get the transition matrix from a list of states
+        df_transition: pd.DataFrame
+            transition matrix (stochastic matrix)
+            current in index, next in columns
+            1 is missing
+
+        Parameters
+        ----------
+        states : pd.Series
+
+        """
+        self._check_subset(X)
+        self.dict_probas_out = {}
+        self.dict_ratios = {}
+        for column in self.subset:
+            states = X[column].isna()
+            df_transition = compute_transition_matrix(states)
+            self.dict_probas_out[column] = df_transition.loc[False, True]
+            self.dict_ratios[column] = states.sum() / X.isna().sum().sum()
+
+
+    def generate_hole_sizes(self, column: str, n_missing: int) -> List[int]:
+        """Generate a sequence of states "states" of size "size" from a transition matrix "df_transition"
+
+        Parameters
+        ----------
+        
+        size : int
+            length of the output sequence
+
+        Returns
+        -------
+        List[float]
+        """
+        
+        proba_out = self.dict_probas_out[column]
+        mean_size = 1 / proba_out
+        n_holes = round(n_missing / mean_size)
+        return (np.random.geometric(p=proba_out, size=n_holes) + 1).tolist()
+
+    def generate_mask(self, X: pd.DataFrame) -> pd.DataFrame:
+        """Create missing data in an arraylike object based on a markov chain.
+        States of the MC are the different masks of missing values:
+        there are at most pow(2,X.shape[1]) possible states.
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            initial dataframe with missing (true) entries
+
+        Returns
+        -------
+        Dict[str, pd.DataFrame]
+            the initial dataframe, the dataframe with additional missing entries and the created mask
+    """
+        mask = pd.DataFrame(False, columns=X.columns, index=X.index)
+        n_missing = X.size * self.ratio_missing
+        list_failed = []
+        for column in self.subset:
+            states = X[column].isna()
+            n_missing_col = round(n_missing * self.dict_ratios[column])
+            samples_sizes = self.generate_hole_sizes(column, n_missing_col)
+            samples_sizes = sorted(samples_sizes, reverse=True)
+            for sample in samples_sizes:
+                is_valid = (
+                    ~(states | mask[column])
+                    .rolling(sample + 2)
+                    .max()
+                    .fillna(1)
+                    .astype(bool)
+                )
+                if not np.any(is_valid):
+                    list_failed.append(sample)
+                    continue
+                i_hole = np.random.choice(np.where(is_valid)[0])
+                mask[column].iloc[i_hole - sample : i_hole] = True
+        if list_failed:
+            logger.warning(f"No place to introduce sampled holes of size {list_failed}!")
+        return mask
+
+
+class MultiMarkovHoleGenerator(HoleGenerator):
+    def __init__(
+        self,
+        n_splits: int,
+        subset: Optional[List[str]] = None,
+        ratio_missing: Optional[float] = 0.05,
+        random_state: Optional[int] = 42,
+    ):
+        super().__init__(
+            n_splits=n_splits,
+            subset=subset,
+            random_state=random_state,
+            ratio_missing=ratio_missing,
+        )
+
+
+    def fit(self, X: pd.DataFrame):
+        """
+        Get the transition matrix from a list of states
+        df_transition: pd.DataFrame
+            transition matrix (stochastic matrix)
+            current in index, next in columns
+            1 is missing
+
+        Parameters
+        ----------
+        states : pd.DataFrame
+
+        """
+        self._check_subset(X)
+
+        states = X[self.subset].isna().apply(lambda x: tuple(x), axis=1)
+        self.df_transition = compute_transition_matrix(states)
+        self.df_transition.index = pd.MultiIndex.from_tuples(self.df_transition.index)
+        self.df_transition.columns = pd.MultiIndex.from_tuples(self.df_transition.columns)
+
+
     def generate_multi_realisation(
-        df_transition: pd.DataFrame, n_missing: int
+        self, n_missing: int
     ) -> List[List[Tuple[bool]]]:
         """Generate a sequence of states "states" of size "size" from a transition matrix "df_transition"
 
@@ -180,7 +235,7 @@ class MultiMarkovHoleGenerator(MarkovHoleGenerator):
         realisation ; List[int]
             sequence of states
         """
-        states = sorted(list(df_transition.index))
+        states = sorted(list(self.df_transition.index))
         state_nona = tuple([False] * len(states[0]))
 
         state = state_nona
@@ -189,8 +244,9 @@ class MultiMarkovHoleGenerator(MarkovHoleGenerator):
         while count_missing < n_missing:
             realisation = []
             while True:
+                probas = self.df_transition.loc[state, :].values
                 state = np.random.choice(
-                    df_transition.columns, 1, p=df_transition.loc[state, :].values
+                    self.df_transition.columns, 1, p=probas
                 )[0]
                 if state == state_nona:
                     break
@@ -201,7 +257,7 @@ class MultiMarkovHoleGenerator(MarkovHoleGenerator):
                 realisations.append(realisation)
         return realisations
 
-    def split(self, X: pd.DataFrame) -> List[pd.DataFrame]:
+    def generate_mask(self, X: pd.DataFrame) -> List[pd.DataFrame]:
         """Create missing data in an arraylike object based on a markov chain.
         States of the MC are the different masks of missing values:
         there are at most pow(2,X.shape[1]) possible states.
@@ -217,46 +273,35 @@ class MultiMarkovHoleGenerator(MarkovHoleGenerator):
             the initial dataframe, the dataframe with additional missing entries and the created mask
         """
 
-        if self.subset is None:
-            self.subset = X.columns
+        X_subset = X[self.subset]
+        mask = pd.DataFrame(False, columns=X_subset.columns, index=X_subset.index)
+       
+        mask_init = X_subset.isna().any(axis=1)
+        n_missing = X.size * self.ratio_missing
 
-        list_masks = []
-        n_missing = round(self.ratio_missing * X.size)
-        for _ in range(self.n_splits):
-            X_subset = X[self.subset]
-            mask = pd.DataFrame(False, columns=X_subset.columns, index=X_subset.index)
-            states = X_subset.isna().apply(lambda x: tuple(x), axis=1)
-            df_states = pd.DataFrame(
-                [[*a] for a in states.values],
-                columns=X_subset.columns,
-                index=X_subset.index,
+        realisations = self.generate_multi_realisation(n_missing)
+        realisations = sorted(realisations, reverse=True)
+        for realisation in realisations:
+            size_hole = len(realisation)
+            is_valid = (
+                ~(mask_init | mask)
+                .T.all()
+                .rolling(size_hole + 2)
+                .max()
+                .fillna(1)
+                .astype(bool)
             )
+            if not np.any(is_valid):
+                logger.warning(f"No place to introduce sampled hole of size {size_hole}!")
+                continue
+            i_hole = np.random.choice(np.where(is_valid)[0])
+            mask.iloc[i_hole - size_hole : i_hole] = mask.iloc[
+                i_hole - size_hole : i_hole
+            ].where(~np.array(realisation), other=True)
 
-            df_transition = self.transition_matrix(states)
-            df_transition.index = pd.MultiIndex.from_tuples(df_transition.index)
-            realisations = self.generate_multi_realisation(df_transition, n_missing)
-            for realisation in realisations:
-                size_hole = len(realisation)
-                is_valid = (
-                    ~(df_states | mask)
-                    .T.all()
-                    .rolling(size_hole + 2)
-                    .max()
-                    .fillna(1)
-                    .astype(bool)
-                )
-                if not np.any(is_valid):
-                    logger.warning("No place to introduce sampled hole!")
-                    continue
-                i_hole = np.random.choice(np.where(is_valid)[0])
-                mask.iloc[i_hole - size_hole : i_hole] = mask.iloc[
-                    i_hole - size_hole : i_hole
-                ].where(~np.array(realisation), other=True)
-
-            complete_mask = pd.DataFrame(False, columns=X.columns, index=X.index)
-            complete_mask[self.subset] = mask[self.subset]
-            list_masks.append(complete_mask)
-        return list_masks
+        complete_mask = pd.DataFrame(False, columns=X.columns, index=X.index)
+        complete_mask[self.subset] = mask[self.subset]
+        return mask
 
 
 class EmpiricalTimeHoleGenerator(HoleGenerator):
@@ -274,37 +319,41 @@ class EmpiricalTimeHoleGenerator(HoleGenerator):
             ratio_missing=ratio_missing,
         )
 
-    def _get_size_holes(self, df: pd.DataFrame) -> pd.Series:
+    def fit(self, X: pd.DataFrame) -> pd.Series:
         """Compute the holes sizes of a dataframe.
         Dataframe df has only one column
 
         Parameters
         ----------
-        df : pd.DataFrame
-            dataframe with one column
+        X : pd.DataFrame
+            data with holes
 
         Returns
         -------
         sizes_holes : pd.Series
             index: hole size ; value: number of occurrences
         """
-        df_ = df.copy()
-        column_name = df_.columns[0]
-        df_["series_id"] = np.cumsum(df_.isna().diff() != 0)
-        df_.loc[df_[column_name].notna(), "series_id"] = 0
-        df_ = df_.drop((df_[df_["series_id"] == 0]).index)
-        sizes_holes = df_["series_id"].value_counts().value_counts()
-        return sizes_holes
+
+        self._check_subset(X)
+
+        self.dict_distributions_holes = {}
+        for column in self.subset:
+            df_count = X[[column]].copy()
+            df_count["series_id"] = np.cumsum(df_count.isna().diff() != 0)
+            df_count.loc[df_count[column].notna(), "series_id"] = 0
+            df_count = df_count[df_count["series_id"] != 0]
+            distribution_holes = df_count["series_id"].value_counts().value_counts()
+            self.dict_distributions_holes[column] = distribution_holes
 
     def generate_hole_sizes(
-        self, X: pd.DataFrame, nb_holes: Optional[int] = 10
+        self, column: str, nb_holes: Optional[int] = 10
     ) -> List[int]:
         """Create missing data in an arraylike object based on the holes size distribution.
 
         Parameters
         ----------
-        X : pd.DataFrame
-            initial dataframe with missing (true) entries
+        column : str
+            name of the column to fill with holes
         nb_holes : Optional[int], optional
             number of holes to create, by default 10
 
@@ -313,56 +362,39 @@ class EmpiricalTimeHoleGenerator(HoleGenerator):
         samples_sizes : List[int]
         """
 
-        nb_missing = X.isna().sum().sum()
-        if nb_missing == 0:
-            raise Exception("No missing value in the column!")
-
-        sizes_holes = self._get_size_holes(X)
+        sizes_holes = self.dict_distributions_holes[column]
         samples_sizes = np.random.choice(
             sizes_holes.index, nb_holes, p=sizes_holes / sum(sizes_holes)
         )
         return samples_sizes
 
-    def split(self, X: pd.DataFrame) -> List[pd.DataFrame]:
+    def generate_mask(self, X: pd.DataFrame) -> pd.DataFrame:
+        mask = pd.DataFrame(False, columns=X.columns, index=X.index)
 
-        if self.subset is None:
-            self.subset = X.columns
+        for column in self.subset:
 
-        list_masks = []
-        for _ in range(self.n_splits):
-            mask = pd.DataFrame(False, columns=X.columns, index=X.index)
-
-            for column in self.subset:
-
-                if X[column].isna().sum() == 0:
-                    raise Exception(
-                        "There is no missing value in the column. You need to pass the relevant column name in the subset argument!"
-                    )
-
-                states = X[column].isna()
-                n_missing = round(len(X) * self.ratio_missing)
-                samples_sizes = self.generate_hole_sizes(
-                    X[[column]], nb_holes=n_missing
+            states = X[column].isna()
+            n_missing = round(len(X) * self.ratio_missing)
+            samples_sizes = self.generate_hole_sizes(
+                X[[column]], nb_holes=n_missing
+            )
+            samples_sizes = sorted(samples_sizes, reverse=True)
+            for sample in samples_sizes:
+                is_valid = (
+                    ~(states | mask[column])
+                    .rolling(sample + 2)
+                    .max()
+                    .fillna(1)
+                    .astype(bool)
                 )
-                for sample in samples_sizes:
-                    if sample > 0:
-                        is_valid = (
-                            ~(states | mask[column])
-                            .rolling(sample + 2)
-                            .max()
-                            .fillna(1)
-                            .astype(bool)
-                        )
-                        if not np.any(is_valid):
-                            logger.warning("No place to introduce sampled hole!")
-                            continue
-                        i_hole = np.random.choice(np.where(is_valid)[0])
-                        if mask[column].iloc[i_hole - sample + 1 : i_hole + 1].any():
-                            print("overriding existing hole!")
-                        mask[column].iloc[i_hole - sample : i_hole] = True
-
-            list_masks.append(mask)
-        return list_masks
+                if not np.any(is_valid):
+                    logger.warning(f"No place to introduce sampled hole of size {sample}!")
+                    continue
+                i_hole = np.random.choice(np.where(is_valid)[0])
+                if mask[column].iloc[i_hole - sample + 1 : i_hole + 1].any():
+                    print("overriding existing hole!")
+                mask[column].iloc[i_hole - sample : i_hole] = True
+        return mask
 
 
 class GroupedHoleGenerator(HoleGenerator):
@@ -381,12 +413,12 @@ class GroupedHoleGenerator(HoleGenerator):
             ratio_missing=ratio_missing,
         )
 
-        if self.column_groups is None:
+        if column_groups is None:
             raise Exception("column_group is empty.")
 
         self.column_groups = column_groups
 
-    def _create_groups(self, X: pd.DataFrame) -> None:
+    def fit(self, X: pd.DataFrame) -> None:
         """Creare the groups based on the column names (column_groups attribute)
 
         Parameters
@@ -398,34 +430,35 @@ class GroupedHoleGenerator(HoleGenerator):
         if the number of samples/splits is greater than the number of groups.
         """
 
-        groups = X.groupby(self.column_groups).ngroup().values
+        self._check_subset(X)
 
-        if self.n_splits > len(np.unique(groups)):
+        self.groups = X.groupby(self.column_groups).ngroup().values
+
+        if self.n_splits > np.nunique(self.groups):
             raise ValueError("n_samples has to be smaller than the number of groups.")
 
-        return groups
 
     def split(self, X: pd.DataFrame) -> List[pd.DataFrame]:
+        self.fit(X)
 
-        if self.subset is None:
-            self.subset = X.columns
-
-        groups = self._create_groups(X)
         gss = GroupShuffleSplit(
             n_splits=self.n_splits,
             train_size=1 - self.ratio_missing,
             random_state=self.random_state,
         )
-        mask_dfs = []
-        for observed_indices, _ in gss.split(X=X, y=None, groups=groups):
+
+        list_masks = []
+        for observed_indices, _ in gss.split(X=X, y=None, groups=self.groups):
 
             # create the boolean mask of missing values
             df_mask = pd.DataFrame(
-                data=np.full((X.shape), True),
+                False,
                 columns=X.columns,
                 index=X.index,
             )
-            df_mask.iloc[observed_indices, self.subset] = False
-            mask_dfs.append(df_mask)
+            df_mask[self.subset].iloc[observed_indices] = True
+            list_masks.append(df_mask)
 
-        return mask_dfs
+        return list_masks
+
+

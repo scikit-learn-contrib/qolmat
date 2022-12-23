@@ -1,10 +1,13 @@
-from typing import Optional
-import urllib
 import os
-import pandas as pd
-import numpy as np
+import urllib
 import zipfile
 from datetime import datetime
+from typing import Optional
+
+import numpy as np
+import pandas as pd
+
+from qolmat.benchmark import missing_patterns
 
 
 def get_data(datapath: str = "data/", download: Optional[bool] = True):
@@ -72,4 +75,40 @@ def preprocess_data(df: pd.DataFrame):
     df = df.groupby(["station", df.index.get_level_values("datetime").floor("d")]).agg(
         dict_agg
     )
+    return df
+
+
+def add_holes(X: pd.DataFrame, ratio_missing: float, mean_size: int):
+    """
+    Creates holes in a dataset with no missing value. Only used in the documentation to design examples.
+
+    Parameters
+    ----------
+    X : pd.DataFrame
+        dataframe no missing values
+
+    mean_size : int
+        Targeted mean size of the holes to add
+
+    ratio_missing : float
+        Targeted global proportion of nans in the returned dataset
+
+    Returns
+    -------
+    pd.DataFrame
+        dataframe with missing values
+    """
+    generator = missing_patterns.Markov1DHoleGenerator(1, ratio_missing=ratio_missing, subset=X.columns)
+
+    generator.dict_probas_out = {column: 1 / mean_size for column in X.columns}
+    generator.dict_ratios = {column: 1 / len(X.columns) for column in X.columns}
+    mask = generator.generate_mask(X)
+    X_with_nans = X.copy()
+    X_with_nans[mask] = np.nan
+    return X_with_nans
+
+
+def get_data_corrupted(datapath: str = "data/", download: Optional[bool] = True, mean_size: int=90, ratio_missing: float=0.2):
+    df = get_data(datapath, download)
+    df = add_holes(df, mean_size=mean_size, ratio_missing=ratio_missing)
     return df

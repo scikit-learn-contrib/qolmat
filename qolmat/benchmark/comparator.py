@@ -1,9 +1,10 @@
 from collections import defaultdict
-from typing import Optional, Dict, List
-from numpy.typing import ArrayLike
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
+from numpy.typing import ArrayLike
+
 from qolmat.benchmark import cross_validation, utils
 from qolmat.benchmark.missing_patterns import HoleGenerator
 
@@ -22,6 +23,8 @@ class Comparator:
         dictionary of imputation methods
     cols_to_impute: List[str]
         list of column's names to impute
+    columnwise_evaluation : Optional[bool], optional
+        whether the metric should be calculated column-wise or not, by default False
     n_samples: Optional[int] = 1
         number of times the cross-validation is done. By default, the value is set to 1.
     search_params: Optional[Dict[str, Dict[str, Union[str, float, int]]]] = {}
@@ -32,35 +35,28 @@ class Comparator:
 
     def __init__(
         self,
-        data: ArrayLike,
         dict_models: Dict,
         cols_to_impute: List[str],
-        generated_holes: HoleGenerator,
-        search_params: Optional[Dict] = {},
-        # markov: Optional[bool] = True,
-        # columnwise_missing: Optional[bool] = False,
-        # ratio_missing: Optional[float] = 0.05,
-        # missing_mechanism: Optional[str] = "MCAR",
-        # corruption: Optional[str] = "missing",
-        # opt: Optional[float] = None,
-        # p_obs: Optional[float] = None,
-        # quantile: Optional[float] = None,
+        generator_holes: HoleGenerator,
         columnwise_evaluation: Optional[bool] = True,
         cv_folds: Optional[int] = 5,
+        search_params: Optional[Dict] = {},
+        n_cv_calls: Optional[int] = 10,
     ):
 
-        self.df = data
         self.cols_to_impute = cols_to_impute
         self.dict_models = dict_models
-        self.generated_holes = generated_holes
+        self.generator_holes = generator_holes
         self.search_params = search_params
         self.columnwise_evaluation = columnwise_evaluation
         self.cv_folds = cv_folds
+        self.n_cv_calls = n_cv_calls
 
     def get_errors(
         self,
-        signal_ref: pd.DataFrame,
-        signal_imputed: pd.DataFrame,
+        df_origin: pd.DataFrame,
+        df_imputed: pd.DataFrame,
+        df_mask: pd.DataFrame
     ) -> float:
         """Functions evaluating the reconstruction's quality
 
@@ -77,59 +73,36 @@ class Comparator:
             dictionay of results obtained via different metrics
         """
 
-        rmse = utils.mean_squared_error(
-            signal_ref[self.df_is_altered],
-            signal_imputed[self.df_is_altered],
-            squared=False,
-            columnwise_evaluation=self.columnwise_evaluation,
+        dict_errors = {}
+        dict_errors["rmse"] = utils.root_mean_squared_error(
+            df_origin[df_mask],
+            df_imputed[df_mask],
         )
-        mae = utils.mean_absolute_error(
-            signal_ref[self.df_is_altered],
-            signal_imputed[self.df_is_altered],
-            columnwise_evaluation=self.columnwise_evaluation,
+        dict_errors["mae"] = utils.mean_absolute_error(
+            df_origin[df_mask],
+            df_imputed[df_mask],
         )
-        wmape = utils.weighted_mean_absolute_percentage_error(
-            signal_ref[self.df_is_altered],
-            signal_imputed[self.df_is_altered],
-            columnwise_evaluation=self.columnwise_evaluation,
+        dict_errors["wmape"] = utils.weighted_mean_absolute_percentage_error(
+            df_origin[df_mask],
+            df_imputed[df_mask],
         )
-        kl = utils.kl_divergence(
-            signal_ref,
-            signal_imputed,
-            columnwise_evaluation=self.columnwise_evaluation,
-        )
-        if self.columnwise_evaluation:
-            wd = utils.wasser_distance(
-                signal_ref,
-                signal_imputed,
-            )
-        if not self.columnwise_evaluation and signal_ref.shape[1] > 1:
-            frechet = utils.frechet_distance(
-                signal_ref,
-                signal_imputed,
-                normalized=False,
-            )
-
-        return {
-            "rmse": round(rmse, 4),
-            "mae": round(mae, 4),
-            "wmape": round(wmape, 4),
-            "KL": round(kl, 4),
-            **(
-                {
-                    "wasserstein": round(wd, 4),
-                }
-                if self.columnwise_evaluation
-                else {}
-            ),
-            **(
-                {
-                    "frechet distance": round(frechet, 4),
-                }
-                if not self.columnwise_evaluation and signal_ref.shape[1] > 1
-                else {}
-            ),
-        }
+        # kl = utils.kl_divergence(
+        #     df_origin,
+        #     df_imputed,
+        # )
+        # if self.columnwise_evaluation:
+        #     wd = utils.wasser_distance(
+        #         df_origin,
+        #         df_imputed,
+        #     )
+        # if not self.columnwise_evaluation and df_origin.shape[1] > 1:
+        #     frechet = utils.frechet_distance(
+        #         df_origin,
+        #         df_imputed,
+        #         normalized=False,
+        #     )
+        errors = pd.concat(dict_errors.values(), keys=dict_errors.keys())
+        return errors
 
     def evaluate_errors_sample(
         self, tested_model: any, df: pd.DataFrame, search_space: Optional[dict] = None
@@ -147,42 +120,41 @@ class Comparator:
 
         Returns
         -------
-        dict
-            dictionary with the errors for eahc metric and at each fold
+        pd.DataFrame
+            DataFrame with the errors for each metric (in column) and at each fold (in index)
         """
+        list_errors = []
 
-        errors = defaultdict(list)
+        for df_mask in self.generator_holes.split(df):
 
-        for df_mask in self.generated_holes.split(df):
+            df_origin = df[self.cols_to_impute].copy()
+            df_corrupted = df_origin.copy()
+            df_corrupted[df_mask] = np.nan
 
-            self.df_is_altered = df_mask
-            self.df_corrupted = df[df_mask]
-
-            df_imputed = self.df_corrupted.copy()
             if search_space is None:
-                df_imputed[self.cols_to_impute] = tested_model.fit_transform(
-                    self.df_corrupted
-                )[self.cols_to_impute]
+                df_imputed = tested_model.fit_transform(
+                    df_corrupted
+                )
             else:
                 cv = cross_validation.CrossValidation(
                     tested_model,
                     search_space=search_space,
-                    hole_generator=self.generated_holes,
+                    hole_generator=self.generator_holes,
                     cv_folds=self.cv_folds,
+                    n_calls=self.n_cv_calls,
                 )
-                df_imputed[self.cols_to_impute] = cv.fit_transform(self.df_corrupted)[
-                    self.cols_to_impute
-                ]
+                df_imputed = cv.fit_transform(df_corrupted)
 
-            dict_errors = self.get_errors(
-                df[self.cols_to_impute], df_imputed[self.cols_to_impute]
+            errors = self.get_errors(
+                df_origin, df_imputed, df_mask
             )
-            for metric, value in dict_errors.items():
-                errors[metric].append(value)
+            list_errors.append(errors)
+        df_errors = pd.DataFrame(list_errors)
+        errors_mean = df_errors.mean()
 
-        return errors
+        return errors_mean
 
-    def compare(self, verbose: bool = True):
+    def compare(self, df: pd.DataFrame, verbose: bool = True):
         """Function to compare different imputation methods
 
         Parameters
@@ -195,31 +167,15 @@ class Comparator:
             dataframe with imputation
         """
 
-        results = {}
+        dict_errors = {}
         for name, tested_model in self.dict_models.items():
             if verbose:
                 print(type(tested_model).__name__)
 
             search_space = utils.get_search_space(tested_model, self.search_params)
 
-            errors = self.evaluate_errors_sample(tested_model, self.df, search_space)
+            dict_errors[name] = self.evaluate_errors_sample(tested_model, df, search_space)
 
-            if self.columnwise_evaluation:
-                results[name] = {
-                    k: pd.concat([v1 for v1 in v], axis=1).mean(axis=1).to_dict()
-                    for k, v in errors.items()
-                }
-            else:
-                results[name] = {k: np.mean(v) for k, v in errors.items()}
+        df_errors = pd.DataFrame(dict_errors)
 
-        if self.columnwise_evaluation:
-            results_d = {}
-            for k, v in results.items():
-                results_d[k] = pd.DataFrame(v).T
-            return (
-                pd.concat(results_d.values(), keys=results_d.keys())
-                .swaplevel()
-                .sort_index(0)
-            )
-        else:
-            return pd.DataFrame(results)
+        return df_errors

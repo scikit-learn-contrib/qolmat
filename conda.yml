@@ -14,18 +14,22 @@ dependencies:
   - pytest
   - pytest-cov
   - scikit-learn
+  - seaborn
   - sphinx
   - sphinx-gallery
   - sphinx_rtd_theme
   - twine
   - wheel
   - jupyterlab
-#   - fbprophet
+  #   - fbprophet
   - s3fs
   - scikit-optimize
   - pyarrow
   - matplotlib
   - plotly
+  - statsmodels
   - pip
   - pip:
-    - -e .
+      - -e .
+  - forge:
+      - gcc=12.1.0

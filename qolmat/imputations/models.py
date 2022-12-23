@@ -1,20 +1,22 @@
 import sys
-from typing import Dict, Optional, Union, List
+from typing import Dict, List, Optional, Union
 
 import sklearn.neighbors._base
 
 sys.modules["sklearn.neighbors.base"] = sklearn.neighbors._base
+import warnings
+
+import missforest
 import numpy as np
 import pandas as pd
-from qolmat.benchmark import utils
-from qolmat.imputations.miss_forest import missforest
-from qolmat.imputations.rpca.pcp_rpca import RPCA
-from qolmat.imputations.rpca.temporal_rpca import OnlineTemporalRPCA, TemporalRPCA
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer, KNNImputer
 from sklearn.impute._base import _BaseImputer
 from statsmodels.tsa.seasonal import seasonal_decompose
-import warnings
+
+from qolmat.benchmark import utils
+from qolmat.imputations.rpca.pcp_rpca import RPCA
+from qolmat.imputations.rpca.temporal_rpca import OnlineTemporalRPCA, TemporalRPCA
 
 
 class ImputeColumnWise(_BaseImputer):
@@ -30,10 +32,8 @@ class ImputeColumnWise(_BaseImputer):
     def __init__(
         self,
         groups: Optional[List[str]] = [],
-        cols_to_impute: Optional[List[str]] = None,
     ) -> None:
         self.groups = groups
-        self.cols_to_impute = cols_to_impute
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -52,15 +52,13 @@ class ImputeColumnWise(_BaseImputer):
         if not isinstance(df, pd.DataFrame):
             raise ValueError("Input has to be a pandas.DataFrame.")
 
-        if self.cols_to_impute is None:
-            self.cols_to_impute = df.columns
-        imputed = df.copy()
-        for col in self.cols_to_impute:
-            imputed[col] = self.fit_transform_col(df[col]).values
+        df_imputed = df.copy()
+        for col in df_imputed.columns:
+            df_imputed[col] = self.fit_transform_col(df[col]).values
 
-        if imputed[self.cols_to_impute].isna().sum().sum() > 0:
+        if df_imputed.isna().sum().sum() > 0:
             warnings.warn("There are still nan in the columns to be imputed")
-        return imputed
+        return df_imputed
 
     def get_hyperparams(self) -> Dict[str, Union[str, float, int]]:
         """
@@ -83,7 +81,7 @@ class ImputeByMean(ImputeColumnWise):
     >>> import numpy as np
     >>> import pandas as pd
     >>> from qolmat.imputations.models import ImputeByMean
-    >>> imputor = ImputeByMean(cols_to_impute=["var1", "var3"])
+    >>> imputor = ImputeByMean()
     >>> X = pd.DataFrame(data=[[1, 1, 1, 1], [np.nan, np.nan, np.nan, np.nan], [1, 2, 2, 5], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
     >>> imputor.fit_transform(X)
     """
@@ -91,9 +89,8 @@ class ImputeByMean(ImputeColumnWise):
     def __init__(
         self,
         groups: Optional[List[str]] = [],
-        cols_to_impute: Optional[List[str]] = None,
     ) -> None:
-        super().__init__(groups=groups, cols_to_impute=cols_to_impute)
+        super().__init__(groups=groups)
 
     def fit_transform_col(self, signal: pd.Series) -> pd.Series:
         """
@@ -126,7 +123,7 @@ class ImputeByMedian(ImputeColumnWise):
     >>> import numpy as np
     >>> import pandas as pd
     >>> from qolmat.imputations.models import ImputeByMedian
-    >>> imputor = ImputeByMean(cols_to_impute=["var1", "var3"])
+    >>> imputor = ImputeByMean()
     >>> X = pd.DataFrame(data=[[1, 1, 1, 1], [np.nan, np.nan, np.nan, np.nan], [1, 2, 2, 5], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
     >>> imputor.fit_transform(X)
     """
@@ -134,9 +131,8 @@ class ImputeByMedian(ImputeColumnWise):
     def __init__(
         self,
         groups: Optional[List[str]] = [],
-        cols_to_impute: Optional[List[str]] = None,
     ) -> None:
-        super().__init__(groups=groups, cols_to_impute=cols_to_impute)
+        super().__init__(groups=groups)
 
     def fit_transform_col(self, signal: pd.Series) -> pd.Series:
         """
@@ -169,7 +165,7 @@ class ImputeByMode(ImputeColumnWise):
     >>> import numpy as np
     >>> import pandas as pd
     >>> from qolmat.imputations.models import ImputeByMode
-    >>> imputor = ImputeByMean(cols_to_impute=["var1", "var3"])
+    >>> imputor = ImputeByMean()
     >>> X = pd.DataFrame(data=[[1, 1, 1, 1], [np.nan, np.nan, np.nan, np.nan], [1, 2, 2, 5], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
     >>> imputor.fit_transform(X)
     """
@@ -177,9 +173,8 @@ class ImputeByMode(ImputeColumnWise):
     def __init__(
         self,
         groups: Optional[List[str]] = [],
-        cols_to_impute: Optional[List[str]] = None,
     ) -> None:
-        super().__init__(groups=groups, cols_to_impute=cols_to_impute)
+        super().__init__(groups=groups)
 
     def fit_transform_col(self, signal: pd.Series) -> pd.Series:
         """
@@ -212,16 +207,16 @@ class ImputeRandom(ImputeColumnWise):
     >>> import numpy as np
     >>> import pandas as pd
     >>> from qolmat.imputations.models import ImputeRandom
-    >>> imputor = ImputeByMean(cols_to_impute=["var1", "var3"])
+    >>> imputor = ImputeByMean()
     >>> X = pd.DataFrame(data=[[1, 1, 1, 1], [np.nan, np.nan, np.nan, np.nan], [1, 2, 2, 5], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
     >>> imputor.fit_transform(X)
     """
 
     def __init__(
         self,
-        cols_to_impute: Optional[List[str]] = None,
+        
     ) -> None:
-        super().__init__(cols_to_impute=cols_to_impute)
+        super().__init__()
 
     def fit_transform_col(self, signal: pd.Series) -> pd.Series:
         """
@@ -237,14 +232,20 @@ class ImputeRandom(ImputeColumnWise):
         pd.Series
             imputed series
         """
-        col = signal.name
-        imputed = signal.reset_index()
-        number_missing = imputed[col].isnull().sum()
-        obs = imputed.loc[imputed[col].notnull(), col].values
-        imputed.loc[imputed[col].isnull(), col] = np.random.choice(
-            obs, number_missing, replace=True
-        )
-        return imputed[col]
+        # col = signal.name
+        # imputed = signal.reset_index()
+        # number_missing = imputed[col].isnull().sum()
+        # obs = imputed.loc[imputed[col].notnull(), col].values
+        # imputed.loc[imputed[col].isnull(), col] = np.random.choice(
+        #     obs, number_missing, replace=True
+        # )
+
+        n_missing = signal.isna().sum()
+        samples = np.random.choice(signal[signal.notna()], n_missing, replace=True)
+        imputed = signal.copy()
+        imputed[imputed.isna()] = samples
+
+        return imputed
 
 
 class ImputeLOCF(ImputeColumnWise):
@@ -256,7 +257,7 @@ class ImputeLOCF(ImputeColumnWise):
     >>> import numpy as np
     >>> import pandas as pd
     >>> from qolmat.imputations.models import ImputeLOCF
-    >>> imputor = ImputeByMean(cols_to_impute=["var1", "var3"])
+    >>> imputor = ImputeByMean()
     >>> X = pd.DataFrame(data=[[np.nan, np.nan, np.nan, np.nan], [1, 1, 1, 1], [np.nan, np.nan, np.nan, np.nan], [1, 2, 2, 5], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
     >>> imputor.fit_transform(X)
     """
@@ -264,9 +265,9 @@ class ImputeLOCF(ImputeColumnWise):
     def __init__(
         self,
         groups: Optional[List[str]] = [],
-        cols_to_impute: Optional[List[str]] = None,
+        
     ) -> None:
-        super().__init__(groups=groups, cols_to_impute=cols_to_impute)
+        super().__init__(groups=groups)
 
     def fit_transform_col(self, signal: pd.Series) -> pd.Series:
         """
@@ -300,7 +301,7 @@ class ImputeNOCB(ImputeColumnWise):
     >>> import numpy as np
     >>> import pandas as pd
     >>> from qolmat.imputations.models import ImputeNOCB
-    >>> imputor = ImputeByMean(cols_to_impute=["var1", "var3"])
+    >>> imputor = ImputeByMean()
     >>> X = pd.DataFrame(data=[[1, 1, 1, 1], [np.nan, np.nan, np.nan, np.nan], [1, 2, 2, 5], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
     >>> imputor.fit_transform(X)
     """
@@ -308,9 +309,9 @@ class ImputeNOCB(ImputeColumnWise):
     def __init__(
         self,
         groups: Optional[List[str]] = [],
-        cols_to_impute: Optional[List[str]] = None,
+        
     ) -> None:
-        super().__init__(groups=groups, cols_to_impute=cols_to_impute)
+        super().__init__(groups=groups)
 
     def fit_transform_col(self, signal: pd.Series) -> pd.Series:
         """
@@ -356,12 +357,16 @@ class ImputeByInterpolation(ImputeColumnWise):
     --------
     >>> import numpy as np
     >>> from qolmat.imputations.models import ImputeByInterpolation
-    >>> imputor = ImputeByInterpolation(method="spline", order=2, cols_to_impute=["var1", "var2"])
+    >>> imputor = ImputeByInterpolation(method="spline", order=2)
     >>> X = pd.DataFrame(data=[[1, 1, 1, 1], [np.nan, np.nan, np.nan, np.nan], [1, 2, 2, 5], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
     >>> imputor.fit_transform(X)
     """
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self,
+        groups: Optional[List[str]] = [],
+        
+        **kwargs) -> None:
+        super().__init__(groups=groups)
         self.method = "linear"
         for name, value in kwargs.items():
             setattr(self, name, value)
@@ -437,13 +442,13 @@ class ImputeOnResiduals(ImputeColumnWise):
         model: Optional[str] = "additive",
         extrapolate_trend: Optional[Union[int, str]] = "freq",
         method_interpolation: Optional[str] = "linear",
-        cols_to_impute: Optional[List[str]] = None,
+        
     ):
         self.model = model
         self.period = period
         self.extrapolate_trend = extrapolate_trend
         self.method_interpolation = method_interpolation
-        self.cols_to_impute = cols_to_impute
+        
 
     def fit_transform_col(self, signal: pd.Series) -> pd.Series:
         """
@@ -683,14 +688,14 @@ class ImputeRegressor(_BaseImputer):
     >>> import pandas as pd
     >>> from qolmat.imputations.models import ImputeRegressor
     >>> from sklearn.ensemble import ExtraTreesRegressor
-    >>> imputor = ImputeRegressor(model=ExtraTreesRegressor(), cols_to_impute=["var1", "var2"])
+    >>> imputor = ImputeRegressor(model=ExtraTreesRegressor())
     >>> X = pd.DataFrame(data=[[1, 1, 1, 1], [np.nan, np.nan, 2, 3], [1, 2, 2, 5], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
     >>> imputor.fit_transform(X)
     """
 
-    def __init__(self, model, cols_to_impute=[], **kwargs) -> None:
+    def __init__(self, model, **kwargs) -> None:
         self.model = model
-        self.cols_to_impute = cols_to_impute
+        
         for name, value in kwargs.items():
             setattr(self, name, value)
 
@@ -711,22 +716,19 @@ class ImputeRegressor(_BaseImputer):
         if not isinstance(df, pd.DataFrame):
             raise ValueError("Input has to be a pandas.DataFrame.")
 
-        df_imp = df.copy()
-        if self.cols_to_impute == []:
-            self.cols_to_impute = df.columns.tolist()
-        X = df[[col for col in df.columns if col not in self.cols_to_impute]]
-        if X.isna().sum().sum() > 0:
-            raise ValueError(
-                "Columns that are not to be imputed should not contain nan"
-            )
+        df_imputed = df.copy()
+        
+        cols_with_nans = df.columns[df.isna().any()]
+        cols_without_nans = df.columns[df.notna().all()]
 
-        for col in self.cols_to_impute:
+        for col in cols_with_nans:
+            X = df[cols_without_nans]
             y = df[col]
             is_na = y.isna()
             self.model.fit(X[~is_na], y[~is_na])
-            df_imp.loc[is_na, col] = self.model.predict(X[is_na])
+            df_imputed.loc[is_na, col] = self.model.predict(X[is_na])
 
-        return df_imp
+        return df_imputed
 
     def get_hyperparams(self):
         """
@@ -759,14 +761,14 @@ class ImputeStochasticRegressor(_BaseImputer):
     >>> import pandas as pd
     >>> from qolmat.imputations.models import ImputeStochasticRegressor
     >>> from sklearn.ensemble import ExtraTreesRegressor
-    >>> imputor = ImputeStochasticRegressor(model=ExtraTreesRegressor(), cols_to_impute=["var1", "var2"])
+    >>> imputor = ImputeStochasticRegressor(model=ExtraTreesRegressor())
     >>> X = pd.DataFrame(data=[[1, 1, 1, 1], [np.nan, np.nan, 2, 3], [1, 2, 2, 5], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
     >>> imputor.fit_transform(X)
     """
 
-    def __init__(self, model, cols_to_impute=[], **kwargs) -> None:
+    def __init__(self, model, **kwargs) -> None:
         self.model = model
-        self.cols_to_impute = cols_to_impute
+        
         for name, value in kwargs.items():
             setattr(self, name, value)
 
@@ -785,15 +787,11 @@ class ImputeStochasticRegressor(_BaseImputer):
             imputed dataframe
         """
         df_imp = df.copy()
-        if self.cols_to_impute == []:
-            self.cols_to_impute = df.columns.tolist()
-        X = df[[col for col in df.columns if col not in self.cols_to_impute]]
-        if X.isna().sum().sum() > 0:
-            raise ValueError(
-                "Columns that are not to be imputed should not contain nan"
-            )
+        cols_with_nans = df.columns[df.isna().any()]
+        cols_without_nans = df.columns[df.notna().all()]
 
-        for col in self.cols_to_impute:
+        for col in cols_with_nans:
+            X = df[cols_without_nans]
             y = df[col]
             is_na = y.isna()
             self.model.fit(X[~is_na], y[~is_na])
