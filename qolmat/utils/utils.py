@@ -2,6 +2,7 @@ from typing import Optional
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import time
 
 
 def display_bar_table(
@@ -36,3 +37,34 @@ def display_bar_table(
     if path:
         plt.savefig(f"{path}.png", transparent=True)
     plt.show()
+
+
+def progress_bar(
+    iteration, total, prefix="", suffix="", decimals=1, length=100, fill="█"
+):
+    """Call in a loop to create terminal progress bar
+
+    Parameters
+    ----------
+    iteration : int
+        current iteration
+    total : int
+        total iterations
+    prefix : str, optional
+        prefix string, by default ""
+    suffix : str, optional
+        suffix string, by default ""
+    decimals : int, optional
+        positive number of decimals in percent complete, by default 1
+    length : int, optional
+        character length of bar, by default 100
+    fill : str, optional
+        bar fill character, by default "█"
+    """
+    percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
+    filled_length = int(length * iteration // total)
+    bar = fill * filled_length + "-" * (length - filled_length)
+    print(f"\r{prefix} |{bar}| {percent}% {suffix}", end="\r")
+    # Print New Line on Complete
+    if iteration == total:
+        print()

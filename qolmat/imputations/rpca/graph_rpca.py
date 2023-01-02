@@ -6,7 +6,7 @@ import numpy as np
 from numpy.typing import NDArray
 from qolmat.imputations.rpca.rpca import RPCA
 from qolmat.imputations.rpca import utils
-import tqdm
+from qolmat.utils.utils import progress_bar
 
 
 class GraphRPCA(RPCA):
@@ -102,7 +102,16 @@ class GraphRPCA(RPCA):
         )
 
         errors = np.full((self.maxIter,), np.nan, dtype=float)
-        for iteration in tqdm.tqdm(range(self.maxIter)):
+
+        for iteration in range(self.maxIter):
+            if self.verbose:
+                progress_bar(
+                    iteration,
+                    self.maxIter,
+                    prefix="Progress:",
+                    suffix="Complete",
+                    length=50,
+                )
 
             X_past = X.copy()
             Y_past = Y.copy()

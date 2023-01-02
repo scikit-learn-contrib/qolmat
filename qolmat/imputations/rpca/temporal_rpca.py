@@ -7,7 +7,7 @@ import scipy as scp
 from numpy.typing import ArrayLike, NDArray
 from qolmat.imputations.rpca.rpca import RPCA
 from qolmat.imputations.rpca import utils
-import tqdm
+from qolmat.utils.utils import progress_bar
 
 
 class TemporalRPCA(RPCA):
@@ -101,8 +101,15 @@ class TemporalRPCA(RPCA):
 
         errors = np.full((self.maxIter,), np.nan, dtype=float)
 
-        for iteration in tqdm.tqdm(range(self.maxIter)):
-            # save current variable values
+        for iteration in range(self.maxIter):
+            if self.verbose:
+                progress_bar(
+                    iteration,
+                    self.maxIter,
+                    prefix="Progress:",
+                    suffix="Complete",
+                    length=50,
+                )
             X_temp = X.copy()
             A_temp = A.copy()
             L_temp = L.copy()
@@ -204,8 +211,15 @@ class TemporalRPCA(RPCA):
 
         errors = np.full((self.maxIter,), np.nan, dtype=float)
 
-        for iteration in tqdm.tqdm(range(self.maxIter)):
-            # print(f"iteration={iteration}")
+        for iteration in range(self.maxIter):
+            if self.verbose:
+                progress_bar(
+                    iteration,
+                    self.maxIter,
+                    prefix="Progress:",
+                    suffix="Complete",
+                    length=50,
+                )
             X_temp = X.copy()
             A_temp = A.copy()
             L_temp = L.copy()
