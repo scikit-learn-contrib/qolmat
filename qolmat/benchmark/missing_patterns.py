@@ -51,7 +51,7 @@ class HoleGenerator:
         self.dict_ratios = {}
         for column in self.subset:
             df_isna = X[column].isna()
-            self.dict_ratios[column] = df_isna.sum() / df_isna.sum().sum()
+            self.dict_ratios[column] = df_isna.sum() / X.isna().sum().sum()
         return self
 
     def split(self, X: pd.DataFrame) -> List[pd.DataFrame]:
@@ -125,7 +125,7 @@ class RandomHoleGenerator(HoleGenerator):
 
         df_mask = pd.DataFrame(False, index=X.index, columns=X.columns)
 
-        n_missing = X.size * self.ratio_missing
+        n_missing = X[self.subset].size * self.ratio_missing
         for column in self.subset:
             n_missing_col = round(n_missing * self.dict_ratios[column])
 
@@ -234,7 +234,7 @@ class Markov1DHoleGenerator(HoleGenerator):
             masked dataframe with additional missing entries
         """
         mask = pd.DataFrame(False, columns=X.columns, index=X.index)
-        n_missing = X.size * self.ratio_missing
+        n_missing = X[self.subset].size * self.ratio_missing
         list_failed = []
         for column in self.subset:
             states = X[column].isna()
@@ -376,7 +376,7 @@ class MultiMarkovHoleGenerator(HoleGenerator):
         mask = pd.DataFrame(False, columns=X_subset.columns, index=X_subset.index)
 
         mask_init = X_subset.isna().any(axis=1)
-        n_missing = X.size * self.ratio_missing
+        n_missing = X[self.subset].size * self.ratio_missing
 
         realisations = self.generate_multi_realisation(n_missing)
         realisations = sorted(realisations, reverse=True)
