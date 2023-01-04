@@ -555,7 +555,7 @@ class GroupedHoleGenerator(HoleGenerator):
 
         self.groups = X.groupby(self.column_groups).ngroup().values
 
-        if self.n_splits > np.nunique(self.groups):
+        if self.n_splits > len(np.unique(self.groups)):
             raise ValueError("n_samples has to be smaller than the number of groups.")
 
         return self
