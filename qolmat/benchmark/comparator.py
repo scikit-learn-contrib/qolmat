@@ -1,9 +1,7 @@
-from collections import defaultdict
 from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
-from numpy.typing import ArrayLike
 
 from qolmat.benchmark import cross_validation, utils
 from qolmat.benchmark.missing_patterns import HoleGenerator
@@ -22,9 +20,11 @@ class Comparator:
     columnwise_evaluation : Optional[bool], optional
         whether the metric should be calculated column-wise or not, by default False
     search_params: Optional[Dict[str, Dict[str, Union[str, float, int]]]] = {}
-        dictionary of search space for each implementation method. By default, the value is set to {}.
+        dictionary of search space for each implementation method. By default, the value is set to
+        {}.
     n_cv_calls: Optional[int] = 10
-        number of calls of the hyperparameters cross-validation. By default, the value is set to 10.
+        number of calls of the hyperparameters cross-validation. By default, the value is set to
+        10.
     """
 
     def __init__(
@@ -159,9 +159,7 @@ class Comparator:
 
             search_space = utils.get_search_space(tested_model, self.search_params)
 
-            dict_errors[name] = self.evaluate_errors_sample(
-                tested_model, df, search_space
-            )
+            dict_errors[name] = self.evaluate_errors_sample(tested_model, df, search_space)
 
         df_errors = pd.DataFrame(dict_errors)
 

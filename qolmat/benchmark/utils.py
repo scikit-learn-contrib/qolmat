@@ -1,5 +1,4 @@
-from math import floor
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -7,10 +6,7 @@ import scipy
 import scipy.sparse as sparse
 from scipy.optimize import Bounds, lsq_linear
 from sklearn.preprocessing import StandardScaler
-from sklearn.utils import resample
 from skopt.space import Categorical, Integer, Real
-
-from . import missing_patterns
 
 BOUNDS = Bounds(1, np.inf, keep_feasible=True)
 EPS = np.finfo(float).eps
@@ -35,9 +31,7 @@ def get_search_space(tested_model: any, search_params: Dict) -> Union[None, List
     search_space = None
     if str(type(tested_model).__name__) in search_params.keys():
         search_space = []
-        for name_param, vals_params in search_params[
-            str(type(tested_model).__name__)
-        ].items():
+        for name_param, vals_params in search_params[str(type(tested_model).__name__)].items():
 
             if str(type(tested_model).__name__) == "ImputeRPCA":
                 if hasattr(tested_model.rpca, name_param):
@@ -51,15 +45,11 @@ def get_search_space(tested_model: any, search_params: Dict) -> Union[None, List
 
             if vals_params["type"] == "Integer":
                 search_space.append(
-                    Integer(
-                        low=vals_params["min"], high=vals_params["max"], name=name_param
-                    )
+                    Integer(low=vals_params["min"], high=vals_params["max"], name=name_param)
                 )
             elif vals_params["type"] == "Real":
                 search_space.append(
-                    Real(
-                        low=vals_params["min"], high=vals_params["max"], name=name_param
-                    )
+                    Real(low=vals_params["min"], high=vals_params["max"], name=name_param)
                 )
             elif vals_params["type"] == "Categorical":
                 search_space.append(
@@ -110,7 +100,7 @@ def mean_squared_error(
         True dataframe
     df2 : pd.DataFrame
         Predicted dataframe
-    
+
 
     Returns
     -------
@@ -140,9 +130,7 @@ def root_mean_squared_error(
     return mse.pow(0.5)
 
 
-def mean_absolute_error(
-    df1: pd.DataFrame, df2: pd.DataFrame
-) -> pd.Series:
+def mean_absolute_error(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.Series:
     """Mean absolute error between two dataframes.
 
     Parameters
@@ -211,7 +199,8 @@ def kl_divergence(
     columnwise_evaluation: Optional[bool] = False,
 ) -> Union[float, pd.Series]:
     """Kullback-Leibler divergence between distributions
-    If multivariate normal distributions: https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence
+    If multivariate normal distributions:
+    https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence
 
     Parameters
     ----------
@@ -254,13 +243,14 @@ def frechet_distance(
     df1: pd.DataFrame, df2: pd.DataFrame, normalized: Optional[bool] = False
 ) -> float:
     """Compute the Fréchet distance between two dataframes df1 and df2
-        frechet_distance = || mu_1 - mu_2 ||_2^2 + Tr(Sigma_1 + Sigma_2 - 2(Sigma_1 . Sigma_2)^(1/2))
+    frechet_distance = || mu_1 - mu_2 ||_2^2 + Tr(Sigma_1 + Sigma_2 - 2(Sigma_1 . Sigma_2)^(1/2))
     if normalized, df1 and df_ are first scaled by a factor
         (std(df1) + std(df2)) / 2
     and then centered around
         (mean(df1) + mean(df2)) / 2
 
-    Dowson, D. C., and BV666017 Landau. "The Fréchet distance between multivariate normal distributions."
+    Dowson, D. C., and BV666017 Landau. "The Fréchet distance between multivariate normal
+    distributions."
     Journal of multivariate analysis 12.3 (1982): 450-455.
 
     Parameters
@@ -342,9 +332,7 @@ def agg_df_values(df, target, agg_time):
 def aggregate_time_data(df, target, agg_time):
     df.loc[:, "datetime"] = df.datetime.dt.tz_localize(tz=None)
     df["day_SNCF"] = (df["datetime"] - pd.Timedelta("4H")).dt.date
-    df_aggregated = df.groupby("day_SNCF").apply(
-        lambda x: agg_df_values(x, target, agg_time)
-    )
+    df_aggregated = df.groupby("day_SNCF").apply(lambda x: agg_df_values(x, target, agg_time))
     return df_aggregated
 
 
@@ -393,8 +381,7 @@ def impute_entropy_day(df, target, ts_agg, agg_time, zero_soil=0.0):
     df_day = df.drop_duplicates(subset=["datetime"])
     ts_agg = ts_agg.to_frame().reset_index()
     ts_agg = ts_agg.loc[
-        (ts_agg.agg_time >= df_day.datetime.min())
-        & (ts_agg.agg_time <= df_day.datetime.max())
+        (ts_agg.agg_time >= df_day.datetime.min()) & (ts_agg.agg_time <= df_day.datetime.max())
     ]
     if len(ts_agg) < 2:
         df_day = pd.DataFrame({"datetime": df_day.datetime.values})
@@ -403,26 +390,18 @@ def impute_entropy_day(df, target, ts_agg, agg_time, zero_soil=0.0):
         return df_res
 
     df_day["datetime_round"] = df_day.datetime.dt.round(agg_time)
-    df_day["n_train"] = df_day.groupby("datetime_round")[target].transform(
-        lambda x: x.shape[0]
-    )
+    df_day["n_train"] = df_day.groupby("datetime_round")[target].transform(lambda x: x.shape[0])
 
     df_day["hyp_values"] = (
         df_day[["datetime_round"]]
-        .merge(ts_agg, left_on="datetime_round", right_on="agg_time", how="left")[
-            col_name
-        ]
+        .merge(ts_agg, left_on="datetime_round", right_on="agg_time", how="left")[col_name]
         .values
     )
 
     df_day["hyp_values"] = df_day["hyp_values"] / df_day["n_train"]
-    df_day.loc[df_day[target].notna(), "hyp_values"] = df_day.loc[
-        df_day[target].notna(), target
-    ]
+    df_day.loc[df_day[target].notna(), "hyp_values"] = df_day.loc[df_day[target].notna(), target]
     ts_agg_zeros = ts_agg.loc[ts_agg[col_name] <= zero_soil, "agg_time"]
-    is_in_zero_slot = is_in_a_slot(
-        df_dt=df_day["datetime"], df_dt_agg=ts_agg_zeros, freq=agg_time
-    )
+    is_in_zero_slot = is_in_a_slot(df_dt=df_day["datetime"], df_dt_agg=ts_agg_zeros, freq=agg_time)
 
     df_day["impute"] = np.nan
     df_day.loc[is_in_zero_slot, "impute"] = 0

@@ -4,13 +4,12 @@ Modular utility functions for RPCA
 
 from __future__ import annotations
 
-from typing import Optional, Tuple, List
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 import scipy
 from scipy.linalg import toeplitz
-
 from sklearn.neighbors import kneighbors_graph
 
 
@@ -54,7 +53,6 @@ def signal_to_matrix(signal: np.ndarray, n_rows: int) -> Tuple[np.ndarray, int]:
         matrix and number of added nan's to match the size
         (if len(signal)%period != 0)
     """
-    n_cols = len(signal) // n_rows + (len(signal) % n_rows >= 1)
     if (len(signal) % n_rows) > 0:
         M = np.append(signal, [np.nan] * (n_rows - (len(signal) % n_rows)))
     else:
@@ -164,14 +162,10 @@ def impute_nans(M: np.ndarray, method: str = "zeros") -> np.ndarray:
     """
 
     if method == "mean":
-        result = np.where(
-            np.isnan(M), np.tile(np.nanmean(M, axis=0), (M.shape[0], 1)), M
-        )
+        result = np.where(np.isnan(M), np.tile(np.nanmean(M, axis=0), (M.shape[0], 1)), M)
         result = np.where(np.isnan(result), np.nanmean(result), result)
     elif method == "median":
-        result = np.where(
-            np.isnan(M), np.tile(np.nanmedian(M, axis=0), (M.shape[0], 1)), M
-        )
+        result = np.where(np.isnan(M), np.tile(np.nanmedian(M, axis=0), (M.shape[0], 1)), M)
         result = np.where(np.isnan(result), np.nanmedian(result), result)
     elif method == "zeros":
         result = np.where(np.isnan(M), 0, M)
@@ -371,9 +365,9 @@ def solve_proj2(
     n, p = U.shape
     v = np.zeros(p)
     s = np.zeros(n)
-    I = np.identity(p)
+    Identity = np.identity(p)
 
-    UUt = np.linalg.inv(U.transpose().dot(U) + lam1 * I).dot(U.transpose())
+    UUt = np.linalg.inv(U.transpose().dot(U) + lam1 * Identity).dot(U.transpose())
     for _ in range(maxIter):
         vtemp = v.copy()
         v = UUt.dot(m - s)
@@ -398,7 +392,8 @@ def solve_projection(
 ):
     """
     solve the problem:
-    min_{v, s} 0.5*|m-Uv-s|_2^2 + 0.5*lambda1*|v|^2 + lambda2*|s|_1 + sum_k eta_k |Lq-Lq_{-T_k}|_2^2
+    min_{v, s} 0.5*|m-Uv-s|_2^2 + 0.5*lambda1*|v|^2 +
+    lambda2*|s|_1 + sum_k eta_k |Lq-Lq_{-T_k}|_2^2
 
     projection with temporal regularisations
 
@@ -433,14 +428,14 @@ def solve_projection(
     n, p = L.shape
     r = np.zeros(p)
     e = np.zeros(n)
-    I = np.identity(p)
+    Identity = np.identity(p)
 
     sums = 2.0 * np.sum(list_lams)
     sums_rk = np.zeros(n)
     for a, b in zip(list_lams, list_periods):
         sums_rk += 2 * a * X[:, -b]
 
-    tmp = np.linalg.inv(L.T @ L + lam1 * I + L.T @ L * sums)
+    tmp = np.linalg.inv(L.T @ L + lam1 * Identity + L.T @ L * sums)
 
     for _ in range(maxIter):
         rtemp = r

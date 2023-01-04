@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import logging
 from typing import List, Optional, Tuple
 
@@ -67,7 +68,8 @@ class HoleGenerator:
         Returns
         -------
         Dict[str, pd.DataFrame]
-            the initial dataframe, the dataframe with additional missing entries and the created mask
+            the initial dataframe, the dataframe with additional missing entries and the created
+            mask
         """
 
         self.fit(X)
@@ -87,7 +89,8 @@ class HoleGenerator:
             ]
             if len(subset_without_nans) > 0:
                 raise Exception(
-                    f"No missing value in the columns {subset_without_nans}! You need to pass the relevant column name in the subset argument!"
+                    f"No missing value in the columns {subset_without_nans}!"
+                    "You need to pass the relevant column name in the subset argument!"
                 )
 
 
@@ -243,11 +246,7 @@ class Markov1DHoleGenerator(HoleGenerator):
             samples_sizes = sorted(samples_sizes, reverse=True)
             for sample in samples_sizes:
                 is_valid = (
-                    ~(states | mask[column])
-                    .rolling(sample + 2)
-                    .max()
-                    .fillna(1)
-                    .astype(bool)
+                    ~(states | mask[column]).rolling(sample + 2).max().fillna(1).astype(bool)
                 )
                 if not np.any(is_valid):
                     list_failed.append(sample)
@@ -255,9 +254,7 @@ class Markov1DHoleGenerator(HoleGenerator):
                 i_hole = np.random.choice(np.where(is_valid)[0])
                 mask[column].iloc[i_hole - sample : i_hole] = True
         if list_failed:
-            logger.warning(
-                f"No place to introduce sampled holes of size {list_failed}!"
-            )
+            logger.warning(f"No place to introduce sampled holes of size {list_failed}!")
         return mask
 
 
@@ -315,9 +312,7 @@ class MultiMarkovHoleGenerator(HoleGenerator):
         states = X[self.subset].isna().apply(lambda x: tuple(x), axis=1)
         self.df_transition = compute_transition_matrix(states)
         self.df_transition.index = pd.MultiIndex.from_tuples(self.df_transition.index)
-        self.df_transition.columns = pd.MultiIndex.from_tuples(
-            self.df_transition.columns
-        )
+        self.df_transition.columns = pd.MultiIndex.from_tuples(self.df_transition.columns)
 
         return self
 
@@ -369,7 +364,8 @@ class MultiMarkovHoleGenerator(HoleGenerator):
         Returns
         -------
         Dict[str, pd.DataFrame]
-            the initial dataframe, the dataframe with additional missing entries and the created mask
+            the initial dataframe, the dataframe with additional missing entries and the created
+            mask
         """
 
         X_subset = X[self.subset]
@@ -383,22 +379,15 @@ class MultiMarkovHoleGenerator(HoleGenerator):
         for realisation in realisations:
             size_hole = len(realisation)
             is_valid = (
-                ~(mask_init | mask)
-                .T.all()
-                .rolling(size_hole + 2)
-                .max()
-                .fillna(1)
-                .astype(bool)
+                ~(mask_init | mask).T.all().rolling(size_hole + 2).max().fillna(1).astype(bool)
             )
             if not np.any(is_valid):
-                logger.warning(
-                    f"No place to introduce sampled hole of size {size_hole}!"
-                )
+                logger.warning(f"No place to introduce sampled hole of size {size_hole}!")
                 continue
             i_hole = np.random.choice(np.where(is_valid)[0])
-            mask.iloc[i_hole - size_hole : i_hole] = mask.iloc[
-                i_hole - size_hole : i_hole
-            ].where(~np.array(realisation), other=True)
+            mask.iloc[i_hole - size_hole : i_hole] = mask.iloc[i_hole - size_hole : i_hole].where(
+                ~np.array(realisation), other=True
+            )
 
         complete_mask = pd.DataFrame(False, columns=X.columns, index=X.index)
         complete_mask[self.subset] = mask[self.subset]
@@ -462,9 +451,7 @@ class EmpiricalTimeHoleGenerator(HoleGenerator):
             distribution_holes = df_count["series_id"].value_counts().value_counts()
             self.dict_distributions_holes[column] = distribution_holes
 
-    def generate_hole_sizes(
-        self, column: str, nb_holes: Optional[int] = 10
-    ) -> List[int]:
+    def generate_hole_sizes(self, column: str, nb_holes: Optional[int] = 10) -> List[int]:
         """Create missing data in an arraylike object based on the holes size distribution.
 
         Parameters
@@ -496,16 +483,10 @@ class EmpiricalTimeHoleGenerator(HoleGenerator):
             samples_sizes = sorted(samples_sizes, reverse=True)
             for sample in samples_sizes:
                 is_valid = (
-                    ~(states | mask[column])
-                    .rolling(sample + 2)
-                    .max()
-                    .fillna(1)
-                    .astype(bool)
+                    ~(states | mask[column]).rolling(sample + 2).max().fillna(1).astype(bool)
                 )
                 if not np.any(is_valid):
-                    logger.warning(
-                        f"No place to introduce sampled hole of size {sample}!"
-                    )
+                    logger.warning(f"No place to introduce sampled hole of size {sample}!")
                     continue
                 i_hole = np.random.choice(np.where(is_valid)[0])
                 if mask[column].iloc[i_hole - sample + 1 : i_hole + 1].any():

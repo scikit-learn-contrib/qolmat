@@ -12,9 +12,10 @@ import numpy as np
 import pandas as pd
 import scipy
 import seaborn as sns
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 sns.set_context("paper")
-sns.set_style("whitegrid", {'axes.grid' : False})
+sns.set_style("whitegrid", {"axes.grid": False})
 sns.set_theme(style="ticks")
 
 plt.rcParams["axes.spines.right"] = False
@@ -22,7 +23,6 @@ plt.rcParams["axes.spines.top"] = False
 plt.rcParams["axes.grid"] = True
 plt.rcParams["grid.alpha"] = 1
 plt.rcParams["grid.color"] = "#cccccc"
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
 def plot_matrices(list_matrices: List[np.ndarray], title: Optional[str] = None) -> None:
@@ -31,7 +31,8 @@ def plot_matrices(list_matrices: List[np.ndarray], title: Optional[str] = None) 
     Parameters
     ----------
     list_matrices : List[np.ndarray]
-        List containing, in the right order, the observations matrix, the low-rank matrix and the sparse matrix
+        List containing, in the right order, the observations matrix, the low-rank matrix and the
+        sparse matrix
     title : Optional[str], optional
         if present, title of the saved figure, by default None
     """
@@ -73,7 +74,8 @@ def plot_signal(
     Parameters
     ----------
     list_signals : List[List]
-        List containing, in the right order, the  observed time series, the cleaned signal and the anomalies
+        List containing, in the right order, the  observed time series, the cleaned signal and
+        the anomalies
     title : Optional[str], optional
         if present, title of the saved figure, by default None
     ylabel : Optional[str], optional
@@ -190,9 +192,7 @@ def make_ellipses(
     ax.set_aspect("equal", "datalim")
 
 
-def compare_covariances(
-    df1: pd.DataFrame, df2: pd.DataFrame, var_x: str, var_y: str, ax: any
-):
+def compare_covariances(df1: pd.DataFrame, df2: pd.DataFrame, var_x: str, var_y: str, ax: any):
     """
     Covariance plot: scatter plot with ellipses
 
@@ -217,7 +217,8 @@ def compare_covariances(
     ax.set_ylabel(var_y)
     ax.legend(["Raw data", "After imputation"])
 
-def display_bar_table(data: pd.DataFrame, ylabel: Optional[str]="", path: Optional[str]=None):
+
+def display_bar_table(data: pd.DataFrame, ylabel: Optional[str] = "", path: Optional[str] = None):
     """Displaying barplot and table with the associated data side by side
 
     Parameters
@@ -231,18 +232,16 @@ def display_bar_table(data: pd.DataFrame, ylabel: Optional[str]="", path: Option
     """
     colors = plt.cm.YlGnBu(np.linspace(0.2, 0.75, len(data)))
 
-    data.T.plot(
-        x=data.T.index.name,
-        kind='bar',
-        stacked=False,
-        color=colors)
+    data.T.plot(x=data.T.index.name, kind="bar", stacked=False, color=colors)
     sns.despine()
 
-    plt.table(cellText=np.around(data.values,4),
-                        rowLabels=data.index,
-                        rowColours=colors,
-                        colLabels=data.columns,
-                        bbox=[1.5,0,1.6,1])
+    plt.table(
+        cellText=np.around(data.values, 4),
+        rowLabels=data.index,
+        rowColours=colors,
+        colLabels=data.columns,
+        bbox=[1.5, 0, 1.6, 1],
+    )
 
     plt.xticks(fontsize=14)
     plt.ylabel(f"{ylabel}", fontsize=14)
@@ -251,4 +250,3 @@ def display_bar_table(data: pd.DataFrame, ylabel: Optional[str]="", path: Option
     if path:
         plt.savefig(f"{path}.png", transparent=True)
     plt.show()
-    

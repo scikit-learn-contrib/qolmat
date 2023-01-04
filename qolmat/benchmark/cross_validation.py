@@ -1,8 +1,8 @@
 from typing import Dict, Optional, Union
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 import skopt
-from . import utils
 
 
 class CrossValidation:
@@ -160,8 +160,7 @@ class CrossValidation:
         )
 
         best_params = {
-            self.search_space[param].name: res["x"][param]
-            for param in range(len(res["x"]))
+            self.search_space[param].name: res["x"][param] for param in range(len(res["x"]))
         }
 
         self._set_params(all_params=best_params)

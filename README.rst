@@ -13,7 +13,7 @@ which allows to work with grossly corrupted observations.
 Suppose we are given a large data matrix :math:`\mathbf{D}`, and know
 that it may be decomposed as
 
-.. math:: 
+.. math::
 
    \mathbf{D} = \mathbf{X}^* + \mathbf{A}^*
 
@@ -30,7 +30,7 @@ See `here <https://arxiv.org/abs/0912.3599>`__ for more details.
 
 Formally, the problem is expressed as
 
-.. math:: 
+.. math::
 
    \begin{align*}
    & \text{minimise} \quad \text{rank} (\mathbf{X}) + \lambda \Vert \mathbf{A} \Vert_0 \\
@@ -45,7 +45,7 @@ penalty is replaced with the :math:`\ell_1`-norm, which is good at
 modeling the sparse noise and has high efficient solution. Therefore,
 the problem becomes
 
-.. math:: 
+.. math::
 
    \begin{align*}
    & \text{minimise} \quad \Vert \mathbf{X} \Vert_* + \lambda \Vert \mathbf{A} \Vert_1 \\
@@ -69,11 +69,11 @@ on anomaly detection in time series.
 What’s in this repo?
 ====================
 
-Some classes are implemented: 
+Some classes are implemented:
 
 * :class:`RPCA` class (see p.29 of this `paper <https://arxiv.org/abs/0912.3599>`__). The optimisation problem is the following
 
-.. math:: 
+.. math::
 
    \begin{align*}
    & \text{minimise} \quad \Vert \mathbf{X} \Vert_* + \lambda \Vert \mathbf{A} \Vert_1 \\
@@ -82,7 +82,7 @@ Some classes are implemented:
 
 * :class:`GraphRPCA` class (based on this `paper <https://arxiv.org/abs/1507.08173>`__). The optimisation problem is the following
 
-.. math:: 
+.. math::
 
    \begin{align*}
    & \text{minimise} \quad  \Vert \mathbf{A} \Vert_1 + \gamma_1 \text{tr}(\mathbf{X} \mathbf{\mathcal{L}_1} \mathbf{X}^T) + \gamma_2 \text{tr}(\mathbf{X}^T \mathbf{\mathcal{L}_2} \mathbf{X}) \\
@@ -91,14 +91,14 @@ Some classes are implemented:
 
 * :class:`TemporalRPCA` class (based on this `paper <https://arxiv.org/abs/2001.05484>`__ and this `paper <https://www.hindawi.com/journals/jat/2018/7191549/>`__). The optimisation problem is the following
 
-.. math:: 
+.. math::
 
    \text{minimise} \quad \Vert P_{\Omega}(\mathbf{X}+\mathbf{A}-\mathbf{D}) \Vert_F^2 + \lambda_1 \Vert \mathbf{X} \Vert_* + \lambda_2 \Vert \mathbf{A} \Vert_1 + \sum_{k=1}^K \eta_k \Vert \mathbf{XH_k} \Vert_p
 
 where :math:`\Vert \mathbf{XH_k} \Vert_p` is either :math:`\Vert \mathbf{XH_k} \Vert_1` or  :math:`\Vert \mathbf{XH_k} \Vert_F^2`.
 
 
-The operator :math:`P_{\Omega}` is the projection operator such that 
+The operator :math:`P_{\Omega}` is the projection operator such that
 :math:`P_{\Omega}(\mathbf{M})` is the projection of
 :math:`\mathbf{M}` on the set of observed data :math:`\Omega`. This
 allows to deal with missing values. Each of these classes is adapted to
@@ -115,7 +115,7 @@ Install directly from the gitlab repository:
 Contributing
 ============
 
-Feel free to open an issue or contact us at pnom@quantmetry.com 
+Feel free to open an issue or contact us at pnom@quantmetry.com
 
 References
 ==========

@@ -31,5 +31,6 @@ dependencies:
   - pip
   - pip:
       - -e .
+      - pre-commit==2.21.0
   - forge:
       - gcc=12.1.0

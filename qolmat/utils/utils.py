@@ -1,13 +1,11 @@
 from typing import Optional
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
-import time
 
 
-def display_bar_table(
-    data: pd.DataFrame, ylabel: Optional[str] = "", path: Optional[str] = None
-):
+def display_bar_table(data: pd.DataFrame, ylabel: Optional[str] = "", path: Optional[str] = None):
     """Displaying barplot and table with the associated data side by side
 
     Parameters
@@ -39,9 +37,7 @@ def display_bar_table(
     plt.show()
 
 
-def progress_bar(
-    iteration, total, prefix="", suffix="", decimals=1, length=100, fill="█"
-):
+def progress_bar(iteration, total, prefix="", suffix="", decimals=1, length=100, fill="█"):
     """Call in a loop to create terminal progress bar
 
     Parameters

@@ -5,8 +5,9 @@ from typing import List, Optional
 import numpy as np
 import scipy as scp
 from numpy.typing import ArrayLike, NDArray
-from qolmat.imputations.rpca.rpca import RPCA
+
 from qolmat.imputations.rpca import utils
+from qolmat.imputations.rpca.rpca import RPCA
 from qolmat.utils.utils import progress_bar
 
 
@@ -16,10 +17,12 @@ class TemporalRPCA(RPCA):
 
     References
     ----------
-    Wang, Xuehui, et al. "An improved robust principal component analysis model for anomalies detection of subway passenger flow."
+    Wang, Xuehui, et al. "An improved robust principal component analysis model for anomalies
+    detection of subway passenger flow."
     Journal of advanced transportation (2018).
 
-    Chen, Yuxin, et al. "Bridging convex and nonconvex optimization in robust PCA: Noise, outliers and missing data."
+    Chen, Yuxin, et al. "Bridging convex and nonconvex optimization in robust PCA: Noise, outliers
+    and missing data."
     The Annals of Statistics 49.5 (2021): 2948-2971.
 
     Parameters
@@ -39,7 +42,8 @@ class TemporalRPCA(RPCA):
     maxIter: Optional[int]
         stopping criteria, maximum number of iterations. By default, the value is set to 10_000
     tol: Optional[float]
-        stoppign critera, minimum difference between 2 consecutive iterations. By default, the value is set to 1e-6
+        stoppign critera, minimum difference between 2 consecutive iterations. By default,
+        the value is set to 1e-6
     verbose: Optional[bool]
         verbosity. By default, the value is set to False
     norm: Optional[str]
@@ -86,10 +90,7 @@ class TemporalRPCA(RPCA):
         Q = np.ones((n, self.rank))
         R = [np.ones((m, n - period)) for period in self.list_periods]
         # temporal correlations
-        H = [
-            utils.toeplitz_matrix(period, n, model="column")
-            for period in self.list_periods
-        ]
+        H = [utils.toeplitz_matrix(period, n, model="column") for period in self.list_periods]
 
         ##
         HHT = np.zeros((n, n))
@@ -198,10 +199,7 @@ class TemporalRPCA(RPCA):
         mu_bar = mu * 1e10
 
         # matrices for temporal correlation
-        H = [
-            utils.toeplitz_matrix(period, n, model="column")
-            for period in self.list_periods
-        ]
+        H = [utils.toeplitz_matrix(period, n, model="column") for period in self.list_periods]
         HHT = np.zeros((n, n))
         for index, _ in enumerate(self.list_periods):
             HHT += self.list_etas[index] * (H[index] @ H[index].T)
@@ -395,11 +393,13 @@ class OnlineTemporalRPCA(TemporalRPCA):
     maxIter: Optional[int]
         stopping criteria, maximum number of iterations. By default, the value is set to 10_000
     tol: Optional[float]
-        stoppign critera, minimum difference between 2 consecutive iterations. By default, the value is set to 1e-6
+        stoppign critera, minimum difference between 2 consecutive iterations. By default, the
+        value is set to 1e-6
     verbose: Optional[bool]
         verbosity. By default, the value is set to False
     burnin: Optional[float]
-        proportion of the entire matrix (the first (burnin x 100)% columns) for the batch part. Has to be between 0 and 1.
+        proportion of the entire matrix (the first (burnin x 100)% columns) for the batch part.
+        Has to be between 0 and 1.
         By default, the value is set to 0.
     nwin: Optional[int]
         size of the sliding window (number of column). By default, the value is set to 0.
@@ -469,9 +469,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
         nwin = self.nwin
 
         m, n = D_init.shape
-        Lhat, Shat, _ = super().fit_transform(
-            signal=D_init[:, :burnin], return_basis=False
-        )
+        Lhat, Shat, _ = super().fit_transform(signal=D_init[:, :burnin], return_basis=False)
 
         proj_D = utils.impute_nans(D_init, method="median")
         approx_rank = utils.approx_rank(proj_D[:, :burnin], threshold=1)
@@ -622,9 +620,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
 
         Lhat, _, _ = super().fit(D=D_init[:, :burnin])
         _, sigmas_hat, _ = np.linalg.svd(Lhat)
-        online_tau = (
-            1.0 / np.sqrt(len(D_init)) / np.mean(sigmas_hat[: params_scale["rank"]])
-        )
+        online_tau = 1.0 / np.sqrt(len(D_init)) / np.mean(sigmas_hat[: params_scale["rank"]])
         online_lam = 1.0 / np.sqrt(len(D_init))
         params_scale["online_tau"] = online_tau
         params_scale["online_lam"] = online_lam

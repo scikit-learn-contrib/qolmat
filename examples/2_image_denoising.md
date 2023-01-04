@@ -14,7 +14,7 @@ jupyter:
 
 # **Image denoising with robust PCA**
 
-The aim of this notebook is to make use of the RPCA method to denoise an (artificially corrupted) image. 
+The aim of this notebook is to make use of the RPCA method to denoise an (artificially corrupted) image.
 
 
 Import the needed librairies and classes
@@ -47,8 +47,8 @@ urllib.request.urlretrieve(url, "../data/clouzot.jpg")
 img = np.asarray(PIL.Image.open('../data/clouzot.jpg'), dtype=np.uint8)
 ```
 
-We first choose the ratio of corrupted pixels `ratio` we want to artificially corrupt the image `img`. In practice, 
-`ratio`% of pixels of each slice of the image are corrupted.  Then, we apply a RPCA algorithm that spits the low-rank parts, which are concatenate to form an image. 
+We first choose the ratio of corrupted pixels `ratio` we want to artificially corrupt the image `img`. In practice,
+`ratio`% of pixels of each slice of the image are corrupted.  Then, we apply a RPCA algorithm that spits the low-rank parts, which are concatenate to form an image.
 
 **NOTE**: this procedure is quite slow...
 
@@ -81,8 +81,8 @@ for j, (i,t) in enumerate(zip([img, noisy_image, restored_image], suptitles)):
 plt.show()
 ```
 
-**There are of course some limitations with this method.** For instance, one observes the letters are poorly recovered... 
-However, without any training, it is possible to denoise, *to some extent*, a corrupted image.  
+**There are of course some limitations with this method.** For instance, one observes the letters are poorly recovered...
+However, without any training, it is possible to denoise, *to some extent*, a corrupted image.
 
 ```python
 %%time
