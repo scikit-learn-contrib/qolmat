@@ -50,9 +50,8 @@ class HoleGenerator:
     def fit(self, X: pd.DataFrame) -> HoleGenerator:
         self._check_subset(X)
         self.dict_ratios = {}
-        for column in self.subset:
-            df_isna = X[column].isna()
-            self.dict_ratios[column] = df_isna.sum() / X.isna().sum().sum()
+        missing_per_col = X[self.subset].isna().sum()
+        self.dict_ratios = (missing_per_col / missing_per_col.sum()).to_dict()
         return self
 
     def split(self, X: pd.DataFrame) -> List[pd.DataFrame]:
