@@ -7,14 +7,15 @@ import numpy as np
 import pandas as pd
 import sklearn.neighbors._base
 from sklearn.impute import IterativeImputer, KNNImputer
+
+sys.modules["sklearn.neighbors.base"] = sklearn.neighbors._base
+
 from sklearn.impute._base import _BaseImputer
 from statsmodels.tsa.seasonal import seasonal_decompose
 
 from qolmat.benchmark import utils
 from qolmat.imputations.rpca.pcp_rpca import RPCA
 from qolmat.imputations.rpca.temporal_rpca import OnlineTemporalRPCA, TemporalRPCA
-
-sys.modules["sklearn.neighbors.base"] = sklearn.neighbors._base
 
 
 class ImputeColumnWise(_BaseImputer):
