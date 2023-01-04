@@ -6,7 +6,7 @@ import sklearn.neighbors._base
 sys.modules["sklearn.neighbors.base"] = sklearn.neighbors._base
 import warnings
 
-import missforest
+import missingpy
 import numpy as np
 import pandas as pd
 from sklearn.experimental import enable_iterative_imputer
@@ -55,9 +55,10 @@ class ImputeColumnWise(_BaseImputer):
         df_imputed = df.copy()
         for col in df_imputed.columns:
             df_imputed[col] = self.fit_transform_col(df[col]).values
+            df_imputed[col] = df_imputed[col].bfill().ffill()
 
         if df_imputed.isna().sum().sum() > 0:
-            warnings.warn("There are still nan in the columns to be imputed")
+            warnings.warn("Problem: there are still nan in the columns to be imputed")
         return df_imputed
 
     def get_hyperparams(self) -> Dict[str, Union[str, float, int]]:
@@ -214,7 +215,6 @@ class ImputeRandom(ImputeColumnWise):
 
     def __init__(
         self,
-        
     ) -> None:
         super().__init__()
 
@@ -265,7 +265,6 @@ class ImputeLOCF(ImputeColumnWise):
     def __init__(
         self,
         groups: Optional[List[str]] = [],
-        
     ) -> None:
         super().__init__(groups=groups)
 
@@ -309,7 +308,6 @@ class ImputeNOCB(ImputeColumnWise):
     def __init__(
         self,
         groups: Optional[List[str]] = [],
-        
     ) -> None:
         super().__init__(groups=groups)
 
@@ -362,10 +360,7 @@ class ImputeByInterpolation(ImputeColumnWise):
     >>> imputor.fit_transform(X)
     """
 
-    def __init__(self,
-        groups: Optional[List[str]] = [],
-        
-        **kwargs) -> None:
+    def __init__(self, groups: Optional[List[str]] = [], **kwargs) -> None:
         super().__init__(groups=groups)
         self.method = "linear"
         for name, value in kwargs.items():
@@ -389,7 +384,7 @@ class ImputeByInterpolation(ImputeColumnWise):
         signal = signal.reset_index()
         if self.method in ["spline", "polynomial"]:
             return signal[col].interpolate(method=self.method, order=self.order)
-        return signal[col].interpolate(method=self.method)
+        return signal[col].interpolate(method=self.method).bfill().ffill()
 
 
 class ImputeOnResiduals(ImputeColumnWise):
@@ -442,13 +437,11 @@ class ImputeOnResiduals(ImputeColumnWise):
         model: Optional[str] = "additive",
         extrapolate_trend: Optional[Union[int, str]] = "freq",
         method_interpolation: Optional[str] = "linear",
-        
     ):
         self.model = model
         self.period = period
         self.extrapolate_trend = extrapolate_trend
         self.method_interpolation = method_interpolation
-        
 
     def fit_transform_col(self, signal: pd.Series) -> pd.Series:
         """
@@ -695,7 +688,7 @@ class ImputeRegressor(_BaseImputer):
 
     def __init__(self, model, **kwargs) -> None:
         self.model = model
-        
+
         for name, value in kwargs.items():
             setattr(self, name, value)
 
@@ -717,7 +710,7 @@ class ImputeRegressor(_BaseImputer):
             raise ValueError("Input has to be a pandas.DataFrame.")
 
         df_imputed = df.copy()
-        
+
         cols_with_nans = df.columns[df.isna().any()]
         cols_without_nans = df.columns[df.notna().all()]
 
@@ -768,7 +761,7 @@ class ImputeStochasticRegressor(_BaseImputer):
 
     def __init__(self, model, **kwargs) -> None:
         self.model = model
-        
+
         for name, value in kwargs.items():
             setattr(self, name, value)
 
@@ -852,6 +845,7 @@ class ImputeMissForest(_BaseImputer):
     verbose : int, optional (default=0)
         Controls the verbosity when fitting and predicting.
 
+
     Examples
     --------
     >>> import numpy as np
@@ -878,7 +872,7 @@ class ImputeMissForest(_BaseImputer):
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
 
-        imputer = missforest.MissForest(
+        imputer = missingpy.MissForest(
             max_features=self.max_features,
             criterion=self.criterion,
             n_estimators=self.n_estimators,

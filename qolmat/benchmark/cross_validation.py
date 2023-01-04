@@ -38,7 +38,6 @@ class CrossValidation:
         model,
         search_space,
         hole_generator,
-        cv_folds=2,
         n_calls=10,
         n_jobs=-1,
         loss_norm=1,
@@ -47,7 +46,6 @@ class CrossValidation:
         self.model = model
         self.search_space = search_space
         self.hole_generator = hole_generator
-        self.cv_folds = cv_folds
         self.n_calls = n_calls
         self.n_jobs = n_jobs
         self.loss_norm = loss_norm
@@ -115,6 +113,7 @@ class CrossValidation:
             self._set_params(all_params=all_params)
             if self.verbose:
                 print(all_params)
+
             errors = []
 
             for df_mask in self.hole_generator.split(self.X):
@@ -159,10 +158,12 @@ class CrossValidation:
             random_state=42,
             n_jobs=self.n_jobs,
         )
+
         best_params = {
             self.search_space[param].name: res["x"][param]
             for param in range(len(res["x"]))
         }
+
         self._set_params(all_params=best_params)
         imputed_X = self.model.fit_transform(self.X)
 
