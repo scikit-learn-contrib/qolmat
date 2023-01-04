@@ -714,6 +714,9 @@ class ImputeRegressor(_BaseImputer):
         cols_with_nans = df.columns[df.isna().any()]
         cols_without_nans = df.columns[df.notna().all()]
 
+        if len(cols_without_nans) == 0:
+            raise Exception("There must be at least one column without missing values.")
+
         for col in cols_with_nans:
             X = df[cols_without_nans]
             y = df[col]
@@ -782,6 +785,9 @@ class ImputeStochasticRegressor(_BaseImputer):
         df_imp = df.copy()
         cols_with_nans = df.columns[df.isna().any()]
         cols_without_nans = df.columns[df.notna().all()]
+
+        if len(cols_without_nans) == 0:
+            raise Exception("There must be at least one column without missing values.")
 
         for col in cols_with_nans:
             X = df[cols_without_nans]
