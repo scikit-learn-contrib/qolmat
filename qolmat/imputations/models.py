@@ -2,20 +2,20 @@ import sys
 import warnings
 from typing import Dict, List, Optional, Union
 
-import missingpy
-import numpy as np
-import pandas as pd
 import sklearn.neighbors._base
-from sklearn.impute import IterativeImputer, KNNImputer
+from sklearn.experimental import enable_iterative_imputer
 
 sys.modules["sklearn.neighbors.base"] = sklearn.neighbors._base
 
-from sklearn.impute._base import _BaseImputer
-from statsmodels.tsa.seasonal import seasonal_decompose
-
+import missingpy
+import numpy as np
+import pandas as pd
 from qolmat.benchmark import utils
 from qolmat.imputations.rpca.pcp_rpca import RPCA
 from qolmat.imputations.rpca.temporal_rpca import OnlineTemporalRPCA, TemporalRPCA
+from sklearn.impute import IterativeImputer, KNNImputer
+from sklearn.impute._base import _BaseImputer
+from statsmodels.tsa.seasonal import seasonal_decompose
 
 
 class ImputeColumnWise(_BaseImputer):
