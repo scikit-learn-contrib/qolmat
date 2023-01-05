@@ -74,7 +74,7 @@ for x in ax.ravel():
 plt.show()
 ```
 
-We now apply a RPCA algorithm. 
+We now apply a RPCA algorithm.
 **!! WARNING !! this is a very slow process.**
 
 ```python
@@ -92,7 +92,7 @@ X = np.load('../data/matrixX.npy')
 A = np.load('../data/matrixA.npy')
 ```
 
-For a first glimpse, we select some frames to see how the RPCA has detected the moving objects. 
+For a first glimpse, we select some frames to see how the RPCA has detected the moving objects.
 
 ```python
 drawing.plot_images(M[:,:3_000], X, A, [1500, 1800, 2800], dimension)

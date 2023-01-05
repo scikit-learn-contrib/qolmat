@@ -6,9 +6,7 @@ with open(VERSION_FILE, "rt") as f:
     version_txt = f.read().strip()
     VERSION = version_txt.split('"')[1]
 DESCRIPTION = "Tools to compute RPCA"
-LONG_DESCRIPTION = (
-    "Tools to compute different formulations of RPCA for matrices and times series."
-)
+LONG_DESCRIPTION = "Tools to compute different formulations of RPCA for matrices and times series."
 LONG_DESCRIPTION_CONTENT_TYPE = "text/x-rst"
 LICENSE = "new BSD"
 AUTHORS = "Hong-Lan Botterman, Julien Roussel, Thomas Morzadec"

@@ -45,9 +45,7 @@ class RPCA(BaseEstimator, TransformerMixin):
         Impute the nan values if needed
         """
         if len(signal.shape) == 1:
-            self.n_rows = (
-                utils.get_period(signal) if self.n_rows is None else self.n_rows
-            )
+            self.n_rows = utils.get_period(signal) if self.n_rows is None else self.n_rows
             D_init, n_add_values = utils.signal_to_matrix(signal, n_rows=self.n_rows)
             self.input_data = "1DArray"
         else:

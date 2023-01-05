@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from functools import reduce
 import logging
-from typing import Optional
+from functools import reduce
+from typing import List, Optional
 from warnings import WarningMessage
 
 import numpy as np
@@ -35,9 +35,8 @@ class ImputeEM(_BaseImputer):  # type: ignore
         or to maximise likelihood (0), by default 1.
     random_state : int, optional
         The seed of the pseudo random number generator to use, for reproductibility.
-    verbose : int, optional
+    verbose : bool, optional
         Verbosity flag, controls the debug messages that are issued as functions are evaluated.
-        The higher, the more verbose. Can be 0, 1, or 2. By default 0.
     temporal: bool, optional
         if temporal data, extend the matrix to have -1 and +1 shift
 
@@ -53,22 +52,27 @@ class ImputeEM(_BaseImputer):  # type: ignore
     >>> import pandas as pd
     >>> from qolmat.imputations.em_sampler import ImputeEM
     >>> imputor = ImputeEM(strategy="sample")
-    >>> X = pd.DataFrame(data=[[1, 1, 1, 1], [np.nan, np.nan, 3, 2], [1, 2, 2, 1], [2, 2, 2, 2]], columns=["var1", "var2", "var3", "var4"])
+    >>> X = pd.DataFrame(data=[[1, 1, 1, 1],
+    >>>                        [np.nan, np.nan, 3, 2],
+    >>>                        [1, 2, 2, 1], [2, 2, 2, 2]],
+    >>>                        columns=["var1", "var2", "var3", "var4"])
     >>> imputor.fit_transform(X)
     """
 
     def __init__(
         self,
         strategy: Optional[str] = "mle",
-        n_iter_em: Optional[int] = 10,
+        n_iter_em: Optional[int] = 50,
         n_iter_ou: Optional[int] = 50,
         n_iter_mh: Optional[int] = 20,
         ampli: Optional[int] = 1,
         random_state: Optional[int] = 123,
-        verbose: Optional[int] = 0,
+        verbose: Optional[bool] = True,
         temporal: Optional[bool] = False,
         dt: Optional[float] = 2e-2,
         convergence_threshold: Optional[float] = 1e-4,
+        stagnation_threshold: Optional[float] = 5e-3,
+        stagnation_loglik: Optional[float] = 1e1,
     ) -> None:
 
         if strategy not in ["mle", "ou", "mh"]:
@@ -86,6 +90,8 @@ class ImputeEM(_BaseImputer):  # type: ignore
         self.temporal = temporal
         self.dt = dt
         self.convergence_threshold = convergence_threshold
+        self.stagnation_threshold = stagnation_threshold
+        self.stagnation_loglik = stagnation_loglik
 
     def _linear_interpolation(self, X: np.ndarray) -> np.ndarray:
         """
@@ -122,50 +128,67 @@ class ImputeEM(_BaseImputer):  # type: ignore
         """
         if not isinstance(X, np.ndarray):
             if (not isinstance(X, pd.DataFrame)) & (not isinstance(X, list)):
-                raise ValueError(
-                    "Input array is not a list, np.array, nor pd.DataFrame."
-                )
+                raise ValueError("Input array is not a list, np.array, nor pd.DataFrame.")
             X = X.to_numpy()
         return X
 
     def _check_convergence(
         self,
-        mu: np.ndarray,
-        mu_prec: np.ndarray,
-        cov: np.ndarray,
-        cov_prec: np.ndarray,
+        imputations: List[np.ndarray],
+        mu: List[np.ndarray],
+        cov: List[np.ndarray],
+        n_iter: int,
     ) -> bool:
-        """Check if the EM algorithm has converged
+        """Check if the EM algorithm has converged. Three criteria:
+        1) if the differences between the estimates of the parameters (mean and covariance) is
+        less than a threshold (min_diff_reached - convergence_threshold).
+        2) if the difference of the consecutive differences of the estimates is less than a
+        threshold, i.e. stagnates over the last 5 interactions (min_diff_stable -
+        stagnation_threshold).
+        3) if the likelihood of the data no longer increases,
+        i.e. stagnates over the last 5 iterations (max_loglik - stagnation_loglik).
 
         Parameters
         ----------
-        mu : np.ndarray
-            the actual value of the mean
-        mu_prec : np.ndarray
-            the previous value of the mean
-        cov : np.ndarray
-            the actual value of the covariance
-        cov_prec : np.ndarray
-            the previous value of the covariance
+        imputations : List[np.ndarray]
+            list of imputations estimates
+        mu : List[np.ndarray]
+            list of mean estimates
+        cov : List[np.ndarray]
+            list of covariance estimates
+        n_iter: int,
+            current iteration
 
         Returns
         -------
         bool
             True/False if the algorithm has converged
         """
-        return (
-            (
-                scipy.linalg.norm(mu - mu_prec, np.inf) < self.convergence_threshold
-                and scipy.linalg.norm(cov - cov_prec, np.inf)
-                < self.convergence_threshold
-            ),
-            scipy.linalg.norm(mu - mu_prec),
-            scipy.linalg.norm(cov - cov_prec),
+
+        min_diff_reached = (
+            n_iter > 5
+            and scipy.linalg.norm(mu[-1] - mu[-2], np.inf) < self.convergence_threshold
+            and scipy.linalg.norm(cov[-1] - cov[-2], np.inf) < self.convergence_threshold
         )
 
-    def _add_shift(
-        self, X: ArrayLike, ystd: bool = True, tmrw: bool = False
-    ) -> ArrayLike:
+        min_diff_stable = (
+            n_iter > 10
+            and min([scipy.linalg.norm(t - s, np.inf) for s, t in zip(mu[-6:], mu[-5:])])
+            < self.stagnation_threshold
+            and min([scipy.linalg.norm(t - s, np.inf) for s, t in zip(cov[-6:], cov[-5:])])
+            < self.stagnation_threshold
+        )
+
+        if n_iter > 10:
+            logliks = [
+                scipy.stats.multivariate_normal.logpdf(data, m, c).sum()
+                for data, m, c in zip(imputations[-6:], mu[-6:], cov[-6:])
+            ]
+        max_loglik = n_iter > 10 and min(abs(pd.Series(logliks).diff())) < self.stagnation_loglik
+
+        return min_diff_reached or min_diff_stable or max_loglik
+
+    def _add_shift(self, X: ArrayLike, ystd: bool = True, tmrw: bool = False) -> ArrayLike:
         """
         For each variable adds one columns corresponding to day before and/or after
         each date (date must be by row index).
@@ -196,9 +219,7 @@ class ImputeEM(_BaseImputer):  # type: ignore
             X_shifted = np.hstack([X_shifted, X_tmrw])
         return X_shifted
 
-    def _em_mle(
-        self, X: np.ndarray, observed: np.ndarray, missing: np.ndarray
-    ) -> np.ndarray:
+    def _em_mle(self, X: np.ndarray, observed: np.ndarray, missing: np.ndarray) -> np.ndarray:
         """EM step
 
         Parameters
@@ -234,9 +255,9 @@ class ImputeEM(_BaseImputer):  # type: ignore
             sigma_OM = sigma_MO.T
             sigma_OO = self.cov[np.ix_(observed_i, observed_i)]
 
-            mu_tilde[i] = self.means[np.ix_(missing_i)] + sigma_MO @ np.linalg.inv(
-                sigma_OO
-            ) @ (X[i, observed_i] - self.means[np.ix_(observed_i)])
+            mu_tilde[i] = self.means[np.ix_(missing_i)] + sigma_MO @ np.linalg.inv(sigma_OO) @ (
+                X[i, observed_i] - self.means[np.ix_(observed_i)]
+            )
             sigma_MM_O = sigma_MM - sigma_MO @ np.linalg.inv(sigma_OO) @ sigma_OM
             sigma_tilde[i][np.ix_(missing_i, missing_i)] = sigma_MM_O
             X[i, missing_i] = mu_tilde[i]
@@ -292,9 +313,7 @@ class ImputeEM(_BaseImputer):  # type: ignore
         X_stack = []
         for iter_ou in range(self.n_iter_ou):
             noise = self.ampli * rng.normal(0, 1, size=(n_samples, n_variables))
-            X += gamma * ((self.means - X) @ beta) * dt + noise * np.sqrt(
-                2 * gamma * dt
-            )
+            X += gamma * ((self.means - X) @ beta) * dt + noise * np.sqrt(2 * gamma * dt)
             X[~mask_na] = X_init[~mask_na]
             if iter_ou > self.n_iter_ou - 50:
                 X_stack.append(X)
@@ -348,12 +367,8 @@ class ImputeEM(_BaseImputer):  # type: ignore
 
                 # curr_prob = self._normal(X_[i, :], mu=self.means, cov=self.cov)
                 # move_prob = self._normal(move, mu=self.means, cov=self.cov)
-                curr_prob = self._tmultivariate(
-                    X_[i, :], mu=self.means, sigma=self.cov, nu=n - 1
-                )
-                move_prob = self._tmultivariate(
-                    move, mu=self.means, sigma=self.cov, nu=n - 1
-                )
+                curr_prob = self._tmultivariate(X_[i, :], mu=self.means, sigma=self.cov, nu=n - 1)
+                move_prob = self._tmultivariate(move, mu=self.means, sigma=self.cov, nu=n - 1)
 
                 acceptance = min(move_prob / curr_prob, 1)
                 if np.random.uniform(0, 1) < acceptance:
@@ -418,10 +433,8 @@ class ImputeEM(_BaseImputer):  # type: ignore
             X_past = np.roll(X_past, shift, axis=0).astype(float)
             X_past[:shift, :] = np.nan
 
-        list_diff_means, list_diff_cov = [np.inf] * 5, [np.inf] * 5
-        min_means, min_cov = np.inf, np.inf
+        list_X_transformed, list_means, list_covs = [], [], []
         for iter_em in range(self.n_iter_em):
-            mu_prec, cov_prec = self.means.copy(), self.cov.copy()
 
             if self.temporal:
                 shift = 1
@@ -433,27 +446,17 @@ class ImputeEM(_BaseImputer):  # type: ignore
                 if self.strategy == "mle":
                     X_transformed = self._em_mle(X_transformed, observed, missing)
                 elif self.strategy == "ou":
-                    X_transformed = self._sample_ou(
-                        X_transformed, mask_na, rng, dt=2e-2
-                    )
+                    X_transformed = self._sample_ou(X_transformed, mask_na, rng, dt=2e-2)
                 elif self.strategy == "mh":
                     X_transformed = self._sample_mh(X_transformed, mask_na)
 
-                converged, diff_means, diff_cov = self._check_convergence(
-                    self.means, mu_prec, self.cov, cov_prec
-                )
-
-                list_diff_means.append(diff_means)
-                list_diff_cov.append(diff_cov)
-                if iter_em > 10:
-                    if (np.min(list_diff_means[-5:]) >= min_means) and (
-                        np.min(list_diff_cov[-5:]) >= min_cov
-                    ):
-                        converged = True
-                    min_means = np.min(list_diff_means)
-                    min_cov = np.min(list_diff_cov)
-
-                if converged:
+                list_means.append(self.means)
+                list_covs.append(self.cov)
+                list_X_transformed.append(X_transformed)
+                if (
+                    self._check_convergence(list_X_transformed, list_means, list_covs, iter_em)
+                    and self.verbose
+                ):
                     print(f"EM converged after {iter_em} iterations.")
                     break
 
@@ -463,8 +466,16 @@ class ImputeEM(_BaseImputer):  # type: ignore
         if np.all(np.isnan(X_transformed)):
             raise WarningMessage("Result contains NaN. This is a bug.")
 
-        self.delta_means = list_diff_means
-        self.delta_cov = list_diff_cov
+        self.delta_means = [
+            scipy.linalg.norm(t - s, np.inf) for s, t in zip(list_means, list_means[1:])
+        ]
+        self.delta_covs = [
+            scipy.linalg.norm(t - s, np.inf) for s, t in zip(list_covs, list_covs[1:])
+        ]
+        self.logliks = [
+            scipy.stats.multivariate_normal.logpdf(data, m, c).sum()
+            for data, m, c in zip(list_X_transformed, list_means, list_covs)
+        ]
 
         return X_transformed
 
@@ -483,14 +494,10 @@ class ImputeEM(_BaseImputer):  # type: ignore
             Final array after EM sampling.
         """
         if not ((isinstance(X, np.ndarray)) or (isinstance(X, pd.DataFrame))):
-            raise AssertionError(
-                "Invalid type. X must be either pd.DataFrame or np.ndarray."
-            )
+            raise AssertionError("Invalid type. X must be either pd.DataFrame or np.ndarray.")
 
         if X.shape[1] < 2:
-            raise AssertionError(
-                "Invalid dimensions: X must be of dimension (n,m) with m>1."
-            )
+            raise AssertionError("Invalid dimensions: X must be of dimension (n,m) with m>1.")
 
         scaler = StandardScaler()
         X_sc = scaler.fit_transform(X)
@@ -506,6 +513,4 @@ class ImputeEM(_BaseImputer):  # type: ignore
             return pd.DataFrame(X_imputed, index=X.index, columns=X.columns)
 
         else:
-            raise AssertionError(
-                "Invalid type. X must be either pd.DataFrame or np.ndarray."
-            )
+            raise AssertionError("Invalid type. X must be either pd.DataFrame or np.ndarray.")

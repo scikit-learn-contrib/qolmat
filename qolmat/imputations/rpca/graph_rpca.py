@@ -4,9 +4,10 @@ from typing import Optional
 
 import numpy as np
 from numpy.typing import NDArray
-from qolmat.imputations.rpca.rpca import RPCA
+
 from qolmat.imputations.rpca import utils
-import tqdm
+from qolmat.imputations.rpca.rpca import RPCA
+from qolmat.utils.utils import progress_bar
 
 
 class GraphRPCA(RPCA):
@@ -78,7 +79,6 @@ class GraphRPCA(RPCA):
         """
         self.input_data = "2DArray"
         D_init, n_add_values = self._prepare_data(signal=signal)
-        omega = ~np.isnan(D_init)
         proj_D = utils.impute_nans(D_init, method="median")
 
         if self.rank is None:
@@ -102,7 +102,16 @@ class GraphRPCA(RPCA):
         )
 
         errors = np.full((self.maxIter,), np.nan, dtype=float)
-        for iteration in tqdm.tqdm(range(self.maxIter)):
+
+        for iteration in range(self.maxIter):
+            if self.verbose:
+                progress_bar(
+                    iteration,
+                    self.maxIter,
+                    prefix="Progress:",
+                    suffix="Complete",
+                    length=50,
+                )
 
             X_past = X.copy()
             Y_past = Y.copy()
@@ -118,9 +127,7 @@ class GraphRPCA(RPCA):
 
             if error < self.tol:
                 if self.verbose:
-                    print(
-                        f"Converged in {iteration} iterations with an error equals to {error}."
-                    )
+                    print(f"Converged in {iteration} iterations with an error equals to {error}.")
                 break
 
             t = t_past

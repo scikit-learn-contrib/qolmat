@@ -1,9 +1,7 @@
-from collections import defaultdict
 from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
-from numpy.typing import ArrayLike
 
 from qolmat.benchmark import cross_validation, utils
 from qolmat.benchmark.missing_patterns import HoleGenerator
@@ -15,22 +13,18 @@ class Comparator:
 
     Parameters
     ----------
-    data: pd.DataFrame
-        dataframe to impute
-    ratio_missing: float
-        ratio of articially created corruptions (missign values)
-    dict_models: Dict[str, ]
+    dict_models: Dict[str, any]
         dictionary of imputation methods
     cols_to_impute: List[str]
         list of column's names to impute
     columnwise_evaluation : Optional[bool], optional
         whether the metric should be calculated column-wise or not, by default False
-    n_samples: Optional[int] = 1
-        number of times the cross-validation is done. By default, the value is set to 1.
     search_params: Optional[Dict[str, Dict[str, Union[str, float, int]]]] = {}
-        dictionary of search space for each implementation method. By default, the value is set to {}.
-    corruption: Optional[str] = "missing"
-        type of corruptions to create: missing or outlier. By default, the value is set to "missing".
+        dictionary of search space for each implementation method. By default, the value is set to
+        {}.
+    n_cv_calls: Optional[int] = 10
+        number of calls of the hyperparameters cross-validation. By default, the value is set to
+        10.
     """
 
     def __init__(
@@ -39,24 +33,19 @@ class Comparator:
         cols_to_impute: List[str],
         generator_holes: HoleGenerator,
         columnwise_evaluation: Optional[bool] = True,
-        cv_folds: Optional[int] = 5,
         search_params: Optional[Dict] = {},
         n_cv_calls: Optional[int] = 10,
     ):
 
-        self.cols_to_impute = cols_to_impute
         self.dict_models = dict_models
+        self.cols_to_impute = cols_to_impute
         self.generator_holes = generator_holes
-        self.search_params = search_params
         self.columnwise_evaluation = columnwise_evaluation
-        self.cv_folds = cv_folds
+        self.search_params = search_params
         self.n_cv_calls = n_cv_calls
 
     def get_errors(
-        self,
-        df_origin: pd.DataFrame,
-        df_imputed: pd.DataFrame,
-        df_mask: pd.DataFrame
+        self, df_origin: pd.DataFrame, df_imputed: pd.DataFrame, df_mask: pd.DataFrame
     ) -> float:
         """Functions evaluating the reconstruction's quality
 
@@ -132,22 +121,17 @@ class Comparator:
             df_corrupted[df_mask] = np.nan
 
             if search_space is None:
-                df_imputed = tested_model.fit_transform(
-                    df_corrupted
-                )
+                df_imputed = tested_model.fit_transform(df_corrupted)
             else:
                 cv = cross_validation.CrossValidation(
                     tested_model,
                     search_space=search_space,
                     hole_generator=self.generator_holes,
-                    cv_folds=self.cv_folds,
                     n_calls=self.n_cv_calls,
                 )
                 df_imputed = cv.fit_transform(df_corrupted)
 
-            errors = self.get_errors(
-                df_origin, df_imputed, df_mask
-            )
+            errors = self.get_errors(df_origin, df_imputed, df_mask)
             list_errors.append(errors)
         df_errors = pd.DataFrame(list_errors)
         errors_mean = df_errors.mean()
@@ -155,10 +139,11 @@ class Comparator:
         return errors_mean
 
     def compare(self, df: pd.DataFrame, verbose: bool = True):
-        """Function to compare different imputation methods
+        """Function to compare different imputation methods on dataframe df
 
         Parameters
         ----------
+        df : pd.DataFrame
         verbose : bool, optional
             _description_, by default True
         Returns

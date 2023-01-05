@@ -18,7 +18,8 @@ def get_data(datapath: str = "data/", download: Optional[bool] = True):
     datapath : str, optional
         data path, by default "data/"
     download : bool, optional
-        if True: download a public dataset, if False: generate random univariate time series, by default True
+        if True: download a public dataset, if False: generate random univariate time series, by
+        default True
 
     Returns
     -------
@@ -46,9 +47,7 @@ def get_data(datapath: str = "data/", download: Optional[bool] = True):
         x = np.linspace(0, 4 * np.pi, 200)
         y = 3 + np.sin(x) + np.random.random(len(x)) * 0.2
         datelist = pd.date_range(datetime(2013, 3, 1), periods=len(y)).tolist()
-        dataset = pd.DataFrame(
-            {"var": y, "datetime": datelist[: len(y)], "station": city}
-        )
+        dataset = pd.DataFrame({"var": y, "datetime": datelist[: len(y)], "station": city})
         dataset.set_index(["station", "datetime"], inplace=True)
         return dataset
 
@@ -72,15 +71,14 @@ def preprocess_data(df: pd.DataFrame):
     df.sort_index(inplace=True)
     dict_agg = {key: np.mean for key in df.columns}
     dict_agg["RAIN"] = np.mean
-    df = df.groupby(["station", df.index.get_level_values("datetime").floor("d")]).agg(
-        dict_agg
-    )
+    df = df.groupby(["station", df.index.get_level_values("datetime").floor("d")]).agg(dict_agg)
     return df
 
 
 def add_holes(X: pd.DataFrame, ratio_missing: float, mean_size: int):
     """
-    Creates holes in a dataset with no missing value. Only used in the documentation to design examples.
+    Creates holes in a dataset with no missing value. Only used in the documentation to design
+    examples.
 
     Parameters
     ----------
@@ -98,7 +96,9 @@ def add_holes(X: pd.DataFrame, ratio_missing: float, mean_size: int):
     pd.DataFrame
         dataframe with missing values
     """
-    generator = missing_patterns.Markov1DHoleGenerator(1, ratio_missing=ratio_missing, subset=X.columns)
+    generator = missing_patterns.Markov1DHoleGenerator(
+        1, ratio_missing=ratio_missing, subset=X.columns
+    )
 
     generator.dict_probas_out = {column: 1 / mean_size for column in X.columns}
     generator.dict_ratios = {column: 1 / len(X.columns) for column in X.columns}
@@ -108,7 +108,12 @@ def add_holes(X: pd.DataFrame, ratio_missing: float, mean_size: int):
     return X_with_nans
 
 
-def get_data_corrupted(datapath: str = "data/", download: Optional[bool] = True, mean_size: int=90, ratio_missing: float=0.2):
+def get_data_corrupted(
+    datapath: str = "data/",
+    download: Optional[bool] = True,
+    mean_size: int = 90,
+    ratio_missing: float = 0.2,
+):
     df = get_data(datapath, download)
     df = add_holes(df, mean_size=mean_size, ratio_missing=ratio_missing)
     return df
