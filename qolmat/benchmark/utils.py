@@ -74,10 +74,14 @@ def custom_groupby(
     Union[pd.DataFrame, pd.core.groupby.DataFrameGroupBy]
         initial dataframe or initial dataframe group by the specified groups
     """
+
+    # put index as columns
+    df_out = df.reset_index().copy()
+    df_out.index = df.index
     if len(groups) > 0:
         groupby = []
         for g in groups:
-            groupby.append(eval("df." + g))
+            groupby.append(eval("df_out." + g))
         return df.groupby(groupby)
     else:
         return df
