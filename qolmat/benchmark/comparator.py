@@ -114,12 +114,12 @@ class Comparator:
         """
         list_errors = []
 
-        for df_mask in self.generator_holes.split(df):
+        df_origin = df[self.cols_to_impute].copy()
 
-            df_origin = df[self.cols_to_impute].copy()
+        for df_mask in self.generator_holes.split(df_origin):
+
             df_corrupted = df_origin.copy()
             df_corrupted[df_mask] = np.nan
-
             if search_space is None:
                 df_imputed = tested_model.fit_transform(df_corrupted)
             else:
@@ -131,7 +131,8 @@ class Comparator:
                 )
                 df_imputed = cv.fit_transform(df_corrupted)
 
-            errors = self.get_errors(df_origin, df_imputed, df_mask)
+            subset = self.generator_holes.subset
+            errors = self.get_errors(df_origin[subset], df_imputed[subset], df_mask[subset])
             list_errors.append(errors)
         df_errors = pd.DataFrame(list_errors)
         errors_mean = df_errors.mean()

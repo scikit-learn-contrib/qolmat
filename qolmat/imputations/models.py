@@ -2,13 +2,16 @@ import sys
 import warnings
 from typing import Dict, List, Optional, Union
 
-import missingpy
 import numpy as np
 import pandas as pd
 import sklearn.neighbors._base
+from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer, KNNImputer
 from sklearn.impute._base import _BaseImputer
 from statsmodels.tsa.seasonal import seasonal_decompose
+
+sys.modules['sklearn.neighbors.base'] = sklearn.neighbors._base
+import missingpy
 
 from qolmat.benchmark import utils
 from qolmat.imputations.rpca.pcp_rpca import RPCA
