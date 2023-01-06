@@ -570,14 +570,14 @@ class GroupedHoleGenerator(HoleGenerator):
 
         list_masks = []
         for observed_indices, _ in gss.split(X=X, y=None, groups=self.groups):
-
+            observed_indices = X.index[observed_indices]
             # create the boolean mask of missing values
             df_mask = pd.DataFrame(
                 False,
                 columns=X.columns,
                 index=X.index,
             )
-            df_mask[self.subset].iloc[observed_indices] = True
+            df_mask[self.subset].loc[observed_indices] = True
             list_masks.append(df_mask)
 
         return list_masks
