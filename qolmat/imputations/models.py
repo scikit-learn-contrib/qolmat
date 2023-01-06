@@ -7,15 +7,18 @@ from sklearn.experimental import enable_iterative_imputer
 
 sys.modules["sklearn.neighbors.base"] = sklearn.neighbors._base
 
+from functools import partial
+
 import missingpy
 import numpy as np
 import pandas as pd
-from qolmat.benchmark import utils
-from qolmat.imputations.rpca.pcp_rpca import RPCA
-from qolmat.imputations.rpca.temporal_rpca import OnlineTemporalRPCA, TemporalRPCA
 from sklearn.impute import IterativeImputer, KNNImputer
 from sklearn.impute._base import _BaseImputer
 from statsmodels.tsa.seasonal import seasonal_decompose
+
+from qolmat.benchmark import utils
+from qolmat.imputations.rpca.pcp_rpca import RPCA
+from qolmat.imputations.rpca.temporal_rpca import OnlineTemporalRPCA, TemporalRPCA
 
 
 class ImputeColumnWise(_BaseImputer):
@@ -52,11 +55,20 @@ class ImputeColumnWise(_BaseImputer):
             raise ValueError("Input has to be a pandas.DataFrame.")
 
         df_imputed = df.copy()
+        groupby = utils.custom_groupby(df, self.groups)
         for col in df_imputed.columns:
-            df_imputed[col] = self.fit_transform_col(df[col]).values
-            df_imputed[col] = df_imputed[col].bfill().ffill()
+            if self.groups:
+                imputation_values = groupby[col].transform(self.imputation_method)
+            else:
+                imputation_values = self.imputation_method(groupby[col])
 
-        if df_imputed.isna().sum().sum() > 0:
+            df_imputed[col] = df_imputed[col].fillna(imputation_values)
+
+            # fill na by applying imputation method without groups
+            if df_imputed[col].isna().any():
+                df_imputed[col] = df_imputed[col].fillna(self.imputation_method(df_imputed[col]))
+
+        if df_imputed.isna().any().any():
             warnings.warn("Problem: there are still nan in the columns to be imputed")
         return df_imputed
 
@@ -94,25 +106,7 @@ class ImputeByMean(ImputeColumnWise):
         groups: Optional[List[str]] = [],
     ) -> None:
         super().__init__(groups=groups)
-
-    def fit_transform_col(self, signal: pd.Series) -> pd.Series:
-        """
-        Fit/transform the Imputer to the dataset by fitting with the mean of each column
-
-        Parameters
-        ----------
-        signal : pd.Series
-            series to impute
-
-        Returns
-        -------
-        pd.Series
-            imputed series
-        """
-        col = signal.name
-        signal = signal.reset_index()
-        imputed = signal[col].fillna(utils.custom_groupby(signal, self.groups)[col].apply("mean"))
-        return imputed
+        self.imputation_method = np.mean
 
 
 class ImputeByMedian(ImputeColumnWise):
@@ -137,6 +131,7 @@ class ImputeByMedian(ImputeColumnWise):
         groups: Optional[List[str]] = [],
     ) -> None:
         super().__init__(groups=groups)
+        self.imputation_method = np.median
 
     def fit_transform_col(self, signal: pd.Series) -> pd.Series:
         """
@@ -169,7 +164,7 @@ class ImputeByMode(ImputeColumnWise):
     >>> import numpy as np
     >>> import pandas as pd
     >>> from qolmat.imputations.models import ImputeByMode
-    >>> imputor = ImputeByMean()
+    >>> imputor = ImputeByMode()
     >>> X = pd.DataFrame(data=[[1, 1, 1, 1],
     >>>                        [np.nan, np.nan, np.nan, np.nan],
     >>>                        [1, 2, 2, 5], [2, 2, 2, 2]],
@@ -183,24 +178,33 @@ class ImputeByMode(ImputeColumnWise):
     ) -> None:
         super().__init__(groups=groups)
 
-    def fit_transform_col(self, signal: pd.Series) -> pd.Series:
-        """
-        Fit/transform the Imputer to the dataset by fitting with the mode of each column
+        def get_mode(x):
+            # print(type(x))
+            # if x.isna().all() :
+            #     return np.nan
+            return x.value_counts().index[0]
 
-        Parameters
-        ----------
-        signal : pd.Series
-            series to impute
+        self.imputation_method = get_mode
 
-        Returns
-        -------
-        pd.Series
-            imputed series
-        """
-        col = signal.name
-        signal = signal.reset_index()
-        imputed = signal[col].fillna(utils.custom_groupby(signal, self.groups)[col].mode().iloc[0])
-        return imputed
+    # def fit_transform_col(self, signal: pd.Series) -> pd.Series:
+    #     """
+    #     Fit/transform the Imputer to the dataset by fitting with the mode of each column
+
+    #     Parameters
+    #     ----------
+    #     signal : pd.Series
+    #         series to impute
+
+    #     Returns
+    #     -------
+    #     pd.Series
+    #         imputed series
+    #     """
+    #     col = signal.name
+    #     signal = signal.reset_index()
+    #     imputed = signal[col].fillna(utils.custom_groupby(signal,
+    #     self.groups)[col].mode().iloc[0])
+    #     return imputed
 
 
 class ImputeRandom(ImputeColumnWise):
@@ -222,37 +226,20 @@ class ImputeRandom(ImputeColumnWise):
 
     def __init__(
         self,
+        groups: Optional[List[str]] = [],
     ) -> None:
-        super().__init__()
+        super().__init__(groups=groups)
 
-    def fit_transform_col(self, signal: pd.Series) -> pd.Series:
-        """
-        Fit/transform the Imputer to the dataset by fitting with a random value
+        def get_random(x: pd.Series) -> pd.Series:
+            n_missing = x.isna().sum()
+            if x.notna().sum() == 0:
+                return x
+            samples = np.random.choice(x[x.notna()], n_missing, replace=True)
+            imputed = x.copy()
+            imputed[imputed.isna()] = samples
+            return imputed
 
-        Parameters
-        ----------
-        signal : pd.Series
-            series to impute
-
-        Returns
-        -------
-        pd.Series
-            imputed series
-        """
-        # col = signal.name
-        # imputed = signal.reset_index()
-        # number_missing = imputed[col].isnull().sum()
-        # obs = imputed.loc[imputed[col].notnull(), col].values
-        # imputed.loc[imputed[col].isnull(), col] = np.random.choice(
-        #     obs, number_missing, replace=True
-        # )
-
-        n_missing = signal.isna().sum()
-        samples = np.random.choice(signal[signal.notna()], n_missing, replace=True)
-        imputed = signal.copy()
-        imputed[imputed.isna()] = samples
-
-        return imputed
+        self.imputation_method = get_random
 
 
 class ImputeLOCF(ImputeColumnWise):
@@ -280,25 +267,13 @@ class ImputeLOCF(ImputeColumnWise):
     ) -> None:
         super().__init__(groups=groups)
 
-    def fit_transform_col(self, signal: pd.Series) -> pd.Series:
-        """
-        Fit/transform by imputing missing values by carrying the last observation forward.
-        If the first observation is missing, it is imputed by the median of the series
-
-        Parameters
-        ----------
-        signal : pd.Series
-            series to impute
-
-        Returns
-        -------
-        pd.Series
-            imputed series
-        """
-        col = signal.name
-        imputed = signal.reset_index()
-        imputed = utils.custom_groupby(imputed, self.groups)[col].transform(lambda x: x.ffill())
-        return imputed
+        def get_LOCF(x: pd.Series):
+            """
+            Fit/transform by imputing missing values by carrying the last observation forward.
+            If the first observation is missing, it is imputed by the median of the series
+            """
+            x_out = pd.Series.shift(x, 1).ffill().bfill()
+            return x_out
 
 
 class ImputeNOCB(ImputeColumnWise):
@@ -324,25 +299,15 @@ class ImputeNOCB(ImputeColumnWise):
     ) -> None:
         super().__init__(groups=groups)
 
-    def fit_transform_col(self, signal: pd.Series) -> pd.Series:
-        """
-        Fit/transform by imputing missing values by carrying the next observation backward.
-        If the last observation is missing, it is imputed by the median of the series
+        def get_NOCB(x: pd.Series):
+            """
+            Fit/transform by imputing missing values by carrying the next observation backward.
+            If the last observation is missing, it is imputed by the median of the series
+            """
+            x_out = pd.Series.shift(x, -1).ffill().bfill()
+            return x_out
 
-        Parameters
-        ----------
-        signal : pd.Series
-            series to impute
-
-        Returns
-        -------
-        pd.Series
-            imputed series
-        """
-        col = signal.name
-        imputed = signal.reset_index()
-        imputed = utils.custom_groupby(imputed, self.groups)[col].transform(lambda x: x.bfill())
-        return imputed
+        self.imputation_method = get_NOCB
 
 
 class ImputeByInterpolation(ImputeColumnWise):
@@ -374,31 +339,15 @@ class ImputeByInterpolation(ImputeColumnWise):
     >>> imputor.fit_transform(X)
     """
 
-    def __init__(self, groups: Optional[List[str]] = [], **kwargs) -> None:
+    def __init__(
+        self, groups: Optional[List[str]] = [], method: str = "linear", order: int = None
+    ) -> None:
         super().__init__(groups=groups)
-        self.method = "linear"
-        for name, value in kwargs.items():
-            setattr(self, name, value)
-
-    def fit_transform_col(self, signal: pd.Series) -> pd.Series:
-        """
-        Fit/transform missing values using interpolation techniques from  pd.Series.interpolat
-
-        Parameters
-        ----------
-        signal : pd.Series
-            series to impute
-
-        Returns
-        -------
-        pd.Series
-            imputed series
-        """
-        col = signal.name
-        signal = signal.reset_index()
-        if self.method in ["spline", "polynomial"]:
-            return signal[col].interpolate(method=self.method, order=self.order)
-        return signal[col].interpolate(method=self.method).bfill().ffill()
+        self.method = method
+        self.order = order
+        self.imputation_method = partial(
+            pd.Series.interpolate, method=self.method, order=self.order
+        )
 
 
 class ImputeOnResiduals(ImputeColumnWise):
@@ -447,45 +396,42 @@ class ImputeOnResiduals(ImputeColumnWise):
 
     def __init__(
         self,
-        period: int,
+        groups: Optional[List[str]] = [],
+        period: int = None,
         model: Optional[str] = "additive",
         extrapolate_trend: Optional[Union[int, str]] = "freq",
         method_interpolation: Optional[str] = "linear",
     ):
+        super().__init__(groups=groups)
         self.model = model
         self.period = period
         self.extrapolate_trend = extrapolate_trend
         self.method_interpolation = method_interpolation
 
-    def fit_transform_col(self, signal: pd.Series) -> pd.Series:
-        """
-        Fit/transform missing values on residuals.
+        def get_resid(x, model, period, extrapolate_trend, method_interpolation):
+            """
+            Fit/transform missing values on residuals.
+            """
+            result = seasonal_decompose(
+                x.interpolate().bfill().ffill(),
+                model=model,
+                period=period,
+                extrapolate_trend=extrapolate_trend,
+            )
 
-        Parameters
-        ----------
-        signal : pd.Series
-            series to impute
+            residuals = result.resid
+            residuals[x.isnull()] = np.nan
+            residuals = residuals.interpolate(method=method_interpolation)
 
-        Returns
-        -------
-        pd.Series
-            imputed series
-        """
-        col = signal.name
-        signal = signal.reset_index()
+            return result.seasonal + result.trend + residuals
 
-        result = seasonal_decompose(
-            signal[col].interpolate().bfill().ffill(),
+        self.imputation_method = partial(
+            get_resid,
             model=self.model,
             period=self.period,
             extrapolate_trend=self.extrapolate_trend,
+            method_interpolation=self.method_interpolation,
         )
-
-        residuals = result.resid
-        residuals[signal[col].isnull()] = np.nan
-        residuals = residuals.interpolate(method=self.method_interpolation)
-
-        return result.seasonal + result.trend + residuals
 
 
 class ImputeKNN(_BaseImputer):
