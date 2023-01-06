@@ -9,12 +9,14 @@ sys.modules["sklearn.neighbors.base"] = sklearn.neighbors._base
 
 from functools import partial
 
-import missingpy
 import numpy as np
 import pandas as pd
 from sklearn.impute import IterativeImputer, KNNImputer
 from sklearn.impute._base import _BaseImputer
 from statsmodels.tsa.seasonal import seasonal_decompose
+
+sys.modules["sklearn.neighbors.base"] = sklearn.neighbors._base
+import missingpy
 
 from qolmat.benchmark import utils
 from qolmat.imputations.rpca.pcp_rpca import RPCA
