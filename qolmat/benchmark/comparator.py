@@ -15,8 +15,8 @@ class Comparator:
     ----------
     dict_models: Dict[str, any]
         dictionary of imputation methods
-    cols_to_impute: List[str]
-        list of column's names to impute
+    selected_columns: List[str]
+        list of column's names selected (all with at least one null value will be imputed)
     columnwise_evaluation : Optional[bool], optional
         whether the metric should be calculated column-wise or not, by default False
     search_params: Optional[Dict[str, Dict[str, Union[str, float, int]]]] = {}
@@ -30,7 +30,7 @@ class Comparator:
     def __init__(
         self,
         dict_models: Dict,
-        cols_to_impute: List[str],
+        selected_columns: List[str],
         generator_holes: HoleGenerator,
         columnwise_evaluation: Optional[bool] = True,
         search_params: Optional[Dict] = {},
@@ -38,7 +38,7 @@ class Comparator:
     ):
 
         self.dict_models = dict_models
-        self.cols_to_impute = cols_to_impute
+        self.selected_columns = selected_columns
         self.generator_holes = generator_holes
         self.columnwise_evaluation = columnwise_evaluation
         self.search_params = search_params
@@ -116,7 +116,7 @@ class Comparator:
 
         for df_mask in self.generator_holes.split(df):
 
-            df_origin = df[self.cols_to_impute].copy()
+            df_origin = df[self.selected_columns].copy()
             df_corrupted = df_origin.copy()
             df_corrupted[df_mask] = np.nan
 
@@ -131,7 +131,8 @@ class Comparator:
                 )
                 df_imputed = cv.fit_transform(df_corrupted)
 
-            errors = self.get_errors(df_origin, df_imputed, df_mask)
+            subset = self.generator_holes.subset
+            errors = self.get_errors(df_origin[subset], df_imputed[subset], df_mask[subset])
             list_errors.append(errors)
         df_errors = pd.DataFrame(list_errors)
         errors_mean = df_errors.mean()
