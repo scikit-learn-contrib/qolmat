@@ -277,6 +277,8 @@ class ImputeLOCF(ImputeColumnWise):
             x_out = pd.Series.shift(x, 1).ffill().bfill()
             return x_out
 
+        self.imputation_method = get_LOCF
+
 
 class ImputeNOCB(ImputeColumnWise):
     """
