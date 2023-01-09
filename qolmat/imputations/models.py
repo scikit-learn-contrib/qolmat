@@ -57,18 +57,19 @@ class ImputeColumnWise(_BaseImputer):
             raise ValueError("Input has to be a pandas.DataFrame.")
 
         df_imputed = df.copy()
+        cols_with_nans = df_imputed.columns[df_imputed.isna().any()]
         groupby = utils.custom_groupby(df, self.groups)
-        for col in df_imputed.columns:
+        for col in cols_with_nans:
             if self.groups:
-                imputation_values = groupby[col].transform(self.imputation_method)
+                imputation_values = groupby[col].transform(self.apply_imputation)
             else:
-                imputation_values = self.imputation_method(groupby[col])
+                imputation_values = self.apply_imputation(groupby[col])
 
             df_imputed[col] = df_imputed[col].fillna(imputation_values)
 
             # fill na by applying imputation method without groups
             if df_imputed[col].isna().any():
-                df_imputed[col] = df_imputed[col].fillna(self.imputation_method(df_imputed[col]))
+                df_imputed[col] = df_imputed[col].fillna(self.apply_imputation(df_imputed[col]))
 
         if df_imputed.isna().any().any():
             warnings.warn("Problem: there are still nan in the columns to be imputed")
@@ -108,7 +109,7 @@ class ImputeByMean(ImputeColumnWise):
         groups: Optional[List[str]] = [],
     ) -> None:
         super().__init__(groups=groups)
-        self.imputation_method = np.mean
+        self.apply_imputation = np.nanmean
 
 
 class ImputeByMedian(ImputeColumnWise):
@@ -120,7 +121,7 @@ class ImputeByMedian(ImputeColumnWise):
     >>> import numpy as np
     >>> import pandas as pd
     >>> from qolmat.imputations.models import ImputeByMedian
-    >>> imputor = ImputeByMean()
+    >>> imputor = ImputeByMedian()
     >>> X = pd.DataFrame(data=[[1, 1, 1, 1],
     >>>                         [np.nan, np.nan, np.nan, np.nan],
     >>>                         [1, 2, 2, 5], [2, 2, 2, 2]],
@@ -133,7 +134,7 @@ class ImputeByMedian(ImputeColumnWise):
         groups: Optional[List[str]] = [],
     ) -> None:
         super().__init__(groups=groups)
-        self.imputation_method = np.median
+        self.apply_imputation = np.nanmedian
 
     def fit_transform_col(self, signal: pd.Series) -> pd.Series:
         """
@@ -181,32 +182,11 @@ class ImputeByMode(ImputeColumnWise):
         super().__init__(groups=groups)
 
         def get_mode(x):
-            # print(type(x))
-            # if x.isna().all() :
-            #     return np.nan
-            return x.value_counts().index[0]
+            if x.isna().all():
+                return np.nan
+            return x.mode()[0]
 
-        self.imputation_method = get_mode
-
-    # def fit_transform_col(self, signal: pd.Series) -> pd.Series:
-    #     """
-    #     Fit/transform the Imputer to the dataset by fitting with the mode of each column
-
-    #     Parameters
-    #     ----------
-    #     signal : pd.Series
-    #         series to impute
-
-    #     Returns
-    #     -------
-    #     pd.Series
-    #         imputed series
-    #     """
-    #     col = signal.name
-    #     signal = signal.reset_index()
-    #     imputed = signal[col].fillna(utils.custom_groupby(signal,
-    #     self.groups)[col].mode().iloc[0])
-    #     return imputed
+        self.apply_imputation = get_mode
 
 
 class ImputeRandom(ImputeColumnWise):
@@ -218,7 +198,7 @@ class ImputeRandom(ImputeColumnWise):
     >>> import numpy as np
     >>> import pandas as pd
     >>> from qolmat.imputations.models import ImputeRandom
-    >>> imputor = ImputeByMean()
+    >>> imputor = ImputeRandom()
     >>> X = pd.DataFrame(data=[[1, 1, 1, 1],
     >>>                        [np.nan, np.nan, np.nan, np.nan],
     >>>                        [1, 2, 2, 5], [2, 2, 2, 2]],
@@ -241,7 +221,7 @@ class ImputeRandom(ImputeColumnWise):
             imputed[imputed.isna()] = samples
             return imputed
 
-        self.imputation_method = get_random
+        self.apply_imputation = get_random
 
 
 class ImputeLOCF(ImputeColumnWise):
@@ -253,7 +233,7 @@ class ImputeLOCF(ImputeColumnWise):
     >>> import numpy as np
     >>> import pandas as pd
     >>> from qolmat.imputations.models import ImputeLOCF
-    >>> imputor = ImputeByMean()
+    >>> imputor = ImputeLOCF()
     >>> X = pd.DataFrame(data=[[np.nan, np.nan, np.nan, np.nan],
     >>>                        [1, 1, 1, 1],
     >>>                        [np.nan, np.nan, np.nan, np.nan],
@@ -277,7 +257,7 @@ class ImputeLOCF(ImputeColumnWise):
             x_out = pd.Series.shift(x, 1).ffill().bfill()
             return x_out
 
-        self.imputation_method = get_LOCF
+        self.apply_imputation = get_LOCF
 
 
 class ImputeNOCB(ImputeColumnWise):
@@ -289,7 +269,7 @@ class ImputeNOCB(ImputeColumnWise):
     >>> import numpy as np
     >>> import pandas as pd
     >>> from qolmat.imputations.models import ImputeNOCB
-    >>> imputor = ImputeByMean()
+    >>> imputor = ImputeNOCB()
     >>> X = pd.DataFrame(data=[[1, 1, 1, 1],
     >>>                        [np.nan, np.nan, np.nan, np.nan],
     >>>                        [1, 2, 2, 5], [2, 2, 2, 2]],
@@ -311,7 +291,7 @@ class ImputeNOCB(ImputeColumnWise):
             x_out = pd.Series.shift(x, -1).ffill().bfill()
             return x_out
 
-        self.imputation_method = get_NOCB
+        self.apply_imputation = get_NOCB
 
 
 class ImputeByInterpolation(ImputeColumnWise):
@@ -349,7 +329,7 @@ class ImputeByInterpolation(ImputeColumnWise):
         super().__init__(groups=groups)
         self.method = method
         self.order = order
-        self.imputation_method = partial(
+        self.apply_imputation = partial(
             pd.Series.interpolate, method=self.method, order=self.order
         )
 
@@ -429,7 +409,7 @@ class ImputeOnResiduals(ImputeColumnWise):
 
             return result.seasonal + result.trend + residuals
 
-        self.imputation_method = partial(
+        self.apply_imputation = partial(
             get_resid,
             model=self.model,
             period=self.period,
