@@ -57,12 +57,12 @@ class ImputeColumnWise(_BaseImputer):
             raise ValueError("Input has to be a pandas.DataFrame.")
 
         df_imputed = df.copy()
-        groupby = utils.custom_groupby(df, self.groups)
         for col in df_imputed.columns:
             if self.groups:
+                groupby = utils.custom_groupby(df, self.groups)
                 imputation_values = groupby[col].transform(self.imputation_method)
             else:
-                imputation_values = self.imputation_method(groupby[col])
+                imputation_values = self.imputation_method(df[col])
 
             df_imputed[col] = df_imputed[col].fillna(imputation_values)
 
@@ -71,6 +71,7 @@ class ImputeColumnWise(_BaseImputer):
                 df_imputed[col] = df_imputed[col].fillna(self.imputation_method(df_imputed[col]))
 
         if df_imputed.isna().any().any():
+            print(df_imputed)
             warnings.warn("Problem: there are still nan in the columns to be imputed")
         return df_imputed
 

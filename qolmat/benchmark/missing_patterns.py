@@ -41,17 +41,24 @@ class HoleGenerator:
         subset: Optional[List[str]] = None,
         ratio_missing: Optional[float] = 0.05,
         random_state: Optional[int] = 42,
+        groups: Optional[List[str]] = [],
     ) -> None:
         self.n_splits = n_splits
         self.subset = subset
         self.ratio_missing = ratio_missing
         self.random_state = random_state
+        self.groups = groups
 
     def fit(self, X: pd.DataFrame) -> HoleGenerator:
         self._check_subset(X)
         self.dict_ratios = {}
         missing_per_col = X[self.subset].isna().sum()
         self.dict_ratios = (missing_per_col / missing_per_col.sum()).to_dict()
+        if self.groups == []:
+            self.ngroups = None
+        else:
+            self.ngroups = X.groupby(self.groups).ngroup()
+
         return self
 
     def split(self, X: pd.DataFrame) -> List[pd.DataFrame]:
@@ -74,7 +81,11 @@ class HoleGenerator:
         self.fit(X)
         list_masks = []
         for _ in range(self.n_splits):
-            mask = self.generate_mask(X)
+            if self.ngroups is None:
+                mask = self.generate_mask(X)
+            else:
+                mask = X.groupby(self.ngroups).apply(self.generate_mask)
+            print(mask.isna().mean())
             list_masks.append(mask)
         return list_masks
 
@@ -93,7 +104,7 @@ class HoleGenerator:
                 )
 
 
-class RandomHoleGenerator(HoleGenerator):
+class UniformHoleGenerator(HoleGenerator):
     """This class implements a way to generate holes in a dataframe.
     The holes are generated randomly, using the resample method of scikit learn.
 
@@ -121,15 +132,15 @@ class RandomHoleGenerator(HoleGenerator):
             subset=subset,
             random_state=random_state,
             ratio_missing=ratio_missing,
+            groups=[],
         )
 
     def generate_mask(self, X: pd.DataFrame) -> pd.DataFrame:
 
         df_mask = pd.DataFrame(False, index=X.index, columns=X.columns)
+        n_missing_col = round(self.ratio_missing * len(X))
 
-        n_missing = X[self.subset].size * self.ratio_missing
         for column in self.subset:
-            n_missing_col = round(n_missing * self.dict_ratios[column])
 
             indices = np.where(X[column].notna())[0]
             indices = resample(
@@ -165,12 +176,14 @@ class Markov1DHoleGenerator(HoleGenerator):
         subset: Optional[List[str]] = None,
         ratio_missing: Optional[float] = 0.05,
         random_state: Optional[int] = 42,
+        groups: Optional[List[str]] = [],
     ):
         super().__init__(
             n_splits=n_splits,
             subset=subset,
             random_state=random_state,
             ratio_missing=ratio_missing,
+            groups=groups,
         )
 
     def fit(self, X: pd.DataFrame) -> Markov1DHoleGenerator:
@@ -236,11 +249,10 @@ class Markov1DHoleGenerator(HoleGenerator):
             masked dataframe with additional missing entries
         """
         mask = pd.DataFrame(False, columns=X.columns, index=X.index)
-        n_missing = X[self.subset].size * self.ratio_missing
+        n_missing_col = round(self.ratio_missing * len(X))
         list_failed = []
         for column in self.subset:
             states = X[column].isna()
-            n_missing_col = round(n_missing * self.dict_ratios[column])
             samples_sizes = self.generate_hole_sizes(column, n_missing_col)
             samples_sizes = sorted(samples_sizes, reverse=True)
             for sample in samples_sizes:
@@ -280,12 +292,14 @@ class MultiMarkovHoleGenerator(HoleGenerator):
         subset: Optional[List[str]] = None,
         ratio_missing: Optional[float] = 0.05,
         random_state: Optional[int] = 42,
+        groups: Optional[List[str]] = [],
     ):
         super().__init__(
             n_splits=n_splits,
             subset=subset,
             random_state=random_state,
             ratio_missing=ratio_missing,
+            groups=groups,
         )
 
     def fit(self, X: pd.DataFrame) -> MultiMarkovHoleGenerator:
@@ -416,12 +430,14 @@ class EmpiricalTimeHoleGenerator(HoleGenerator):
         subset: Optional[str] = None,
         ratio_missing: Optional[float] = 0.05,
         random_state: Optional[int] = 42,
+        groups: Optional[List[str]] = [],
     ):
         super().__init__(
             n_splits=n_splits,
             subset=subset,
             random_state=random_state,
             ratio_missing=ratio_missing,
+            groups=groups,
         )
 
     def fit(self, X: pd.DataFrame) -> EmpiricalTimeHoleGenerator:
@@ -450,7 +466,7 @@ class EmpiricalTimeHoleGenerator(HoleGenerator):
             distribution_holes = df_count["series_id"].value_counts().value_counts()
             self.dict_distributions_holes[column] = distribution_holes
 
-    def generate_hole_sizes(self, column: str, nb_holes: Optional[int] = 10) -> List[int]:
+    def generate_hole_sizes(self, column: str, n_missing: Optional[int] = 10) -> List[int]:
         """Create missing data in an arraylike object based on the holes size distribution.
 
         Parameters
@@ -467,18 +483,18 @@ class EmpiricalTimeHoleGenerator(HoleGenerator):
 
         sizes_holes = self.dict_distributions_holes[column]
         samples_sizes = np.random.choice(
-            sizes_holes.index, nb_holes, p=sizes_holes / sum(sizes_holes)
+            sizes_holes.index, n_missing, p=sizes_holes / sum(sizes_holes)
         )
         return samples_sizes
 
     def generate_mask(self, X: pd.DataFrame) -> pd.DataFrame:
         mask = pd.DataFrame(False, columns=X.columns, index=X.index)
+        n_missing_col = round(self.ratio_missing * len(X))
 
         for column in self.subset:
 
             states = X[column].isna()
-            n_missing = round(len(X) * self.ratio_missing)
-            samples_sizes = self.generate_hole_sizes(X[[column]], nb_holes=n_missing)
+            samples_sizes = self.generate_hole_sizes(X[[column]], nb_holes=n_missing_col)
             samples_sizes = sorted(samples_sizes, reverse=True)
             for sample in samples_sizes:
                 is_valid = (
@@ -509,32 +525,31 @@ class GroupedHoleGenerator(HoleGenerator):
         Ratio of missing values ​​to add, by default 0.05.
     random_state : Optional[int], optional
         The seed used by the random number generator, by default 42.
-    column_groups : Optional[List[str]], optional
-        Names of the columns forming the groups, by default None
+    groups : Optional[List[str]], optional
+        Names of the columns forming the groups, by default empty list
     """
 
     def __init__(
         self,
         n_splits: int,
+        groups: List[str],
         subset: Optional[List[str]] = None,
         ratio_missing: Optional[float] = 0.05,
         random_state: Optional[int] = 42,
-        column_groups: Optional[List[str]] = None,
     ):
         super().__init__(
             n_splits=n_splits,
             subset=subset,
-            random_state=random_state,
             ratio_missing=ratio_missing,
+            random_state=random_state,
+            groups=groups,
         )
 
-        if column_groups is None:
-            raise Exception("column_group is empty.")
-
-        self.column_groups = column_groups
+        if groups == []:
+            raise Exception("Argument groups is an empty list!")
 
     def fit(self, X: pd.DataFrame) -> GroupedHoleGenerator:
-        """Creare the groups based on the column names (column_groups attribute)
+        """Creare the groups based on the column names (groups attribute)
 
         Parameters
         ----------
@@ -550,34 +565,25 @@ class GroupedHoleGenerator(HoleGenerator):
         if the number of samples/splits is greater than the number of groups.
         """
 
-        self._check_subset(X)
+        super().fit(X)
 
-        self.groups = X.groupby(self.column_groups).ngroup().values
+        n_masked_per_column = len(X) * self.ratio_missing
+        eligible_per_column = (X.notna().groupby(self.groups).all() * X.notna().groupby(self.groups).sum()).sum()
+        self.probas_sample = n_masked_per_column / eligible_per_column
 
-        if self.n_splits > len(np.unique(self.groups)):
+        if self.n_splits > self.ngroups.nunique():
             raise ValueError("n_samples has to be smaller than the number of groups.")
 
         return self
 
-    def split(self, X: pd.DataFrame) -> List[pd.DataFrame]:
-        self.fit(X)
+    def generate_mask(self, X: pd.DataFrame) -> pd.DataFrame:
+        mask = pd.DataFrame(False, columns=X.columns, index=X.index)
 
-        gss = GroupShuffleSplit(
-            n_splits=self.n_splits,
-            train_size=1 - self.ratio_missing,
-            random_state=self.random_state,
-        )
+        for column in self.subset:
+            has_no_nan = X[column].notna().all()
+            is_sampled = np.random.uniform(0, 1) < self.probas_sample[column]
 
-        list_masks = []
-        for observed_indices, _ in gss.split(X=X, y=None, groups=self.groups):
-            observed_indices = X.index[observed_indices]
-            # create the boolean mask of missing values
-            df_mask = pd.DataFrame(
-                False,
-                columns=X.columns,
-                index=X.index,
-            )
-            df_mask[self.subset].loc[observed_indices] = True
-            list_masks.append(df_mask)
+            if has_no_nan and is_sampled:
+                mask[column] = True
 
-        return list_masks
+        return mask
