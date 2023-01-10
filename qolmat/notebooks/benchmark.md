@@ -105,13 +105,6 @@ plt.show()
 df_data.groupby("station").apply(lambda x: x.isna().mean())
 ```
 
-```python
-states = df_data["TEMP"].loc["Wanliu"].isna()
-
-ids_hole = (states.diff() != 0).cumsum()
-sizes_max = states.groupby(ids_hole).apply(lambda x: (~x) * np.arange(len(x)-1, -1, -1))
-```
-
 ### **II. Imputation methods**
 
 
@@ -193,10 +186,12 @@ This allows an easy comparison of the different imputations.
 Note these metrics compute reconstruction errors; it tells nothing about the distances between the "true" and "imputed" distributions.
 
 ```python
+doy = pd.Series(df_data.reset_index().datetime.dt.isocalendar().week.values, index=df_data.index)
+
 generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=10, groups=["station"], ratio_masked=0.1)
 # generator_holes = missing_patterns.GeometricHoleGenerator(n_splits=10, groups=["station"], ratio_masked=0.1)
 # generator_holes = missing_patterns.UniformHoleGenerator(n_splits=2, ratio_masked=0.4)
-# generator_holes = missing_patterns.GroupedHoleGenerator(n_splits=2, groups=["station", pd.Series(df_data.reset_index().datetime.dt.isocalendar().week.values, index=df_data.index)], ratio_masked=0.4)
+# generator_holes = missing_patterns.GroupedHoleGenerator(n_splits=2, groups=["station", doy], ratio_masked=0.4)
 
 comparison = comparator.Comparator(
     dict_models, 

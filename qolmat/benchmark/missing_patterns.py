@@ -12,10 +12,17 @@ from sklearn.utils import resample
 logger = logging.getLogger(__name__)
 
 
-def compute_transition_matrix(states: pd.Series):
+def compute_transition_counts_matrix(states: pd.Series):
     df_couples = pd.DataFrame({"current": states, "next": states.shift(-1)})
     counts = df_couples.groupby(["current", "next"]).size()
     df_counts = counts.unstack().fillna(0)
+    return df_counts
+
+def compute_transition_matrix(states: pd.Series, ngroups: List=None):
+    if ngroups is None:
+        df_counts =  compute_transition_counts_matrix(states)
+    else:
+        df_counts = states.groupby(ngroups).apply(compute_transition_counts_matrix).sum()
     df_transition = df_counts.div(df_counts.sum(axis=1), axis=0)
     return df_transition
 
@@ -327,7 +334,7 @@ class GeometricHoleGenerator(ColWiseSamplerHoleGenerator):
         self.dict_probas_out = {}
         for column in self.subset:
             states = X[column].isna()
-            df_transition = compute_transition_matrix(states)
+            df_transition = compute_transition_matrix(states, self.ngroups)
             self.dict_probas_out[column] = df_transition.loc[True, False]
 
         return self
@@ -375,6 +382,13 @@ class EmpiricalHoleGenerator(ColWiseSamplerHoleGenerator):
             groups=groups,
         )
 
+    def compute_distribution_holes(self, states):
+        series_id = (states.diff() != 0).cumsum()
+        series_id = series_id[states]
+        distribution_holes = series_id.value_counts().value_counts()
+        # distribution_holes /= distribution_holes.sum()
+        return distribution_holes
+
     def fit(self, X: pd.DataFrame) -> EmpiricalHoleGenerator:
         """Compute the holes sizes of a dataframe.
         Dataframe df has only one column
@@ -394,12 +408,13 @@ class EmpiricalHoleGenerator(ColWiseSamplerHoleGenerator):
 
         self.dict_distributions_holes = {}
         for column in self.subset:
-            df_count = X[[column]].copy()
-            df_count["series_id"] = np.cumsum(df_count.isna().diff() != 0)
-            df_count.loc[df_count[column].notna(), "series_id"] = 0
-            df_count = df_count[df_count["series_id"] != 0]
-            distribution_holes = df_count["series_id"].value_counts().value_counts()
-            self.dict_distributions_holes[column] = distribution_holes
+            states = X[column].isna()
+            if self.ngroups is None:
+                self.dict_distributions_holes[column] = self.compute_distribution_holes(states)
+            else:
+                distributions_holes = states.groupby(self.ngroups).apply(self.compute_distribution_holes)
+                distributions_holes = distributions_holes.groupby(level=0).sum()
+                self.dict_distributions_holes[column] = distributions_holes
 
 
     def sample_sizes(self, column, n_masked):
@@ -417,13 +432,12 @@ class EmpiricalHoleGenerator(ColWiseSamplerHoleGenerator):
         samples_sizes : List[int]
         """
         distribution_holes = self.dict_distributions_holes[column]
-        n_observations = distribution_holes.sum()
-        mean_size = (distribution_holes.values * distribution_holes.index.values).sum() / n_observations
+        distribution_holes /= distribution_holes.sum()
+        mean_size = (distribution_holes.values * distribution_holes.index.values).sum()
 
         n_samples = 2 * round(n_masked / mean_size)
-        weights = distribution_holes / n_observations
         sizes_sampled = np.random.choice(
-            distribution_holes.index, n_samples, p=weights
+            distribution_holes.index, n_samples, p=distribution_holes
         )        
         return sizes_sampled
 
@@ -484,7 +498,7 @@ class MultiMarkovHoleGenerator(HoleGenerator):
         self._check_subset(X)
 
         states = X[self.subset].isna().apply(lambda x: tuple(x), axis=1)
-        self.df_transition = compute_transition_matrix(states)
+        self.df_transition = compute_transition_matrix(states, self.ngroups)
         self.df_transition.index = pd.MultiIndex.from_tuples(self.df_transition.index)
         self.df_transition.columns = pd.MultiIndex.from_tuples(self.df_transition.columns)
 
