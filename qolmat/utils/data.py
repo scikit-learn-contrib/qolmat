@@ -75,7 +75,7 @@ def preprocess_data(df: pd.DataFrame):
     return df
 
 
-def add_holes(X: pd.DataFrame, ratio_missing: float, mean_size: int, groups: List[str]= []):
+def add_holes(X: pd.DataFrame, ratio_masked: float, mean_size: int, groups: List[str]= []):
     """
     Creates holes in a dataset with no missing value. Only used in the documentation to design
     examples.
@@ -88,8 +88,8 @@ def add_holes(X: pd.DataFrame, ratio_missing: float, mean_size: int, groups: Lis
     mean_size : int
         Targeted mean size of the holes to add
 
-    ratio_missing : float
-        Targeted global proportion of nans in the returned dataset
+    ratio_masked : float
+        Targeted global proportion of nans added in the returned dataset
 
     groups: list of strings
         List of the column names used as groups
@@ -99,8 +99,8 @@ def add_holes(X: pd.DataFrame, ratio_missing: float, mean_size: int, groups: Lis
     pd.DataFrame
         dataframe with missing values
     """
-    generator = missing_patterns.Markov1DHoleGenerator(
-        1, ratio_missing=ratio_missing, subset=X.columns, groups=groups
+    generator = missing_patterns.GeometricHoleGenerator(
+        1, ratio_masked=ratio_masked, subset=X.columns, groups=groups
     )
 
     generator.dict_probas_out = {column: 1 / mean_size for column in X.columns}
@@ -118,9 +118,9 @@ def get_data_corrupted(
     datapath: str = "data/",
     download: Optional[bool] = True,
     mean_size: int = 90,
-    ratio_missing: float = 0.2,
+    ratio_masked: float = 0.2,
     groups: List[str] = []
 ):
     df = get_data(datapath, download)
-    df = add_holes(df, mean_size=mean_size, ratio_missing=ratio_missing, groups=groups)
+    df = add_holes(df, mean_size=mean_size, ratio_masked=ratio_masked, groups=groups)
     return df

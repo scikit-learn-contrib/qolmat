@@ -72,7 +72,7 @@ cols_to_impute = ["Sales"]
 
 ```python
 download = True
-df_data = data.get_data_corrupted(download=download, ratio_missing=.2, mean_size=120 , groups=["station"])
+df_data = data.get_data_corrupted(download=download, ratio_masked=.2, mean_size=120 , groups=["station"])
 
 # cols_to_impute = ["TEMP", "PRES", "DEWP", "NO2", "CO", "O3", "WSPM"]
 # cols_to_impute = df_data.columns[df_data.isna().any()]
@@ -193,9 +193,10 @@ This allows an easy comparison of the different imputations.
 Note these metrics compute reconstruction errors; it tells nothing about the distances between the "true" and "imputed" distributions.
 
 ```python
-generator_holes = missing_patterns.Markov1DHoleGenerator(n_splits=10, groups=["station"], ratio_missing=0.1)
-# generator_holes = missing_patterns.UniformHoleGenerator(n_splits=2, ratio_missing=0.4)
-# generator_holes = missing_patterns.GroupedHoleGenerator(n_splits=2, groups=["station", pd.Series(df_data.reset_index().datetime.dt.isocalendar().week.values, index=df_data.index)])
+generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=10, groups=["station"], ratio_masked=0.1)
+# generator_holes = missing_patterns.GeometricHoleGenerator(n_splits=10, groups=["station"], ratio_masked=0.1)
+# generator_holes = missing_patterns.UniformHoleGenerator(n_splits=2, ratio_masked=0.4)
+# generator_holes = missing_patterns.GroupedHoleGenerator(n_splits=2, groups=["station", pd.Series(df_data.reset_index().datetime.dt.isocalendar().week.values, index=df_data.index)], ratio_masked=0.4)
 
 comparison = comparator.Comparator(
     dict_models, 
