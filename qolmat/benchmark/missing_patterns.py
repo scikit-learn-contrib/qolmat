@@ -41,12 +41,14 @@ class HoleGenerator:
     def __init__(
         self,
         n_splits: int,
+        groups: Optional[List[str]] = None,
         subset: Optional[List[str]] = None,
         ratio_missing: Optional[float] = 0.05,
         random_state: Optional[int] = 42,
         groups: Optional[List[str]] = [],
     ) -> None:
         self.n_splits = n_splits
+        self.groups = groups
         self.subset = subset
         self.ratio_missing = ratio_missing
         self.random_state = random_state
@@ -131,12 +133,14 @@ class UniformHoleGenerator(HoleGenerator):
     def __init__(
         self,
         n_splits: int,
+        groups: Optional[List[str]] = None,
         subset: Optional[List[str]] = None,
         ratio_missing: Optional[float] = 0.05,
         random_state: Optional[int] = 42,
     ):
         super().__init__(
             n_splits=n_splits,
+            groups=groups,
             subset=subset,
             random_state=random_state,
             ratio_missing=ratio_missing,
@@ -292,6 +296,7 @@ class GeometricHoleGenerator(ColWiseSamplerHoleGenerator):
     def __init__(
         self,
         n_splits: int,
+        groups: Optional[List[str]] = None,
         subset: Optional[List[str]] = None,
         ratio_missing: Optional[float] = 0.05,
         random_state: Optional[int] = 42,
@@ -299,6 +304,7 @@ class GeometricHoleGenerator(ColWiseSamplerHoleGenerator):
     ):
         super().__init__(
             n_splits=n_splits,
+            groups=groups,
             subset=subset,
             random_state=random_state,
             ratio_missing=ratio_missing,
@@ -450,6 +456,7 @@ class MultiMarkovHoleGenerator(HoleGenerator):
     def __init__(
         self,
         n_splits: int,
+        groups: Optional[List[str]] = None,
         subset: Optional[List[str]] = None,
         ratio_missing: Optional[float] = 0.05,
         random_state: Optional[int] = 42,
@@ -457,6 +464,7 @@ class MultiMarkovHoleGenerator(HoleGenerator):
     ):
         super().__init__(
             n_splits=n_splits,
+            groups=groups,
             subset=subset,
             random_state=random_state,
             ratio_missing=ratio_missing,
@@ -597,6 +605,7 @@ class GroupedHoleGenerator(HoleGenerator):
     ):
         super().__init__(
             n_splits=n_splits,
+            groups=groups,
             subset=subset,
             ratio_missing=ratio_missing,
             random_state=random_state,
