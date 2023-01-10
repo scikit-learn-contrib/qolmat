@@ -105,7 +105,10 @@ def add_holes(X: pd.DataFrame, ratio_missing: float, mean_size: int, groups: Lis
 
     generator.dict_probas_out = {column: 1 / mean_size for column in X.columns}
     generator.dict_ratios = {column: 1 / len(X.columns) for column in X.columns}
-    mask = generator.generate_mask(X)
+    if generator.groups == []:
+        mask = generator.generate_mask(X)
+    else:
+        mask = X.groupby(groups).apply(generator.generate_mask)
     X_with_nans = X.copy()
     X_with_nans[mask] = np.nan
     return X_with_nans
@@ -119,6 +122,5 @@ def get_data_corrupted(
     groups: List[str] = []
 ):
     df = get_data(datapath, download)
-    print(df.isna().mean())
     df = add_holes(df, mean_size=mean_size, ratio_missing=ratio_missing, groups=groups)
     return df

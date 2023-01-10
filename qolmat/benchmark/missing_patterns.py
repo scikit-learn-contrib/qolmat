@@ -5,6 +5,7 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
+from matplotlib import pyplot as plt
 from sklearn.model_selection import GroupShuffleSplit
 from sklearn.utils import resample
 
@@ -153,7 +154,87 @@ class UniformHoleGenerator(HoleGenerator):
         return df_mask
 
 
-class Markov1DHoleGenerator(HoleGenerator):
+class ColWiseSamplerHoleGenerator(HoleGenerator):
+    """This class implements a way to generate holes in a dataframe.
+
+    Parameters
+    ----------
+    n_splits : int
+        Number of splits
+    subset : Optional[List[str]], optional
+        Names of the columns for which holes must be created, by default None
+    ratio_missing : Optional[float], optional
+        Ratio of missing values ​​to add, by default 0.05.
+    random_state : Optional[int], optional
+        The seed used by the random number generator, by default 42.
+    """
+
+    def __init__(
+        self,
+        n_splits: int,
+        subset: Optional[List[str]] = None,
+        ratio_missing: Optional[float] = 0.05,
+        random_state: Optional[int] = 42,
+        groups: Optional[List[str]] = [],
+    ):
+        super().__init__(
+            n_splits=n_splits,
+            subset=subset,
+            random_state=random_state,
+            ratio_missing=ratio_missing,
+            groups=groups,
+        )
+
+    
+    def generate_mask(self, X: pd.DataFrame) -> pd.DataFrame:
+        """Create missing data in an arraylike object based on a markov chain.
+        States of the MC are the different masks of missing values:
+        there are at most pow(2,X.shape[1]) possible states.
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            initial dataframe with missing (true) entries
+
+        Returns
+        -------
+        mask : pd.DataFrame
+            masked dataframe with additional missing entries
+        """
+        mask = pd.DataFrame(False, columns=X.columns, index=X.index)
+        n_missing_col = round(self.ratio_missing * len(X))
+        list_failed = []
+        for column in self.subset:
+            states = X[column].isna()
+
+            ids_hole = (states.diff() != 0).cumsum()
+            sizes_max = states.groupby(ids_hole).apply(lambda x: (~x) * np.arange(len(x))).shift(1).fillna(0).astype(int)
+            n_masked_left = n_missing_col
+
+            sizes_sampled = self.generate_hole_sizes(column, n_missing_col, sort=True)
+            assert sum(sizes_sampled) == n_missing_col
+            sizes_sampled += self.generate_hole_sizes(column, n_missing_col, sort=False)
+            
+            for sample in sizes_sampled:
+
+                sample = min(min(sample, sizes_max.max()), n_masked_left)
+                i_hole = np.random.choice(np.where(sample <= sizes_max)[0])
+
+                assert (~mask[column].iloc[i_hole - sample : i_hole]).all()
+                mask[column].iloc[i_hole - sample : i_hole] = True
+                n_masked_left -= sample
+
+                sizes_max.iloc[i_hole - sample : i_hole] = 0
+                sizes_max.iloc[i_hole:] = np.minimum(sizes_max.iloc[i_hole:], np.arange(len(sizes_max.iloc[i_hole:])))
+                if n_masked_left == 0:
+                    break
+
+        if list_failed:
+            logger.warning(f"No place to introduce sampled holes of size {list_failed}!")
+        return mask
+
+
+class Markov1DHoleGenerator(ColWiseSamplerHoleGenerator):
     """This class implements a way to generate holes in a dataframe.
     The holes are generated following a Markov 1D process.
 
@@ -205,16 +286,14 @@ class Markov1DHoleGenerator(HoleGenerator):
         super().fit(X)
         # self._check_subset(X)
         self.dict_probas_out = {}
-        self.dict_ratios = {}
         for column in self.subset:
             states = X[column].isna()
             df_transition = compute_transition_matrix(states)
             self.dict_probas_out[column] = df_transition.loc[True, False]
-            self.dict_ratios[column] = states.sum() / X.isna().sum().sum()
 
         return self
 
-    def generate_hole_sizes(self, column: str, n_missing: int) -> List[int]:
+    def generate_hole_sizes(self, column: str, n_missing: int, sort: bool=True) -> List[int]:
         """Generate a sequence of states "states" of size "size" from a transition matrix "df_transition"
 
         Parameters
@@ -233,43 +312,90 @@ class Markov1DHoleGenerator(HoleGenerator):
         sizes_sampled = sizes_sampled[sizes_sampled.cumsum() < n_missing]
         n_missing_sampled = sizes_sampled.sum()
         list_sizes = sizes_sampled.tolist() + [n_missing - n_missing_sampled]
-        list_sizes = sorted(list_sizes, reverse=True)
+        if sort:
+            list_sizes = sorted(list_sizes, reverse=True)
         return list_sizes
 
-    def generate_mask(self, X: pd.DataFrame) -> pd.DataFrame:
-        """Create missing data in an arraylike object based on a markov chain.
-        States of the MC are the different masks of missing values:
-        there are at most pow(2,X.shape[1]) possible states.
+
+class EmpiricalTimeHoleGenerator(HoleGenerator):
+    """This class implements a way to generate holes in a dataframe.
+    The distribution of holes is learned from the data.
+    The distributions are learned column by column.
+
+    Parameters
+    ----------
+    n_splits : int
+        Number of splits
+    subset : Optional[List[str]], optional
+        Names of the columns for which holes must be created, by default None
+    ratio_missing : Optional[float], optional
+        Ratio of missing values ​​to add, by default 0.05.
+    random_state : Optional[int], optional
+        The seed used by the random number generator, by default 42.
+    """
+
+    def __init__(
+        self,
+        n_splits: int,
+        subset: Optional[str] = None,
+        ratio_missing: Optional[float] = 0.05,
+        random_state: Optional[int] = 42,
+        groups: Optional[List[str]] = [],
+    ):
+        super().__init__(
+            n_splits=n_splits,
+            subset=subset,
+            random_state=random_state,
+            ratio_missing=ratio_missing,
+            groups=groups,
+        )
+
+    def fit(self, X: pd.DataFrame) -> EmpiricalTimeHoleGenerator:
+        """Compute the holes sizes of a dataframe.
+        Dataframe df has only one column
 
         Parameters
         ----------
         X : pd.DataFrame
-            initial dataframe with missing (true) entries
+            data with holes
 
         Returns
         -------
-        mask : pd.DataFrame
-            masked dataframe with additional missing entries
+        EmpiricalTimeHoleGenerator
+            The model itself
         """
-        mask = pd.DataFrame(False, columns=X.columns, index=X.index)
-        n_missing_col = round(self.ratio_missing * len(X))
-        list_failed = []
+
+        self._check_subset(X)
+
+        self.dict_distributions_holes = {}
         for column in self.subset:
-            states = X[column].isna()
-            sizes_sampled = self.generate_hole_sizes(column, n_missing_col)
-            assert sum(sizes_sampled) == n_missing_col
-            for sample in sizes_sampled:
-                is_valid = (
-                    ~(states | mask[column]).rolling(sample + 2).max().fillna(1).astype(bool)
-                )
-                if not np.any(is_valid):
-                    list_failed.append(sample)
-                    continue
-                i_hole = np.random.choice(np.where(is_valid)[0])
-                mask[column].iloc[i_hole - sample : i_hole] = True
-        if list_failed:
-            logger.warning(f"No place to introduce sampled holes of size {list_failed}!")
-        return mask
+            df_count = X[[column]].copy()
+            df_count["series_id"] = np.cumsum(df_count.isna().diff() != 0)
+            df_count.loc[df_count[column].notna(), "series_id"] = 0
+            df_count = df_count[df_count["series_id"] != 0]
+            distribution_holes = df_count["series_id"].value_counts().value_counts()
+            self.dict_distributions_holes[column] = distribution_holes
+
+    def generate_hole_sizes(self, column: str, n_missing: Optional[int] = 10) -> List[int]:
+        """Create missing data in an arraylike object based on the holes size distribution.
+
+        Parameters
+        ----------
+        column : str
+            name of the column to fill with holes
+        nb_holes : Optional[int], optional
+            number of holes to create, by default 10
+
+        Returns
+        -------
+        samples_sizes : List[int]
+        """
+
+        sizes_holes = self.dict_distributions_holes[column]
+        samples_sizes = np.random.choice(
+            sizes_holes.index, n_missing, p=sizes_holes / sum(sizes_holes)
+        )
+        return samples_sizes
 
 
 class MultiMarkovHoleGenerator(HoleGenerator):
@@ -407,109 +533,6 @@ class MultiMarkovHoleGenerator(HoleGenerator):
 
         complete_mask = pd.DataFrame(False, columns=X.columns, index=X.index)
         complete_mask[self.subset] = mask[self.subset]
-        return mask
-
-
-class EmpiricalTimeHoleGenerator(HoleGenerator):
-    """This class implements a way to generate holes in a dataframe.
-    The distribution of holes is learned from the data.
-    The distributions are learned column by column.
-
-    Parameters
-    ----------
-    n_splits : int
-        Number of splits
-    subset : Optional[List[str]], optional
-        Names of the columns for which holes must be created, by default None
-    ratio_missing : Optional[float], optional
-        Ratio of missing values ​​to add, by default 0.05.
-    random_state : Optional[int], optional
-        The seed used by the random number generator, by default 42.
-    """
-
-    def __init__(
-        self,
-        n_splits: int,
-        subset: Optional[str] = None,
-        ratio_missing: Optional[float] = 0.05,
-        random_state: Optional[int] = 42,
-        groups: Optional[List[str]] = [],
-    ):
-        super().__init__(
-            n_splits=n_splits,
-            subset=subset,
-            random_state=random_state,
-            ratio_missing=ratio_missing,
-            groups=groups,
-        )
-
-    def fit(self, X: pd.DataFrame) -> EmpiricalTimeHoleGenerator:
-        """Compute the holes sizes of a dataframe.
-        Dataframe df has only one column
-
-        Parameters
-        ----------
-        X : pd.DataFrame
-            data with holes
-
-        Returns
-        -------
-        EmpiricalTimeHoleGenerator
-            The model itself
-        """
-
-        self._check_subset(X)
-
-        self.dict_distributions_holes = {}
-        for column in self.subset:
-            df_count = X[[column]].copy()
-            df_count["series_id"] = np.cumsum(df_count.isna().diff() != 0)
-            df_count.loc[df_count[column].notna(), "series_id"] = 0
-            df_count = df_count[df_count["series_id"] != 0]
-            distribution_holes = df_count["series_id"].value_counts().value_counts()
-            self.dict_distributions_holes[column] = distribution_holes
-
-    def generate_hole_sizes(self, column: str, n_missing: Optional[int] = 10) -> List[int]:
-        """Create missing data in an arraylike object based on the holes size distribution.
-
-        Parameters
-        ----------
-        column : str
-            name of the column to fill with holes
-        nb_holes : Optional[int], optional
-            number of holes to create, by default 10
-
-        Returns
-        -------
-        samples_sizes : List[int]
-        """
-
-        sizes_holes = self.dict_distributions_holes[column]
-        samples_sizes = np.random.choice(
-            sizes_holes.index, n_missing, p=sizes_holes / sum(sizes_holes)
-        )
-        return samples_sizes
-
-    def generate_mask(self, X: pd.DataFrame) -> pd.DataFrame:
-        mask = pd.DataFrame(False, columns=X.columns, index=X.index)
-        n_missing_col = round(self.ratio_missing * len(X))
-
-        for column in self.subset:
-
-            states = X[column].isna()
-            samples_sizes = self.generate_hole_sizes(X[[column]], nb_holes=n_missing_col)
-            samples_sizes = sorted(samples_sizes, reverse=True)
-            for sample in samples_sizes:
-                is_valid = (
-                    ~(states | mask[column]).rolling(sample + 2).max().fillna(1).astype(bool)
-                )
-                if not np.any(is_valid):
-                    logger.warning(f"No place to introduce sampled hole of size {sample}!")
-                    continue
-                i_hole = np.random.choice(np.where(is_valid)[0])
-                if mask[column].iloc[i_hole - sample + 1 : i_hole + 1].any():
-                    print("overriding existing hole!")
-                mask[column].iloc[i_hole - sample : i_hole] = True
         return mask
 
 
