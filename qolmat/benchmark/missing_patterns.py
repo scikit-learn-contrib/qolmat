@@ -34,6 +34,8 @@ class HoleGenerator:
         Ratio of missing values ​​to add, by default 0.05.
     random_state : Optional[int]
         The seed used by the random number generator, by default 42.
+    groups: Optional[List[str]]
+        Column names used to group the data
     """
 
     def __init__(
@@ -51,6 +53,14 @@ class HoleGenerator:
         self.groups = groups
 
     def fit(self, X: pd.DataFrame) -> HoleGenerator:
+        """
+        Fits the generator.
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            Initial dataframe with a missing pattern to be imitated.
+        """
         self._check_subset(X)
         self.dict_ratios = {}
         missing_per_col = X[self.subset].isna().sum()
@@ -63,14 +73,12 @@ class HoleGenerator:
         return self
 
     def split(self, X: pd.DataFrame) -> List[pd.DataFrame]:
-        """Create missing data in an arraylike object based on a markov chain.
-        States of the MC are the different masks of missing values:
-        there are at most pow(2,X.shape[1]) possible states.
-
+        """Create a list of boolean masks representing the data to mask.
+        
         Parameters
         ----------
         X : pd.DataFrame
-            initial dataframe with missing (true) entries
+            Initial dataframe with a missing pattern to be imitated.
 
         Returns
         -------
@@ -136,6 +144,14 @@ class UniformHoleGenerator(HoleGenerator):
         )
 
     def generate_mask(self, X: pd.DataFrame) -> pd.DataFrame:
+        """
+        Returns a mask for the dataframe at hand.
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            Initial dataframe with a missing pattern to be imitated.
+        """
 
         df_mask = pd.DataFrame(False, index=X.index, columns=X.columns)
         n_missing_col = round(self.ratio_missing * len(X))
@@ -167,6 +183,8 @@ class ColWiseSamplerHoleGenerator(HoleGenerator):
         Ratio of missing values ​​to add, by default 0.05.
     random_state : Optional[int], optional
         The seed used by the random number generator, by default 42.
+    groups: Optional[List[str]]
+        Column names used to group the data
     """
 
     def __init__(
@@ -185,6 +203,25 @@ class ColWiseSamplerHoleGenerator(HoleGenerator):
             groups=groups,
         )
 
+    def generate_hole_sizes(self, column: str, n_missing: int, sort: bool=True) -> List[int]:
+        """Generate a sequence of states "states" of size "size" from a transition matrix "df_transition"
+
+        Parameters
+        ----------
+        size : int
+            length of the output sequence
+
+        Returns
+        -------
+        List[float]
+        """
+        sizes_sampled = self.sample_sizes(column, n_missing)
+        sizes_sampled = sizes_sampled[sizes_sampled.cumsum() < n_missing]
+        n_missing_sampled = sizes_sampled.sum()
+        list_sizes = sizes_sampled.tolist() + [n_missing - n_missing_sampled]
+        if sort:
+            list_sizes = sorted(list_sizes, reverse=True)
+        return list_sizes
     
     def generate_mask(self, X: pd.DataFrame) -> pd.DataFrame:
         """Create missing data in an arraylike object based on a markov chain.
@@ -234,7 +271,7 @@ class ColWiseSamplerHoleGenerator(HoleGenerator):
         return mask
 
 
-class Markov1DHoleGenerator(ColWiseSamplerHoleGenerator):
+class GeometricHoleGenerator(ColWiseSamplerHoleGenerator):
     """This class implements a way to generate holes in a dataframe.
     The holes are generated following a Markov 1D process.
 
@@ -248,6 +285,8 @@ class Markov1DHoleGenerator(ColWiseSamplerHoleGenerator):
         Ratio of missing values ​​to add, by default 0.05.
     random_state : Optional[int], optional
         The seed used by the random number generator, by default 42.
+    groups: Optional[List[str]]
+        Column names used to group the data
     """
 
     def __init__(
@@ -266,7 +305,7 @@ class Markov1DHoleGenerator(ColWiseSamplerHoleGenerator):
             groups=groups,
         )
 
-    def fit(self, X: pd.DataFrame) -> Markov1DHoleGenerator:
+    def fit(self, X: pd.DataFrame) -> GeometricHoleGenerator:
         """
         Get the transition matrix from a list of states
 
@@ -293,31 +332,15 @@ class Markov1DHoleGenerator(ColWiseSamplerHoleGenerator):
 
         return self
 
-    def generate_hole_sizes(self, column: str, n_missing: int, sort: bool=True) -> List[int]:
-        """Generate a sequence of states "states" of size "size" from a transition matrix "df_transition"
-
-        Parameters
-        ----------
-        size : int
-            length of the output sequence
-
-        Returns
-        -------
-        List[float]
-        """
+    def sample_sizes(self, column, n_missing):
         proba_out = self.dict_probas_out[column]
         mean_size = 1 / proba_out
         n_holes = 2 * round(n_missing / mean_size)
         sizes_sampled = pd.Series(np.random.geometric(p=proba_out, size=n_holes))
-        sizes_sampled = sizes_sampled[sizes_sampled.cumsum() < n_missing]
-        n_missing_sampled = sizes_sampled.sum()
-        list_sizes = sizes_sampled.tolist() + [n_missing - n_missing_sampled]
-        if sort:
-            list_sizes = sorted(list_sizes, reverse=True)
-        return list_sizes
+        return sizes_sampled
 
 
-class EmpiricalTimeHoleGenerator(HoleGenerator):
+class EmpiricalHoleGenerator(ColWiseSamplerHoleGenerator):
     """This class implements a way to generate holes in a dataframe.
     The distribution of holes is learned from the data.
     The distributions are learned column by column.
@@ -332,6 +355,8 @@ class EmpiricalTimeHoleGenerator(HoleGenerator):
         Ratio of missing values ​​to add, by default 0.05.
     random_state : Optional[int], optional
         The seed used by the random number generator, by default 42.
+    groups: Optional[List[str]]
+        Column names used to group the data
     """
 
     def __init__(
@@ -350,7 +375,7 @@ class EmpiricalTimeHoleGenerator(HoleGenerator):
             groups=groups,
         )
 
-    def fit(self, X: pd.DataFrame) -> EmpiricalTimeHoleGenerator:
+    def fit(self, X: pd.DataFrame) -> EmpiricalHoleGenerator:
         """Compute the holes sizes of a dataframe.
         Dataframe df has only one column
 
@@ -365,7 +390,7 @@ class EmpiricalTimeHoleGenerator(HoleGenerator):
             The model itself
         """
 
-        self._check_subset(X)
+        super().fit(X)
 
         self.dict_distributions_holes = {}
         for column in self.subset:
@@ -376,7 +401,8 @@ class EmpiricalTimeHoleGenerator(HoleGenerator):
             distribution_holes = df_count["series_id"].value_counts().value_counts()
             self.dict_distributions_holes[column] = distribution_holes
 
-    def generate_hole_sizes(self, column: str, n_missing: Optional[int] = 10) -> List[int]:
+
+    def sample_sizes(self, column, n_missing):
         """Create missing data in an arraylike object based on the holes size distribution.
 
         Parameters
@@ -390,12 +416,16 @@ class EmpiricalTimeHoleGenerator(HoleGenerator):
         -------
         samples_sizes : List[int]
         """
+        distribution_holes = self.dict_distributions_holes[column]
+        n_observations = distribution_holes.sum()
+        mean_size = (distribution_holes.values * distribution_holes.index.values).sum() / n_observations
 
-        sizes_holes = self.dict_distributions_holes[column]
-        samples_sizes = np.random.choice(
-            sizes_holes.index, n_missing, p=sizes_holes / sum(sizes_holes)
-        )
-        return samples_sizes
+        n_samples = 2 * round(n_missing / mean_size)
+        weights = distribution_holes / n_observations
+        sizes_sampled = np.random.choice(
+            distribution_holes.index, n_samples, p=weights
+        )        
+        return sizes_sampled
 
 
 class MultiMarkovHoleGenerator(HoleGenerator):
@@ -413,6 +443,8 @@ class MultiMarkovHoleGenerator(HoleGenerator):
         Ratio of missing values ​​to add, by default 0.05.
     random_state : Optional[int], optional
         The seed used by the random number generator, by default 42.
+    groups: Optional[List[str]]
+        Column names used to group the data
     """
 
     def __init__(
