@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 def compute_transition_matrix(states: pd.Series):
-    df_couples = pd.DataFrame({"current": states, "next": states.shift(1)})
+    df_couples = pd.DataFrame({"current": states, "next": states.shift(-1)})
     counts = df_couples.groupby(["current", "next"]).size()
     df_counts = counts.unstack().fillna(0)
     df_transition = df_counts.div(df_counts.sum(axis=1), axis=0)
@@ -85,7 +85,6 @@ class HoleGenerator:
                 mask = self.generate_mask(X)
             else:
                 mask = X.groupby(self.ngroups).apply(self.generate_mask)
-            print(mask.isna().mean())
             list_masks.append(mask)
         return list_masks
 
@@ -210,7 +209,7 @@ class Markov1DHoleGenerator(HoleGenerator):
         for column in self.subset:
             states = X[column].isna()
             df_transition = compute_transition_matrix(states)
-            self.dict_probas_out[column] = df_transition.loc[False, True]
+            self.dict_probas_out[column] = df_transition.loc[True, False]
             self.dict_ratios[column] = states.sum() / X.isna().sum().sum()
 
         return self
@@ -227,11 +226,15 @@ class Markov1DHoleGenerator(HoleGenerator):
         -------
         List[float]
         """
-
         proba_out = self.dict_probas_out[column]
         mean_size = 1 / proba_out
-        n_holes = round(n_missing / mean_size)
-        return (np.random.geometric(p=proba_out, size=n_holes) + 1).tolist()
+        n_holes = 2 * round(n_missing / mean_size)
+        sizes_sampled = pd.Series(np.random.geometric(p=proba_out, size=n_holes))
+        sizes_sampled = sizes_sampled[sizes_sampled.cumsum() < n_missing]
+        n_missing_sampled = sizes_sampled.sum()
+        list_sizes = sizes_sampled.tolist() + [n_missing - n_missing_sampled]
+        list_sizes = sorted(list_sizes, reverse=True)
+        return list_sizes
 
     def generate_mask(self, X: pd.DataFrame) -> pd.DataFrame:
         """Create missing data in an arraylike object based on a markov chain.
@@ -253,9 +256,9 @@ class Markov1DHoleGenerator(HoleGenerator):
         list_failed = []
         for column in self.subset:
             states = X[column].isna()
-            samples_sizes = self.generate_hole_sizes(column, n_missing_col)
-            samples_sizes = sorted(samples_sizes, reverse=True)
-            for sample in samples_sizes:
+            sizes_sampled = self.generate_hole_sizes(column, n_missing_col)
+            assert sum(sizes_sampled) == n_missing_col
+            for sample in sizes_sampled:
                 is_valid = (
                     ~(states | mask[column]).rolling(sample + 2).max().fillna(1).astype(bool)
                 )

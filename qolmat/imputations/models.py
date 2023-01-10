@@ -350,9 +350,7 @@ class ImputeByInterpolation(ImputeColumnWise):
         super().__init__(groups=groups)
         self.method = method
         self.order = order
-        self.imputation_method = partial(
-            pd.Series.interpolate, method=self.method, order=self.order
-        )
+        self.imputation_method = lambda x: x.interpolate(method=method, order=order).ffill().bfill()
 
 
 class ImputeOnResiduals(ImputeColumnWise):

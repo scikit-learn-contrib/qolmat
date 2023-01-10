@@ -2,7 +2,7 @@ import os
 import urllib
 import zipfile
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
@@ -75,7 +75,7 @@ def preprocess_data(df: pd.DataFrame):
     return df
 
 
-def add_holes(X: pd.DataFrame, ratio_missing: float, mean_size: int):
+def add_holes(X: pd.DataFrame, ratio_missing: float, mean_size: int, groups: List[str]= []):
     """
     Creates holes in a dataset with no missing value. Only used in the documentation to design
     examples.
@@ -91,13 +91,16 @@ def add_holes(X: pd.DataFrame, ratio_missing: float, mean_size: int):
     ratio_missing : float
         Targeted global proportion of nans in the returned dataset
 
+    groups: list of strings
+        List of the column names used as groups
+
     Returns
     -------
     pd.DataFrame
         dataframe with missing values
     """
     generator = missing_patterns.Markov1DHoleGenerator(
-        1, ratio_missing=ratio_missing, subset=X.columns
+        1, ratio_missing=ratio_missing, subset=X.columns, groups=groups
     )
 
     generator.dict_probas_out = {column: 1 / mean_size for column in X.columns}
@@ -113,7 +116,9 @@ def get_data_corrupted(
     download: Optional[bool] = True,
     mean_size: int = 90,
     ratio_missing: float = 0.2,
+    groups: List[str] = []
 ):
     df = get_data(datapath, download)
-    df = add_holes(df, mean_size=mean_size, ratio_missing=ratio_missing)
+    print(df.isna().mean())
+    df = add_holes(df, mean_size=mean_size, ratio_missing=ratio_missing, groups=groups)
     return df
