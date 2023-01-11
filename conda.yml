@@ -13,6 +13,7 @@ dependencies:
       - twine
       - wheel
       - jupyterlab
+      - jupytext
       - s3fs
       - pyarrow
       - pip
