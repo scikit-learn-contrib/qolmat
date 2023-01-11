@@ -51,16 +51,20 @@ class CrossValidation:
         self.loss_norm = loss_norm
         self.verbose = verbose
 
-    def loss_function(self, initial: pd.DataFrame, imputed: pd.DataFrame) -> float:
+    def loss_function(
+        self, df_origin: pd.DataFrame, df_imputed: pd.DataFrame, df_mask: pd.DataFrame
+    ) -> float:
         """
         Compute the loss function associated to the loss_norm parameter
 
         Parameters
         ----------
-        initial : pd.DataFrame
+        df_origin : pd.DataFrame
             initial dataframe, before creating artificial corruptions
-        imputed : pd.DataFrame
+        df_imputed : pd.DataFrame
             imputed dataframe
+        df_mask : pd.DataFrame
+            boolean dataframe, True where artificial corruptions are created
 
         Returns
         -------
@@ -72,12 +76,10 @@ class CrossValidation:
         ValueError
             the loss_norm has to be 1 or 2
         """
-        initial_nan = np.where(self.df_is_altered, np.nan, initial)
-        imputed_nan = np.where(self.df_is_altered, np.nan, imputed)
         if self.loss_norm == 1:
-            return np.nansum(np.abs(initial_nan - imputed_nan))
+            return np.nansum(np.abs(df_origin[df_mask] - df_imputed[df_mask]))
         elif self.loss_norm == 2:
-            return np.sqrt(np.nansum(np.square(initial_nan - imputed_nan)))
+            return np.sqrt(np.nansum(np.square(df_origin[df_mask] - df_imputed[df_mask])))
         else:
             raise ValueError("loss_norm has to be 0 or 1 (int)")
 
@@ -117,10 +119,14 @@ class CrossValidation:
             errors = []
 
             for df_mask in self.hole_generator.split(self.X):
-                self.df_is_altered = df_mask
-                self.df_corrupted = self.X[df_mask]
+                df_origin = self.X.copy()
+                self.df_corrupted = df_origin.copy()
+                self.df_corrupted[df_mask] = np.nan
+                na_columns = self.X.columns[self.X.isna().any()]
                 imputed = self.model.fit_transform(self.df_corrupted)
-                error = self.loss_function(self.X, imputed)
+                error = self.loss_function(
+                    df_origin[na_columns], imputed[na_columns], df_mask[na_columns]
+                )
                 errors.append(error)
 
             mean_errors = np.mean(errors)
