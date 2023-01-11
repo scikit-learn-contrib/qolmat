@@ -1,19 +1,20 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 DISTNAME = "qolmat"
 VERSION_FILE = "qolmat/_version.py"
 with open(VERSION_FILE, "rt") as f:
     version_txt = f.read().strip()
     VERSION = version_txt.split('"')[1]
-DESCRIPTION = "Tools to compute RPCA"
-LONG_DESCRIPTION = "Tools to compute different formulations of RPCA for matrices and times series."
+DESCRIPTION = "Tools to impute"
+LONG_DESCRIPTION = "Tools to impute and benchmark"
 LONG_DESCRIPTION_CONTENT_TYPE = "text/x-rst"
 LICENSE = "new BSD"
-AUTHORS = "Hong-Lan Botterman, Julien Roussel, Thomas Morzadec"
+AUTHORS = "Hong-Lan Botterman, Julien Roussel, Thomas Morzadec, Rima Hajou"
 AUTHORS_EMAIL = """
 hlbotterman@quantmetry.com,
 jroussel@quantmetry.com,
-tmorzadec@quantmetry.com
+tmorzadec@quantmetry.com,
+rhajou@quantmetry.com
 """
 PACKAGES = find_packages()
 INSTALL_REQUIRES = [
