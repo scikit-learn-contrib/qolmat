@@ -81,7 +81,6 @@ class HoleGenerator:
 
     def split(self, X: pd.DataFrame) -> List[pd.DataFrame]:
         """Create a list of boolean masks representing the data to mask.
-
         Parameters
         ----------
         X : pd.DataFrame
@@ -264,7 +263,6 @@ class SamplerHoleGenerator(HoleGenerator):
             sizes_sampled = self.generate_hole_sizes(column, n_masked_col, sort=True)
             assert sum(sizes_sampled) == n_masked_col
             sizes_sampled += self.generate_hole_sizes(column, n_masked_col, sort=False)
-
             for sample in sizes_sampled:
 
                 sample = min(min(sample, sizes_max.max()), n_masked_left)
@@ -644,9 +642,7 @@ class GroupedHoleGenerator(HoleGenerator):
         if the number of samples/splits is greater than the number of groups.
         """
 
-        self._check_subset(X)
-
-        self.groups_num = X.groupby(self.groups).ngroup().values
+        super().fit(X)
 
         if self.n_splits > len(np.unique(self.groups_num)):
             raise ValueError("n_samples has to be smaller than the number of groups.")
@@ -663,7 +659,7 @@ class GroupedHoleGenerator(HoleGenerator):
         )
 
         list_masks = []
-        for _, observed_indices in gss.split(X=X, y=None, groups=self.groups_num):
+        for _, observed_indices in gss.split(X=X, y=None, groups=self.ngroups):
             observed_indices = X.index[observed_indices]
             # create the boolean mask of missing values
             df_mask = pd.DataFrame(

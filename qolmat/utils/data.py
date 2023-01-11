@@ -75,7 +75,7 @@ def preprocess_data(df: pd.DataFrame):
     return df
 
 
-def add_holes(X: pd.DataFrame, ratio_masked: float, mean_size: int, groups: List[str]= []):
+def add_holes(X: pd.DataFrame, ratio_masked: float, mean_size: int, groups: List[str] = []):
     """
     Creates holes in a dataset with no missing value. Only used in the documentation to design
     examples.
@@ -119,7 +119,7 @@ def get_data_corrupted(
     download: Optional[bool] = True,
     mean_size: int = 90,
     ratio_masked: float = 0.2,
-    groups: List[str] = []
+    groups: List[str] = [],
 ):
     df = get_data(datapath, download)
     df = add_holes(df, mean_size=mean_size, ratio_masked=ratio_masked, groups=groups)
