@@ -177,7 +177,7 @@ class UniformHoleGenerator(HoleGenerator):
         return df_mask
 
 
-class ColWiseSamplerHoleGenerator(HoleGenerator):
+class SamplerHoleGenerator(HoleGenerator):
     """This class implements a way to generate holes in a dataframe.
 
     Parameters
@@ -278,7 +278,7 @@ class ColWiseSamplerHoleGenerator(HoleGenerator):
         return mask
 
 
-class GeometricHoleGenerator(ColWiseSamplerHoleGenerator):
+class GeometricHoleGenerator(SamplerHoleGenerator):
     """This class implements a way to generate holes in a dataframe.
     The holes are generated following a Markov 1D process.
 
@@ -347,7 +347,7 @@ class GeometricHoleGenerator(ColWiseSamplerHoleGenerator):
         return sizes_sampled
 
 
-class EmpiricalHoleGenerator(ColWiseSamplerHoleGenerator):
+class EmpiricalHoleGenerator(SamplerHoleGenerator):
     """This class implements a way to generate holes in a dataframe.
     The distribution of holes is learned from the data.
     The distributions are learned column by column.
