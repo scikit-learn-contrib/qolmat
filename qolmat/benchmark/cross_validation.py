@@ -99,9 +99,9 @@ class CrossValidation:
             for param_name, param_value in all_params.items():
                 setattr(self.model, param_name, param_value)
 
-    def objective(self):
+    def objective(self, X):
         """
-        Defien the objective function for the cross-validation
+        Define the objective function for the cross-validation
 
         Returns
         -------
@@ -118,14 +118,14 @@ class CrossValidation:
 
             errors = []
 
-            for df_mask in self.hole_generator.split(self.X):
-                df_origin = self.X.copy()
-                self.df_corrupted = df_origin.copy()
-                self.df_corrupted[df_mask] = np.nan
-                na_columns = self.X.columns[self.X.isna().any()]
-                imputed = self.model.fit_transform(self.df_corrupted)
+            for df_mask in self.hole_generator.split(X):
+                df_origin = X.copy()
+                df_corrupted = df_origin.copy()
+                df_corrupted[df_mask] = np.nan
+                cols_with_nans = X.columns[X.isna().any()]
+                imputed = self.model.fit_transform(df_corrupted)
                 error = self.loss_function(
-                    df_origin[na_columns], imputed[na_columns], df_mask[na_columns]
+                    df_origin[cols_with_nans], imputed[cols_with_nans], df_mask[cols_with_nans]
                 )
                 errors.append(error)
 
@@ -154,7 +154,6 @@ class CrossValidation:
         pd.DataFrame
             imputed dataframe
         """
-        self.X = X
 
         res = skopt.gp_minimize(
             self.objective(),
@@ -170,9 +169,8 @@ class CrossValidation:
         }
 
         self._set_params(all_params=best_params)
-        imputed_X = self.model.fit_transform(self.X)
+        df_imputed = self.model.fit_transform(X)
 
         if return_hyper_params:
-            imputed_X = list(imputed_X) + [best_params]
-            return imputed_X
-        return imputed_X
+            return df_imputed, best_params
+        return df_imputed
