@@ -5,7 +5,6 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from matplotlib import pyplot as plt
 from sklearn.model_selection import GroupShuffleSplit
 from sklearn.utils import resample
 
@@ -229,7 +228,7 @@ class SamplerHoleGenerator(HoleGenerator):
         if sort:
             list_sizes = sorted(list_sizes, reverse=True)
         return list_sizes
-        
+
     def generate_mask(self, X: pd.DataFrame) -> pd.DataFrame:
         """Create missing data in an arraylike object based on a markov chain.
         States of the MC are the different masks of missing values:

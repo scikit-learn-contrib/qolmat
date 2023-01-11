@@ -194,7 +194,9 @@ def make_ellipses(
     ax.set_aspect("equal", "datalim")
 
 
-def compare_covariances(df1: pd.DataFrame, df2: pd.DataFrame, col_x: str, col_y: str, ax: any, color=None):
+def compare_covariances(
+    df1: pd.DataFrame, df2: pd.DataFrame, col_x: str, col_y: str, ax: any, color=None
+):
     """
     Covariance plot: scatter plot with ellipses
 
@@ -219,7 +221,6 @@ def compare_covariances(df1: pd.DataFrame, df2: pd.DataFrame, col_x: str, col_y:
     make_ellipses(df2[[col_x, col_y]], ax, color)
     ax.set_xlabel(col_x)
     ax.set_ylabel(col_y)
-    
 
 
 def display_bar_table(data: pd.DataFrame, ylabel: Optional[str] = "", path: Optional[str] = None):
