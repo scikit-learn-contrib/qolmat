@@ -18,9 +18,10 @@ def compute_transition_counts_matrix(states: pd.Series):
     df_counts = counts.unstack().fillna(0)
     return df_counts
 
-def compute_transition_matrix(states: pd.Series, ngroups: List=None):
+
+def compute_transition_matrix(states: pd.Series, ngroups: List = None):
     if ngroups is None:
-        df_counts =  compute_transition_counts_matrix(states)
+        df_counts = compute_transition_counts_matrix(states)
     else:
         df_counts = states.groupby(ngroups).apply(compute_transition_counts_matrix).sum()
     df_transition = df_counts.div(df_counts.sum(axis=1), axis=0)
@@ -81,7 +82,6 @@ class HoleGenerator:
 
     def split(self, X: pd.DataFrame) -> List[pd.DataFrame]:
         """Create a list of boolean masks representing the data to mask.
-        
         Parameters
         ----------
         X : pd.DataFrame
@@ -210,7 +210,7 @@ class SamplerHoleGenerator(HoleGenerator):
             groups=groups,
         )
 
-    def generate_hole_sizes(self, column: str, n_masked: int, sort: bool=True) -> List[int]:
+    def generate_hole_sizes(self, column: str, n_masked: int, sort: bool = True) -> List[int]:
         """Generate a sequence of states "states" of size "size" from a transition matrix "df_transition"
 
         Parameters
@@ -229,7 +229,7 @@ class SamplerHoleGenerator(HoleGenerator):
         if sort:
             list_sizes = sorted(list_sizes, reverse=True)
         return list_sizes
-    
+        
     def generate_mask(self, X: pd.DataFrame) -> pd.DataFrame:
         """Create missing data in an arraylike object based on a markov chain.
         States of the MC are the different masks of missing values:
@@ -252,13 +252,18 @@ class SamplerHoleGenerator(HoleGenerator):
             states = X[column].isna()
 
             ids_hole = (states.diff() != 0).cumsum()
-            sizes_max = states.groupby(ids_hole).apply(lambda x: (~x) * np.arange(len(x))).shift(1).fillna(0).astype(int)
+            sizes_max = (
+                states.groupby(ids_hole)
+                .apply(lambda x: (~x) * np.arange(len(x)))
+                .shift(1)
+                .fillna(0)
+                .astype(int)
+            )
             n_masked_left = n_masked_col
 
             sizes_sampled = self.generate_hole_sizes(column, n_masked_col, sort=True)
             assert sum(sizes_sampled) == n_masked_col
             sizes_sampled += self.generate_hole_sizes(column, n_masked_col, sort=False)
-            
             for sample in sizes_sampled:
 
                 sample = min(min(sample, sizes_max.max()), n_masked_left)
@@ -269,7 +274,9 @@ class SamplerHoleGenerator(HoleGenerator):
                 n_masked_left -= sample
 
                 sizes_max.iloc[i_hole - sample : i_hole] = 0
-                sizes_max.iloc[i_hole:] = np.minimum(sizes_max.iloc[i_hole:], np.arange(len(sizes_max.iloc[i_hole:])))
+                sizes_max.iloc[i_hole:] = np.minimum(
+                    sizes_max.iloc[i_hole:], np.arange(len(sizes_max.iloc[i_hole:]))
+                )
                 if n_masked_left == 0:
                     break
 
@@ -412,10 +419,11 @@ class EmpiricalHoleGenerator(SamplerHoleGenerator):
             if self.ngroups is None:
                 self.dict_distributions_holes[column] = self.compute_distribution_holes(states)
             else:
-                distributions_holes = states.groupby(self.ngroups).apply(self.compute_distribution_holes)
+                distributions_holes = states.groupby(self.ngroups).apply(
+                    self.compute_distribution_holes
+                )
                 distributions_holes = distributions_holes.groupby(level=0).sum()
                 self.dict_distributions_holes[column] = distributions_holes
-
 
     def sample_sizes(self, column, n_masked):
         """Create missing data in an arraylike object based on the holes size distribution.
@@ -436,9 +444,7 @@ class EmpiricalHoleGenerator(SamplerHoleGenerator):
         mean_size = (distribution_holes.values * distribution_holes.index.values).sum()
 
         n_samples = 2 * round(n_masked / mean_size)
-        sizes_sampled = np.random.choice(
-            distribution_holes.index, n_samples, p=distribution_holes
-        )        
+        sizes_sampled = np.random.choice(distribution_holes.index, n_samples, p=distribution_holes)
         return sizes_sampled
 
 
@@ -597,8 +603,8 @@ class GroupedHoleGenerator(HoleGenerator):
         Ratio of masked values ​​to add, by default 0.05.
     random_state : Optional[int], optional
         The seed used by the random number generator, by default 42.
-    groups : Optional[List[str]], optional
-        Names of the columns forming the groups, by default empty list
+    groups : List[str]
+        Names of the columns forming the groups, by default []
     """
 
     def __init__(
@@ -639,23 +645,30 @@ class GroupedHoleGenerator(HoleGenerator):
 
         super().fit(X)
 
-        n_masked_per_column = len(X) * self.ratio_masked
-        eligible_per_column = (X.notna().groupby(self.groups).all() * X.notna().groupby(self.groups).sum()).sum()
-        self.probas_sample = n_masked_per_column / eligible_per_column
-
-        if self.n_splits > self.ngroups.nunique():
+        if self.n_splits > len(np.unique(self.groups_num)):
             raise ValueError("n_samples has to be smaller than the number of groups.")
 
         return self
 
-    def generate_mask(self, X: pd.DataFrame) -> pd.DataFrame:
-        mask = pd.DataFrame(False, columns=X.columns, index=X.index)
+    def split(self, X: pd.DataFrame) -> List[pd.DataFrame]:
+        self.fit(X)
 
-        for column in self.subset:
-            has_no_nan = X[column].notna().all()
-            is_sampled = np.random.uniform(0, 1) < self.probas_sample[column]
+        gss = GroupShuffleSplit(
+            n_splits=self.n_splits,
+            train_size=1 - self.ratio_masked,
+            random_state=self.random_state,
+        )
 
-            if has_no_nan and is_sampled:
-                mask[column] = True
+        list_masks = []
+        for _, observed_indices in gss.split(X=X, y=None, groups=self.ngroups):
+            observed_indices = X.index[observed_indices]
+            # create the boolean mask of missing values
+            df_mask = pd.DataFrame(
+                False,
+                columns=X.columns,
+                index=X.index,
+            )
+            df_mask.loc[observed_indices, self.subset] = True
+            list_masks.append(df_mask)
 
-        return mask
+        return list_masks

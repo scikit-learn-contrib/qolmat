@@ -38,6 +38,8 @@ sns.set_context("paper")
 sns.set_style("whitegrid", {'axes.grid' : False})
 sns.set_theme(style="ticks")
 
+tab10 = plt.get_cmap("tab10")
+
 from typing import Optional
 
 # models for imputations
@@ -48,8 +50,9 @@ from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor, HistGra
 import sys
 # sys.path.append("../../")
 from qolmat.benchmark import comparator, missing_patterns
+from qolmat.benchmark.utils import kl_divergence
 from qolmat.imputations import models
-from qolmat.utils import data, utils, drawing
+from qolmat.utils import data, utils, plot
 from qolmat.imputations.em_sampler import ImputeEM
 # from qolmat.drawing import display_bar_table
 
@@ -99,10 +102,6 @@ for i_station, (station, df) in enumerate(df_data.groupby("station")):
         if i_col == 0:
             plt.title(station)
 plt.show()
-```
-
-```python
-df_data.groupby("station").apply(lambda x: x.isna().mean())
 ```
 
 ### **II. Imputation methods**
@@ -157,6 +156,7 @@ dict_models = {
     "EM": imputer_em,
     #"RPCA": imputer_rpca,
 }
+n_models = len(dict_models)
 
 
 search_params = {
@@ -188,7 +188,7 @@ Note these metrics compute reconstruction errors; it tells nothing about the dis
 ```python
 doy = pd.Series(df_data.reset_index().datetime.dt.isocalendar().week.values, index=df_data.index)
 
-generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=10, groups=["station"], ratio_masked=0.1)
+generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], ratio_masked=0.1)
 # generator_holes = missing_patterns.GeometricHoleGenerator(n_splits=10, groups=["station"], ratio_masked=0.1)
 # generator_holes = missing_patterns.UniformHoleGenerator(n_splits=2, ratio_masked=0.4)
 # generator_holes = missing_patterns.GroupedHoleGenerator(n_splits=2, groups=["station", doy], ratio_masked=0.4)
@@ -213,6 +213,12 @@ We now run just one time each algorithm on the initial corrupted dataframe and c
 dfs_imputed = {name: imp.fit_transform(df_data) for name, imp in dict_models.items()}
 ```
 
+```python
+station = "Aotizhongxin"
+df_station = df_data.loc[station]
+dfs_imputed_station = {name: df.loc[station] for name, df in dfs_imputed.items()}
+```
+
 Let's look at the imputations.
 When the data is missing at random, imputation is easier. Missing block are more challenging. 
 Note here we didn't fit the hyperparams of the RPCA... results might be of poor quality...
@@ -224,16 +230,16 @@ sns.set_palette(palette)
 markers = ["o", "s", "D", "+", "P", ">", "^", "d"]
 colors = ["tab:red", "tab:blue", "tab:blue"]
 
-city = "Aotizhongxin"
+
 for col in cols_to_impute:
     fig, ax = plt.subplots(figsize=(10, 3))
-    values_orig = df_data.loc[city][col]
+    values_orig = df_station[col]
     
     plt.plot(values_orig, ".", color='black', label="original")
     #plt.plot(df.iloc[870:1000][col], markers[0], color='k', linestyle='-' , ms=3)
     
     for ind, (name, model) in enumerate(list(dict_models.items())):
-        values_imp = dfs_imputed[name].loc[city][col]
+        values_imp = dfs_imputed_station[name][col].copy()
         values_imp[values_orig.notna()] = np.nan
         plt.plot(values_imp, ".", color=colors[ind], label=name, alpha=1)
     plt.ylabel(col, fontsize=16)
@@ -252,33 +258,14 @@ We first check the covariance. We simply plot one variable versus one another.
 One observes the methods provide similar visual resuls: it's difficult to compare them based on this criterion.
 
 ```python
-for imputation_method in dict_models.keys():
-    fig, axs = plt.subplots(1, len(cols_to_impute), figsize=(20, 5))
-    for i in range(len(cols_to_impute)):
-        data.compare_covariances(dataset.loc[city, cols_to_impute], dfs_imputed[imputation_method], cols_to_impute[i], cols_to_impute[(i+1)%len(cols_to_impute)], axs[i])
-        axs[1].set_title(f"imputation methods: {imputation_method}", fontsize=20)
+for i_model, model in enumerate(dict_models.keys()):
+    fig, axs = plt.subplots(1, len(cols_to_impute)-1, figsize=(4 * (len(cols_to_impute)-1), 4))
+    df_imp = dfs_imputed_station[model]
+    for i in range(len(cols_to_impute)-1):
+        plot.compare_covariances(df_station, df_imp, cols_to_impute[i], cols_to_impute[i+1], axs, color=tab10(i_model))
+        axs.set_title(f"imputation method: {model}", fontsize=20)
         sns.despine()
     plt.show()
-```
-
-**IV.b. Coefficient of determination**
-
-
-Let's look at the coefficient of determination, i.e. $R^2$ regression score function (implemented in sklearn).
-Note, however, this coefficient is diffucult to interpret and does not give information about the average error of the imputation model.
-
-```python
-from sklearn.metrics import r2_score
-
-r2_scores = []
-for name, df in dfs_imputed.items():
-    r2_scores_ = []
-    for col in cols_to_impute:
-        r2_scores_.append(r2_score(dataset.loc[city, col].dropna(how="all"), df[col].ffill().bfill()))
-    r2_scores.append(r2_scores_)
-r2_scores = pd.DataFrame(r2_scores, index=dfs_imputed.keys(), columns=cols_to_impute)
-
-display_bar_table(r2_scores, ylabel="$R^2$")
 ```
 
 **IV.b. Auto-correlation**
@@ -301,8 +288,8 @@ markers = ["o", "s", "*", "D", "P", ">", "^", "d"]
 
 fig, axs = plt.subplots(1, len(cols_to_impute), figsize=(16, 2))
 for i, col in enumerate(cols_to_impute):
-    axs[i].plot(acf(dataset.loc[city, col].dropna()), color="k", marker=markers[0], lw=0.8)
-    for j, (name, df) in enumerate(dfs_imputed.items()):
+    axs[i].plot(acf(df_station[col].dropna()), color="k", marker=markers[0], lw=0.8)
+    for j, (name, df) in enumerate(dfs_imputed_station.items()):
         axs[i].plot(acf(df[col]), marker=markers[j+1], lw=0.8)
     axs[i].set_xlabel("Lags [days]", fontsize=15)
     axs[i].set_ylabel("Correlation", fontsize=15)
@@ -333,52 +320,23 @@ The KL between the 2 distributions on the left is the same as that of the 2 dist
 
 
 ```python
-kl_divergences = []
-for name, df in dfs_imputed.items():
-    kl_divergences_ = []
+df_kl = pd.DataFrame(np.nan, index=dfs_imputed_station.keys(), columns=cols_to_impute)
+for model, df_imputed in dfs_imputed_station.items():
     for col in cols_to_impute:
-        kl_divergences_.append(utils.KL(dataset.loc[city, col].dropna(how="all"), df[col].ffill().bfill()))
-    kl_divergences.append(kl_divergences_)
-    print(kl_divergences_)
-kl_divergences = pd.DataFrame(kl_divergences, index=dfs_imputed.keys(), columns=cols_to_impute)
+        kl = kl_divergence(df_station[[col]].dropna(how="all"), df_imputed[[col]]).iloc[0]
+        df_kl.loc[model, col] = kl
 
-display_bar_table(kl_divergences, ylabel="KL divergence")
+plot.display_bar_table(df_kl, ylabel="KL divergence")
 ```
 
 ```python
-wasserstein = []
-for name, df in dfs_imputed.items():
-    wasserstein_dist = []
+df_wasserstein = pd.DataFrame(np.nan, index=dfs_imputed_station.keys(), columns=cols_to_impute)
+for model, df_imputed in dfs_imputed_station.items():
     for col in cols_to_impute:
-        wasserstein_dist.append(scipy.stats.wasserstein_distance(dataset.loc[city, col].dropna(how="all"), df[col].ffill().bfill()))
-    wasserstein.append(wasserstein_dist)
-wasserstein = pd.DataFrame(wasserstein, index=dfs_imputed.keys(), columns=cols_to_impute)
+        wasserstein = scipy.stats.wasserstein_distance(df_station[col].dropna(how="all"), df_imputed[col])
+        df_wasserstein.loc[model, col] = wasserstein
 
-display_bar_table(wasserstein, ylabel="Wasserstein distance")
-```
-
-```python
-labels = ["Interpolation", "EM"]
-MSE = [151.86839**2, 265.48795**2]
-KL = [12091.442834900023, 4915.742867814411]
-
-df = pd.DataFrame()
-df["MSE"] = MSE
-df["KL"] = KL
-df.index = labels
-
-
-df.T.plot(
-    x=df.T.index.name,
-    kind='bar',
-    stacked=False,
-    color=["tab:red", "tab:blue"], rot=0)
-plt.legend(fontsize=22)
-plt.xticks(fontsize=22)
-plt.yticks(fontsize=18)
-plt.yticks([0,20000,40000,60000])
-sns.despine()
-plt.savefig("figures/res.png", transparent=True)
+plot.display_bar_table(df_wasserstein, ylabel="Wasserstein distance")
 ```
 
 ```python

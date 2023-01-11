@@ -51,16 +51,20 @@ class CrossValidation:
         self.loss_norm = loss_norm
         self.verbose = verbose
 
-    def loss_function(self, initial: pd.DataFrame, imputed: pd.DataFrame) -> float:
+    def loss_function(
+        self, df_origin: pd.DataFrame, df_imputed: pd.DataFrame, df_mask: pd.DataFrame
+    ) -> float:
         """
         Compute the loss function associated to the loss_norm parameter
 
         Parameters
         ----------
-        initial : pd.DataFrame
+        df_origin : pd.DataFrame
             initial dataframe, before creating artificial corruptions
-        imputed : pd.DataFrame
+        df_imputed : pd.DataFrame
             imputed dataframe
+        df_mask : pd.DataFrame
+            boolean dataframe, True where artificial corruptions are created
 
         Returns
         -------
@@ -72,12 +76,10 @@ class CrossValidation:
         ValueError
             the loss_norm has to be 1 or 2
         """
-        initial_nan = np.where(self.df_is_altered, np.nan, initial)
-        imputed_nan = np.where(self.df_is_altered, np.nan, imputed)
         if self.loss_norm == 1:
-            return np.nansum(np.abs(initial_nan - imputed_nan))
+            return np.nansum(np.abs(df_origin[df_mask] - df_imputed[df_mask]))
         elif self.loss_norm == 2:
-            return np.sqrt(np.nansum(np.square(initial_nan - imputed_nan)))
+            return np.sqrt(np.nansum(np.square(df_origin[df_mask] - df_imputed[df_mask])))
         else:
             raise ValueError("loss_norm has to be 0 or 1 (int)")
 
@@ -97,9 +99,9 @@ class CrossValidation:
             for param_name, param_value in all_params.items():
                 setattr(self.model, param_name, param_value)
 
-    def objective(self):
+    def objective(self, X):
         """
-        Defien the objective function for the cross-validation
+        Define the objective function for the cross-validation
 
         Returns
         -------
@@ -116,11 +118,15 @@ class CrossValidation:
 
             errors = []
 
-            for df_mask in self.hole_generator.split(self.X):
-                self.df_is_altered = df_mask
-                self.df_corrupted = self.X[df_mask]
-                imputed = self.model.fit_transform(self.df_corrupted)
-                error = self.loss_function(self.X, imputed)
+            for df_mask in self.hole_generator.split(X):
+                df_origin = X.copy()
+                df_corrupted = df_origin.copy()
+                df_corrupted[df_mask] = np.nan
+                cols_with_nans = X.columns[X.isna().any()]
+                imputed = self.model.fit_transform(df_corrupted)
+                error = self.loss_function(
+                    df_origin[cols_with_nans], imputed[cols_with_nans], df_mask[cols_with_nans]
+                )
                 errors.append(error)
 
             mean_errors = np.mean(errors)
@@ -148,7 +154,6 @@ class CrossValidation:
         pd.DataFrame
             imputed dataframe
         """
-        self.X = X
 
         res = skopt.gp_minimize(
             self.objective(),
@@ -164,9 +169,8 @@ class CrossValidation:
         }
 
         self._set_params(all_params=best_params)
-        imputed_X = self.model.fit_transform(self.X)
+        df_imputed = self.model.fit_transform(X)
 
         if return_hyper_params:
-            imputed_X = list(imputed_X) + [best_params]
-            return imputed_X
-        return imputed_X
+            return df_imputed, best_params
+        return df_imputed

@@ -200,7 +200,7 @@ def wasser_distance(
 def kl_divergence(
     df1: pd.DataFrame,
     df2: pd.DataFrame,
-    columnwise_evaluation: Optional[bool] = False,
+    columnwise_evaluation: Optional[bool] = True,
 ) -> Union[float, pd.Series]:
     """Kullback-Leibler divergence between distributions
     If multivariate normal distributions:
@@ -219,15 +219,16 @@ def kl_divergence(
     """
     cols = df1.columns.tolist()
     if columnwise_evaluation or df1.shape[1] == 1:
-        kl = []
+        list_kl = []
         for col in cols:
             min_val = min(df1[col].min(), df2[col].min())
             max_val = min(df1[col].max(), df2[col].max())
             bins = np.linspace(min_val, max_val, 20)
             p = np.histogram(df1[col], bins=bins, density=True)[0]
             q = np.histogram(df2[col], bins=bins, density=True)[0]
-            kl.append(scipy.stats.entropy(p + EPS, q + EPS))
-        return pd.Series(kl, index=cols)
+            list_kl.append(scipy.stats.entropy(p + EPS, q + EPS))
+        print(list_kl)
+        return pd.Series(list_kl, index=cols)
     else:
         df_1 = StandardScaler().fit_transform(df1)
         df_2 = StandardScaler().fit_transform(df2)
