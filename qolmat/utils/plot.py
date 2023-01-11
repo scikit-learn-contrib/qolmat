@@ -24,6 +24,8 @@ plt.rcParams["axes.grid"] = True
 plt.rcParams["grid.alpha"] = 1
 plt.rcParams["grid.color"] = "#cccccc"
 
+tab10 = plt.get_cmap("tab10")
+
 
 def plot_matrices(list_matrices: List[np.ndarray], title: Optional[str] = None) -> None:
     """Plot RPCA matrices
@@ -192,7 +194,7 @@ def make_ellipses(
     ax.set_aspect("equal", "datalim")
 
 
-def compare_covariances(df1: pd.DataFrame, df2: pd.DataFrame, var_x: str, var_y: str, ax: any):
+def compare_covariances(df1: pd.DataFrame, df2: pd.DataFrame, col_x: str, col_y: str, ax: any, color=None):
     """
     Covariance plot: scatter plot with ellipses
 
@@ -202,20 +204,22 @@ def compare_covariances(df1: pd.DataFrame, df2: pd.DataFrame, var_x: str, var_y:
         dataframe with raw data
     df2 : pd.DataFrame
         dataframe with imputations
-    var_x : str
+    col_x : str
         variable x, column's name of dataframe df1 to compare with
-    var_y : str
+    col_y : str
         variable y, column's name of dataframe df2 to compare with
     ax : matplotlib.axes._subplots.AxesSubplot
         matplotlib ax handles
     """
-    ax.scatter(df1[var_x], df1[var_y], marker=".", color="tab:red")
-    ax.scatter(df2[var_x], df2[var_y], marker=".", color="tab:blue")
-    make_ellipses(df1[[var_x, var_y]], ax, "turquoise")
-    make_ellipses(df2[[var_x, var_y]], ax, "crimson")
-    ax.set_xlabel(var_x)
-    ax.set_ylabel(var_y)
-    ax.legend(["Raw data", "After imputation"])
+    if color is None:
+        color = tab10(0)
+    ax.scatter(df2[col_x], df2[col_y], marker=".", color=color)
+    ax.scatter(df1[col_x], df1[col_y], marker=".", color="black")
+    make_ellipses(df1[[col_x, col_y]], ax, "black")
+    make_ellipses(df2[[col_x, col_y]], ax, color)
+    ax.set_xlabel(col_x)
+    ax.set_ylabel(col_y)
+    
 
 
 def display_bar_table(data: pd.DataFrame, ylabel: Optional[str] = "", path: Optional[str] = None):

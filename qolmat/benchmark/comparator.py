@@ -75,10 +75,10 @@ class Comparator:
             df_origin[df_mask],
             df_imputed[df_mask],
         )
-        # kl = utils.kl_divergence(
-        #     df_origin,
-        #     df_imputed,
-        # )
+        dict_errors["kl"] = utils.kl_divergence(
+            df_origin[df_mask],
+            df_imputed[df_mask],
+        )
         # if self.columnwise_evaluation:
         #     wd = utils.wasser_distance(
         #         df_origin,

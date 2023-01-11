@@ -217,13 +217,15 @@ def kl_divergence(
     -------
     Kullback-Leibler divergence : Union[float, pd.Series]
     """
-
+    cols = df1.columns.tolist()
     if columnwise_evaluation or df1.shape[1] == 1:
-        cols = df1.columns.tolist()
         kl = []
         for col in cols:
-            p = np.histogram(df1[col].dropna(), bins=20, density=True)[0]
-            q = np.histogram(df2[col].dropna(), bins=20, density=True)[0]
+            min_val = min(df1[col].min(), df2[col].min())
+            max_val = min(df1[col].max(), df2[col].max())
+            bins = np.linspace(min_val, max_val, 20)
+            p = np.histogram(df1[col], bins=bins, density=True)[0]
+            q = np.histogram(df2[col], bins=bins, density=True)[0]
             kl.append(scipy.stats.entropy(p + EPS, q + EPS))
         return pd.Series(kl, index=cols)
     else:
@@ -240,7 +242,8 @@ def kl_divergence(
         quad_term = diff.T @ inv_sigma_pred @ diff
         trace_term = np.trace(inv_sigma_pred @ sigma_true)
         det_term = np.log(np.linalg.det(sigma_pred) / np.linalg.det(sigma_true))
-        return 0.5 * (quad_term + trace_term + det_term - n)
+        kl = 0.5 * (quad_term + trace_term + det_term - n)
+        return pd.Series(kl, index=cols)
 
 
 def frechet_distance(
