@@ -1,12 +1,13 @@
 from __future__ import annotations
-from multiprocessing.sharedctypes import Value
+
 from typing import Optional
+from xmlrpc.client import boolean
 
 import numpy as np
-from numpy.typing import ArrayLike, NDArray
-
+from numpy.typing import NDArray
 from qolmat.imputations.rpca.rpca import RPCA
 from qolmat.imputations.rpca import utils
+from qolmat.utils.utils import progress_bar
 
 
 class PcpRPCA(RPCA):
@@ -54,10 +55,7 @@ class PcpRPCA(RPCA):
         dict_params = {"mu": mu, "lam": lam}
         return dict_params
 
-    def fit_transform(
-        self,
-        signal: NDArray,
-    ) -> PcpRPCA:
+    def fit_transform(self, signal: NDArray, return_basis: boolean = False) -> PcpRPCA:
         """
         Compute the RPCA decomposition of a matrix based on the PCP method
 
@@ -66,14 +64,15 @@ class PcpRPCA(RPCA):
         signal : NDArray
             Observations
         """
+        self.input_data = "2DArray"
         D_init, n_add_values = self._prepare_data(signal=signal)
         proj_D = utils.impute_nans(D_init, method="median")
 
         if self.mu is None:
-            self.mu = np.prod(proj_D.shape) / (4.0 * utils.l1_norm(self.proj_D))
+            self.mu = np.prod(proj_D.shape) / (4.0 * utils.l1_norm(proj_D))
 
         if self.lam is None:
-            self.lam = 1 / np.sqrt(np.max(self.proj_D.shape))
+            self.lam = 1 / np.sqrt(np.max(proj_D.shape))
 
         D_norm = np.linalg.norm(proj_D, "fro")
 
@@ -83,6 +82,14 @@ class PcpRPCA(RPCA):
 
         errors = []
         for iteration in range(self.maxIter):
+            if self.verbose:
+                progress_bar(
+                    iteration,
+                    self.maxIter,
+                    prefix="Progress:",
+                    suffix="Complete",
+                    length=50,
+                )
             X = utils.svd_thresholding(proj_D - A + Y / self.mu, 1 / self.mu)
             A = utils.soft_thresholding(proj_D - X + Y / self.mu, self.lam / self.mu)
             Y += self.mu * (proj_D - X - A)
@@ -93,13 +100,20 @@ class PcpRPCA(RPCA):
                     print(f"Converged in {iteration} iterations")
                 break
 
+        if return_basis:
+            U, _, Vh = np.linalg.svd(X, full_matrices=False, compute_uv=True)
+            result = [U, Vh]
+        else:
+            result = []
+
         if n_add_values > 0:
             X.flat[-n_add_values:] = np.nan
             A.flat[-n_add_values:] = np.nan
 
         if self.input_data == "2DArray":
-            return X, A, errors
+            result = [X, A, errors] + result
         elif self.input_data == "1DArray":
-            return X.flatten(), A.flatten(), errors
+            result = [X.T.flatten(), A.T.flatten(), errors] + result
         else:
             raise ValueError("Data shape not recognized")
+        return tuple(result)

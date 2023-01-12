@@ -4,6 +4,11 @@ __pycache__/
 .ipynb_checkpoints
 /data
 /figures
+qolmat/notebooks/figures
+qolmat/notebooks/*.ipynb
 *.egg-info
 /dist
 /build
+*SOURCES.txt
+TimeSynth*
+/scripts

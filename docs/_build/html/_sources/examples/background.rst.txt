@@ -1,6 +1,5 @@
-################################################################
 Example for background and foreground separation with robust PCA 
-################################################################
+================================================================
 
 In this notebook, we'll see how to use RPCA algorithms to extract the background and foreground of a video. 
 
