@@ -72,7 +72,8 @@ class ImputeColumnWise(_BaseImputer):
                 df_imputed[col] = df_imputed[col].fillna(self.apply_imputation(df_imputed[col]))
 
         if df_imputed.isna().any().any():
-            print(df_imputed)
+            print("Number of null by col")
+            print(df_imputed.isna().sum())
             warnings.warn("Problem: there are still nan in the columns to be imputed")
         return df_imputed
 
@@ -395,6 +396,8 @@ class ImputeOnResiduals(ImputeColumnWise):
             """
             Fit/transform missing values on residuals.
             """
+            if x.isna().all():
+                return np.nan
             result = seasonal_decompose(
                 x.interpolate().bfill().ffill(),
                 model=model,
@@ -404,8 +407,7 @@ class ImputeOnResiduals(ImputeColumnWise):
 
             residuals = result.resid
             residuals[x.isnull()] = np.nan
-            residuals = residuals.interpolate(method=method_interpolation)
-
+            residuals = residuals.interpolate(method=method_interpolation).ffill().bfill()
             return result.seasonal + result.trend + residuals
 
         self.apply_imputation = partial(
@@ -439,7 +441,14 @@ class ImputeKNN(_BaseImputer):
     >>> imputor.fit_transform(X)
     """
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(
+        self,
+        n_neighbors: int = 5,
+        weights: str = "distance",
+        **kwargs,
+    ) -> None:
+        self.n_neighbors = n_neighbors
+        self.weights = weights
         for name, value in kwargs.items():
             setattr(self, name, value)
 
@@ -460,7 +469,9 @@ class ImputeKNN(_BaseImputer):
         if not isinstance(df, pd.DataFrame):
             raise ValueError("Input has to be a pandas.DataFrame.")
 
-        imputer = KNNImputer(n_neighbors=self.k, weights="distance", metric="nan_euclidean")
+        imputer = KNNImputer(
+            n_neighbors=self.n_neighbors, weights=self.weights, metric="nan_euclidean"
+        )
         results = imputer.fit_transform(df)
         return pd.DataFrame(data=results, columns=df.columns, index=df.index)
 
@@ -493,7 +504,7 @@ class ImputeRPCA(_BaseImputer):
     TO DO
     """
 
-    def __init__(self, method, multivariate=False, **kwargs) -> None:
+    def __init__(self, method: str = "temporal", multivariate: bool = False, **kwargs) -> None:
         self.multivariate = multivariate
         self.method = method
 
@@ -501,7 +512,7 @@ class ImputeRPCA(_BaseImputer):
             self.rpca = RPCA()
         elif method == "temporal":
             self.rpca = TemporalRPCA()
-        elif method == "online":
+        elif method == "onlinetemporal":
             self.rpca = OnlineTemporalRPCA()
         for name, value in kwargs.items():
             setattr(self.rpca, name, value)
@@ -526,7 +537,9 @@ class ImputeRPCA(_BaseImputer):
             imputed = pd.DataFrame(imputed, columns=df.columns)
         else:
             imputed = pd.DataFrame()
-            for col in df.columns:
+            cols_with_nans = df.columns[df.isna().any()]
+            for col in cols_with_nans:
+                print(col)
                 imputed_signal, _, _ = self.rpca.fit_transform(signal=df[col].values)
                 imputed[col] = imputed_signal
         imputed.index = df.index
@@ -570,9 +583,9 @@ class ImputeMICE(_BaseImputer):
     --------
     >>> import numpy as np
     >>> import pandas as pd
-    >>> from qolmat.imputations.models import ImputeIterative
+    >>> from qolmat.imputations.models import ImputeMICE
     >>> from sklearn.ensemble import ExtraTreesRegressor
-    >>> imputor = ImputeIterative(estimator=ExtraTreesRegressor(),
+    >>> imputor = ImputeMICE(estimator=ExtraTreesRegressor(),
     >>>                           sample_posterior=False,
     >>>                           max_iter=100, missing_values=np.nan)
     >>> X = pd.DataFrame(data=[[1, 1, 1, 1],
@@ -717,8 +730,8 @@ class ImputeStochasticRegressor(_BaseImputer):
     >>> imputor.fit_transform(X)
     """
 
-    def __init__(self, model, **kwargs) -> None:
-        self.model = model
+    def __init__(self, estimator, **kwargs) -> None:
+        self.estimator = estimator
 
         for name, value in kwargs.items():
             setattr(self, name, value)
@@ -748,8 +761,8 @@ class ImputeStochasticRegressor(_BaseImputer):
             X = df[cols_without_nans]
             y = df[col]
             is_na = y.isna()
-            self.model.fit(X[~is_na], y[~is_na])
-            y_pred = self.model.predict(X)
+            self.estimator.fit(X[~is_na], y[~is_na])
+            y_pred = self.estimator.predict(X)
             std_error = (y_pred[~is_na] - y[~is_na]).std()
             random_pred = np.random.normal(size=len(y), loc=y_pred, scale=std_error)
             df_imp.loc[is_na, col] = random_pred[is_na]
