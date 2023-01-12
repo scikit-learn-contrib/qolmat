@@ -539,7 +539,6 @@ class ImputeRPCA(_BaseImputer):
             imputed = pd.DataFrame()
             cols_with_nans = df.columns[df.isna().any()]
             for col in cols_with_nans:
-                print(col)
                 imputed_signal, _, _ = self.rpca.fit_transform(signal=df[col].values)
                 imputed[col] = imputed_signal
         imputed.index = df.index

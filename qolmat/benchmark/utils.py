@@ -227,7 +227,6 @@ def kl_divergence(
             p = np.histogram(df1[col], bins=bins, density=True)[0]
             q = np.histogram(df2[col], bins=bins, density=True)[0]
             list_kl.append(scipy.stats.entropy(p + EPS, q + EPS))
-        print(list_kl)
         return pd.Series(list_kl, index=cols)
     else:
         df_1 = StandardScaler().fit_transform(df1)
