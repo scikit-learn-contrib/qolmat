@@ -6,15 +6,16 @@
    :caption: Brief explanation
 
    explanation
+   RPCA
+   EM_sampler
 
 .. toctree::
    :maxdepth: 2
    :hidden:
    :caption: Simple examples
 
-   examples/time_series
-   examples/background
-   examples/denoise_images
+   examples/imputation_example
+   examples/RPCA_example
 
 .. toctree::
    :maxdepth: 2
@@ -22,3 +23,4 @@
    :caption: API
 
    api
+

@@ -1,11 +1,12 @@
 from __future__ import annotations
+
 from typing import Optional
+from xmlrpc.client import boolean
 
 import numpy as np
-from numpy.typing import ArrayLike, NDArray
+from numpy.typing import NDArray
+from qolmat.imputations.rpca import utils
 from sklearn.base import BaseEstimator, TransformerMixin
-
-from qolmat.imputations.rpca.utils import utils
 
 
 class RPCA(BaseEstimator, TransformerMixin):
@@ -38,15 +39,13 @@ class RPCA(BaseEstimator, TransformerMixin):
 
     def _prepare_data(self, signal: NDArray) -> None:
         """
-        Prepare data fot RPCA computation:
+        Prepare data for RPCA computation:
         Transform signal to matrix if needed
         Get the omega matrix
         Impute the nan values if needed
         """
         if len(signal.shape) == 1:
-            self.n_rows = (
-                utils.get_period(signal) if self.n_rows is None else self.n_rows
-            )
+            self.n_rows = utils.get_period(signal) if self.n_rows is None else self.n_rows
             D_init, n_add_values = utils.signal_to_matrix(signal, n_rows=self.n_rows)
             self.input_data = "1DArray"
         else:
@@ -68,16 +67,19 @@ class RPCA(BaseEstimator, TransformerMixin):
                 setattr(self, param_key, kargs[param_key])
         return self
 
-    def fit_transform(
-        self,
-        signal: NDArray,
-    ) -> RPCA:
+    def fit_transform(self, signal: NDArray, return_basis: boolean = False) -> RPCA:
+        self.input_data = "2DArray"
         X, _ = self._prepare_data(signal=signal)
         A = np.zeros(X.shape, dtype=float)
 
         if self.input_data == "2DArray":
-            return X, A
+            result = [X, A]
         elif self.input_data == "1DArray":
-            return X.flatten(), A.flatten()
+            result = [X.flatten(), A.flatten()]
         else:
             raise ValueError("Data shape not recognized")
+
+        if return_basis:
+            U, _, Vh = np.linalg.svd(X, full_matrices=False, compute_uv=True)
+            result += [U, Vh]
+        return tuple(result)

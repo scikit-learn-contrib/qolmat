@@ -1,24 +1,23 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>robust_pca.utils.utils.approx_rank &mdash; robust-pca 0.1 documentation</title><link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <title>robust_pca.utils.utils.approx_rank &mdash; qolmat 0.1 documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
         <script src="../_static/jquery.js"></script>
         <script src="../_static/underscore.js"></script>
         <script src="../_static/doctools.js"></script>
-        <script src="../_static/language_data.js"></script>
-        <script async="async" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
-    <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="robust_pca.utils.utils.proximal_operator" href="robust_pca.utils.utils.proximal_operator.html" />
-    <link rel="prev" title="robust_pca.utils.utils.signal_to_matrix" href="robust_pca.utils.utils.signal_to_matrix.html" /> 
+    <link rel="search" title="Search" href="../search.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -26,7 +25,7 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="../index.html" class="icon icon-home"> robust-pca
+            <a href="../index.html" class="icon icon-home"> qolmat
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
@@ -36,39 +35,21 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption"><span class="caption-text">Brief explanation</span></p>
+              <p class="caption" role="heading"><span class="caption-text">Brief explanation</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../explanation.html">What is robust principal component analysis?</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../explanation.html#whats-in-this-repo">What’s in this repo?</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../explanation.html#references">References</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../explanation.html">Qolmat methods</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../RPCA.html">Focus on RPCA</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../EM_sampler.html">Focus on EM_sampler</a></li>
 </ul>
-<p class="caption"><span class="caption-text">Simple examples</span></p>
+<p class="caption" role="heading"><span class="caption-text">Simple examples</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../examples/time_series.html">Example for anomaly detection in time series</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../examples/background.html">Example for background and foreground separation with robust PCA</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../examples/denoise_images.html">Example for image denoising with robust PCA</a></li>
 </ul>
-<p class="caption"><span class="caption-text">API</span></p>
-<ul class="current">
-<li class="toctree-l1 current"><a class="reference internal" href="../api.html">robust-pca API</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="../api.html#classes">Classes</a></li>
-<li class="toctree-l2 current"><a class="reference internal" href="../api.html#utils">Utils</a><ul class="current">
-<li class="toctree-l3"><a class="reference internal" href="robust_pca.utils.utils.get_period.html">robust_pca.utils.utils.get_period</a></li>
-<li class="toctree-l3"><a class="reference internal" href="robust_pca.utils.utils.signal_to_matrix.html">robust_pca.utils.utils.signal_to_matrix</a></li>
-<li class="toctree-l3 current"><a class="current reference internal" href="#">robust_pca.utils.utils.approx_rank</a></li>
-<li class="toctree-l3"><a class="reference internal" href="robust_pca.utils.utils.proximal_operator.html">robust_pca.utils.utils.proximal_operator</a></li>
-<li class="toctree-l3"><a class="reference internal" href="robust_pca.utils.utils.soft_thresholding.html">robust_pca.utils.utils.soft_thresholding</a></li>
-<li class="toctree-l3"><a class="reference internal" href="robust_pca.utils.utils.svd_thresholding.html">robust_pca.utils.utils.svd_thresholding</a></li>
-<li class="toctree-l3"><a class="reference internal" href="robust_pca.utils.utils.ortho_proj.html">robust_pca.utils.utils.ortho_proj</a></li>
-<li class="toctree-l3"><a class="reference internal" href="robust_pca.utils.utils.toeplitz_matrix.html">robust_pca.utils.utils.toeplitz_matrix</a></li>
-<li class="toctree-l3"><a class="reference internal" href="robust_pca.utils.utils.construct_graph.html">robust_pca.utils.utils.construct_graph</a></li>
-<li class="toctree-l3"><a class="reference internal" href="robust_pca.utils.drawing.plot_matrices.html">robust_pca.utils.drawing.plot_matrices</a></li>
-<li class="toctree-l3"><a class="reference internal" href="robust_pca.utils.drawing.plot_signal.html">robust_pca.utils.drawing.plot_signal</a></li>
-<li class="toctree-l3"><a class="reference internal" href="robust_pca.utils.drawing.plot_images.html">robust_pca.utils.drawing.plot_images</a></li>
-</ul>
-</li>
-</ul>
-</li>
+<p class="caption" role="heading"><span class="caption-text">API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api.html">Qolmat API</a></li>
 </ul>
 
         </div>
@@ -77,7 +58,7 @@
 
     <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="../index.html">robust-pca</a>
+          <a href="../index.html">qolmat</a>
       </nav>
 
       <div class="wy-nav-content">
@@ -85,7 +66,6 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
-          <li><a href="../api.html">robust-pca API</a> &raquo;</li>
       <li>robust_pca.utils.utils.approx_rank</li>
       <li class="wy-breadcrumbs-aside">
             <a href="../_sources/generated/robust_pca.utils.utils.approx_rank.rst.txt" rel="nofollow"> View page source</a>
@@ -96,33 +76,14 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <div class="section" id="robust-pca-utils-utils-approx-rank">
-<h1>robust_pca.utils.utils.approx_rank<a class="headerlink" href="#robust-pca-utils-utils-approx-rank" title="Permalink to this headline">¶</a></h1>
-<dl class="py function">
-<dt id="robust_pca.utils.utils.approx_rank">
-<code class="sig-prename descclassname">robust_pca.utils.utils.</code><code class="sig-name descname">approx_rank</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">M</span><span class="p">:</span> <span class="n">numpy.ndarray</span></em>, <em class="sig-param"><span class="n">th</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>float<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">0.95</span></em><span class="sig-paren">)</span> &#x2192; int<a class="reference internal" href="../_modules/robust_pca/utils/utils.html#approx_rank"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#robust_pca.utils.utils.approx_rank" title="Permalink to this definition">¶</a></dt>
-<dd><p>Estimate a superior rank of a matrix M by SVD</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><dl class="simple">
-<dt><strong>M</strong><span class="classifier">np.ndarray</span></dt><dd><p>matrix</p>
-</dd>
-<dt><strong>th</strong><span class="classifier">float, optional</span></dt><dd><p>fraction of the cumulative sum of the singular values, by default 0.95</p>
-</dd>
-</dl>
-</dd>
-</dl>
-</dd></dl>
-
-</div>
+  <section id="robust-pca-utils-utils-approx-rank">
+<h1>robust_pca.utils.utils.approx_rank<a class="headerlink" href="#robust-pca-utils-utils-approx-rank" title="Permalink to this headline"></a></h1>
+</section>
 
 
            </div>
           </div>
-          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="robust_pca.utils.utils.signal_to_matrix.html" class="btn btn-neutral float-left" title="robust_pca.utils.utils.signal_to_matrix" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="robust_pca.utils.utils.proximal_operator.html" class="btn btn-neutral float-right" title="robust_pca.utils.utils.proximal_operator" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
-    </div>
+          <footer>
 
   <hr/>
 

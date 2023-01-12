@@ -1,6 +1,5 @@
-###########################################
 Example for image denoising with robust PCA
-###########################################
+===========================================
 
 The aim of this notebook is to make use of the RPCA method to denoise an (artificially corrupted) image.
 
