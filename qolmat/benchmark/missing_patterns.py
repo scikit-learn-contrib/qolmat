@@ -644,7 +644,7 @@ class GroupedHoleGenerator(HoleGenerator):
 
         super().fit(X)
 
-        if self.n_splits > len(np.unique(self.groups_num)):
+        if self.n_splits > self.ngroups.nunique():
             raise ValueError("n_samples has to be smaller than the number of groups.")
 
         return self
