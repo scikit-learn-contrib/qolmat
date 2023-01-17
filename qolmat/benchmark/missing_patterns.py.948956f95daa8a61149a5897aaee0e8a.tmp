@@ -42,7 +42,7 @@ def get_sizes_max(values_isna: pd.Series) -> pd.Series:
     return sizes_max
 
 
-class HoleGenerator:
+class _HoleGenerator:
     """
     This class implements a method to get indices of observed and missing values.
 
@@ -74,7 +74,7 @@ class HoleGenerator:
         self.random_state = random_state
         self.groups = groups
 
-    def fit(self, X: pd.DataFrame) -> HoleGenerator:
+    def fit(self, X: pd.DataFrame) -> _HoleGenerator:
         """
         Fits the generator.
 
@@ -133,7 +133,7 @@ class HoleGenerator:
                 )
 
 
-class UniformHoleGenerator(HoleGenerator):
+class UniformHoleGenerator(_HoleGenerator):
     """This class implements a way to generate holes in a dataframe.
     The holes are generated randomly, using the resample method of scikit learn.
 
@@ -191,7 +191,7 @@ class UniformHoleGenerator(HoleGenerator):
         return df_mask
 
 
-class _SamplerHoleGenerator(HoleGenerator):
+class _SamplerHoleGenerator(_HoleGenerator):
     """This abstract class implements a generic way to generate holes in a dataframe by sampling 1D hole size distributions.
 
     Parameters
@@ -455,7 +455,7 @@ class EmpiricalHoleGenerator(_SamplerHoleGenerator):
         return sizes_sampled
 
 
-class MultiMarkovHoleGenerator(HoleGenerator):
+class MultiMarkovHoleGenerator(_HoleGenerator):
     """This class implements a way to generate holes in a dataframe.
     The holes are generated according to a Markov process.
     Each line of the dataframe mask (np.nan) represents a state of the Markov chain.
@@ -603,7 +603,7 @@ class MultiMarkovHoleGenerator(HoleGenerator):
         return mask
 
 
-class GroupedHoleGenerator(HoleGenerator):
+class GroupedHoleGenerator(_HoleGenerator):
     """This class implements a way to generate holes in a dataframe.
     The holes are generated from groups, specified by the user.
     This class uses the GroupShuffleSplit function of sklearn.
