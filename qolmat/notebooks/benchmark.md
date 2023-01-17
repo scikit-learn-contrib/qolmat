@@ -186,6 +186,10 @@ This allows an easy comparison of the different imputations.
 Note these metrics compute reconstruction errors; it tells nothing about the distances between the "true" and "imputed" distributions.
 
 ```python
+missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], ratio_masked=0.1)
+```
+
+```python
 doy = pd.Series(df_data.reset_index().datetime.dt.isocalendar().week.values, index=df_data.index)
 
 generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], ratio_masked=0.1)

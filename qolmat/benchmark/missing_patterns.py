@@ -42,7 +42,7 @@ def get_sizes_max(values_isna: pd.Series) -> pd.Series:
     return sizes_max
 
 
-class HoleGenerator:
+class _HoleGenerator:
     """
     This class implements a method to get indices of observed and missing values.
 
@@ -74,7 +74,7 @@ class HoleGenerator:
         self.random_state = random_state
         self.groups = groups
 
-    def fit(self, X: pd.DataFrame) -> HoleGenerator:
+    def fit(self, X: pd.DataFrame) -> _HoleGenerator:
         """
         Fits the generator.
 
@@ -133,7 +133,7 @@ class HoleGenerator:
                 )
 
 
-class UniformHoleGenerator(HoleGenerator):
+class UniformHoleGenerator(_HoleGenerator):
     """This class implements a way to generate holes in a dataframe.
     The holes are generated randomly, using the resample method of scikit learn.
 
@@ -191,8 +191,8 @@ class UniformHoleGenerator(HoleGenerator):
         return df_mask
 
 
-class SamplerHoleGenerator(HoleGenerator):
-    """This class implements a way to generate holes in a dataframe.
+class _SamplerHoleGenerator(_HoleGenerator):
+    """This abstract class implements a generic way to generate holes in a dataframe by sampling 1D hole size distributions.
 
     Parameters
     ----------
@@ -292,7 +292,7 @@ class SamplerHoleGenerator(HoleGenerator):
         return mask
 
 
-class GeometricHoleGenerator(SamplerHoleGenerator):
+class GeometricHoleGenerator(_SamplerHoleGenerator):
     """This class implements a way to generate holes in a dataframe.
     The holes are generated following a Markov 1D process.
 
@@ -361,7 +361,7 @@ class GeometricHoleGenerator(SamplerHoleGenerator):
         return sizes_sampled
 
 
-class EmpiricalHoleGenerator(SamplerHoleGenerator):
+class EmpiricalHoleGenerator(_SamplerHoleGenerator):
     """This class implements a way to generate holes in a dataframe.
     The distribution of holes is learned from the data.
     The distributions are learned column by column.
@@ -455,7 +455,7 @@ class EmpiricalHoleGenerator(SamplerHoleGenerator):
         return sizes_sampled
 
 
-class MultiMarkovHoleGenerator(HoleGenerator):
+class MultiMarkovHoleGenerator(_HoleGenerator):
     """This class implements a way to generate holes in a dataframe.
     The holes are generated according to a Markov process.
     Each line of the dataframe mask (np.nan) represents a state of the Markov chain.
@@ -582,9 +582,7 @@ class MultiMarkovHoleGenerator(HoleGenerator):
         for realisation in realisations:
             size_hole = len(realisation)
             n_masked = sum([sum(row) for row in realisation])
-            print(size_hole, sizes_max.max(), n_masked_left)
             size_hole = min(size_hole, sizes_max.max())
-            print("size_hole:", len(realisation), "->", size_hole)
             realisation = realisation[:size_hole]
             i_hole = np.random.choice(np.where(size_hole <= sizes_max)[0])
             assert (~mask.iloc[i_hole - size_hole : i_hole]).all().all()
@@ -599,23 +597,13 @@ class MultiMarkovHoleGenerator(HoleGenerator):
             )
             if n_masked_left <= 0:
                 break
-            # is_valid = (
-            #     ~(values_hasna | mask).T.all().rolling(size_hole + 2).max().fillna(1).astype(bool)
-            # )
-            # if not np.any(is_valid):
-            #     logger.warning(f"No place to introduce sampled hole of size {size_hole}!")
-            #     continue
-            # i_hole = np.random.choice(np.where(is_valid)[0])
-            # mask.iloc[i_hole - size_hole : i_hole] = mask.iloc[i_hole - size_hole : i_hole].where(
-            #     ~np.array(realisation), other=True
-            # )
 
         complete_mask = pd.DataFrame(False, columns=X.columns, index=X.index)
         complete_mask[self.subset] = mask[self.subset]
         return mask
 
 
-class GroupedHoleGenerator(HoleGenerator):
+class GroupedHoleGenerator(_HoleGenerator):
     """This class implements a way to generate holes in a dataframe.
     The holes are generated from groups, specified by the user.
     This class uses the GroupShuffleSplit function of sklearn.

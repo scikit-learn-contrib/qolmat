@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 from qolmat.benchmark import cross_validation, utils
-from qolmat.benchmark.missing_patterns import HoleGenerator
+from qolmat.benchmark.missing_patterns import _HoleGenerator
 
 
 class Comparator:
@@ -31,7 +31,7 @@ class Comparator:
         self,
         dict_models: Dict,
         selected_columns: List[str],
-        generator_holes: HoleGenerator,
+        generator_holes: _HoleGenerator,
         columnwise_evaluation: Optional[bool] = True,
         search_params: Optional[Dict] = {},
         n_cv_calls: Optional[int] = 10,
