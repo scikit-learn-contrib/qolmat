@@ -192,6 +192,7 @@ generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["s
 # generator_holes = missing_patterns.GeometricHoleGenerator(n_splits=10, groups=["station"], ratio_masked=0.1)
 # generator_holes = missing_patterns.UniformHoleGenerator(n_splits=2, ratio_masked=0.4)
 # generator_holes = missing_patterns.GroupedHoleGenerator(n_splits=2, groups=["station", doy], ratio_masked=0.4)
+# generator_holes = missing_patterns.MultiMarkovHoleGenerator(n_splits=2, groups=["station"], ratio_masked=0.1)
 
 comparison = comparator.Comparator(
     dict_models,

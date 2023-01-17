@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import logging
 from typing import List, Optional, Tuple
 
@@ -22,9 +23,23 @@ def compute_transition_matrix(states: pd.Series, ngroups: List = None):
     if ngroups is None:
         df_counts = compute_transition_counts_matrix(states)
     else:
-        df_counts = states.groupby(ngroups).apply(compute_transition_counts_matrix).sum()
+        list_counts = [compute_transition_counts_matrix(df) for _, df in states.groupby(ngroups)]
+        df_counts = functools.reduce(lambda a, b: a.add(b, fill_value=0), list_counts)
+
     df_transition = df_counts.div(df_counts.sum(axis=1), axis=0)
     return df_transition
+
+
+def get_sizes_max(values_isna: pd.Series) -> pd.Series:
+    ids_hole = (values_isna.diff() != 0).cumsum()
+    sizes_max = (
+        values_isna.groupby(ids_hole)
+        .apply(lambda x: (~x) * np.arange(len(x)))
+        .shift(1)
+        .fillna(0)
+        .astype(int)
+    )
+    return sizes_max
 
 
 class HoleGenerator:
@@ -250,14 +265,7 @@ class SamplerHoleGenerator(HoleGenerator):
         for column in self.subset:
             states = X[column].isna()
 
-            ids_hole = (states.diff() != 0).cumsum()
-            sizes_max = (
-                states.groupby(ids_hole)
-                .apply(lambda x: (~x) * np.arange(len(x)))
-                .shift(1)
-                .fillna(0)
-                .astype(int)
-            )
+            sizes_max = get_sizes_max(states)
             n_masked_left = n_masked_col
 
             sizes_sampled = self.generate_hole_sizes(column, n_masked_col, sort=True)
@@ -500,7 +508,7 @@ class MultiMarkovHoleGenerator(HoleGenerator):
             The model itself
 
         """
-        self._check_subset(X)
+        super().fit(X)
 
         states = X[self.subset].isna().apply(lambda x: tuple(x), axis=1)
         self.df_transition = compute_transition_matrix(states, self.ngroups)
@@ -564,23 +572,43 @@ class MultiMarkovHoleGenerator(HoleGenerator):
         X_subset = X[self.subset]
         mask = pd.DataFrame(False, columns=X_subset.columns, index=X_subset.index)
 
-        mask_init = X_subset.isna().any(axis=1)
-        n_masked = X[self.subset].size * self.ratio_masked
+        values_hasna = X_subset.isna().any(axis=1)
 
-        realisations = self.generate_multi_realisation(n_masked)
+        sizes_max = get_sizes_max(values_hasna)
+        n_masked_left = int(X[self.subset].size * self.ratio_masked)
+
+        realisations = self.generate_multi_realisation(n_masked_left)
         realisations = sorted(realisations, reverse=True)
         for realisation in realisations:
             size_hole = len(realisation)
-            is_valid = (
-                ~(mask_init | mask).T.all().rolling(size_hole + 2).max().fillna(1).astype(bool)
-            )
-            if not np.any(is_valid):
-                logger.warning(f"No place to introduce sampled hole of size {size_hole}!")
-                continue
-            i_hole = np.random.choice(np.where(is_valid)[0])
+            n_masked = sum([sum(row) for row in realisation])
+            print(size_hole, sizes_max.max(), n_masked_left)
+            size_hole = min(size_hole, sizes_max.max())
+            print("size_hole:", len(realisation), "->", size_hole)
+            realisation = realisation[:size_hole]
+            i_hole = np.random.choice(np.where(size_hole <= sizes_max)[0])
+            assert (~mask.iloc[i_hole - size_hole : i_hole]).all().all()
             mask.iloc[i_hole - size_hole : i_hole] = mask.iloc[i_hole - size_hole : i_hole].where(
                 ~np.array(realisation), other=True
             )
+            n_masked_left -= n_masked
+
+            sizes_max.iloc[i_hole - size_hole : i_hole] = 0
+            sizes_max.iloc[i_hole:] = np.minimum(
+                sizes_max.iloc[i_hole:], np.arange(len(sizes_max.iloc[i_hole:]))
+            )
+            if n_masked_left <= 0:
+                break
+            # is_valid = (
+            #     ~(values_hasna | mask).T.all().rolling(size_hole + 2).max().fillna(1).astype(bool)
+            # )
+            # if not np.any(is_valid):
+            #     logger.warning(f"No place to introduce sampled hole of size {size_hole}!")
+            #     continue
+            # i_hole = np.random.choice(np.where(is_valid)[0])
+            # mask.iloc[i_hole - size_hole : i_hole] = mask.iloc[i_hole - size_hole : i_hole].where(
+            #     ~np.array(realisation), other=True
+            # )
 
         complete_mask = pd.DataFrame(False, columns=X.columns, index=X.index)
         complete_mask[self.subset] = mask[self.subset]
