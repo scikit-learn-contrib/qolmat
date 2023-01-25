@@ -15,6 +15,59 @@ from sklearn.preprocessing import StandardScaler
 logger = logging.getLogger(__name__)
 
 
+def _gradient_conjugue(
+        A: ArrayLike, X: ArrayLike, tol: float = 1e-6
+    ) -> ArrayLike:
+    """
+    Minimize np.sum(X * AX) by imputing missing values.
+    To this aim, we compute in parallel a gradient algorithm for each data.
+
+    Parameters
+    ----------
+    A : ArrayLike
+        A array
+    X : ArrayLike
+        X array
+    tol : float, optional
+        Tolerance, by default 1e-6
+
+    Returns
+    -------
+    ArrayLike
+        Minimized array.
+    """
+    index_imputed = np.isnan(X).any(axis=1)
+    X_temp = X[index_imputed, :].transpose().copy()
+    n_iter = np.isnan(X_temp).sum(axis=0).max()
+    mask = np.isnan(X_temp)
+    X_temp[mask] = 0
+    b = -A @ X_temp
+    b[~mask] = 0
+    xn, pn, rn = np.zeros(X_temp.shape), b, b  # Initialisation
+    for n in range(n_iter + 2):
+        # if np.max(np.sum(rn**2)) < tol : # Condition de sortie " usuelle "
+        #     X_temp[mask] = xn[mask]
+        #     return X_temp.transpose()
+        Apn = A @ pn
+        Apn[~mask] = 0
+        alphan = np.sum(rn ** 2, axis=0) / np.sum(pn * Apn, axis=0)
+        alphan[
+            np.isnan(alphan)
+        ] = 0  # we stop updating if convergence is reached for this date
+        xn, rnp1 = xn + alphan * pn, rn - alphan * Apn
+        betan = np.sum(rnp1 ** 2, axis=0) / np.sum(rn ** 2, axis=0)
+        betan[
+            np.isnan(betan)
+        ] = 0  # we stop updating if convergence is reached for this date
+        pn, rn = rnp1 + betan * pn, rnp1
+
+    X_temp[mask] = xn[mask]
+    X_final = X.copy()
+    X_final[index_imputed] = X_temp.transpose()
+
+    return X_final
+
+
 class ImputeEM(_BaseImputer):  # type: ignore
     """
     Imputation of missing values using a multivariate Gaussian model through EM optimization and
@@ -24,9 +77,8 @@ class ImputeEM(_BaseImputer):  # type: ignore
     ----------
     method : str
         Method for imputation, choose among "sample" or "mle".
-    n_iter_em : int, optional
-        Number of shifts added for temporal memory,
-        is equivalent to n_iter (index) of memory padding, by default 14.
+    max_iter_em : int, optional
+        Maximum number of steps in the EM algorithm
     n_iter_ou : int, optional
         Number of iterations for the Gibbs sampling method (+ noise addition),
         necessary for convergence, by default 50.
@@ -62,26 +114,24 @@ class ImputeEM(_BaseImputer):  # type: ignore
     def __init__(
         self,
         strategy: Optional[str] = "mle",
-        n_iter_em: Optional[int] = 50,
+        max_iter_em: Optional[int] = 200,
         n_iter_ou: Optional[int] = 50,
-        n_iter_mh: Optional[int] = 20,
         ampli: Optional[int] = 1,
         random_state: Optional[int] = 123,
         verbose: Optional[bool] = True,
         temporal: Optional[bool] = False,
         dt: Optional[float] = 2e-2,
-        convergence_threshold: Optional[float] = 1e-4,
+        tolerance: Optional[float] = 1e-4,
         stagnation_threshold: Optional[float] = 5e-3,
         stagnation_loglik: Optional[float] = 1e1,
     ) -> None:
 
-        if strategy not in ["mle", "ou", "mh"]:
-            raise Exception("strategy has to be 'mle' or 'ou' or 'mh'")
+        if strategy not in ["mle", "ou"]:
+            raise Exception("strategy has to be 'mle' or 'ou'")
 
         self.strategy = strategy
-        self.n_iter_em = n_iter_em
+        self.max_iter_em = max_iter_em
         self.n_iter_ou = n_iter_ou
-        self.n_iter_mh = n_iter_mh
         self.ampli = ampli
         self.random_state = random_state
         self.verbose = verbose
@@ -89,7 +139,7 @@ class ImputeEM(_BaseImputer):  # type: ignore
         self.cov = None
         self.temporal = temporal
         self.dt = dt
-        self.convergence_threshold = convergence_threshold
+        self.convergence_threshold = tolerance
         self.stagnation_threshold = stagnation_threshold
         self.stagnation_loglik = stagnation_loglik
 
@@ -187,6 +237,19 @@ class ImputeEM(_BaseImputer):  # type: ignore
         max_loglik = n_iter > 10 and min(abs(pd.Series(logliks).diff())) < self.stagnation_loglik
 
         return min_diff_reached or min_diff_stable or max_loglik
+    
+    def _invert_covariance(self, epsilon=1e-2):
+        # In case of inversibility problem, one can add a penalty term
+        cov = self.cov - epsilon * (self.cov - np.diag(self.cov.diagonal()))
+        if scipy.linalg.eigh(self.cov)[0].min() < 0:
+            raise WarningMessage(
+                f"Negative eigenvalue, some variables may be constant or colinear, "
+                f"min value of {scipy.linalg.eigh(self.cov)[0].min():.3g} found."
+            )
+        if np.abs(scipy.linalg.eigh(self.cov)[0].min()) > 1e20:
+            raise WarningMessage("Large eigenvalues, imputation may be inflated.")
+        
+        return scipy.linalg.inv(cov)
 
     def _add_shift(self, X: ArrayLike, ystd: bool = True, tmrw: bool = False) -> ArrayLike:
         """
@@ -219,53 +282,7 @@ class ImputeEM(_BaseImputer):  # type: ignore
             X_shifted = np.hstack([X_shifted, X_tmrw])
         return X_shifted
 
-    def _em_mle(self, X: np.ndarray, observed: np.ndarray, missing: np.ndarray) -> np.ndarray:
-        """EM step
-
-        Parameters
-        ----------
-        X : np.ndarray
-            array with the current imputations
-        observed : np.ndarray
-            mask of the observed values
-        missing : np.ndarray
-            mask of the missing values
-
-        Returns
-        -------
-        np.ndarray
-            new imputed dataset
-        """
-
-        nr, nc = X.shape
-
-        one_to_nc = np.arange(1, nc + 1, step=1)
-        mu_tilde, sigma_tilde = {}, {}
-
-        for i in range(nr):
-            sigma_tilde[i] = np.zeros(nc**2).reshape(nc, nc)
-            if set(observed[i, :]) == set(one_to_nc - 1):
-                continue
-
-            missing_i = missing[i, :][missing[i, :] != -1]
-            observed_i = observed[i, :][observed[i, :] != -1]
-
-            sigma_MM = self.cov[np.ix_(missing_i, missing_i)]
-            sigma_MO = self.cov[np.ix_(missing_i, observed_i)]
-            sigma_OM = sigma_MO.T
-            sigma_OO = self.cov[np.ix_(observed_i, observed_i)]
-
-            mu_tilde[i] = self.means[np.ix_(missing_i)] + sigma_MO @ np.linalg.inv(sigma_OO) @ (
-                X[i, observed_i] - self.means[np.ix_(observed_i)]
-            )
-            sigma_MM_O = sigma_MM - sigma_MO @ np.linalg.inv(sigma_OO) @ sigma_OM
-            sigma_tilde[i][np.ix_(missing_i, missing_i)] = sigma_MM_O
-            X[i, missing_i] = mu_tilde[i]
-
-        self.means = np.mean(X, axis=0)
-        self.cov = np.cov(X.T, bias=1) + reduce(np.add, sigma_tilde.values()) / nr
-
-        return X
+    
 
     def _sample_ou(
         self,
@@ -307,79 +324,45 @@ class ImputeEM(_BaseImputer):  # type: ignore
         n_samples, n_variables = X.shape
 
         X_init = X.copy()
-        beta = self.cov.copy()
-        beta[:] = scipy.linalg.inv(beta)
+        beta = self.cov_inv
         gamma = np.diagonal(self.cov)
-        X_stack = []
+        # list_X = []
+        list_mu = []
+        list_cov = []
         for iter_ou in range(self.n_iter_ou):
             noise = self.ampli * rng.normal(0, 1, size=(n_samples, n_variables))
             X += gamma * ((self.means - X) @ beta) * dt + noise * np.sqrt(2 * gamma * dt)
             X[~mask_na] = X_init[~mask_na]
             if iter_ou > self.n_iter_ou - 50:
-                X_stack.append(X)
+                # list_X.append(X)
+                list_mu.append(np.mean(X, axis=0))
+                list_cov.append(np.cov(X.T, bias=True))
 
-        X_stack = np.vstack(X_stack)
-
-        self.means = np.mean(X_stack, axis=0)
-        self.cov = np.cov(X_stack.T, bias=True)
-        eps = 1e-2
-        self.cov -= eps * (self.cov - np.diag(self.cov.diagonal()))
+        # MANOVA formula
+        mu_stack = np.stack(list_mu, axis=1)
+        self.mu = np.mean(mu_stack, axis=1)
+        cov_stack = np.stack(list_cov, axis=2)
+        self.cov = np.mean(cov_stack, axis=2) + np.cov(mu_stack, bias=True)
+        self.cov_inv = self._invert_covariance(epsilon=1e-2)
 
         return X
+    
+    def _maximize_likelihood(self, X: ArrayLike) -> ArrayLike:
+        """
+        Get the argmax of a posterior distribution. Called by `impute_mapem_ts`.
 
-    def _normal(self, X: np.ndarray, mu: np.ndarray, cov: np.ndarray) -> float:
-        numerator = np.exp(-0.5 * (X - mu) @ np.linalg.inv(cov) @ (X - mu).T)
-        # denominator = np.sqrt((2 * np.pi) ** X.shape[1] * np.linalg.det(cov))
-        return numerator  # / denominator
+        Parameters
+        ----------
+        df : ArrayLike
+            Input DataFrame.
 
-    def _tmultivariate(
-        self, X: np.ndarray, mu: np.ndarray, sigma: np.ndarray, nu: float
-    ) -> np.ndarray:
-        p = len(X)
-        # term1 = scipy.special.gamma((nu + p) / 2)
-        # term2 = (
-        #     scipy.special.gamma(nu / 2)
-        #     * (nu * np.pi) ** (p / 2)
-        #     * (np.linalg.det(sigma)) ** (1 / 2)
-        # )
-        term3 = (1 + (1.0 / nu) * (X - mu) @ np.linalg.inv(sigma) @ (X - mu).T) ** (
-            -1.0 * (nu + p) / 2
-        )
-        return term3
-
-    def _sample_mh(
-        self,
-        X: np.ndarray,
-        mask_na: np.ndarray,
-    ) -> float:
-
-        m, n = X.shape
-        X_ = X.copy()
-
-        for _ in range(self.n_iter_mh):
-
-            for i in range(X.shape[0]):
-                if mask_na[i, :].sum() == 0:
-                    continue
-                move = X_[i, :] + np.random.normal(0, 1, size=n)
-                # move = 0.5 * X_[i, :] + np.random.normal(scale=1, size=n)
-                move[~mask_na[i, :]] = X[i, ~mask_na[i, :]]
-
-                # curr_prob = self._normal(X_[i, :], mu=self.means, cov=self.cov)
-                # move_prob = self._normal(move, mu=self.means, cov=self.cov)
-                curr_prob = self._tmultivariate(X_[i, :], mu=self.means, sigma=self.cov, nu=n - 1)
-                move_prob = self._tmultivariate(move, mu=self.means, sigma=self.cov, nu=n - 1)
-
-                acceptance = min(move_prob / curr_prob, 1)
-                if np.random.uniform(0, 1) < acceptance:
-                    X_[i, :] = move
-
-        self.means = np.mean(X_, axis=0)
-        self.cov = np.cov(X_.T, bias=1)
-        eps = 1e-2
-        self.cov -= eps * (self.cov - np.diag(self.cov.diagonal()))
-
-        return X_
+        Returns
+        -------
+        ArrayLike
+            DataFrame with imputed values.
+        """
+        X_imputed = self.means + _gradient_conjugue(self.cov_inv, X - self.means)
+        return X_imputed
 
     def impute_em(self, X: ArrayLike) -> ArrayLike:
         """Imputation via EM algorithm
@@ -402,13 +385,8 @@ class ImputeEM(_BaseImputer):  # type: ignore
         rng = np.random.default_rng(self.random_state)
         _, nc = X_.shape
 
-        if self.strategy == "mle":
-            mask = ~np.isnan(X_)
-            one_to_nc = np.arange(1, nc + 1, step=1)
-            observed = one_to_nc * mask - 1
-            missing = one_to_nc * (~mask) - 1
-        elif self.strategy in ["ou", "mh"]:
-            mask_na = np.isnan(X)
+        mask_na = np.isnan(X)
+            
 
         # first imputation
         X_transformed = np.apply_along_axis(self._linear_interpolation, 0, X_)
@@ -416,16 +394,8 @@ class ImputeEM(_BaseImputer):  # type: ignore
         # first estimation of params
         self.means = np.mean(X_transformed, axis=0)
         self.cov = np.cov(X_transformed.T)
-        # In case of inversibility problem, one can add a penalty term
-        eps = 1e-2
-        self.cov -= eps * (self.cov - np.diag(self.cov.diagonal()))
-        if scipy.linalg.eigh(self.cov)[0].min() < 0:
-            raise WarningMessage(
-                f"Negative eigenvalue, some variables may be constant or colinear, "
-                f"min value of {scipy.linalg.eigh(self.cov)[0].min():.3g} found."
-            )
-        if np.abs(scipy.linalg.eigh(self.cov)[0].min()) > 1e20:
-            raise WarningMessage("Large eigenvalues, imputation may be inflated.")
+        
+        self.cov_inv = self._invert_covariance(epsilon=1e-2)
 
         if self.temporal:
             shift = 1
@@ -434,7 +404,7 @@ class ImputeEM(_BaseImputer):  # type: ignore
             X_past[:shift, :] = np.nan
 
         list_X_transformed, list_means, list_covs = [], [], []
-        for iter_em in range(self.n_iter_em):
+        for iter_em in range(self.max_iter_em):
 
             if self.temporal:
                 shift = 1
@@ -442,26 +412,22 @@ class ImputeEM(_BaseImputer):  # type: ignore
                 X_past = np.roll(X_past, shift, axis=0).astype(float)
                 X_past[:shift, :] = np.nan
 
-            try:
-                if self.strategy == "mle":
-                    X_transformed = self._em_mle(X_transformed, observed, missing)
-                elif self.strategy == "ou":
-                    X_transformed = self._sample_ou(X_transformed, mask_na, rng, dt=2e-2)
-                elif self.strategy == "mh":
-                    X_transformed = self._sample_mh(X_transformed, mask_na)
+            X_transformed = self._sample_ou(X_transformed, mask_na, rng, dt=2e-2)
 
-                list_means.append(self.means)
-                list_covs.append(self.cov)
-                list_X_transformed.append(X_transformed)
-                if (
-                    self._check_convergence(list_X_transformed, list_means, list_covs, iter_em)
-                    and self.verbose
-                ):
-                    print(f"EM converged after {iter_em} iterations.")
-                    break
-
-            except BaseException:
-                raise WarningMessage("EM step failed.")
+            list_means.append(self.means)
+            list_covs.append(self.cov)
+            list_X_transformed.append(X_transformed)
+            if (
+                self._check_convergence(list_X_transformed, list_means, list_covs, iter_em)
+                and self.verbose
+            ):
+                print(f"EM converged after {iter_em} iterations.")
+                break
+            
+        if self.strategy == "mle":
+            X_transformed = self._maximize_likelihood(X_)
+        elif self.strategy == "ou":
+            X_transformed = self._sample_ou(X_transformed, mask_na, rng, dt=2e-2)
 
         if np.all(np.isnan(X_transformed)):
             raise WarningMessage("Result contains NaN. This is a bug.")
