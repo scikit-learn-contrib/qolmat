@@ -6,6 +6,7 @@ __pycache__/
 /figures
 qolmat/notebooks/figures
 qolmat/notebooks/*.ipynb
+qolmat/examples/*.ipynb
 *.egg-info
 /dist
 /build

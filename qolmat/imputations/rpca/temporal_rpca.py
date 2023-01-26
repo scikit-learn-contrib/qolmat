@@ -13,7 +13,7 @@ from qolmat.utils.utils import progress_bar
 
 class TemporalRPCA(RPCA):
     """
-    This class implements a noisy version of the so-called improved RPCA
+    This class implements a noisy version of the so-called 'improved RPCA'
 
     References
     ----------
@@ -28,7 +28,7 @@ class TemporalRPCA(RPCA):
     Parameters
     ----------
     n_rows: Optional[int]
-        number of rows of the reshaped matrix if the signal is a time series
+        number of rows of the reshaped matrix if the signal is a 1D-array
     rank: Optional[int]
         (estimated) low-rank of the matrix D
     tau: Optional[float]
@@ -39,7 +39,7 @@ class TemporalRPCA(RPCA):
         list of periods, linked to the Toeplitz matrices
     list_etas: Optional[List[float]]
         list of penalizing parameters for the corresponding period in list_periods
-    maxIter: Optional[int]
+    max_iter: Optional[int]
         stopping criteria, maximum number of iterations. By default, the value is set to 10_000
     tol: Optional[float]
         stoppign critera, minimum difference between 2 consecutive iterations. By default,
@@ -58,12 +58,12 @@ class TemporalRPCA(RPCA):
         lam: Optional[float] = None,
         list_periods: List[int] = [],
         list_etas: List[float] = [],
-        maxIter: Optional[int] = int(1e4),
+        max_iter: Optional[int] = int(1e4),
         tol: Optional[float] = 1e-6,
         verbose: Optional[bool] = False,
         norm: Optional[str] = "L2",
     ) -> None:
-        super().__init__(n_rows=n_rows, maxIter=maxIter, tol=tol, verbose=verbose)
+        super().__init__(n_rows=n_rows, max_iter=max_iter, tol=tol, verbose=verbose)
         self.rank = rank
         self.tau = tau
         self.lam = lam
@@ -71,7 +71,7 @@ class TemporalRPCA(RPCA):
         self.list_etas = list_etas
         self.norm = norm
 
-    def compute_L1(self, proj_D, omega, return_basis=False) -> None:
+    def compute_L1(self, proj_D, omega, lam, tau, rank, return_basis=False) -> None:
         """
         compute RPCA with possible temporal regularisations, penalised with L1 norm
         """
@@ -86,8 +86,8 @@ class TemporalRPCA(RPCA):
 
         X = proj_D.copy()
         A = np.zeros((m, n))
-        L = np.ones((m, self.rank))
-        Q = np.ones((n, self.rank))
+        L = np.ones((m, rank))
+        Q = np.ones((n, rank))
         R = [np.ones((m, n - period)) for period in self.list_periods]
         # temporal correlations
         H = [utils.toeplitz_matrix(period, n, model="column") for period in self.list_periods]
@@ -97,20 +97,12 @@ class TemporalRPCA(RPCA):
         for index, _ in enumerate(self.list_periods):
             HHT += self.list_etas[index] * (H[index] @ H[index].T)
 
-        Ir = np.eye(self.rank)
+        Ir = np.eye(rank)
         In = np.eye(n)
 
-        errors = np.full((self.maxIter,), np.nan, dtype=float)
+        errors = np.full((self.max_iter,), np.nan, dtype=float)
 
-        for iteration in range(self.maxIter):
-            if self.verbose:
-                progress_bar(
-                    iteration,
-                    self.maxIter,
-                    prefix="Progress:",
-                    suffix="Complete",
-                    length=50,
-                )
+        for iteration in range(self.max_iter):
             X_temp = X.copy()
             A_temp = A.copy()
             L_temp = L.copy()
@@ -128,22 +120,22 @@ class TemporalRPCA(RPCA):
             X = X_T.T
 
             if np.any(np.isnan(proj_D)):
-                A_omega = utils.soft_thresholding(proj_D - X, self.lam)
+                A_omega = utils.soft_thresholding(proj_D - X, lam)
                 A_omega = utils.ortho_proj(A_omega, omega, inverse=False)
                 A_omega_C = proj_D - X
                 A_omega_C = utils.ortho_proj(A_omega_C, omega, inverse=True)
                 A = A_omega + A_omega_C
             else:
-                A = utils.soft_thresholding(proj_D - X, self.lam)
+                A = utils.soft_thresholding(proj_D - X, lam)
 
             L_T = scp.linalg.solve(
-                a=(self.tau * Ir + mu * (Q.T @ Q)).T,
+                a=(tau * Ir + mu * (Q.T @ Q)).T,
                 b=((mu * X + Y) @ Q).T,
             )
             L = L_T.T
 
             Q_T = scp.linalg.solve(
-                a=(self.tau * Ir + mu * (L.T @ L)).T,
+                a=(tau * Ir + mu * (L.T @ L)).T,
                 b=((mu * X.T + Y.T) @ L).T,
             )
             Q = Q_T.T
@@ -181,7 +173,7 @@ class TemporalRPCA(RPCA):
             result += [L, Q]
         return tuple(result)
 
-    def compute_L2(self, proj_D, omega, return_basis=False) -> None:
+    def compute_L2(self, proj_D, omega, lam, tau, rank, return_basis=False) -> None:
         """
         compute RPCA with possible temporal regularisations, penalised with L2 norm
         """
@@ -192,8 +184,8 @@ class TemporalRPCA(RPCA):
         Y = np.ones((m, n))
         X = proj_D.copy()
         A = np.zeros((m, n))
-        L = np.ones((m, self.rank))
-        Q = np.ones((n, self.rank))
+        L = np.ones((m, rank))
+        Q = np.ones((n, rank))
 
         mu = 1e-6
         mu_bar = mu * 1e10
@@ -204,20 +196,12 @@ class TemporalRPCA(RPCA):
         for index, _ in enumerate(self.list_periods):
             HHT += self.list_etas[index] * (H[index] @ H[index].T)
 
-        Ir = np.eye(self.rank)
+        Ir = np.eye(rank)
         In = np.eye(n)
 
-        errors = np.full((self.maxIter,), np.nan, dtype=float)
+        errors = np.full((self.max_iter,), np.nan, dtype=float)
 
-        for iteration in range(self.maxIter):
-            if self.verbose:
-                progress_bar(
-                    iteration,
-                    self.maxIter,
-                    prefix="Progress:",
-                    suffix="Complete",
-                    length=50,
-                )
+        for iteration in range(self.max_iter):
             X_temp = X.copy()
             A_temp = A.copy()
             L_temp = L.copy()
@@ -230,22 +214,22 @@ class TemporalRPCA(RPCA):
             X = X_T.T
 
             if np.any(~omega):
-                A_omega = utils.soft_thresholding(proj_D - X, self.lam)
+                A_omega = utils.soft_thresholding(proj_D - X, lam)
                 A_omega = utils.ortho_proj(A_omega, omega, inverse=False)
                 A_omega_C = proj_D - X
                 A_omega_C = utils.ortho_proj(A_omega_C, omega, inverse=True)
                 A = A_omega + A_omega_C
             else:
-                A = utils.soft_thresholding(proj_D - X, self.lam)
+                A = utils.soft_thresholding(proj_D - X, lam)
 
             L_T = scp.linalg.solve(
-                a=(self.tau * Ir + mu * (Q.T @ Q)).T,
+                a=(tau * Ir + mu * (Q.T @ Q)).T,
                 b=((mu * X + Y) @ Q).T,
             )
             L = L_T.T
 
             Q_T = scp.linalg.solve(
-                a=(self.tau * Ir + mu * (L.T @ L)).T,
+                a=(tau * Ir + mu * (L.T @ L)).T,
                 b=((mu * X.T + Y.T) @ L).T,
             )
             Q = Q_T.T
@@ -283,6 +267,18 @@ class TemporalRPCA(RPCA):
         dict_params["norm"] = self.norm
         return dict_params
 
+    def get_params_scale(self, X: NDArray) -> dict:
+        D_init, _ = self._prepare_data(signal=X)
+        proj_D = utils.impute_nans(D_init, method="median")
+        rank = utils.approx_rank(proj_D)
+        tau = 1.0 / np.sqrt(max(D_init.shape))
+        lam = tau
+        return {
+            "rank": rank,
+            "tau": tau,
+            "lam": lam,
+        }
+
     def set_params(self, **kargs):
         _ = super().set_params(**kargs)
 
@@ -305,7 +301,12 @@ class TemporalRPCA(RPCA):
         self.list_etas = list_etas
         return self
 
-    def fit_transform(self, signal: NDArray, return_basis=False) -> None:
+    def fit_transform(
+        self,
+        X: NDArray,
+        rank: Optional[int] = None,
+        return_basis: bool = False
+    ) -> None:
         """
         Compute the noisy RPCA with time "penalisations"
 
@@ -314,63 +315,50 @@ class TemporalRPCA(RPCA):
         signal : NDArray
             Observations
         """
-        self.input_data = "2DArray"
-        D_init, n_add_values = self._prepare_data(signal=signal)
+        D_init, n_add_values = self._prepare_data(signal=X)
         omega = ~np.isnan(D_init)
         proj_D = utils.impute_nans(D_init, method="median")
 
-        if self.rank is None:
-            self.rank = utils.approx_rank(proj_D)
-        if self.tau is None:
-            self.tau = 1.0 / np.sqrt(max(D_init.shape))
-        if self.lam is None:
-            self.lam = 1.0 / np.sqrt(max(D_init.shape))
+        params_scale = self.get_params_scale(X=proj_D)
+
+        lam = params_scale["lam"] if self.lam is None else self.lam
+        rank = params_scale["rank"] if rank is None else rank
+        tau = params_scale["tau"] if self.tau is None else self.tau
 
         if self.norm == "L1":
-            res = self.compute_L1(proj_D, omega, return_basis)
+            res = self.compute_L1(proj_D, omega, lam, tau, rank, return_basis)
         elif self.norm == "L2":
-            res = self.compute_L2(proj_D, omega, return_basis)
+            res = self.compute_L2(proj_D, omega, lam, tau, rank, return_basis)
 
-        X = res[0]
+        M = res[0]
         A = res[1]
         errors = res[2]
-
-        if self.input_data == "2DArray":
-            result = [X, A, errors]
-        elif self.input_data == "1DArray":
-            X = X.T
+        
+        if self.input_data == "1DArray":
+            M = M.T
             A = A.T
 
             if n_add_values > 0:
-                X.flat[-n_add_values:] = np.nan
+                M.flat[-n_add_values:] = np.nan
                 A.flat[-n_add_values:] = np.nan
-            ts_X = X.flatten()
+            ts_M = M.flatten()
             ts_A = A.flatten()
-            ts_X = ts_X[~np.isnan(ts_X)]
+            ts_M = ts_M[~np.isnan(ts_M)]
             ts_A = ts_A[~np.isnan(ts_A)]
-            result = [ts_X, ts_A, errors]
+            result = [ts_M, ts_A, errors]
         else:
-            raise ValueError("input data type not recognized")
+            result = [M, A, errors]
+
         if return_basis:
             result += res[3:]
         return tuple(result)
 
-    def get_params_scale(self, signal: NDArray) -> None:
-        D_init, _ = self._prepare_data(signal=signal)
-        proj_D = utils.impute_nans(D_init, method="median")
-        rank = utils.approx_rank(proj_D)
-        tau = 1.0 / np.sqrt(max(D_init.shape))
-        lam = tau
-        return {
-            "rank": rank,
-            "tau": tau,
-            "lam": lam,
-        }
+    
 
 
 class OnlineTemporalRPCA(TemporalRPCA):
     """
-    This class implements an online version of Temporal RPCA
+    This class implements an online version of TemporalRPCA
     that processes one sample per time instance and hence its memory cost
     is independent of the number of samples
     It is based on stochastic optimization of an equivalent reformulation
@@ -419,7 +407,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
         lam: Optional[float] = None,
         list_periods: Optional[List[int]] = [],
         list_etas: Optional[List[float]] = [],
-        maxIter: Optional[int] = int(1e4),
+        max_iter: Optional[int] = int(1e4),
         tol: Optional[float] = 1e-6,
         verbose: Optional[bool] = False,
         burnin: Optional[float] = 0,
@@ -435,7 +423,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
             lam=lam,
             list_periods=list_periods,
             list_etas=list_etas,
-            maxIter=maxIter,
+            max_iter=max_iter,
             tol=tol,
             verbose=verbose,
         )
@@ -447,9 +435,47 @@ class OnlineTemporalRPCA(TemporalRPCA):
         self.online_list_etas = online_list_etas
         self.norm = "L2"
 
+    def get_params(self):
+        return {
+            "n_rows": self.n_rows,
+            "estimated_rank": self.rank,
+            "tau": self.tau,
+            "lam": self.lam,
+            "list_periods": self.list_periods,
+            "list_etas": self.list_etas,
+            "maxIter": self.maxIter,
+            "tol": self.tol,
+            "verbose": self.verbose,
+            "norm": self.norm,
+            "burnin": self.burnin,
+            "nwin": self.nwin,
+            "online_tau": self.online_tau,
+            "online_lam": self.online_lam,
+            "online_list_etas": self.online_list_etas,
+        }
+
+   
+
+    def get_params_scale(
+        self,
+        X: NDArray,
+        Lhat
+    ) -> dict:
+        D_init, _ = self._prepare_data(signal=X)
+        burnin = int(D_init.shape[1] * self.burnin)
+        print("BBB")
+        Lhat, _, _ = super().fit_transform(X=D_init[:, :burnin], return_basis=False)
+        _, sigmas_hat, _ = np.linalg.svd(Lhat)
+        online_tau = 1.0 / np.sqrt(len(D_init)) / np.mean(sigmas_hat[: params_scale["rank"]])
+        online_lam = 1.0 / np.sqrt(len(D_init))
+        params_scale["online_tau"] = online_tau
+        params_scale["online_lam"] = online_lam
+        return params_scale
+
+
     def fit_transform(
         self,
-        signal: NDArray,
+        X: NDArray,
     ) -> None:
         """
         Compute an online version of RPCA with temporal regularisations
@@ -459,36 +485,30 @@ class OnlineTemporalRPCA(TemporalRPCA):
         signal : NDArray
         """
 
-        if len(signal.shape) == 1:
-            self.input_data_shape = "1DArray"
-        elif len(signal.shape) == 2:
-            self.input_data_shape = "2DArray"
-
-        D_init, n_add_values = self._prepare_data(signal=signal)
+        D_init, n_add_values = self._prepare_data(signal=X)
         burnin = int(self.burnin * D_init.shape[1])
+        
+        if burnin < len(D_init):
+            raise ValueError(f"'self.burnin is to small. Only {burnin} columns kept for {len(D_init)} rows",
+                            "Increase self.burnin!")
         nwin = self.nwin
 
         m, n = D_init.shape
-        Lhat, Shat, _ = super().fit_transform(signal=D_init[:, :burnin], return_basis=False)
+        
+        Lhat, Shat, _ = super().fit_transform(X=D_init[:, :burnin], return_basis=False)
 
         proj_D = utils.impute_nans(D_init, method="median")
-        approx_rank = utils.approx_rank(proj_D[:, :burnin], threshold=1)
+        params_scale = self.get_params_scale(X=proj_D)
 
-        if self.tau is None:
-            self.tau = 1.0 / np.sqrt(max(m, n))
-        if self.lam is None:
-            self.lam = 1.0 / np.sqrt(max(m, n))
+        online_tau = params_scale["online_tau"] if self.online_tau is None else self.online_tau 
+        online_lam = params_scale["online_lam"] if self.online_lam is None else self.online_lam 
 
-        if self.online_tau is None:
-            self.online_tau = self.tau
-        if self.online_lam is None:
-            self.online_lam = self.lam
         if len(self.online_list_etas) == 0:
             self.online_list_etas = self.list_etas
+                print("AAAA")
 
-        # Uhat, sigmas_hat, Vhat = randomized_svd(
-        #     Lhat, n_components=approx_rank, n_iter=5, random_state=0
-        # )
+        approx_rank = utils.approx_rank(proj_D[:, :burnin])
+
         Uhat, sigmas_hat, Vhat = np.linalg.svd(Lhat, full_matrices=False)
         U = Uhat[:, :approx_rank].dot(np.sqrt(np.diag(sigmas_hat[:approx_rank])))
 
@@ -515,7 +535,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
                     proj_D[:, burnin - nwin + col] - Shat[:, burnin - nwin + col],
                     Vhat_win[:, col],
                 )
-
+        
         m_lhat, n_lhat = Lhat.shape
         m_shat, n_shat = Shat.shape
         m_vhat, n_vhat = Vhat.shape
@@ -536,8 +556,8 @@ class OnlineTemporalRPCA(TemporalRPCA):
             vi, si = utils.solve_projection(
                 ri,
                 U,
-                self.online_tau,
-                self.online_lam,
+                online_tau,
+                online_lam,
                 self.online_list_etas,
                 self.list_periods,
                 Lhat_grow[:, :i],
@@ -575,53 +595,17 @@ class OnlineTemporalRPCA(TemporalRPCA):
                     )
                 )
             U = utils.update_col(self.online_tau, U, A, B)
-            Lhat_grow[:, i] = U.dot(vi)
+            Lhat_grow[:, i] = U @ vi
 
         if n_add_values > 0:
             Lhat_grow.flat[-n_add_values:] = np.nan
             Shat_grow.flat[-n_add_values:] = np.nan
 
-        if self.input_data_shape == "2DArray":
-            return Lhat_grow, Shat_grow
-        elif self.input_data_shape == "1DArray":
-            ts_X = Lhat_grow.T.flatten()
+        if self.input_data_shape == "1DArray":
+            ts_M = Lhat_grow.T.flatten()
             ts_A = Shat_grow.T.flatten()
-            return ts_X[~np.isnan(ts_X)], ts_A[~np.isnan(ts_A)]
+            return ts_M[~np.isnan(ts_M)], ts_A[~np.isnan(ts_A)]
         else:
-            raise ValueError("Data shape not recognized")
+            return Lhat_grow, Shat_grow
 
-    def get_params(self):
-        return {
-            "n_rows": self.n_rows,
-            "estimated_rank": self.rank,
-            "tau": self.tau,
-            "lam": self.lam,
-            "list_periods": self.list_periods,
-            "list_etas": self.list_etas,
-            "maxIter": self.maxIter,
-            "tol": self.tol,
-            "verbose": self.verbose,
-            "norm": self.norm,
-            "burnin": self.burnin,
-            "nwin": self.nwin,
-            "online_tau": self.online_tau,
-            "online_lam": self.online_lam,
-            "online_list_etas": self.online_list_etas,
-        }
-
-    def get_params_scale(
-        self,
-        signal: Optional[ArrayLike] = None,
-        D: Optional[NDArray] = None,
-    ) -> None:
-        D_init, _ = self._prepare_data(signal=signal, D=D)
-        params_scale = super().get_params_scale(signal=signal, D=D)
-        burnin = int(D_init.shape[1] * self.burnin)
-
-        Lhat, _, _ = super().fit(D=D_init[:, :burnin])
-        _, sigmas_hat, _ = np.linalg.svd(Lhat)
-        online_tau = 1.0 / np.sqrt(len(D_init)) / np.mean(sigmas_hat[: params_scale["rank"]])
-        online_lam = 1.0 / np.sqrt(len(D_init))
-        params_scale["online_tau"] = online_tau
-        params_scale["online_lam"] = online_lam
-        return params_scale
+   
