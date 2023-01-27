@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from inspect import signature
 from typing import List, Optional
 
 import numpy as np
@@ -443,7 +444,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
             "lam": self.lam,
             "list_periods": self.list_periods,
             "list_etas": self.list_etas,
-            "maxIter": self.maxIter,
+            "max_iter": self.max_iter,
             "tol": self.tol,
             "verbose": self.verbose,
             "norm": self.norm,
@@ -456,21 +457,23 @@ class OnlineTemporalRPCA(TemporalRPCA):
 
    
 
-    def get_params_scale(
+    def get_params_scale_online(
         self,
         X: NDArray,
-        Lhat
-    ) -> dict:
+    ) -> None:
         D_init, _ = self._prepare_data(signal=X)
+        params_scale = super().get_params_scale(X=D_init)
         burnin = int(D_init.shape[1] * self.burnin)
-        print("BBB")
-        Lhat, _, _ = super().fit_transform(X=D_init[:, :burnin], return_basis=False)
+
+        super_class = TemporalRPCA(**super().get_params())
+        Lhat, _, _ = super_class.fit_transform(X=D_init[:, :burnin])
         _, sigmas_hat, _ = np.linalg.svd(Lhat)
         online_tau = 1.0 / np.sqrt(len(D_init)) / np.mean(sigmas_hat[: params_scale["rank"]])
         online_lam = 1.0 / np.sqrt(len(D_init))
         params_scale["online_tau"] = online_tau
         params_scale["online_lam"] = online_lam
         return params_scale
+
 
 
     def fit_transform(
@@ -494,23 +497,22 @@ class OnlineTemporalRPCA(TemporalRPCA):
         nwin = self.nwin
 
         m, n = D_init.shape
-        
-        Lhat, Shat, _ = super().fit_transform(X=D_init[:, :burnin], return_basis=False)
+        super_class = TemporalRPCA(**super().get_params())
+        Lhat, Shat, _ =super_class.fit_transform(X=D_init[:, :burnin], return_basis=False)
 
         proj_D = utils.impute_nans(D_init, method="median")
-        params_scale = self.get_params_scale(X=proj_D)
+        params_scale = self.get_params_scale_online(X=proj_D)
 
         online_tau = params_scale["online_tau"] if self.online_tau is None else self.online_tau 
         online_lam = params_scale["online_lam"] if self.online_lam is None else self.online_lam 
 
         if len(self.online_list_etas) == 0:
             self.online_list_etas = self.list_etas
-                print("AAAA")
-
-        approx_rank = utils.approx_rank(proj_D[:, :burnin])
+        
+        approx_rank =  utils.approx_rank(proj_D[:, :burnin])
 
         Uhat, sigmas_hat, Vhat = np.linalg.svd(Lhat, full_matrices=False)
-        U = Uhat[:, :approx_rank].dot(np.sqrt(np.diag(sigmas_hat[:approx_rank])))
+        U = Uhat[:, :approx_rank]@(np.sqrt(np.diag(sigmas_hat[:approx_rank])))
 
         if self.nwin == 0:
             Vhat_win = Vhat.copy()
