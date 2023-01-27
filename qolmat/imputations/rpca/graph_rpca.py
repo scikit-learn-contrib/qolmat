@@ -95,9 +95,6 @@ class GraphRPCA(RPCA):
         Y = proj_D.copy()
         t_past = 1
 
-        print(laplacian1)
-        input()
-
         lam = 1 / (
             2 * self.gamma1 * np.linalg.norm(laplacian1, 2)
             + 2 * self.gamma2 * np.linalg.norm(laplacian2, 2)
@@ -128,7 +125,7 @@ class GraphRPCA(RPCA):
 
         self.errors = errors
 
-        A = D_init - X
+        A = proj_D - X
 
         if  input_data == "2DArray":
             result = [X, A, errors]

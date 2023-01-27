@@ -318,7 +318,7 @@ def construct_graph(
     ).toarray()
 
     G_val = np.exp(-G_val)
-    G_val = np.where(G_val > 1.0, G_val, 0)
+    G_val[G_val < 1.0] = 0
     return G_val
 
 
