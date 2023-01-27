@@ -6,6 +6,7 @@ from typing import List, Optional
 import numpy as np
 import scipy as scp
 from numpy.typing import ArrayLike, NDArray
+from sklearn.utils.extmath import randomized_svd
 
 from qolmat.imputations.rpca import utils
 from qolmat.imputations.rpca.rpca import RPCA
@@ -269,7 +270,7 @@ class TemporalRPCA(RPCA):
         return dict_params
 
     def get_params_scale(self, X: NDArray) -> dict:
-        D_init, _ = self._prepare_data(signal=X)
+        D_init, _, _ = self._prepare_data(signal=X)
         proj_D = utils.impute_nans(D_init, method="median")
         rank = utils.approx_rank(proj_D)
         tau = 1.0 / np.sqrt(max(D_init.shape))
@@ -316,7 +317,7 @@ class TemporalRPCA(RPCA):
         signal : NDArray
             Observations
         """
-        D_init, n_add_values = self._prepare_data(signal=X)
+        D_init, n_add_values, input_data = self._prepare_data(signal=X)
         omega = ~np.isnan(D_init)
         proj_D = utils.impute_nans(D_init, method="median")
 
@@ -335,7 +336,7 @@ class TemporalRPCA(RPCA):
         A = res[1]
         errors = res[2]
         
-        if self.input_data == "1DArray":
+        if input_data == "1DArray":
             M = M.T
             A = A.T
 
@@ -457,11 +458,11 @@ class OnlineTemporalRPCA(TemporalRPCA):
 
    
 
-    def get_params_scale_online(
+    def get_params_scale(
         self,
         X: NDArray,
     ) -> None:
-        D_init, _ = self._prepare_data(signal=X)
+        D_init, _, _ = self._prepare_data(signal=X)
         params_scale = super().get_params_scale(X=D_init)
         burnin = int(D_init.shape[1] * self.burnin)
 
@@ -488,7 +489,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
         signal : NDArray
         """
 
-        D_init, n_add_values = self._prepare_data(signal=X)
+        D_init, n_add_values, input_data = self._prepare_data(signal=X)
         burnin = int(self.burnin * D_init.shape[1])
         
         if burnin < len(D_init):
@@ -501,7 +502,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
         Lhat, Shat, _ =super_class.fit_transform(X=D_init[:, :burnin], return_basis=False)
 
         proj_D = utils.impute_nans(D_init, method="median")
-        params_scale = self.get_params_scale_online(X=proj_D)
+        params_scale = self.get_params_scale(X=proj_D)
 
         online_tau = params_scale["online_tau"] if self.online_tau is None else self.online_tau 
         online_lam = params_scale["online_lam"] if self.online_lam is None else self.online_lam 
@@ -511,7 +512,10 @@ class OnlineTemporalRPCA(TemporalRPCA):
         
         approx_rank =  utils.approx_rank(proj_D[:, :burnin])
 
-        Uhat, sigmas_hat, Vhat = np.linalg.svd(Lhat, full_matrices=False)
+        # Uhat, sigmas_hat, Vhat = np.linalg.svd(Lhat, full_matrices=False)
+        Uhat, sigmas_hat, Vhat = randomized_svd(
+            Lhat, n_components=approx_rank, n_iter=5, random_state=42
+        )
         U = Uhat[:, :approx_rank]@(np.sqrt(np.diag(sigmas_hat[:approx_rank])))
 
         if self.nwin == 0:
@@ -597,14 +601,14 @@ class OnlineTemporalRPCA(TemporalRPCA):
                         vi_delete,
                     )
                 )
-            U = utils.update_col(self.online_tau, U, A, B)
+            U = utils.update_col(online_tau, U, A, B)
             Lhat_grow[:, i] = U @ vi
 
         if n_add_values > 0:
             Lhat_grow.flat[-n_add_values:] = np.nan
             Shat_grow.flat[-n_add_values:] = np.nan
 
-        if self.input_data_shape == "1DArray":
+        if input_data == "1DArray":
             ts_M = Lhat_grow.T.flatten()
             ts_A = Shat_grow.T.flatten()
             return ts_M[~np.isnan(ts_M)], ts_A[~np.isnan(ts_A)]

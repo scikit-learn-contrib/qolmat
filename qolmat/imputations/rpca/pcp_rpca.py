@@ -49,7 +49,7 @@ class PcpRPCA(RPCA):
         return dict_params
 
     def get_params_scale(self, X):
-        D_init, _ = self._prepare_data(signal=X)
+        D_init, _, _ = self._prepare_data(signal=X)
         proj_D = utils.impute_nans(D_init, method="median")
         mu = proj_D.size / (4.0 * utils.l1_norm(proj_D))
         lam = 1 / np.sqrt(np.max(proj_D.shape))
@@ -68,7 +68,7 @@ class PcpRPCA(RPCA):
         ----------
         X : NDArray
         """
-        D_init, n_add_values = self._prepare_data(signal=X)
+        D_init, n_add_values, input_data = self._prepare_data(signal=X)
         proj_D = utils.impute_nans(D_init, method="median")
 
         params_scale = self.get_params_scale(X=proj_D)
@@ -107,7 +107,7 @@ class PcpRPCA(RPCA):
             M.flat[-n_add_values:] = np.nan
             A.flat[-n_add_values:] = np.nan
 
-        if self.input_data == "1DArray":
+        if input_data == "1DArray":
             result = [M.T.flatten(), A.T.flatten(), errors] + result
         else:
             result = [M, A, errors] + result

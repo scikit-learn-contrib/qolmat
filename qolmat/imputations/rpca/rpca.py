@@ -51,12 +51,12 @@ class RPCA(BaseEstimator, TransformerMixin):
         if len(signal.shape) == 1:
             n_rows = utils.get_period(signal) if self.n_rows is None else self.n_rows
             D_init, n_add_values = utils.signal_to_matrix(signal, n_rows=n_rows)
-            self.input_data = "1DArray"
+            input_data = "1DArray"
         else:
             D_init = signal.copy()
             n_add_values = 0
-            self.input_data = "2DArray"
-        return D_init, n_add_values
+            input_data = "2DArray"
+        return D_init, n_add_values, input_data
 
     def get_params(self):
         """Return the attributes"""
@@ -80,10 +80,10 @@ class RPCA(BaseEstimator, TransformerMixin):
         return_basis: bool = False
     ) -> RPCA:
 
-        M, _ = self._prepare_data(signal=X)
+        M, _, input_data= self._prepare_data(signal=X)
         A = np.zeros(M.shape, dtype=float)
         
-        if self.input_data == "1DArray":
+        if input_data == "1DArray":
             result = [M.flatten(), A.flatten()]
 
         else:
