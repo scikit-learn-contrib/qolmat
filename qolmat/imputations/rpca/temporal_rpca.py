@@ -522,6 +522,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
         A = np.zeros((approx_rank, approx_rank))
         B = np.zeros((m, approx_rank))
 
+        print(Vhat_win.shape)
         for col in range(Vhat_win.shape[1]):
             sums = np.zeros(A.shape)
             for index, period in enumerate(self.list_periods):
