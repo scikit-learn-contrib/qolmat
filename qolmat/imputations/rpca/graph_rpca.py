@@ -55,12 +55,12 @@ class GraphRPCA(RPCA):
         G2: Optional[np.ndarray] = None,
         nbg1: Optional[int] = 10,
         nbg2: Optional[int] = 10,
-        maxIter: Optional[int] = int(1e4),
+        max_iter: Optional[int] = int(1e4),
         tol: Optional[float] = 1e-6,
         verbose: Optional[bool] = False,
     ) -> None:
 
-        super().__init__(n_rows=n_rows, maxIter=maxIter, tol=tol, verbose=verbose)
+        super().__init__(n_rows=n_rows, max_iter=max_iter, tol=tol, verbose=verbose)
         self.rank = rank
         self.gamma1 = gamma1
         self.gamma2 = gamma2
@@ -69,7 +69,7 @@ class GraphRPCA(RPCA):
         self.nbg1 = nbg1
         self.nbg2 = nbg2
 
-    def fit_transform(self, signal: NDArray) -> None:
+    def fit_transform(self, X: NDArray) -> None:
         """Compute the RPCA on graph.
 
          Parameters
@@ -77,16 +77,16 @@ class GraphRPCA(RPCA):
         signal : NDArray
              Observations
         """
-        D_init, n_add_values, input_data = self._prepare_data(signal=signal)
+        D_init, n_add_values, input_data = self._prepare_data(signal=X)
         proj_D = utils.impute_nans(D_init, method="median")
 
         if self.rank is None:
             self.rank = utils.approx_rank(proj_D)
 
         if self.G1 is None:
-            self.G1 = utils.construct_graph((self.proj_D).T, n_neighbors=self.nbg1)
+            self.G1 = utils.construct_graph(proj_D.T, n_neighbors=self.nbg1)
         if self.G2 is None:
-            self.G2 = utils.construct_graph((self.proj_D), n_neighbors=self.nbg2)
+            self.G2 = utils.construct_graph(proj_D, n_neighbors=self.nbg2)
 
         laplacian1 = utils.get_laplacian(self.G1)
         laplacian2 = utils.get_laplacian(self.G2)
@@ -95,22 +95,17 @@ class GraphRPCA(RPCA):
         Y = proj_D.copy()
         t_past = 1
 
+        print(laplacian1)
+        input()
+
         lam = 1 / (
             2 * self.gamma1 * np.linalg.norm(laplacian1, 2)
             + 2 * self.gamma2 * np.linalg.norm(laplacian2, 2)
         )
 
-        errors = np.full((self.maxIter,), np.nan, dtype=float)
+        errors = np.full((self.max_iter,), np.nan, dtype=float)
 
-        for iteration in range(self.maxIter):
-            if self.verbose:
-                progress_bar(
-                    iteration,
-                    self.maxIter,
-                    prefix="Progress:",
-                    suffix="Complete",
-                    length=50,
-                )
+        for iteration in range(self.max_iter):
 
             X_past = X.copy()
             Y_past = Y.copy()
