@@ -36,8 +36,8 @@ def _gradient_conjugue(
     ArrayLike
         Minimized array.
     """
-    index_imputed = np.isnan(X).any(axis=1)
-    X_temp = X[index_imputed, :].transpose().copy()
+    index_imputed = np.isnan(X).any(axis=0)
+    X_temp = X[:, index_imputed].copy()
     n_iter = np.isnan(X_temp).sum(axis=0).max()
     mask = np.isnan(X_temp)
     X_temp[mask] = 0
@@ -63,9 +63,22 @@ def _gradient_conjugue(
 
     X_temp[mask] = xn[mask]
     X_final = X.copy()
-    X_final[index_imputed] = X_temp.transpose()
+    X_final[:, index_imputed] = X_temp
 
     return X_final
+
+def invert_robust(M, epsilon=1e-2):
+    # In case of inversibility problem, one can add a penalty term
+    Meps = M - epsilon * (M - np.diag(M.diagonal()))
+    if scipy.linalg.eigh(M)[0].min() < 0:
+        raise WarningMessage(
+            f"Negative eigenvalue, some variables may be constant or colinear, "
+            f"min value of {scipy.linalg.eigh(M)[0].min():.3g} found."
+        )
+    if np.abs(scipy.linalg.eigh(M)[0].min()) > 1e20:
+        raise WarningMessage("Large eigenvalues, imputation may be inflated.")
+    
+    return scipy.linalg.inv(Meps)
 
 
 class ImputeEM(_BaseImputer):  # type: ignore
@@ -89,8 +102,6 @@ class ImputeEM(_BaseImputer):  # type: ignore
         The seed of the pseudo random number generator to use, for reproductibility.
     verbose : bool, optional
         Verbosity flag, controls the debug messages that are issued as functions are evaluated.
-    temporal: bool, optional
-        if temporal data, extend the matrix to have -1 and +1 shift
 
     Attributes
     ----------
@@ -119,11 +130,10 @@ class ImputeEM(_BaseImputer):  # type: ignore
         ampli: Optional[int] = 1,
         random_state: Optional[int] = 123,
         verbose: Optional[bool] = True,
-        temporal: Optional[bool] = False,
         dt: Optional[float] = 2e-2,
         tolerance: Optional[float] = 1e-4,
         stagnation_threshold: Optional[float] = 5e-3,
-        stagnation_loglik: Optional[float] = 1e1,
+        stagnation_loglik: Optional[float] = 2,
     ) -> None:
 
         if strategy not in ["mle", "ou"]:
@@ -137,7 +147,6 @@ class ImputeEM(_BaseImputer):  # type: ignore
         self.verbose = verbose
         self.mask_outliers = None
         self.cov = None
-        self.temporal = temporal
         self.dt = dt
         self.convergence_threshold = tolerance
         self.stagnation_threshold = stagnation_threshold
@@ -183,11 +192,186 @@ class ImputeEM(_BaseImputer):  # type: ignore
         return X
 
     def _check_convergence(
+        self
+    ) -> bool:
+        return False
+
+    def _maximize_likelihood(self, X: ArrayLike) -> ArrayLike:
+        """
+        Get the argmax of a posterior distribution.
+
+        Parameters
+        ----------
+        X : ArrayLike
+            Input DataFrame.
+
+        Returns
+        -------
+        ArrayLike
+            DataFrame with imputed values.
+        """
+        X_center = X - self.means[:, None]
+        X_imputed = _gradient_conjugue(self.cov_inv, X_center)
+        X_imputed = self.means[:, None] + X_imputed
+        return X_imputed
+
+    def impute_em(self, X: ArrayLike) -> ArrayLike:
+        """Imputation via EM algorithm
+
+        Parameters
+        ----------
+        X : ArrayLike
+            array with missing values
+
+        Returns
+        -------
+        X_transformed
+            imputed array
+        """
+
+        X_ = self._convert_numpy(X)
+        if np.nansum(X_) == 0:
+            return X_
+
+        rng = np.random.default_rng(self.random_state)
+
+        mask_na = np.isnan(X)
+
+        # first imputation
+        X_transformed = np.apply_along_axis(self._linear_interpolation, 1, X_)
+
+        self.fit_distribution(X_transformed)
+
+        list_logliks, list_means, list_covs = [], [], []
+        for iter_em in range(self.max_iter_em):
+
+            X_transformed = self._sample_ou(X_transformed, mask_na, rng, dt=2e-2)
+
+            if (
+                self._check_convergence()
+            ):
+                if self.verbose:
+                    print(f"EM converged after {iter_em} iterations.")
+                break
+            
+        if self.strategy == "mle":
+            X_transformed = self._maximize_likelihood(X_)
+        elif self.strategy == "ou":
+            X_transformed = self._sample_ou(X_transformed, mask_na, rng, dt=2e-2)
+
+        if np.all(np.isnan(X_transformed)):
+            raise WarningMessage("Result contains NaN. This is a bug.")
+
+        self.delta_means = [
+            scipy.linalg.norm(t - s, np.inf) for s, t in zip(list_means, list_means[1:])
+        ]
+        self.delta_covs = [
+            scipy.linalg.norm(t - s, np.inf) for s, t in zip(list_covs, list_covs[1:])
+        ]
+        self.logliks = list_logliks
+
+        return X_transformed
+
+    def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Fit and impute input X array.
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            DataFrame to be imputed
+
+        Returns
+        -------
+        ArrayLike
+            Final array after EM sampling.
+        """
+        if not ((isinstance(df, np.ndarray)) or (isinstance(df, pd.DataFrame))):
+            raise AssertionError("Invalid type. X must be either pd.DataFrame or np.ndarray.")
+
+        if df.shape[1] < 2:
+            raise AssertionError("Invalid dimensions: X must be of dimension (n,m) with m>1.")
+        
+        X = df.values
+
+        scaler = StandardScaler()
+        X = scaler.fit_transform(X)
+        X = X.T
+        X = self.impute_em(X)
+        X = X.T
+        X = scaler.inverse_transform(X)
+
+        if np.isnan(np.sum(X)):
+            raise WarningMessage("Result contains NaN. This is a bug.")
+
+        if isinstance(df, np.ndarray):
+            return X
+        elif isinstance(df, pd.DataFrame):
+            return pd.DataFrame(X, index=df.index, columns=df.columns)
+
+        else:
+            raise AssertionError("Invalid type. X must be either pd.DataFrame or np.ndarray.")
+
+
+class ImputeMultiNormalEM(ImputeEM):  # type: ignore
+    """
+    Imputation of missing values using a multivariate Gaussian model through EM optimization and
+    using a projected Ornstein-Uhlenbeck process.
+
+    Parameters
+    ----------
+    method : str
+        Method for imputation, choose among "sample" or "mle".
+    max_iter_em : int, optional
+        Maximum number of steps in the EM algorithm
+    n_iter_ou : int, optional
+        Number of iterations for the Gibbs sampling method (+ noise addition),
+        necessary for convergence, by default 50.
+    ampli : float, optional
+        Whether to sample the posterior (1)
+        or to maximise likelihood (0), by default 1.
+    random_state : int, optional
+        The seed of the pseudo random number generator to use, for reproductibility.
+    verbose : bool, optional
+        Verbosity flag, controls the debug messages that are issued as functions are evaluated.
+
+    Attributes
+    ----------
+    X_intermediate : list
+        List of pd.DataFrame giving the results of the EM process as function of the
+        iteration number.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> from qolmat.imputations.em_sampler import ImputeEM
+    >>> imputor = ImputeEM(strategy="sample")
+    >>> X = pd.DataFrame(data=[[1, 1, 1, 1],
+    >>>                        [np.nan, np.nan, 3, 2],
+    >>>                        [1, 2, 2, 1], [2, 2, 2, 2]],
+    >>>                        columns=["var1", "var2", "var3", "var4"])
+    >>> imputor.fit_transform(X)
+    """
+
+    def __init__(
         self,
-        imputations: List[np.ndarray],
-        mu: List[np.ndarray],
-        cov: List[np.ndarray],
-        n_iter: int,
+        strategy: Optional[str] = "mle",
+        max_iter_em: Optional[int] = 200,
+        n_iter_ou: Optional[int] = 50,
+        ampli: Optional[int] = 1,
+        random_state: Optional[int] = 123,
+        verbose: Optional[bool] = True,
+        dt: Optional[float] = 2e-2,
+        tolerance: Optional[float] = 1e-4,
+        stagnation_threshold: Optional[float] = 5e-3,
+        stagnation_loglik: Optional[float] = 1e1,
+    ) -> None:
+
+        super().__init__(strategy,max_iter_em,n_iter_ou,ampli,random_state,verbose,dt,tolerance,stagnation_threshold,stagnation_loglik)
+
+    def _check_convergence(
+        self
     ) -> bool:
         """Check if the EM algorithm has converged. Three criteria:
         1) if the differences between the estimates of the parameters (mean and covariance) is
@@ -198,91 +382,47 @@ class ImputeEM(_BaseImputer):  # type: ignore
         3) if the likelihood of the data no longer increases,
         i.e. stagnates over the last 5 iterations (max_loglik - stagnation_loglik).
 
-        Parameters
-        ----------
-        imputations : List[np.ndarray]
-            list of imputations estimates
-        mu : List[np.ndarray]
-            list of mean estimates
-        cov : List[np.ndarray]
-            list of covariance estimates
-        n_iter: int,
-            current iteration
-
         Returns
         -------
         bool
             True/False if the algorithm has converged
         """
+        
+
+        self.list_means.append(self.means)
+        self.list_covs.append(self.cov)
+        self.list_logliks.append(self.loglik)
+        
+        n_iter = len(self.list_means)
 
         min_diff_reached = (
             n_iter > 5
-            and scipy.linalg.norm(mu[-1] - mu[-2], np.inf) < self.convergence_threshold
-            and scipy.linalg.norm(cov[-1] - cov[-2], np.inf) < self.convergence_threshold
+            and scipy.linalg.norm(self.list_means[-1] - self.list_means[-2], np.inf) < self.convergence_threshold
+            and scipy.linalg.norm(self.list_covs[-1] - self.list_covs[-2], np.inf) < self.convergence_threshold
         )
 
         min_diff_stable = (
             n_iter > 10
-            and min([scipy.linalg.norm(t - s, np.inf) for s, t in zip(mu[-6:], mu[-5:])])
+            and min([scipy.linalg.norm(t - s, np.inf) for s, t in zip(self.list_means[-6:], self.list_means[-5:])])
             < self.stagnation_threshold
-            and min([scipy.linalg.norm(t - s, np.inf) for s, t in zip(cov[-6:], cov[-5:])])
+            and min([scipy.linalg.norm(t - s, np.inf) for s, t in zip(self.list_covs[-6:], self.list_covs[-5:])])
             < self.stagnation_threshold
         )
 
         if n_iter > 10:
-            logliks = [
-                scipy.stats.multivariate_normal.logpdf(data, m, c).sum()
-                for data, m, c in zip(imputations[-6:], mu[-6:], cov[-6:])
-            ]
-        max_loglik = n_iter > 10 and min(abs(pd.Series(logliks).diff())) < self.stagnation_loglik
+            logliks = pd.Series(self.list_logliks[-6:])
+            max_loglik = min(abs(logliks.diff())) < self.stagnation_loglik
+        else:
+            max_loglik = False
 
         return min_diff_reached or min_diff_stable or max_loglik
-    
-    def _invert_covariance(self, epsilon=1e-2):
-        # In case of inversibility problem, one can add a penalty term
-        cov = self.cov - epsilon * (self.cov - np.diag(self.cov.diagonal()))
-        if scipy.linalg.eigh(self.cov)[0].min() < 0:
-            raise WarningMessage(
-                f"Negative eigenvalue, some variables may be constant or colinear, "
-                f"min value of {scipy.linalg.eigh(self.cov)[0].min():.3g} found."
-            )
-        if np.abs(scipy.linalg.eigh(self.cov)[0].min()) > 1e20:
-            raise WarningMessage("Large eigenvalues, imputation may be inflated.")
+
+    def fit_distribution(self, X):
+        # first estimation of params
+        self.means = np.mean(X, axis=1)
+        self.cov = np.cov(X)
         
-        return scipy.linalg.inv(cov)
-
-    def _add_shift(self, X: ArrayLike, ystd: bool = True, tmrw: bool = False) -> ArrayLike:
-        """
-        For each variable adds one columns corresponding to day before and/or after
-        each date (date must be by row index).
-
-        Parameters
-        ----------
-        X : ArrayLike
-            Input array.
-        ystd : bool, optional
-            Include values from the past, by default True.
-        tmrw : bool, optional
-            Include values from the future, by default False.
-
-        Returns
-        -------
-        ArrayLike
-            Extended array with shifted variables.
-        """
-
-        X_shifted = X.copy()
-        if ystd:
-            X_ystd = np.roll(X, 1, axis=0).astype("float")
-            X_ystd[:1, :] = np.nan
-            X_shifted = np.hstack([X_shifted, X_ystd])
-        if tmrw:
-            X_tmrw = np.roll(X, -1, axis=0).astype("float")
-            X_tmrw[-1:, :] = np.nan
-            X_shifted = np.hstack([X_shifted, X_tmrw])
-        return X_shifted
-
-    
+        self.cov_inv = self._invert_covariance(epsilon=1e-2)
 
     def _sample_ou(
         self,
@@ -324,159 +464,191 @@ class ImputeEM(_BaseImputer):  # type: ignore
         n_samples, n_variables = X.shape
 
         X_init = X.copy()
-        beta = self.cov_inv
-        gamma = np.diagonal(self.cov)
+        # gamma = np.diagonal(self.cov)
+        # print(gamma)
         # list_X = []
-        list_mu = []
+        list_means = []
         list_cov = []
         for iter_ou in range(self.n_iter_ou):
             noise = self.ampli * rng.normal(0, 1, size=(n_samples, n_variables))
-            X += gamma * ((self.means - X) @ beta) * dt + noise * np.sqrt(2 * gamma * dt)
+            # X += gamma * ((self.means - X) @ beta) * dt + noise * np.sqrt(2 * gamma * dt)
+            X_center = X - self.means[:, None]
+            X = X - self.cov_inv @ X_center * dt + noise * np.sqrt(2 * dt)
             X[~mask_na] = X_init[~mask_na]
             if iter_ou > self.n_iter_ou - 50:
                 # list_X.append(X)
-                list_mu.append(np.mean(X, axis=0))
-                list_cov.append(np.cov(X.T, bias=True))
+                list_means.append(np.mean(X, axis=1))
+                list_cov.append(np.cov(X, bias=True))
 
         # MANOVA formula
-        mu_stack = np.stack(list_mu, axis=1)
-        self.mu = np.mean(mu_stack, axis=1)
+        means_stack = np.stack(list_means, axis=1)
+        self.means = np.mean(means_stack, axis=1)
         cov_stack = np.stack(list_cov, axis=2)
-        self.cov = np.mean(cov_stack, axis=2) + np.cov(mu_stack, bias=True)
-        self.cov_inv = self._invert_covariance(epsilon=1e-2)
+        self.cov = np.mean(cov_stack, axis=2) + np.cov(means_stack, bias=True)
+        self.cov_inv = invert_robust(self.cov, epsilon=1e-2)
+
+        self.loglik = scipy.stats.multivariate_normal.logpdf(X.T, self.means, self.cov).mean()
 
         return X
-    
-    def _maximize_likelihood(self, X: ArrayLike) -> ArrayLike:
+
+
+class ImputeVAR1EM(ImputeEM):  # type: ignore
+    """
+    Imputation of missing values using a vector autoregressive model through EM optimization and
+    using a projected Ornstein-Uhlenbeck process.
+
+    Parameters
+    ----------
+    method : str
+        Method for imputation, choose among "sample" or "mle".
+    max_iter_em : int, optional
+        Maximum number of steps in the EM algorithm
+    n_iter_ou : int, optional
+        Number of iterations for the Gibbs sampling method (+ noise addition),
+        necessary for convergence, by default 50.
+    ampli : float, optional
+        Whether to sample the posterior (1)
+        or to maximise likelihood (0), by default 1.
+    random_state : int, optional
+        The seed of the pseudo random number generator to use, for reproductibility.
+    verbose : bool, optional
+        Verbosity flag, controls the debug messages that are issued as functions are evaluated.
+
+    Attributes
+    ----------
+    X_intermediate : list
+        List of pd.DataFrame giving the results of the EM process as function of the
+        iteration number.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> from qolmat.imputations.em_sampler import ImputeEM
+    >>> imputor = ImputeEM(strategy="sample")
+    >>> X = pd.DataFrame(data=[[1, 1, 1, 1],
+    >>>                        [np.nan, np.nan, 3, 2],
+    >>>                        [1, 2, 2, 1], [2, 2, 2, 2]],
+    >>>                        columns=["var1", "var2", "var3", "var4"])
+    >>> imputor.fit_transform(X)
+    """
+
+    def __init__(
+        self,
+        strategy: Optional[str] = "mle",
+        max_iter_em: Optional[int] = 200,
+        n_iter_ou: Optional[int] = 50,
+        ampli: Optional[int] = 1,
+        random_state: Optional[int] = 123,
+        verbose: Optional[bool] = True,
+        dt: Optional[float] = 2e-2,
+        tolerance: Optional[float] = 1e-4,
+        stagnation_threshold: Optional[float] = 5e-3,
+        stagnation_loglik: Optional[float] = 1e1,
+    ) -> None:
+
+        super().__init__(strategy,max_iter_em,n_iter_ou,ampli,random_state,verbose,dt,tolerance,stagnation_threshold,stagnation_loglik)
+
+    def fit_distribution(self, X):
+        n_variables, n_samples = X.shape
+
+        X_lag = np.roll(X, 1)
+        self.B = np.zeros(n_variables)
+
+        XX_lag = X[:, :-1] @ X_lag[:, 1:].T
+        XX = X @ X.T
+
+        self.A = XX_lag @ invert_robust(XX, epsilon=1e-2)
+        
+        Z_back = X - self.A @ X_lag
+        Z_back[:, 0] = 0
+        self.omega = (Z_back @ Z_back.T) / n_variables
+        
+        self.omega_inv = invert_robust(self.omega, epsilon=1e-2)
+
+    def _sample_ou(
+        self,
+        X: ArrayLike,
+        mask_na: ArrayLike,
+        rng: int,
+        dt: float = 2e-2,
+    ) -> ArrayLike:
         """
-        Get the argmax of a posterior distribution. Called by `impute_mapem_ts`.
+        Samples the Gaussian distribution under the constraint that not na values must remain
+        unchanged, using a projected Ornstein-Uhlenbeck process.
+        The sampled distribution tends to the target one in the limit dt -> 0 and
+        n_iter_ou x dt -> infty.
+        Called by `impute_sample_ts`.
+        X = A X_t-1 + B + E where E ~ N(0, omega)
 
         Parameters
         ----------
         df : ArrayLike
-            Input DataFrame.
+            Inital dataframe to be imputed, which should have been already imputed using a simple
+            method. This first imputation will be used as an initial guess.
+        mask_na : ArrayLike
+            Boolean dataframe indicating which coefficients should be resampled.
+        rng : int
+            Random number generator to be used (for reproducibility).
+        n_iter_ou : int
+            Number of iterations for the OU process, a large value decreases the sample bias
+            but increases the computation time.
+        dt : float
+            Process integration time step, a large value increases the sample bias and can make
+            the algorithm unstable, but compensates for a smaller n_iter_ou. By default, 2e-2.
+        ampli : float
+            Amplification of the noise, if less than 1 the variance is reduced. By default, 1.
 
         Returns
         -------
         ArrayLike
-            DataFrame with imputed values.
+            DataFrame after Ornstein-Uhlenbeck process.
         """
-        X_imputed = self.means + _gradient_conjugue(self.cov_inv, X - self.means)
-        return X_imputed
+        n_variables, n_samples = X.shape
 
-    def impute_em(self, X: ArrayLike) -> ArrayLike:
-        """Imputation via EM algorithm
+        X_init = X.copy()
+        # gamma = np.diagonal(self.cov)
+        # list_X = []
+        list_B = []
+        list_XX_lag = []
+        list_XX = []
+        list_ZZ = []
+        for iter_ou in range(self.n_iter_ou):
+            noise = self.ampli * rng.normal(0, 1, size=(n_variables, n_samples))
+            # X_center = X - self.means[:, None]
+            X_lag = np.roll(X, 1, axis=1)
+            Z_back = X - self.A @ X_lag - self.B[:, None]
+            Z_back[:, 0] = 0
+            # Z_front = np.roll(X, -1) - self.A @ X  - self.B[:, None]
+            # Z_front[-1, :] = 0
+            Z_front = np.roll(Z_back, -1, axis=1)
+            X = X - self.omega_inv @ Z_back * dt - self.A.T @ self.omega_inv @ Z_front * dt + noise * np.sqrt(2 * dt)
+            X[~mask_na] = X_init[~mask_na]
+            if iter_ou > self.n_iter_ou - 50:
+                # list_X.append(X)
 
-        Parameters
-        ----------
-        X : ArrayLike
-            array with missing values
+                X_center = X - self.B[:, None]
+                X_lag = np.roll(X, 1, axis=1)
+                Z_back = X_center - self.A @ X_lag
+                Z_back[:, 0] = 0
+                B = np.mean(X - self.A @ X_lag, axis=1)
 
-        Returns
-        -------
-        X_transformed
-            imputed array
-        """
+                list_B.append(B) 
+                list_XX.append(X @ X.T)
+                list_XX_lag.append(X_center[:, :-1] @ X_lag[:, 1:].T)
+                list_ZZ.append(Z_back @ Z_back.T)
 
-        X_ = self._convert_numpy(X)
-        if np.nansum(X_) == 0:
-            return X_
+        B_stack = np.stack(list_B, axis=1)
+        self.B = np.mean(B_stack, axis=1)
 
-        rng = np.random.default_rng(self.random_state)
-        _, nc = X_.shape
+        XX_stack = np.stack(list_XX, axis=2)
+        XX_mean = np.mean(XX_stack, axis=2)
+        XX_lag_stack = np.stack(list_XX_lag, axis=2)
+        XX_lag_mean = np.mean(XX_lag_stack, axis=2)
+        self.A = XX_lag_mean @ invert_robust(XX_mean, epsilon=1e-2)
+        # self.cov_inv = self._invert_covariance(epsilon=1e-2)
+        ZZ_stack = np.stack(list_ZZ, axis=2)
+        self.omega = np.mean(ZZ_stack, axis=2) / n_variables
+        self.omega_inv = invert_robust(self.omega, epsilon=1e-2)
 
-        mask_na = np.isnan(X)
-            
-
-        # first imputation
-        X_transformed = np.apply_along_axis(self._linear_interpolation, 0, X_)
-
-        # first estimation of params
-        self.means = np.mean(X_transformed, axis=0)
-        self.cov = np.cov(X_transformed.T)
-        
-        self.cov_inv = self._invert_covariance(epsilon=1e-2)
-
-        if self.temporal:
-            shift = 1
-            X_past = X_transformed.copy()
-            X_past = np.roll(X_past, shift, axis=0).astype(float)
-            X_past[:shift, :] = np.nan
-
-        list_X_transformed, list_means, list_covs = [], [], []
-        for iter_em in range(self.max_iter_em):
-
-            if self.temporal:
-                shift = 1
-                X_past = X_transformed.copy()
-                X_past = np.roll(X_past, shift, axis=0).astype(float)
-                X_past[:shift, :] = np.nan
-
-            X_transformed = self._sample_ou(X_transformed, mask_na, rng, dt=2e-2)
-
-            list_means.append(self.means)
-            list_covs.append(self.cov)
-            list_X_transformed.append(X_transformed)
-            if (
-                self._check_convergence(list_X_transformed, list_means, list_covs, iter_em)
-                and self.verbose
-            ):
-                print(f"EM converged after {iter_em} iterations.")
-                break
-            
-        if self.strategy == "mle":
-            X_transformed = self._maximize_likelihood(X_)
-        elif self.strategy == "ou":
-            X_transformed = self._sample_ou(X_transformed, mask_na, rng, dt=2e-2)
-
-        if np.all(np.isnan(X_transformed)):
-            raise WarningMessage("Result contains NaN. This is a bug.")
-
-        self.delta_means = [
-            scipy.linalg.norm(t - s, np.inf) for s, t in zip(list_means, list_means[1:])
-        ]
-        self.delta_covs = [
-            scipy.linalg.norm(t - s, np.inf) for s, t in zip(list_covs, list_covs[1:])
-        ]
-        self.logliks = [
-            scipy.stats.multivariate_normal.logpdf(data, m, c).sum()
-            for data, m, c in zip(list_X_transformed, list_means, list_covs)
-        ]
-
-        return X_transformed
-
-    def fit_transform(self, X: ArrayLike) -> ArrayLike:
-        """
-        Fit and impute input X array.
-
-        Parameters
-        ----------
-        X : ArrayLike
-            Sparse array to be imputed.
-
-        Returns
-        -------
-        ArrayLike
-            Final array after EM sampling.
-        """
-        if not ((isinstance(X, np.ndarray)) or (isinstance(X, pd.DataFrame))):
-            raise AssertionError("Invalid type. X must be either pd.DataFrame or np.ndarray.")
-
-        if X.shape[1] < 2:
-            raise AssertionError("Invalid dimensions: X must be of dimension (n,m) with m>1.")
-
-        scaler = StandardScaler()
-        X_sc = scaler.fit_transform(X)
-        X_imputed = self.impute_em(X_sc)
-        X_imputed = scaler.inverse_transform(X_imputed)
-
-        if np.isnan(np.sum(X_imputed)):
-            raise WarningMessage("Result contains NaN. This is a bug.")
-
-        if isinstance(X, np.ndarray):
-            return X_imputed
-        elif isinstance(X, pd.DataFrame):
-            return pd.DataFrame(X_imputed, index=X.index, columns=X.columns)
-
-        else:
-            raise AssertionError("Invalid type. X must be either pd.DataFrame or np.ndarray.")
+        return X
