@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from inspect import signature
 from typing import List, Optional
 
 import numpy as np
@@ -73,7 +72,7 @@ class TemporalRPCA(RPCA):
         self.list_etas = list_etas
         self.norm = norm
 
-    def compute_L1(self, proj_D, omega, lam, tau, rank, return_basis=False) -> None:
+    def compute_L1(self, proj_D, omega, lam, tau, rank) -> None:
         """
         compute RPCA with possible temporal regularisations, penalised with L1 norm
         """
@@ -171,11 +170,10 @@ class TemporalRPCA(RPCA):
                 break
         result = [X, A, errors]
 
-        if return_basis:
-            result += [L, Q]
+        result += [L, Q]
         return tuple(result)
 
-    def compute_L2(self, proj_D, omega, lam, tau, rank, return_basis=False) -> None:
+    def compute_L2(self, proj_D, omega, lam, tau, rank) -> None:
         """
         compute RPCA with possible temporal regularisations, penalised with L2 norm
         """
@@ -256,8 +254,7 @@ class TemporalRPCA(RPCA):
 
         result = [X, A, errors]
 
-        if return_basis:
-            result += [L, Q]
+        result += [L, Q]
         return tuple(result)
 
     def get_params(self) -> dict:
@@ -306,8 +303,6 @@ class TemporalRPCA(RPCA):
     def fit_transform(
         self,
         X: NDArray,
-        rank: Optional[int] = None,
-        return_basis: bool = False
     ) -> None:
         """
         Compute the noisy RPCA with time "penalisations"
@@ -324,13 +319,13 @@ class TemporalRPCA(RPCA):
         params_scale = self.get_params_scale(X=proj_D)
 
         lam = params_scale["lam"] if self.lam is None else self.lam
-        rank = params_scale["rank"] if rank is None else rank
+        rank = params_scale["rank"] if self.rank is None else self.rank
         tau = params_scale["tau"] if self.tau is None else self.tau
 
         if self.norm == "L1":
-            res = self.compute_L1(proj_D, omega, lam, tau, rank, return_basis)
+            res = self.compute_L1(proj_D, omega, lam, tau, rank)
         elif self.norm == "L2":
-            res = self.compute_L2(proj_D, omega, lam, tau, rank, return_basis)
+            res = self.compute_L2(proj_D, omega, lam, tau, rank)
 
         M = res[0]
         A = res[1]
@@ -347,15 +342,13 @@ class TemporalRPCA(RPCA):
             ts_A = A.flatten()
             ts_M = ts_M[~np.isnan(ts_M)]
             ts_A = ts_A[~np.isnan(ts_A)]
-            result = [ts_M, ts_A, errors]
+            result = [ts_M, ts_A]
         else:
-            result = [M, A, errors]
+            result = [M, A]
 
-        if return_basis:
-            result += res[3:]
-        return tuple(result)
-
-    
+        result += res[3:]
+        result += [errors]
+        return tuple(result)    
 
 
 class OnlineTemporalRPCA(TemporalRPCA):
@@ -499,7 +492,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
 
         m, n = D_init.shape
         super_class = TemporalRPCA(**super().get_params())
-        Lhat, Shat, _ =super_class.fit_transform(X=D_init[:, :burnin], return_basis=False)
+        Lhat, Shat, _ =super_class.fit_transform(X=D_init[:, :burnin])
 
         proj_D = utils.impute_nans(D_init, method="median")
         params_scale = self.get_params_scale(X=proj_D)
@@ -526,7 +519,6 @@ class OnlineTemporalRPCA(TemporalRPCA):
         A = np.zeros((approx_rank, approx_rank))
         B = np.zeros((m, approx_rank))
 
-        print(Vhat_win.shape)
         for col in range(Vhat_win.shape[1]):
             sums = np.zeros(A.shape)
             for index, period in enumerate(self.list_periods):
@@ -613,6 +605,4 @@ class OnlineTemporalRPCA(TemporalRPCA):
             ts_A = Shat_grow.T.flatten()
             return ts_M[~np.isnan(ts_M)], ts_A[~np.isnan(ts_A)]
         else:
-            return Lhat_grow, Shat_grow
-
-   
+            return Lhat_grow, Shat_grow, None, None, None

@@ -32,13 +32,12 @@ def compute_transition_matrix(states: pd.Series, ngroups: List = None):
 
 def get_sizes_max(values_isna: pd.Series) -> pd.Series:
     ids_hole = (values_isna.diff() != 0).cumsum()
-    sizes_max = (
-        values_isna.groupby(ids_hole)
-        .apply(lambda x: (~x) * np.arange(len(x)))
-        .shift(1)
-        .fillna(0)
-        .astype(int)
+    sizes_max = values_isna.groupby(ids_hole, group_keys=True).apply(
+        lambda x: (~x) * np.arange(len(x))
     )
+    sizes_max = sizes_max.shift(1)
+    sizes_max = sizes_max.fillna(0)
+    sizes_max = sizes_max.astype(int)
     return sizes_max
 
 
@@ -114,7 +113,7 @@ class _HoleGenerator:
             if self.ngroups is None:
                 mask = self.generate_mask(X)
             else:
-                mask = X.groupby(self.ngroups).apply(self.generate_mask)
+                mask = X.groupby(self.ngroups, group_keys=False).apply(self.generate_mask)
             list_masks.append(mask)
         return list_masks
 
@@ -191,7 +190,7 @@ class UniformHoleGenerator(_HoleGenerator):
         return df_mask
 
 
-class _SamplerHoleGenerator(HoleGenerator):
+class _SamplerHoleGenerator(_HoleGenerator):
     """This abstract class implements a generic way to generate holes in a dataframe by sampling 1D hole size distributions.
 
     Parameters

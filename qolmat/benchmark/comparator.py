@@ -79,17 +79,7 @@ class Comparator:
             df_origin[df_mask],
             df_imputed[df_mask],
         )
-        # if self.columnwise_evaluation:
-        #     wd = utils.wasser_distance(
-        #         df_origin,
-        #         df_imputed,
-        #     )
-        # if not self.columnwise_evaluation and df_origin.shape[1] > 1:
-        #     frechet = utils.frechet_distance(
-        #         df_origin,
-        #         df_imputed,
-        #         normalized=False,
-        #     )
+
         errors = pd.concat(dict_errors.values(), keys=dict_errors.keys())
         return errors
 
@@ -118,7 +108,7 @@ class Comparator:
             df_corrupted = df_origin.copy()
             df_corrupted[df_mask] = np.nan
             if search_space is None:
-                df_imputed = tested_model.fit_transform(df_corrupted)
+                df_imputed = tested_model.fit_transform(X=df_corrupted)
             else:
                 cv = cross_validation.CrossValidation(
                     tested_model,
@@ -126,7 +116,7 @@ class Comparator:
                     hole_generator=self.generator_holes,
                     n_calls=self.n_cv_calls,
                 )
-                df_imputed = cv.fit_transform(df_corrupted)
+                df_imputed = cv.fit_transform(X=df_corrupted)
 
             subset = self.generator_holes.subset
             errors = self.get_errors(df_origin[subset], df_imputed[subset], df_mask[subset])
@@ -154,7 +144,6 @@ class Comparator:
         for name, tested_model in self.dict_models.items():
             if verbose:
                 print(type(tested_model).__name__)
-
             search_space = utils.get_search_space(tested_model, self.search_params)
 
             dict_errors[name] = self.evaluate_errors_sample(tested_model, df, search_space)

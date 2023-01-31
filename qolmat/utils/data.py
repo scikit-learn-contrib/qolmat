@@ -71,7 +71,7 @@ def preprocess_data(df: pd.DataFrame):
     df.sort_index(inplace=True)
     dict_agg = {key: np.mean for key in df.columns}
     dict_agg["RAIN"] = np.mean
-    df = df.groupby(["station", df.index.get_level_values("datetime").floor("d")]).agg(dict_agg)
+    df = df.groupby(["station", df.index.get_level_values("datetime").floor("d")], group_keys=False).agg(dict_agg)
     return df
 
 
@@ -108,7 +108,7 @@ def add_holes(X: pd.DataFrame, ratio_masked: float, mean_size: int, groups: List
     if generator.groups == []:
         mask = generator.generate_mask(X)
     else:
-        mask = X.groupby(groups).apply(generator.generate_mask)
+        mask = X.groupby(groups, group_keys=False).apply(generator.generate_mask)
     X_with_nans = X.copy()
     X_with_nans[mask] = np.nan
     return X_with_nans

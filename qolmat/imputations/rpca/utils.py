@@ -190,7 +190,6 @@ def impute_nans(
             in 'mean', 'median' or 'zeros']
 
     """
-
     if method == "mean":
         result = np.where(np.isnan(M), np.resize(np.nanmean(M, axis=0), M.shape), M)
         result = np.where(np.isnan(result), np.nanmean(result), result)

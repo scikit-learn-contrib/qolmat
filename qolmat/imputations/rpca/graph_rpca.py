@@ -123,13 +123,9 @@ class GraphRPCA(RPCA):
 
             t = t_past
 
-        self.errors = errors
-
         A = proj_D - X
 
-        if  input_data == "2DArray":
-            result = [X, A, errors]
-        elif input_data == "1DArray":
+        if input_data == "1DArray":
             X = X.T
             A = A.T
 
@@ -140,7 +136,8 @@ class GraphRPCA(RPCA):
             ts_A = A.flatten()
             ts_X = ts_X[~np.isnan(ts_X)]
             ts_A = ts_A[~np.isnan(ts_A)]
-            result = [ts_X, ts_A, errors]
+            result = [ts_X, ts_A, None, None, errors]
         else:
-            raise ValueError("input data type not recognized")
+            result = [X, A, None, None, errors]
         return tuple(result)
+        

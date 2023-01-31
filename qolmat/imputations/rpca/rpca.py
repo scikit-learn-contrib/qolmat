@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import numpy as np
 from numpy.typing import NDArray
@@ -44,7 +44,7 @@ class RPCA(BaseEstimator, TransformerMixin):
     def _prepare_data(
         self,
         signal: NDArray
-    ) -> Tuple[NDArray, int]:
+    ) -> Tuple[NDArray, int, int]:
         """
         Transform signal to 2D-array in case of 1D-array.
         """
@@ -58,7 +58,7 @@ class RPCA(BaseEstimator, TransformerMixin):
             input_data = "2DArray"
         return D_init, n_add_values, input_data
 
-    def get_params(self):
+    def get_params(self) -> dict[str, Union[int, bool]]:
         """Return the attributes"""
         return {
             "n_rows": self.n_rows,
@@ -67,7 +67,7 @@ class RPCA(BaseEstimator, TransformerMixin):
             "verbose": self.verbose,
         }
 
-    def set_params(self, **kargs):
+    def set_params(self, **kargs) -> RPCA:
         """Set the attributes"""
         for param_key in kargs.keys():
             if param_key in self.__dict__.keys():
@@ -77,8 +77,7 @@ class RPCA(BaseEstimator, TransformerMixin):
     def fit_transform(
         self,
         X: NDArray,
-        return_basis: bool = False
-    ) -> RPCA:
+    ) -> Tuple[NDArray, NDArray, NDArray, NDArray]:
 
         M, _, input_data= self._prepare_data(signal=X)
         A = np.zeros(M.shape, dtype=float)
@@ -89,7 +88,7 @@ class RPCA(BaseEstimator, TransformerMixin):
         else:
             result = [M, A]
 
-        if return_basis:
-            U, _, Vh = np.linalg.svd(M, full_matrices=False, compute_uv=True)
-            result += [U, Vh]
+        U, _, Vh = np.linalg.svd(M, full_matrices=False, compute_uv=True)
+        result += [U, Vh]
+        result += [None]
         return tuple(result)

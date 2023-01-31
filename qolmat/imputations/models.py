@@ -3,7 +3,7 @@ import warnings
 from typing import Dict, List, Optional, Union
 
 import sklearn.neighbors._base
-from sklearn.experimental import enable_iterative_imputer
+sys.modules["sklearn.neighbors.base"] = sklearn.neighbors._base
 
 sys.modules["sklearn.neighbors.base"] = sklearn.neighbors._base
 
@@ -11,12 +11,13 @@ from functools import partial
 
 import numpy as np
 import pandas as pd
+from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer, KNNImputer
 from sklearn.impute._base import _BaseImputer
 from statsmodels.tsa.seasonal import seasonal_decompose
 
-sys.modules["sklearn.neighbors.base"] = sklearn.neighbors._base
-import missingpy
+
+#import missingpy
 
 from qolmat.benchmark import utils
 from qolmat.imputations.rpca.pcp_rpca import RPCA
@@ -507,15 +508,8 @@ class ImputeRPCA(_BaseImputer):
     def __init__(self, method: str = "temporal", multivariate: bool = False, **kwargs) -> None:
         self.multivariate = multivariate
         self.method = method
-
-        if method == "PCP":
-            self.rpca = RPCA()
-        elif method == "temporal":
-            self.rpca = TemporalRPCA()
-        elif method == "onlinetemporal":
-            self.rpca = OnlineTemporalRPCA()
         for name, value in kwargs.items():
-            setattr(self.rpca, name, value)
+            setattr(self, name, value)
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -532,15 +526,29 @@ class ImputeRPCA(_BaseImputer):
             imputed dataframe
         """
 
+
+        if self.method == "PCP":
+            self.rpca = RPCA()
+        elif self.method == "temporal":
+            self.rpca = TemporalRPCA()
+        elif self.method == "onlinetemporal":
+            self.rpca = OnlineTemporalRPCA()
+        
+        rpca_params = self.__dict__.copy()
+        del rpca_params["multivariate"]
+        del rpca_params["method"]
+        for name, value in rpca_params.items():
+            setattr(self.rpca, name, value)
         if self.multivariate:
-            imputed, _, _ = self.rpca.fit_transform(signal=df.values)
+            imputed, _, _, _ = self.rpca.fit_transform(X=df.values)
             imputed = pd.DataFrame(imputed, columns=df.columns)
         else:
             imputed = pd.DataFrame()
-            cols_with_nans = df.columns[df.isna().any()]
+            cols_with_nans = [col for col in df.columns if df[col].isna().any()]
             for col in cols_with_nans:
-                imputed_signal, _, _ = self.rpca.fit_transform(signal=df[col].values)
+                imputed_signal, _, _, _, _ = self.rpca.fit_transform(X=df[col].values)
                 imputed[col] = imputed_signal
+              
         imputed.index = df.index
 
         return imputed

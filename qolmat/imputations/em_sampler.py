@@ -353,7 +353,7 @@ class ImputeEM(_BaseImputer):  # type: ignore
         mask_na: np.ndarray,
     ) -> float:
 
-        m, n = X.shape
+        _, n = X.shape
         X_ = X.copy()
 
         for _ in range(self.n_iter_mh):

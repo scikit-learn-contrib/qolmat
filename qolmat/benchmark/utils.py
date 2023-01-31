@@ -11,6 +11,11 @@ from skopt.space import Categorical, Integer, Real
 BOUNDS = Bounds(1, np.inf, keep_feasible=True)
 EPS = np.finfo(float).eps
 
+def has_given_attribute(tested_model, name_param):
+    has_attribute = hasattr(tested_model, name_param) and (getattr(tested_model, name_param) is not None)
+    return has_attribute
+
+
 
 def get_search_space(tested_model: any, search_params: Dict) -> Union[None, List]:
     """Construct the search space for the tested_model
@@ -33,14 +38,10 @@ def get_search_space(tested_model: any, search_params: Dict) -> Union[None, List
         search_space = []
         for name_param, vals_params in search_params[str(type(tested_model).__name__)].items():
 
-            if str(type(tested_model).__name__) == "ImputeRPCA":
-                if hasattr(tested_model.rpca, name_param):
-                    raise ValueError(
-                        f"Sorry, you set a value to {name_param} and asked for a search..."
-                    )
-            elif hasattr(tested_model, name_param):
+            if has_given_attribute(tested_model, name_param):
                 raise ValueError(
-                    f"Sorry, you set a value to {name_param} and asked for a search..."
+                    f"Sorry, you set the value {getattr(tested_model, name_param)} to {name_param}"
+                     " and asked for a search..."
                 )
 
             if vals_params["type"] == "Integer":

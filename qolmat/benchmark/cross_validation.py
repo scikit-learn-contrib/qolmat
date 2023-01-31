@@ -155,11 +155,13 @@ class CrossValidation:
             imputed dataframe
         """
 
+        n0 = self.n_calls//5 if (self.n_calls//5) >= 1 else self.n_calls
+
         res = skopt.gp_minimize(
-            self.objective(),
+            self.objective(X=X),
             self.search_space,
             n_calls=self.n_calls,
-            n_initial_points=self.n_calls // 5,
+            n_initial_points= n0,
             random_state=42,
             n_jobs=self.n_jobs,
         )
@@ -169,7 +171,7 @@ class CrossValidation:
         }
 
         self._set_params(all_params=best_params)
-        df_imputed = self.model.fit_transform(X)
+        df_imputed = self.model.fit_transform(X=X)
 
         if return_hyper_params:
             return df_imputed, best_params

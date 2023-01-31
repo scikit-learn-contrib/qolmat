@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from typing import Optional
+from typing import Optional, Tuple
 from numpy.typing import NDArray
 
 from qolmat.imputations.rpca.rpca import RPCA
@@ -59,14 +59,29 @@ class PcpRPCA(RPCA):
     def fit_transform(
         self,
         X: NDArray,
-        return_basis: bool = False
-        ) -> PcpRPCA:
+        ) -> Tuple[
+            NDArray,
+            NDArray,
+            NDArray,
+            NDArray,
+        ]:
         """
         Compute the RPCA decomposition of a matrix based on PCP method
 
         Parameters
         ----------
         X : NDArray
+
+        Returns
+        -------
+        M: NDArray
+            Low-rank signal
+        A: NDArray
+            Anomalies
+        U:
+            Basis Unitary array
+        Vh:
+            Basis Unitary array
         """
         D_init, n_add_values, input_data = self._prepare_data(signal=X)
         proj_D = utils.impute_nans(D_init, method="median")
@@ -82,7 +97,8 @@ class PcpRPCA(RPCA):
         A = np.full_like(D_init, 0)
         Y = np.full_like(D_init, 0)
 
-        errors = []
+        errors = np.full((self.max_iter,), fill_value=np.nan)
+
         for iteration in range(self.max_iter):
 
             M = utils.svd_thresholding(proj_D - A + Y/mu, 1/mu)
@@ -90,25 +106,22 @@ class PcpRPCA(RPCA):
             Y += mu * (proj_D - M - A)
 
             error = np.linalg.norm(proj_D - M - A, "fro")/D_norm
-            errors.append(error)
+            errors[iteration] = error
 
             if error < self.tol:
                 if self.verbose:
                     print(f"Converged in {iteration} iterations")
                 break
             
-        if return_basis:
-            U, _, Vh = np.linalg.svd(M, full_matrices=False, compute_uv=True)
-            result = [U, Vh]
-        else:
-            result = []
-
+        U, _, Vh = np.linalg.svd(M, full_matrices=False, compute_uv=True)
+        
         if n_add_values > 0:
             M.flat[-n_add_values:] = np.nan
             A.flat[-n_add_values:] = np.nan
 
         if input_data == "1DArray":
-            result = [M.T.flatten(), A.T.flatten(), errors] + result
-        else:
-            result = [M, A, errors] + result
-        return tuple(result)
+            M = M.T.flatten()
+            A = A.T.flatten()
+        return M, A, U, Vh, errors
+
+    
