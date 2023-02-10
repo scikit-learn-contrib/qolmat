@@ -549,22 +549,45 @@ class ImputeVAR1EM(ImputeEM):  # type: ignore
 
         super().__init__(strategy,max_iter_em,n_iter_ou,ampli,random_state,verbose,dt,tolerance,stagnation_threshold,stagnation_loglik)
 
-    def fit_distribution(self, X):
+    def fit_parameter_A(self, X):
         n_variables, n_samples = X.shape
 
-        X_lag = np.roll(X, 1)
-        self.B = np.zeros(n_variables)
+        Xc = X - self.B[:, None]
+        # print(Xc)
+        # Xc_lag = np.roll(Xc, 1)
+        # print(Xc_lag)
 
-        XX_lag = X[:, :-1] @ X_lag[:, 1:].T
-        XX = X @ X.T
+        XX_lag = Xc[:, :-1] @ Xc[:, 1:].T
+        XX = Xc @ Xc.T
 
         self.A = XX_lag @ invert_robust(XX, epsilon=1e-2)
-        
-        Z_back = X - self.A @ X_lag
+
+    def fit_parameter_B(self, X):
+        n_variables, n_samples = X.shape
+        self.B = invert_robust(np.eye(n_variables) - self.A) @ np.mean(X - self.A @ X)
+
+    def fit_parameter_omega(self, X):
+        n_variables, n_samples = X.shape
+        Xc = X - self.B[:, None]
+        Xc_lag = np.roll(Xc, 1)
+        Z_back = Xc - self.A @ Xc_lag
         Z_back[:, 0] = 0
         self.omega = (Z_back @ Z_back.T) / n_variables
         
         self.omega_inv = invert_robust(self.omega, epsilon=1e-2)
+
+
+
+    def fit_distribution(self, X):
+        n_variables, n_samples = X.shape
+
+        self.A = np.zeros((n_variables, n_variables))
+
+        for n in range(4):
+            self.fit_parameter_B(X)
+            self.fit_parameter_A(X)
+        self.fit_parameter_omega(X)
+        
 
     def _sample_ou(
         self,
@@ -616,8 +639,9 @@ class ImputeVAR1EM(ImputeEM):  # type: ignore
         for iter_ou in range(self.n_iter_ou):
             noise = self.ampli * rng.normal(0, 1, size=(n_variables, n_samples))
             # X_center = X - self.means[:, None]
-            X_lag = np.roll(X, 1, axis=1)
-            Z_back = X - self.A @ X_lag - self.B[:, None]
+            Xc = X - self.B[:, None]
+            Xc_lag = np.roll(Xc, 1, axis=1)
+            Z_back = Xc - self.A @ Xc_lag
             Z_back[:, 0] = 0
             # Z_front = np.roll(X, -1) - self.A @ X  - self.B[:, None]
             # Z_front[-1, :] = 0
@@ -626,29 +650,42 @@ class ImputeVAR1EM(ImputeEM):  # type: ignore
             X[~mask_na] = X_init[~mask_na]
             if iter_ou > self.n_iter_ou - 50:
                 # list_X.append(X)
-
-                X_center = X - self.B[:, None]
                 X_lag = np.roll(X, 1, axis=1)
-                Z_back = X_center - self.A @ X_lag
-                Z_back[:, 0] = 0
                 B = np.mean(X - self.A @ X_lag, axis=1)
 
+                Xc = X - self.B[:, None]
+                Xc_lag = X_lag  - self.B[:, None]
+
+                XX = X @ X.T
+                XX_lag = Xc[:, :-1] @ X_lag[:, 1:].T
+                
+                Z_back = Xc - self.A @ Xc_lag
+                Z_back[:, 0] = 0
+                
+
                 list_B.append(B) 
-                list_XX.append(X @ X.T)
-                list_XX_lag.append(X_center[:, :-1] @ X_lag[:, 1:].T)
+                list_XX.append(XX)
+                list_XX_lag.append(XX_lag)
                 list_ZZ.append(Z_back @ Z_back.T)
 
         B_stack = np.stack(list_B, axis=1)
         self.B = np.mean(B_stack, axis=1)
 
         XX_stack = np.stack(list_XX, axis=2)
-        XX_mean = np.mean(XX_stack, axis=2)
+        # XX_mean = np.mean(XX_stack, axis=2)
         XX_lag_stack = np.stack(list_XX_lag, axis=2)
-        XX_lag_mean = np.mean(XX_lag_stack, axis=2)
-        self.A = XX_lag_mean @ invert_robust(XX_mean, epsilon=1e-2)
+        # XX_lag_mean = np.mean(XX_lag_stack, axis=2)
+
+        # MANOVA formula
+        cov_B = np.cov(B_stack, bias=True)
+        cov_XX = np.mean(XX_stack, axis=2) + cov_B
+        cov_XX_lag = np.mean(XX_lag_stack, axis=2) + cov_B
+        self.A = cov_XX_lag @ invert_robust(cov_XX, epsilon=1e-2)
         # self.cov_inv = self._invert_covariance(epsilon=1e-2)
         ZZ_stack = np.stack(list_ZZ, axis=2)
-        self.omega = np.mean(ZZ_stack, axis=2) / n_variables
+
+        # Biased estimation of omega, ignoring intra-group covariances
+        self.omega = np.mean(ZZ_stack, axis=2) # / n_variables
         self.omega_inv = invert_robust(self.omega, epsilon=1e-2)
 
         return X
