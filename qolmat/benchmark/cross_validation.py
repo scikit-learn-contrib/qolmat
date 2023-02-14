@@ -92,12 +92,8 @@ class CrossValidation:
         all_params : Dict[str, Union[int, float, str]]
             dictionary containing the hyperparameters and their value
         """
-        if hasattr(self.model, "rpca"):
-            for param_name, param_value in all_params.items():
-                setattr(self.model.rpca, param_name, param_value)
-        else:
-            for param_name, param_value in all_params.items():
-                setattr(self.model, param_name, param_value)
+        self.model.set_params(**all_params)
+        return self
 
     def objective(self, X):
         """
@@ -108,10 +104,8 @@ class CrossValidation:
         _type_
             objective function
         """
-
         @skopt.utils.use_named_args(self.search_space)
         def obj_func(**all_params):
-
             self._set_params(all_params=all_params)
             if self.verbose:
                 print(all_params)
@@ -122,10 +116,13 @@ class CrossValidation:
                 df_origin = X.copy()
                 df_corrupted = df_origin.copy()
                 df_corrupted[df_mask] = np.nan
-                cols_with_nans = X.columns[X.isna().any()]
+                cols_with_nans = X.columns[X.isna().any(axis=0)].tolist()
                 imputed = self.model.fit_transform(df_corrupted)
+                
                 error = self.loss_function(
-                    df_origin[cols_with_nans], imputed[cols_with_nans], df_mask[cols_with_nans]
+                    df_origin.loc[:, cols_with_nans],
+                    imputed.loc[:, cols_with_nans],
+                    df_mask.loc[:, cols_with_nans]
                 )
                 errors.append(error)
 
@@ -155,11 +152,11 @@ class CrossValidation:
             imputed dataframe
         """
 
-        n0 = self.n_calls//5 if (self.n_calls//5) >= 1 else self.n_calls
+        n0 = self.n_calls//5 if (self.n_calls//5) >= 1 else self.n_calls        
 
         res = skopt.gp_minimize(
             self.objective(X=X),
-            self.search_space,
+            dimensions=self.search_space,
             n_calls=self.n_calls,
             n_initial_points= n0,
             random_state=42,

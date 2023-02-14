@@ -3,6 +3,7 @@ Modular utility functions for RPCA
 """
 
 from typing import List, Optional, Tuple
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -34,7 +35,7 @@ def get_period(
     """
     ts = pd.Series(signal)
     max_period = len(ts) if max_period is None else max_period
-    acf = [round(ts.autocorr(lag=lag), 2) for lag in range(1, max_period + 1)]
+    acf = [round(ts.fillna(ts.median()).autocorr(lag=lag), 2) for lag in range(1, max_period + 1)]
     return np.argmax(acf) + 1
 
 
@@ -191,10 +192,14 @@ def impute_nans(
 
     """
     if method == "mean":
-        result = np.where(np.isnan(M), np.resize(np.nanmean(M, axis=0), M.shape), M)
+        with warnings.catch_warnings(record=True):
+            warnings.simplefilter("always")
+            result = np.where(np.isnan(M), np.resize(np.nanmean(M, axis=0), M.shape), M)
         result = np.where(np.isnan(result), np.nanmean(result), result)
     elif method == "median":
-        result = np.where(np.isnan(M), np.resize(np.nanmedian(M, axis=0), M.shape), M)
+        with warnings.catch_warnings(record=True):
+            warnings.simplefilter("always")
+            result = np.where(np.isnan(M), np.resize(np.nanmedian(M, axis=0), M.shape), M)
         result = np.where(np.isnan(result), np.nanmedian(result), result)
     elif method == "zeros":
         result = np.where(np.isnan(M), 0, M)

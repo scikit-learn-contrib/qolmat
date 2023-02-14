@@ -5,8 +5,6 @@ from typing import Dict, List, Optional, Union
 import sklearn.neighbors._base
 sys.modules["sklearn.neighbors.base"] = sklearn.neighbors._base
 
-sys.modules["sklearn.neighbors.base"] = sklearn.neighbors._base
-
 from functools import partial
 
 import numpy as np
@@ -15,9 +13,6 @@ from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer, KNNImputer
 from sklearn.impute._base import _BaseImputer
 from statsmodels.tsa.seasonal import seasonal_decompose
-
-
-#import missingpy
 
 from qolmat.benchmark import utils
 from qolmat.imputations.rpca.pcp_rpca import RPCA
@@ -58,7 +53,7 @@ class ImputeColumnWise(_BaseImputer):
             raise ValueError("Input has to be a pandas.DataFrame.")
 
         df_imputed = df.copy()
-        cols_with_nans = df_imputed.columns[df_imputed.isna().any()]
+        cols_with_nans = df_imputed.columns[df_imputed.isna().any(axis=0)]
         for col in cols_with_nans:
             if self.groups:
                 groupby = utils.custom_groupby(df, self.groups)
@@ -88,6 +83,11 @@ class ImputeColumnWise(_BaseImputer):
             dictionary with hyperparameters and their value
         """
         return self.__dict__
+
+    def set_params(self, **params):
+        for key, value in params.items():
+            setattr(self, key, value)
+        return self
 
 
 class ImputeByMean(ImputeColumnWise):
@@ -486,6 +486,13 @@ class ImputeKNN(_BaseImputer):
             number of nearest neighbors
         """
         return {"k": self.k}
+    
+    def set_params(self, **params):
+        for key, value in params.items():
+            setattr(self, key, value)
+        return self
+    
+    
 
 
 class ImputeRPCA(_BaseImputer):
@@ -505,12 +512,18 @@ class ImputeRPCA(_BaseImputer):
     TO DO
     """
 
-    def __init__(self, method: str = "temporal", multivariate: bool = False, **kwargs) -> None:
-        self.multivariate = multivariate
+    def __init__(self, method: str = "temporal", columnwise: bool = False, **params) -> None:
+        self.columnwise = columnwise
         self.method = method
-        for name, value in kwargs.items():
-            setattr(self, name, value)
+        
+        for key, value in params.items():
+            setattr(self, key, value) 
 
+    def set_params(self, **params):
+        for key, value in params.items():
+            setattr(self, key, value)
+        return self
+        
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Fit/transform to impute wiht RPCA methods
@@ -525,31 +538,65 @@ class ImputeRPCA(_BaseImputer):
         pd.DataFrame
             imputed dataframe
         """
-
-
-        if self.method == "PCP":
-            self.rpca = RPCA()
-        elif self.method == "temporal":
-            self.rpca = TemporalRPCA()
-        elif self.method == "onlinetemporal":
-            self.rpca = OnlineTemporalRPCA()
-        
         rpca_params = self.__dict__.copy()
-        del rpca_params["multivariate"]
+        del rpca_params["columnwise"]
         del rpca_params["method"]
-        for name, value in rpca_params.items():
-            setattr(self.rpca, name, value)
-        if self.multivariate:
-            imputed, _, _, _ = self.rpca.fit_transform(X=df.values)
-            imputed = pd.DataFrame(imputed, columns=df.columns)
-        else:
-            imputed = pd.DataFrame()
-            cols_with_nans = [col for col in df.columns if df[col].isna().any()]
-            for col in cols_with_nans:
-                imputed_signal, _, _, _, _ = self.rpca.fit_transform(X=df[col].values)
+
+        if self.columnwise:
+            
+            rpca_params_per_col = [
+                eval(param) for param in rpca_params.keys() if (
+                    (param[0] == "(") and (param[-1]== ")") and ("," in param)
+                    )
+            ]
+            
+            rpca_params_common = [param for param in rpca_params.keys() if not (
+                (param[0] == "(") and (param[-1] == ")")
+                )
+            ]
+
+            rpca_models_col = list(set([x[0] for x in rpca_params_per_col]))
+            
+            rpca_models_col_params = list(
+                set([x[1] for x in rpca_params_per_col])
+            )
+
+            imputed = pd.DataFrame(index=df.index)
+
+            for col in rpca_models_col:
+                if self.method == "PCP":
+                    rpca = RPCA()
+                elif self.method == "temporal":
+                    rpca = TemporalRPCA()
+                elif self.method == "onlinetemporal":
+                    rpca = OnlineTemporalRPCA()
+
+                for param in rpca_models_col_params:
+                    setattr(rpca, param, rpca_params[f"('{col}', '{param}')"])
+                for param in rpca_params_common:
+                    setattr(rpca, param, rpca_params[param])
+                    
+                imputed_signal, _, _, _, _ = rpca.fit_transform(X=df[col].values)
                 imputed[col] = imputed_signal
-              
-        imputed.index = df.index
+        else:
+            if self.method == "PCP":
+                rpca = RPCA()
+            elif self.method == "temporal":
+                rpca = TemporalRPCA()
+            elif self.method == "onlinetemporal":
+                rpca = OnlineTemporalRPCA()
+
+            rpca_params = [param for param in init_params.keys() if not (
+                    (param[0] == "(") and (param[-1]== ")")
+                )
+            ]
+
+            for key, value in init_params.items():
+                setattr(rpca, key, value)
+            
+            imputed, _, _, _, _= rpca.fit_transform(X=df.values)
+            
+            imputed = pd.DataFrame(imputed, columns=df.columns, index=df.index)
 
         return imputed
 
@@ -562,10 +609,7 @@ class ImputeRPCA(_BaseImputer):
         Dict[str, Union[str, float, int]]
             dictonary with the hyperparameters and their value
         """
-        return {
-            **{"method": self.method, "multivariate": self.multivariate},
-            **self.rpca.__dict__,
-        }
+        return self.__dict__
 
 
 class ImputeMICE(_BaseImputer):
@@ -632,6 +676,11 @@ class ImputeMICE(_BaseImputer):
 
     def get_hyperparams(self):
         return self.__dict__["kwargs"]
+    
+    def set_params(self, **params):
+        for key, value in params.items():
+            setattr(self, key, value)
+        return self
 
 
 class ImputeRegressor(_BaseImputer):
@@ -711,6 +760,11 @@ class ImputeRegressor(_BaseImputer):
 
     def create_features(self, df):
         return None
+    
+    def set_params(self, **params):
+        for key, value in params.items():
+            setattr(self, key, value)
+        return self
 
 
 class ImputeStochasticRegressor(_BaseImputer):
@@ -789,6 +843,11 @@ class ImputeStochasticRegressor(_BaseImputer):
 
     def create_features(self, df):
         return None
+    
+    def set_params(self, **params):
+        for key, value in params.items():
+            setattr(self, key, value)
+        return self
 
 
 class ImputeMissForest(_BaseImputer):

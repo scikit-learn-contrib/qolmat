@@ -13,6 +13,12 @@ EPS = np.finfo(float).eps
 
 def has_given_attribute(tested_model, name_param):
     has_attribute = hasattr(tested_model, name_param) and (getattr(tested_model, name_param) is not None)
+
+    if ((name_param[0] == "(") and (name_param[-1] == ")") and ("," in name_param)):
+        name_param_col = eval(name_param)[1]
+        has_attribute = (has_attribute
+        or (hasattr(tested_model, name_param_col) and (getattr(tested_model, name_param_col) is not None))
+        )
     return has_attribute
 
 
@@ -33,29 +39,28 @@ def get_search_space(tested_model: any, search_params: Dict) -> Union[None, List
         search space
 
     """
-    search_space = None
-    if str(type(tested_model).__name__) in search_params.keys():
-        search_space = []
-        for name_param, vals_params in search_params[str(type(tested_model).__name__)].items():
+    search_space = []
 
-            if has_given_attribute(tested_model, name_param):
-                raise ValueError(
-                    f"Sorry, you set the value {getattr(tested_model, name_param)} to {name_param}"
-                     " and asked for a search..."
-                )
+    for name_param, vals_params in search_params.items():
 
-            if vals_params["type"] == "Integer":
-                search_space.append(
-                    Integer(low=vals_params["min"], high=vals_params["max"], name=name_param)
-                )
-            elif vals_params["type"] == "Real":
-                search_space.append(
-                    Real(low=vals_params["min"], high=vals_params["max"], name=name_param)
-                )
-            elif vals_params["type"] == "Categorical":
-                search_space.append(
-                    Categorical(categories=vals_params["categories"], name=name_param)
-                )
+        if has_given_attribute(tested_model, name_param):
+            raise ValueError(
+                f"Sorry, you set the value {getattr(tested_model, name_param)} to {name_param}"
+                    " and asked for a search..."
+            )
+
+        if vals_params["type"] == "Integer":
+            search_space.append(
+                Integer(low=vals_params["min"], high=vals_params["max"], name=name_param)
+            )
+        elif vals_params["type"] == "Real":
+            search_space.append(
+                Real(low=vals_params["min"], high=vals_params["max"], name=name_param)
+            )
+        elif vals_params["type"] == "Categorical":
+            search_space.append(
+                Categorical(categories=vals_params["categories"], name=name_param)
+            )
 
     return search_space
 

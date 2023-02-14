@@ -23,41 +23,17 @@ from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor, HistGra
 
 
 import sys
-# sys.path.append("../../")
 from qolmat.benchmark import comparator, missing_patterns
 from qolmat.benchmark.utils import kl_divergence
 from qolmat.imputations import models
 from qolmat.utils import data, utils, plot
 from qolmat.imputations.em_sampler import ImputeEM
-# from qolmat.drawing import display_bar_table
 
-# -
 
-# ### **I. Load data**
 
-# The data used in this example is the Beijing Multi-Site Air-Quality Data Set. It consists in hourly air pollutants data from 12 chinese nationally-controlled air-quality monitoring sites and is available at https://archive.ics.uci.edu/ml/machine-learning-databases/00501/.
-# This dataset only contains numerical vairables.
-
-# df = pd.read_csv("/Users/hlbotterman/Downloads/m5-daily-sales.csv")
-# df.head()
-# df["Date"] = pd.to_datetime(df["Date"])
-# df = df.rename(columns={"Date": "datetime"})
-# df.set_index("datetime", inplace = True)
-# df["Sales"] = df['Sales'].astype(float)
-# cols_to_impute = ["Sales"]
-
-# +
 download = True
 df_data = data.get_data_corrupted(download=download, ratio_masked=.2, mean_size=120 , groups=["station"])
-
-# cols_to_impute = ["TEMP", "PRES", "DEWP", "NO2", "CO", "O3", "WSPM"]
-# cols_to_impute = df_data.columns[df_data.isna().any()]
 cols_to_impute = ["TEMP", "PRES"]
-
-# -
-
-# Let's take a look at variables to impute. We only consider a station, Aotizhongxin.
-# Time series display seasonalities (roughly 12 months).
 
 n_stations = len(df_data.groupby("station").size())
 n_cols = len(cols_to_impute)
@@ -98,7 +74,7 @@ imputer_spline = models.ImputeByInterpolation(method="spline")
 imputer_random = models.ImputeRandom()
 imputer_residuals = models.ImputeOnResiduals("additive", 7, "freq", "linear")
 imputer_rpca = models.ImputeRPCA(
-  method="temporal", multivariate=False, **{"n_rows":7*4, "max_iter":1000}
+  method="temporal", columnwise=True, n_rows=7*4, max_iter=1000
   )
 imputer_em = ImputeEM(n_iter_em=34, n_iter_ou=15, verbose=0, strategy="ou", temporal=False)
 imputer_locf = models.ImputeLOCF()

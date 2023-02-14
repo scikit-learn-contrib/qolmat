@@ -141,10 +141,27 @@ class Comparator:
         """
 
         dict_errors = {}
+
         for name, tested_model in self.dict_models.items():
             if verbose:
                 print(type(tested_model).__name__)
-            search_space = utils.get_search_space(tested_model, self.search_params)
+            
+            if str(type(tested_model).__name__) in self.search_params.keys():
+                if hasattr(tested_model, "columnwise") and tested_model.columnwise:
+                    if len(self.selected_columns) > 0:
+                        search_params = {}
+                        for col in self.selected_columns:
+                            for key, value in self.search_params[type(tested_model).__name__].items():
+                                search_params[f"('{col}', '{key}')"] = value
+                    else:
+                        search_params = self.search_params[type(tested_model).__name__]
+                else:
+                    search_params = self.search_params[type(tested_model).__name__]
+
+                search_space = utils.get_search_space(tested_model, search_params)
+
+            else:
+                search_space = None
 
             dict_errors[name] = self.evaluate_errors_sample(tested_model, df, search_space)
 
