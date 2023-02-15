@@ -38,7 +38,12 @@ class PcpRPCA(RPCA):
         verbose: bool = False,
     ) -> None:
 
-        super().__init__(n_rows=n_rows, max_iter=max_iter, tol=tol, verbose=verbose)
+        super().__init__(
+            n_rows=n_rows,
+            max_iter=max_iter,
+            tol=tol,
+            verbose=verbose
+        )
         self.mu = mu
         self.lam = lam
 
@@ -78,10 +83,13 @@ class PcpRPCA(RPCA):
             Low-rank signal
         A: NDArray
             Anomalies
-        U:
+        U: NDArray
             Basis Unitary array
-        Vh:
+        V: NDArray
             Basis Unitary array
+
+        errors: NDArray
+            Array of iterative errors
         """
         D_init, n_add_values, input_data = self._prepare_data(signal=X)
         proj_D = utils.impute_nans(D_init, method="median")
@@ -93,7 +101,6 @@ class PcpRPCA(RPCA):
 
         D_norm = np.linalg.norm(proj_D, "fro")
 
-        #n, m = D_init.shape
         A = np.full_like(D_init, 0)
         Y = np.full_like(D_init, 0)
 
@@ -113,15 +120,11 @@ class PcpRPCA(RPCA):
                     print(f"Converged in {iteration} iterations")
                 break
             
-        U, _, Vh = np.linalg.svd(M, full_matrices=False, compute_uv=True)
+        U, _, V = np.linalg.svd(M, full_matrices=False, compute_uv=True)
         
-        if n_add_values > 0:
-            M.flat[-n_add_values:] = np.nan
-            A.flat[-n_add_values:] = np.nan
-
         if input_data == "1DArray":
-            M = M.T.flatten()
-            A = A.T.flatten()
-        return M, A, U, Vh, errors
+            M = M.T.flatten()[:(M.size - n_add_values)]
+            A = A.T.flatten()[:(M.size - n_add_values)]
+        return M, A, U, V, errors
 
     

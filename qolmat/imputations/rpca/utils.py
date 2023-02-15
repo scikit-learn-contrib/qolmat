@@ -34,8 +34,8 @@ def get_period(
         of the time series
     """
     ts = pd.Series(signal)
-    max_period = len(ts) if max_period is None else max_period
-    acf = [round(ts.fillna(ts.median()).autocorr(lag=lag), 2) for lag in range(1, max_period + 1)]
+    max_period = len(ts)//3 if max_period is None else max_period
+    acf = [round(ts.autocorr(lag=lag), 2) for lag in range(1, max_period + 1)]
     return np.argmax(acf) + 1
 
 
@@ -69,10 +69,9 @@ def signal_to_matrix(
         M = np.append(signal, [np.nan] * (n_rows - (len(signal) % n_rows)))
     else:
         M = signal
-    M = M.reshape(-1, n_rows)
+    M = M.reshape(-1, n_rows).T
     nb_nan = M.size - len(signal)
-    return M.T, nb_nan
-
+    return M, nb_nan
 
 def approx_rank(
     M: NDArray,
@@ -86,6 +85,11 @@ def approx_rank(
     M : NDArray
     threshold : float, Optional
         fraction of the cumulative sum of the singular values, by default 0.95
+    
+    Returns
+    -------
+    int: Approximated rank of M
+
     """
     if threshold == 1:
         return min(M.shape)
@@ -114,7 +118,6 @@ def proximal_operator(
     NDArray
         Array V such that V = X + sign(U-X) * max(abs(U-X) - threshold, 0)
     """
-
     return X + np.sign(U - X) * np.maximum(np.abs(U - X) - threshold, 0)
 
 
@@ -347,35 +350,8 @@ def get_laplacian(
     """
     return scipy.sparse.csgraph.laplacian(M, normed=normalised)
 
-
-# def get_anomaly(
-#     A: NDArray,
-#     sigma: float = 3.,
-# ) -> Tuple[NDArray, NDArray]:
-
-#     """
-#     Split A between an array whose anomalies
-#     are nullified and an array of anomalies
-
-#     Args:
-#         A : NDArray
-#         X : NDArray
-#             matrix of smooth signal
-#         e : Optional[float]
-#             deviation from 0. Defaults to 3.
-
-#     Returns:
-#         NDArray: filtered A
-#         NDArray: noise
-#     """
-#     med = np.median(np.abs(A), axis=1)
-#     filtered_A = np.where(np.abs(A) > (sigma * med), A, 0)
-#     noise = np.where(np.abs(A) <= (e * mad), A, 0)
-#     return filtered_A, noise
-
-
 def solve_proj2(
-    m: NDArray,
+    M: NDArray,
     U: NDArray,
     lam1: float,
     lam2: float,
@@ -390,7 +366,7 @@ def solve_proj2(
 
     Parameters
     ----------
-    m : NDArray of shape (n, )
+    M : NDArray of shape (n, )
         Array to project
     U : NDArray of shape (n, p)
         Basis
@@ -398,7 +374,7 @@ def solve_proj2(
         Tuning parameter for the nuclear norm.
     lam2 : float
         Tuning parameter for the L1 norm of anomalies.
-    maxIter : int
+    max_iter : int
         Maximum number of iterations, by default 1e4
     tol : float
         tolerance for convergence, by default 1e-6
@@ -416,9 +392,9 @@ def solve_proj2(
     UUt = np.linalg.inv(U.transpose().dot(U) + lam1 * identity).dot(U.transpose())
     for _ in range(max_iter):
         vtemp = v.copy()
-        v = UUt.dot(m - s)
+        v = UUt.dot(M - s)
         stemp = s.copy()
-        s = soft_thresholding(m - U.dot(v), lam2)
+        s = soft_thresholding(M - U.dot(v), lam2)
         stopc = max(np.linalg.norm(v - vtemp)/p, np.linalg.norm(s - stemp)/n)
         if stopc < tol:
             break
@@ -426,14 +402,14 @@ def solve_proj2(
 
 
 def solve_projection(
-    z: NDArray,
+    Z: NDArray,
     L: NDArray,
     lam1: float,
     lam2: float,
     list_lams: List[float],
     list_periods: List[int],
     X: NDArray,
-    maxIter:int = int(1e4),
+    max_iter:int = int(1e4),
     tol: float = 1e-6,
 ):
     """
@@ -447,7 +423,7 @@ def solve_projection(
 
     Parameters
     ----------
-    z : NDArray
+    Z : NDArray
         vector to project
     L : NDArray
         Basis
@@ -483,12 +459,12 @@ def solve_projection(
 
     tmp = np.linalg.inv(L.T @ L + lam1 * identity + L.T @ L * sums)
 
-    for _ in range(maxIter):
+    for _ in range(max_iter):
         rtemp = r.copy()
         etemp = e.copy()
 
-        r = tmp @ L.T @ (z - e + sums_rk)
-        e = soft_thresholding(z - L.dot(r), lam2)
+        r = tmp @ L.T @ (Z - e + sums_rk)
+        e = soft_thresholding(Z - L.dot(r), lam2)
 
         stopc = max(np.linalg.norm(r - rtemp)/p, np.linalg.norm(e - etemp)/n)
         if stopc < tol:

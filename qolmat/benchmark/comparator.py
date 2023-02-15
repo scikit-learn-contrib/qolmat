@@ -162,8 +162,11 @@ class Comparator:
 
             else:
                 search_space = None
-
-            dict_errors[name] = self.evaluate_errors_sample(tested_model, df, search_space)
+            try:
+                dict_errors[name] = self.evaluate_errors_sample(tested_model, df, search_space)
+            except Exception as excp:
+                print(type(tested_model).__name__)
+                raise excp
 
         df_errors = pd.DataFrame(dict_errors)
 

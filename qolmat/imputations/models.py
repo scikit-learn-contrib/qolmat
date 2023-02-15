@@ -1,6 +1,6 @@
 import sys
 import warnings
-from typing import Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Union
 
 import sklearn.neighbors._base
 sys.modules["sklearn.neighbors.base"] = sklearn.neighbors._base
@@ -9,6 +9,7 @@ from functools import partial
 
 import numpy as np
 import pandas as pd
+
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer, KNNImputer
 from sklearn.impute._base import _BaseImputer
@@ -32,8 +33,10 @@ class ImputeColumnWise(_BaseImputer):
     def __init__(
         self,
         groups: Optional[List[str]] = [],
+        apply_imputation: Optional[Union[str, Callable]] = None, 
     ) -> None:
         self.groups = groups
+        self.apply_imputation = apply_imputation
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -53,7 +56,9 @@ class ImputeColumnWise(_BaseImputer):
             raise ValueError("Input has to be a pandas.DataFrame.")
 
         df_imputed = df.copy()
+
         cols_with_nans = df_imputed.columns[df_imputed.isna().any(axis=0)]
+
         for col in cols_with_nans:
             if self.groups:
                 groupby = utils.custom_groupby(df, self.groups)
@@ -67,10 +72,12 @@ class ImputeColumnWise(_BaseImputer):
             if df_imputed[col].isna().any():
                 df_imputed[col] = df_imputed[col].fillna(self.apply_imputation(df_imputed[col]))
 
-        if df_imputed.isna().any().any():
+        if df_imputed.isna().any(axis=None):
             print("Number of null by col")
             print(df_imputed.isna().sum())
-            warnings.warn("Problem: there are still nan in the columns to be imputed")
+            warnings.warn(
+                "Problem: there are still nan",
+                " in the DataFrame to be imputed")
         return df_imputed
 
     def get_hyperparams(self) -> Dict[str, Union[str, float, int]]:
@@ -82,7 +89,7 @@ class ImputeColumnWise(_BaseImputer):
         Dict[str, Union[str, float, int]]
             dictionary with hyperparameters and their value
         """
-        return self.__dict__
+        return self.__dict__.copy()
 
     def set_params(self, **params):
         for key, value in params.items():
@@ -111,9 +118,7 @@ class ImputeByMean(ImputeColumnWise):
         self,
         groups: Optional[List[str]] = [],
     ) -> None:
-        super().__init__(groups=groups)
-        self.apply_imputation = np.nanmean
-
+        super().__init__(groups=groups, apply_imputation = "mean")
 
 class ImputeByMedian(ImputeColumnWise):
     """
@@ -136,29 +141,7 @@ class ImputeByMedian(ImputeColumnWise):
         self,
         groups: Optional[List[str]] = [],
     ) -> None:
-        super().__init__(groups=groups)
-        self.apply_imputation = np.nanmedian
-
-    def fit_transform_col(self, signal: pd.Series) -> pd.Series:
-        """
-        Fit/transform the Imputer to the dataset by fitting with the median of each column
-
-        Parameters
-        ----------
-        signal : pd.Series
-            series to impute
-
-        Returns
-        -------
-        pd.Series
-            imputed series
-        """
-        col = signal.name
-        signal = signal.reset_index()
-        imputed = signal[col].fillna(
-            utils.custom_groupby(signal, self.groups)[col].apply("median")
-        )
-        return imputed
+        super().__init__(groups=groups, apply_imputation="median")
 
 
 class ImputeByMode(ImputeColumnWise):
@@ -178,19 +161,16 @@ class ImputeByMode(ImputeColumnWise):
     >>> imputor.fit_transform(X)
     """
 
+    get_mode = lambda x : x.mode()[0] if not (x.isna().all()) else np.nan
+
     def __init__(
         self,
         groups: Optional[List[str]] = [],
     ) -> None:
-        super().__init__(groups=groups)
-
-        def get_mode(x):
-            if x.isna().all():
-                return np.nan
-            return x.mode()[0]
-
-        self.apply_imputation = get_mode
-
+        super().__init__(
+            groups=groups,
+            apply_imputation=ImputeByMode.get_mode,
+        )
 
 class ImputeRandom(ImputeColumnWise):
     """
@@ -209,13 +189,7 @@ class ImputeRandom(ImputeColumnWise):
     >>> imputor.fit_transform(X)
     """
 
-    def __init__(
-        self,
-        groups: Optional[List[str]] = [],
-    ) -> None:
-        super().__init__(groups=groups)
-
-        def get_random(x: pd.Series) -> pd.Series:
+    def get_random(x: pd.Series) -> pd.Series:
             n_missing = x.isna().sum()
             if x.notna().sum() == 0:
                 return x
@@ -224,8 +198,14 @@ class ImputeRandom(ImputeColumnWise):
             imputed[imputed.isna()] = samples
             return imputed
 
-        self.apply_imputation = get_random
-
+    def __init__(
+        self,
+        groups: Optional[List[str]] = [],
+    ) -> None:
+        super().__init__(
+            groups=groups,
+            apply_imputation=ImputeRandom.get_random,
+        )
 
 class ImputeLOCF(ImputeColumnWise):
     """
@@ -246,21 +226,22 @@ class ImputeLOCF(ImputeColumnWise):
     >>> imputor.fit_transform(X)
     """
 
+    def get_LOCF(x: pd.Series):
+        """
+        Fit/transform by imputing missing values by carrying the last observation forward.
+        If the first observation is missing, it is imputed by the median of the series
+        """
+        x_out = pd.Series.shift(x, 1).ffill().bfill()
+        return x_out
+
     def __init__(
         self,
         groups: Optional[List[str]] = [],
     ) -> None:
-        super().__init__(groups=groups)
-
-        def get_LOCF(x: pd.Series):
-            """
-            Fit/transform by imputing missing values by carrying the last observation forward.
-            If the first observation is missing, it is imputed by the median of the series
-            """
-            x_out = pd.Series.shift(x, 1).ffill().bfill()
-            return x_out
-
-        self.apply_imputation = get_LOCF
+        super().__init__(
+            groups=groups,
+            apply_imputation=ImputeLOCF.get_LOCF,
+        )
 
 
 class ImputeNOCB(ImputeColumnWise):
@@ -280,22 +261,22 @@ class ImputeNOCB(ImputeColumnWise):
     >>> imputor.fit_transform(X)
     """
 
+    def get_NOCB(x: pd.Series):
+        """
+        Fit/transform by imputing missing values by carrying the next observation backward.
+        If the last observation is missing, it is imputed by the median of the series
+        """
+        x_out = pd.Series.shift(x, -1).ffill().bfill()
+        return x_out
+
     def __init__(
         self,
         groups: Optional[List[str]] = [],
     ) -> None:
-        super().__init__(groups=groups)
-
-        def get_NOCB(x: pd.Series):
-            """
-            Fit/transform by imputing missing values by carrying the next observation backward.
-            If the last observation is missing, it is imputed by the median of the series
-            """
-            x_out = pd.Series.shift(x, -1).ffill().bfill()
-            return x_out
-
-        self.apply_imputation = get_NOCB
-
+        super().__init__(
+            groups=groups,
+            apply_imputation=ImputeNOCB.get_NOCB
+        )
 
 class ImputeByInterpolation(ImputeColumnWise):
     """
@@ -326,14 +307,22 @@ class ImputeByInterpolation(ImputeColumnWise):
     >>> imputor.fit_transform(X)
     """
 
+    def get_interpolation(x, method, order):
+        interpolate = x.interpolate(method=method, order=order)
+        interpolate = interpolate.ffill().bfill()
+        return interpolate
+
     def __init__(
         self, groups: Optional[List[str]] = [], method: str = "linear", order: int = None
     ) -> None:
-        super().__init__(groups=groups)
-        self.method = method
-        self.order = order
-        self.apply_imputation = lambda x: x.interpolate(method=method, order=order).ffill().bfill()
-
+        super().__init__(
+            groups=groups,
+            apply_imputation = partial(
+                ImputeByInterpolation.get_interpolation,
+                method=method,
+                order=order
+                )
+        )
 
 class ImputeOnResiduals(ImputeColumnWise):
     """
@@ -379,6 +368,24 @@ class ImputeOnResiduals(ImputeColumnWise):
     >>> imputor.fit_transform(df)
     """
 
+    def get_resid(x, model, period, extrapolate_trend, method_interpolation):
+        """
+        Fit/transform missing values on residuals.
+        """
+        if x.isna().all():
+            return np.nan
+        result = seasonal_decompose(
+            x.interpolate().bfill().ffill(),
+            model=model,
+            period=period,
+            extrapolate_trend=extrapolate_trend,
+        )
+
+        residuals = result.resid
+        residuals[x.isnull()] = np.nan
+        residuals = residuals.interpolate(method=method_interpolation).ffill().bfill()
+        return result.seasonal + result.trend + residuals
+
     def __init__(
         self,
         groups: Optional[List[str]] = [],
@@ -387,38 +394,16 @@ class ImputeOnResiduals(ImputeColumnWise):
         extrapolate_trend: Optional[Union[int, str]] = "freq",
         method_interpolation: Optional[str] = "linear",
     ):
-        super().__init__(groups=groups)
-        self.model = model
-        self.period = period
-        self.extrapolate_trend = extrapolate_trend
-        self.method_interpolation = method_interpolation
-
-        def get_resid(x, model, period, extrapolate_trend, method_interpolation):
-            """
-            Fit/transform missing values on residuals.
-            """
-            if x.isna().all():
-                return np.nan
-            result = seasonal_decompose(
-                x.interpolate().bfill().ffill(),
+        super().__init__(
+            groups=groups,
+            apply_imputation = partial(
+                ImputeOnResiduals.get_resid,
                 model=model,
                 period=period,
                 extrapolate_trend=extrapolate_trend,
+                method_interpolation=method_interpolation,
             )
-
-            residuals = result.resid
-            residuals[x.isnull()] = np.nan
-            residuals = residuals.interpolate(method=method_interpolation).ffill().bfill()
-            return result.seasonal + result.trend + residuals
-
-        self.apply_imputation = partial(
-            get_resid,
-            model=self.model,
-            period=self.period,
-            extrapolate_trend=self.extrapolate_trend,
-            method_interpolation=self.method_interpolation,
         )
-
 
 class ImputeKNN(_BaseImputer):
     """
@@ -492,8 +477,6 @@ class ImputeKNN(_BaseImputer):
             setattr(self, key, value)
         return self
     
-    
-
 
 class ImputeRPCA(_BaseImputer):
     """
@@ -506,13 +489,18 @@ class ImputeRPCA(_BaseImputer):
             "PCP" for basic RPCA
             "temporal" for temporal RPCA, with regularisations
             "online" for online RPCA
-    multivariate : bool
-        for RPCA method to be applied collumn wise (with resizing of matrix)
-        or to be applied directly on the dataframe. By default, the value is set to False
-    TO DO
+    columnwise : bool
+        for RPCA method to be applied columnwise (with reshaping of each column into an array)
+        or to be applied directly on the dataframe. By default, the value is set to False.
     """
 
-    def __init__(self, method: str = "temporal", columnwise: bool = False, **params) -> None:
+    def __init__(
+        self,
+        method: str = "temporal",
+        columnwise: bool = False,
+        **params
+        ) -> None:
+        
         self.columnwise = columnwise
         self.method = method
         
@@ -586,12 +574,12 @@ class ImputeRPCA(_BaseImputer):
             elif self.method == "onlinetemporal":
                 rpca = OnlineTemporalRPCA()
 
-            rpca_params = [param for param in init_params.keys() if not (
+            rpca_params = [param for param in rpca_params.keys() if not (
                     (param[0] == "(") and (param[-1]== ")")
                 )
             ]
 
-            for key, value in init_params.items():
+            for key, value in rpca_params.items():
                 setattr(rpca, key, value)
             
             imputed, _, _, _, _= rpca.fit_transform(X=df.values)
@@ -609,7 +597,7 @@ class ImputeRPCA(_BaseImputer):
         Dict[str, Union[str, float, int]]
             dictonary with the hyperparameters and their value
         """
-        return self.__dict__
+        return self.__dict__.copy()
 
 
 class ImputeMICE(_BaseImputer):

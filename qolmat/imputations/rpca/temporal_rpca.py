@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import numpy as np
 import scipy as scp
@@ -9,7 +9,6 @@ from sklearn.utils.extmath import randomized_svd
 
 from qolmat.imputations.rpca import utils
 from qolmat.imputations.rpca.rpca import RPCA
-from qolmat.utils.utils import progress_bar
 
 
 class TemporalRPCA(RPCA):
@@ -114,12 +113,11 @@ class TemporalRPCA(RPCA):
             for index, _ in enumerate(self.list_periods):
                 sums += (mu * R[index] - Y_[index]) @ H[index].T
 
-            X_T = scp.linalg.solve(
+            X = scp.linalg.solve(
                 a=((1 + mu) * In + 2 * HHT).T,
                 b=(proj_D - A + mu * L @ Q.T - Y + sums).T,
-            )
-            X = X_T.T
-
+            ).T
+            
             if np.any(np.isnan(proj_D)):
                 A_omega = utils.soft_thresholding(proj_D - X, lam)
                 A_omega = utils.ortho_proj(A_omega, omega, inverse=False)
@@ -129,17 +127,15 @@ class TemporalRPCA(RPCA):
             else:
                 A = utils.soft_thresholding(proj_D - X, lam)
 
-            L_T = scp.linalg.solve(
+            L = scp.linalg.solve(
                 a=(tau * Ir + mu * (Q.T @ Q)).T,
                 b=((mu * X + Y) @ Q).T,
-            )
-            L = L_T.T
+            ).T
 
-            Q_T = scp.linalg.solve(
+            Q = scp.linalg.solve(
                 a=(tau * Ir + mu * (L.T @ L)).T,
                 b=((mu * X.T + Y.T) @ L).T,
-            )
-            Q = Q_T.T
+            ).T
 
             for index, _ in enumerate(self.list_periods):
                 R[index] = utils.soft_thresholding(
@@ -168,10 +164,10 @@ class TemporalRPCA(RPCA):
                 if self.verbose:
                     print(f"Converged in {iteration} iterations with error: {tol}")
                 break
-        result = [X, A, errors]
-
-        result += [L, Q]
-        return tuple(result)
+        M = X
+        U = L
+        V = Q
+        return M, A, U, V, errors
 
     def compute_L2(self, proj_D, omega, lam, tau, rank) -> None:
         """
@@ -207,12 +203,11 @@ class TemporalRPCA(RPCA):
             L_temp = L.copy()
             Q_temp = Q.copy()
 
-            X_T = scp.linalg.solve(
+            X = scp.linalg.solve(
                 a=((1 + mu) * In + HHT).T,
                 b=(proj_D - A + mu * L @ Q.T - Y).T,
-            )
-            X = X_T.T
-
+            ).T
+            
             if np.any(~omega):
                 A_omega = utils.soft_thresholding(proj_D - X, lam)
                 A_omega = utils.ortho_proj(A_omega, omega, inverse=False)
@@ -222,18 +217,16 @@ class TemporalRPCA(RPCA):
             else:
                 A = utils.soft_thresholding(proj_D - X, lam)
 
-            L_T = scp.linalg.solve(
+            L = scp.linalg.solve(
                 a=(tau * Ir + mu * (Q.T @ Q)).T,
                 b=((mu * X + Y) @ Q).T,
-            )
-            L = L_T.T
-
-            Q_T = scp.linalg.solve(
+            ).T
+            
+            Q = scp.linalg.solve(
                 a=(tau * Ir + mu * (L.T @ L)).T,
                 b=((mu * X.T + Y.T) @ L).T,
-            )
-            Q = Q_T.T
-
+            ).T
+            
             Y += mu * (X - L @ Q.T)
 
             mu = min(mu * rho, mu_bar)
@@ -252,10 +245,11 @@ class TemporalRPCA(RPCA):
 
         X = L @ Q.T
 
-        result = [X, A, errors]
-
-        result += [L, Q]
-        return tuple(result)
+        M = X
+        U = L
+        V = Q
+    
+        return M, A, U, V, errors
 
     def get_params(self) -> dict:
         dict_params = super().get_params()
@@ -281,20 +275,20 @@ class TemporalRPCA(RPCA):
     def set_params(self, **kargs):
         _ = super().set_params(**kargs)
 
-        for param_key in kargs.keys():
-            setattr(self, param_key, kargs[param_key])
+        for key, value in kargs.items():
+            setattr(self, key, value)
 
         list_periods = []
         list_etas = []
 
-        for param_key in kargs.keys():
-            if "period" in param_key:
-                index_period = int(param_key[7:])
+        for key, value in kargs.items():
+            if "period" in key:
+                index_period = int(key[7:])
                 if f"eta_{index_period}" in kargs.keys():
-                    list_periods.append(kargs[param_key])
+                    list_periods.append(value)
                     list_etas.append(kargs[f"eta_{index_period}"])
                 else:
-                    raise ValueError(f"No etas' index correspond to {param_key}")
+                    raise ValueError(f"No etas' index correspond to {key}")
 
         self.list_periods = list_periods
         self.list_etas = list_etas
@@ -303,15 +297,30 @@ class TemporalRPCA(RPCA):
     def fit_transform(
         self,
         X: NDArray,
-    ) -> None:
+    ) -> Tuple[NDArray, NDArray, NDArray, NDArray]:
         """
         Compute the noisy RPCA with time "penalisations"
 
         Parameters
         ----------
-        signal : NDArray
+        X : NDArray
             Observations
+
+        Returns
+        -------
+        M: NDArray
+            Low-rank signal
+        A: NDArray
+            Anomalies
+        U:
+            Basis Unitary array
+        V:
+            Basis Unitary array
+        
+        errors:
+            Array of iterative errors
         """
+
         D_init, n_add_values, input_data = self._prepare_data(signal=X)
         omega = ~np.isnan(D_init)
         proj_D = utils.impute_nans(D_init, method="median")
@@ -323,32 +332,17 @@ class TemporalRPCA(RPCA):
         tau = params_scale["tau"] if self.tau is None else self.tau
 
         if self.norm == "L1":
-            res = self.compute_L1(proj_D, omega, lam, tau, rank)
+            M, A, U, V, errors = self.compute_L1(proj_D, omega, lam, tau, rank)
         elif self.norm == "L2":
-            res = self.compute_L2(proj_D, omega, lam, tau, rank)
-
-        M = res[0]
-        A = res[1]
-        errors = res[2]
+            M, A, U, V, errors = self.compute_L2(proj_D, omega, lam, tau, rank)
         
         if input_data == "1DArray":
             M = M.T
             A = A.T
+            M = M.flatten()[:(M.size - n_add_values)]
+            A = A.flatten()[:(M.size - n_add_values)]
 
-            if n_add_values > 0:
-                M.flat[-n_add_values:] = np.nan
-                A.flat[-n_add_values:] = np.nan
-            ts_M = M.flatten()
-            ts_A = A.flatten()
-            ts_M = ts_M[~np.isnan(ts_M)]
-            ts_A = ts_A[~np.isnan(ts_A)]
-            result = [ts_M, ts_A]
-        else:
-            result = [M, A]
-
-        result += res[3:]
-        result += [errors]
-        return tuple(result)    
+        return M, A, U, V, errors    
 
 
 class OnlineTemporalRPCA(TemporalRPCA):
@@ -373,7 +367,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
         list of periods, linked to the Toeplitz matrices
     list_etas: Optional[List[float]]
         list of penalizing parameters for the corresponding period in list_periods
-    maxIter: Optional[int]
+    max_iter: Optional[int]
         stopping criteria, maximum number of iterations. By default, the value is set to 10_000
     tol: Optional[float]
         stoppign critera, minimum difference between 2 consecutive iterations. By default, the
@@ -454,7 +448,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
     def get_params_scale(
         self,
         X: NDArray,
-    ) -> None:
+    ) -> dict[str, float]:
         D_init, _, _ = self._prepare_data(signal=X)
         params_scale = super().get_params_scale(X=D_init)
         burnin = int(D_init.shape[1] * self.burnin)
@@ -468,31 +462,42 @@ class OnlineTemporalRPCA(TemporalRPCA):
         params_scale["online_lam"] = online_lam
         return params_scale
 
-
-
     def fit_transform(
         self,
         X: NDArray,
-    ) -> None:
+    ) -> Tuple[NDArray, NDArray, NDArray, NDArray, NDArray]:
         """
         Compute an online version of RPCA with temporal regularisations
 
         Parameters
         ----------
-        signal : NDArray
+        X : NDArray
+
+        Returns
+        -------
+        M: NDArray
+            Low-rank signal
+        A: NDArray
+            Anomalies
+        U:
+            Basis Unitary array. ``None``
+        V:
+            Basis Unitary array. ``None``
+        errors:
+            Array of iterative errors. ``None``
         """
 
         D_init, n_add_values, input_data = self._prepare_data(signal=X)
         burnin = int(self.burnin * D_init.shape[1])
         
         if burnin < len(D_init):
-            raise ValueError(f"'self.burnin is to small. Only {burnin} columns kept for {len(D_init)} rows",
+            raise ValueError(f"'self.burnin={self.burnin} is to small. Only {burnin} columns kept for {len(D_init)} rows",
                             "Increase self.burnin!")
         nwin = self.nwin
 
         m, n = D_init.shape
         super_class = TemporalRPCA(**super().get_params())
-        Lhat, Shat, _ =super_class.fit_transform(X=D_init[:, :burnin])
+        Lhat, Shat, _, _, _ =super_class.fit_transform(X=D_init[:, :burnin])
 
         proj_D = utils.impute_nans(D_init, method="median")
         params_scale = self.get_params_scale(X=proj_D)
@@ -505,7 +510,6 @@ class OnlineTemporalRPCA(TemporalRPCA):
         
         approx_rank =  utils.approx_rank(proj_D[:, :burnin])
 
-        # Uhat, sigmas_hat, Vhat = np.linalg.svd(Lhat, full_matrices=False)
         Uhat, sigmas_hat, Vhat = randomized_svd(
             Lhat, n_components=approx_rank, n_iter=5, random_state=42
         )
@@ -596,13 +600,11 @@ class OnlineTemporalRPCA(TemporalRPCA):
             U = utils.update_col(online_tau, U, A, B)
             Lhat_grow[:, i] = U @ vi
 
-        if n_add_values > 0:
-            Lhat_grow.flat[-n_add_values:] = np.nan
-            Shat_grow.flat[-n_add_values:] = np.nan
-
         if input_data == "1DArray":
-            ts_M = Lhat_grow.T.flatten()
-            ts_A = Shat_grow.T.flatten()
-            return ts_M[~np.isnan(ts_M)], ts_A[~np.isnan(ts_A)]
+            M = Lhat_grow.T.flatten()
+            A = Shat_grow.T.flatten()
+            M, A = M[:(M.size - n_add_values)], A[:(M.size - n_add_values)]
         else:
-            return Lhat_grow, Shat_grow, None, None, None
+            M = Lhat_grow
+            A = Shat_grow
+        return M, A, None, None, None

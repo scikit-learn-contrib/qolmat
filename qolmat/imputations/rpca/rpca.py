@@ -51,11 +51,11 @@ class RPCA(BaseEstimator, TransformerMixin):
         if len(signal.shape) == 1:
             n_rows = utils.get_period(signal) if self.n_rows is None else self.n_rows
             D_init, n_add_values = utils.signal_to_matrix(signal, n_rows=n_rows)
-            input_data = "1DArray"
         else:
             D_init = signal.copy()
             n_add_values = 0
-            input_data = "2DArray"
+        
+        input_data = f"{len(signal.shape)}DArray"
         return D_init, n_add_values, input_data
 
     def get_params(self) -> dict[str, Union[int, bool]]:
@@ -83,17 +83,33 @@ class RPCA(BaseEstimator, TransformerMixin):
         self,
         X: NDArray,
     ) -> Tuple[NDArray, NDArray, NDArray, NDArray]:
+        """
+        Parameters
+        ----------
+        X : NDArray
+
+        Returns
+        -------
+        M: NDArray
+            Low-rank signal
+        A: NDArray
+            Anomalies
+        U: NDArray
+            Basis Unitary array
+        V: NDArray
+            Basis Unitary array
+
+        errors: NDArray
+            Array of iterative errors
+        """
 
         M, _, input_data= self._prepare_data(signal=X)
         A = np.zeros(M.shape, dtype=float)
         
         if input_data == "1DArray":
-            result = [M.flatten(), A.flatten()]
+            M, A = M.flatten(), A.flatten()
 
-        else:
-            result = [M, A]
+        errors = None 
+        U, _, V = np.linalg.svd(M, full_matrices=False, compute_uv=True)
 
-        U, _, Vh = np.linalg.svd(M, full_matrices=False, compute_uv=True)
-        result += [U, Vh]
-        result += [None]
-        return tuple(result)
+        return M, A, U, V, errors
