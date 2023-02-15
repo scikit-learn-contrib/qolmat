@@ -69,9 +69,14 @@ class RPCA(BaseEstimator, TransformerMixin):
 
     def set_params(self, **kargs) -> RPCA:
         """Set the attributes"""
-        for param_key in kargs.keys():
-            if param_key in self.__dict__.keys():
-                setattr(self, param_key, kargs[param_key])
+        for key, value in kargs.items():
+            if key in self.__dict__.keys():
+                setattr(self, key, value)
+            else:
+                raise ValueError(
+                    f"{key} is not a parameter of {type(self).__name__}",
+                    f"It is not one of {', '.join(self.__dict__.keys())}"
+                    )
         return self
 
     def fit_transform(
