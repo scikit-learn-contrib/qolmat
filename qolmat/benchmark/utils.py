@@ -87,7 +87,7 @@ def custom_groupby(
     if len(groups) > 0:
         groupby = []
         for g in groups:
-            groupby.append(eval("df_out." + g))
+            groupby.append(df_out[g])
         return df.groupby(groupby)
     else:
         return df

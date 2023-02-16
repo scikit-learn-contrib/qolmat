@@ -1,8 +1,11 @@
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
 import skopt
+
+from qolmat.benchmark.missing_patterns import _HoleGenerator
+
 
 
 class CrossValidation:
@@ -15,8 +18,8 @@ class CrossValidation:
     model:
     search_space: Optional[Dict[str, Union[int, float, str]]]
         search space for the hyperparameters
-    cv: Optional[int ]
-        number of splits. By default the value is set to 4
+    hole_generator:
+
     n_calls: Optional[int]
         number of calls. By default the value is set to 10
     n_jobs: Optional[int]
@@ -35,13 +38,13 @@ class CrossValidation:
 
     def __init__(
         self,
-        model,
-        search_space,
-        hole_generator,
-        n_calls=10,
-        n_jobs=-1,
-        loss_norm=1,
-        verbose=True,
+        model: any,
+        search_space: List[skopt.Space],
+        hole_generator: _HoleGenerator,
+        n_calls: int = 10,
+        n_jobs: int = -1,
+        loss_norm: int = 1,
+        verbose: bool = True,
     ):
         self.model = model
         self.search_space = search_space
@@ -83,7 +86,7 @@ class CrossValidation:
         else:
             raise ValueError("loss_norm has to be 0 or 1 (int)")
 
-    def _set_params(self, all_params: Dict[str, Union[float, str]]):
+    def _set_params(self, all_params: Dict[str, Union[float, int, str]]):
         """
         Set the hyperparameters to the model
 
@@ -143,8 +146,8 @@ class CrossValidation:
         ----------
         X : pd.DataFrame
             dataframe to impute
-        return_hyper_params : Optional[bool], optional
-            _description_, by default False
+        return_hyper_params : Optional[bool]
+            by default False
 
         Returns
         -------

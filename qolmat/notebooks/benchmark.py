@@ -74,7 +74,7 @@ imputer_spline = models.ImputeByInterpolation(method="spline")
 imputer_random = models.ImputeRandom()
 imputer_residuals = models.ImputeOnResiduals("additive", 7, "freq", "linear")
 imputer_rpca = models.ImputeRPCA(
-  method="temporal", columnwise=True, n_rows=7*4, max_iter=1000
+  method="temporal", columnwise=True, n_rows=7*4, max_iter=int(1e4)
   )
 imputer_em = ImputeEM(n_iter_em=34, n_iter_ou=15, verbose=0, strategy="ou", temporal=False)
 imputer_locf = models.ImputeLOCF()

@@ -1,10 +1,10 @@
-from typing import Dict, List, Optional
-
+from typing import Dict, List, Optional, Union
 import numpy as np
 import pandas as pd
 
 from qolmat.benchmark import cross_validation, utils
 from qolmat.benchmark.missing_patterns import _HoleGenerator
+
 
 
 class Comparator:
@@ -29,18 +29,16 @@ class Comparator:
 
     def __init__(
         self,
-        dict_models: Dict,
+        dict_models: Dict[str, any],
         selected_columns: List[str],
         generator_holes: _HoleGenerator,
-        columnwise_evaluation: Optional[bool] = True,
-        search_params: Optional[Dict] = {},
+        search_params: Optional[Dict[str, Dict[str, Union[float, int, str]]]] = {},
         n_cv_calls: Optional[int] = 10,
     ):
 
         self.dict_models = dict_models
         self.selected_columns = selected_columns
         self.generator_holes = generator_holes
-        self.columnwise_evaluation = columnwise_evaluation
         self.search_params = search_params
         self.n_cv_calls = n_cv_calls
 

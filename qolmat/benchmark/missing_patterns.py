@@ -30,7 +30,7 @@ def compute_transition_matrix(states: pd.Series, ngroups: List = None):
     return df_transition
 
 
-def get_sizes_max(values_isna: pd.Series) -> pd.Series:
+def get_sizes_max(values_isna: pd.Series) -> int:
     ids_hole = (values_isna.diff() != 0).cumsum()
     sizes_max = values_isna.groupby(ids_hole, group_keys=True).apply(
         lambda x: (~x) * np.arange(len(x))
