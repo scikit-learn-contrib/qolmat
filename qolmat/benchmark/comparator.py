@@ -43,7 +43,7 @@ class Comparator:
         self.n_cv_calls = n_cv_calls
 
     def get_errors(
-        self, df_origin: pd.DataFrame, df_imputed: pd.DataFrame, df_mask: pd.DataFrame
+        df_origin: pd.DataFrame, df_imputed: pd.DataFrame, mask: Optional[List[str]],
     ) -> float:
         """Functions evaluating the reconstruction's quality
 
@@ -62,20 +62,20 @@ class Comparator:
 
         dict_errors = {}
         dict_errors["rmse"] = utils.root_mean_squared_error(
-            df_origin[df_mask],
-            df_imputed[df_mask],
+            df_origin[mask],
+            df_imputed[mask],
         )
         dict_errors["mae"] = utils.mean_absolute_error(
-            df_origin[df_mask],
-            df_imputed[df_mask],
+            df_origin[mask],
+            df_imputed[mask],
         )
         dict_errors["wmape"] = utils.weighted_mean_absolute_percentage_error(
-            df_origin[df_mask],
-            df_imputed[df_mask],
+            df_origin[mask],
+            df_imputed[mask],
         )
         dict_errors["kl"] = utils.kl_divergence(
-            df_origin[df_mask],
-            df_imputed[df_mask],
+            df_origin[mask],
+            df_imputed[mask],
         )
 
         errors = pd.concat(dict_errors.values(), keys=dict_errors.keys())

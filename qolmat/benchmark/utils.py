@@ -4,6 +4,9 @@ import numpy as np
 import pandas as pd
 import scipy
 import scipy.sparse as sparse
+
+from numpy.typing import NDArray
+
 from scipy.optimize import Bounds, lsq_linear
 from sklearn.preprocessing import StandardScaler
 from skopt.space import Categorical, Integer, Real
@@ -99,8 +102,8 @@ def custom_groupby(
 
 
 def mean_squared_error(
-    df1: pd.DataFrame,
-    df2: pd.DataFrame,
+    df1: NDArray,
+    df2: NDArray,
 ) -> pd.Series:
     """Mean squared error between two dataframes.
 
