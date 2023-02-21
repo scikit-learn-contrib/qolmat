@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import logging
-from functools import reduce
-from typing import List, Optional
+from typing import Optional
 from warnings import WarningMessage
 
 import numpy as np
@@ -15,11 +14,9 @@ from sklearn.preprocessing import StandardScaler
 logger = logging.getLogger(__name__)
 
 
-def _gradient_conjugue(
-        A: ArrayLike, X: ArrayLike, tol: float = 1e-6
-    ) -> ArrayLike:
+def _gradient_conjugue(A: ArrayLike, X: ArrayLike, tol: float = 1e-6) -> ArrayLike:
     """
-    Minimize np.sum(X * AX) by imputing missing values.
+    Minimize Tr(X.T AX) by imputing missing values.
     To this aim, we compute in parallel a gradient algorithm for each data.
 
     Parameters
@@ -50,15 +47,11 @@ def _gradient_conjugue(
         #     return X_temp.transpose()
         Apn = A @ pn
         Apn[~mask] = 0
-        alphan = np.sum(rn ** 2, axis=0) / np.sum(pn * Apn, axis=0)
-        alphan[
-            np.isnan(alphan)
-        ] = 0  # we stop updating if convergence is reached for this date
+        alphan = np.sum(rn**2, axis=0) / np.sum(pn * Apn, axis=0)
+        alphan[np.isnan(alphan)] = 0  # we stop updating if convergence is reached for this date
         xn, rnp1 = xn + alphan * pn, rn - alphan * Apn
-        betan = np.sum(rnp1 ** 2, axis=0) / np.sum(rn ** 2, axis=0)
-        betan[
-            np.isnan(betan)
-        ] = 0  # we stop updating if convergence is reached for this date
+        betan = np.sum(rnp1**2, axis=0) / np.sum(rn**2, axis=0)
+        betan[np.isnan(betan)] = 0  # we stop updating if convergence is reached for this date
         pn, rn = rnp1 + betan * pn, rnp1
 
     X_temp[mask] = xn[mask]
@@ -66,6 +59,7 @@ def _gradient_conjugue(
     X_final[:, index_imputed] = X_temp
 
     return X_final
+
 
 def invert_robust(M, epsilon=1e-2):
     # In case of inversibility problem, one can add a penalty term
@@ -81,7 +75,7 @@ def invert_robust(M, epsilon=1e-2):
         )
     if np.abs(scipy.linalg.eigh(M)[0].min()) > 1e20:
         raise WarningMessage("Large eigenvalues, imputation may be inflated.")
-    
+
     return scipy.linalg.inv(Meps)
 
 
@@ -104,8 +98,8 @@ class ImputeEM(_BaseImputer):  # type: ignore
         or to maximise likelihood (0), by default 1.
     random_state : int, optional
         The seed of the pseudo random number generator to use, for reproductibility.
-    verbose : bool, optional
-        Verbosity flag, controls the debug messages that are issued as functions are evaluated.
+    rng : Generator
+            Random number generator to be used, for reproducibility.
 
     Attributes
     ----------
@@ -133,7 +127,6 @@ class ImputeEM(_BaseImputer):  # type: ignore
         n_iter_ou: Optional[int] = 50,
         ampli: Optional[int] = 1,
         random_state: Optional[int] = 123,
-        verbose: Optional[bool] = True,
         dt: Optional[float] = 2e-2,
         tolerance: Optional[float] = 1e-4,
         stagnation_threshold: Optional[float] = 5e-3,
@@ -148,7 +141,7 @@ class ImputeEM(_BaseImputer):  # type: ignore
         self.n_iter_ou = n_iter_ou
         self.ampli = ampli
         self.random_state = random_state
-        self.verbose = verbose
+        self.rng = np.random.default_rng(self.random_state)
         self.mask_outliers = None
         self.cov = None
         self.dt = dt
@@ -172,9 +165,16 @@ class ImputeEM(_BaseImputer):  # type: ignore
         X_interpolated : np.ndarray
             imputed array, by linear interpolation
         """
+        n_rows, n_cols = X.shape
+        indices = np.arange(n_cols)
         X_interpolated = X.copy()
-        nans, x = np.isnan(X_interpolated), lambda z: z.nonzero()[0]
-        X_interpolated[nans] = np.interp(x(nans), x(~nans), X_interpolated[~nans])
+        for i_row in range(n_rows):
+            values = X[i_row]
+            mask_isna = np.isnan(values)
+            values_interpolated = np.interp(
+                indices[mask_isna], indices[~mask_isna], values[~mask_isna]
+            )
+            X_interpolated[i_row, mask_isna] = values_interpolated
         return X_interpolated
 
     def _convert_numpy(self, X: ArrayLike) -> np.ndarray:
@@ -197,9 +197,7 @@ class ImputeEM(_BaseImputer):  # type: ignore
             X = X.to_numpy()
         return X
 
-    def _check_convergence(
-        self
-    ) -> bool:
+    def _check_convergence(self) -> bool:
         return False
 
     def _maximize_likelihood(self, X: ArrayLike) -> ArrayLike:
@@ -239,31 +237,27 @@ class ImputeEM(_BaseImputer):  # type: ignore
         if np.nansum(X_) == 0:
             return X_
 
-        rng = np.random.default_rng(self.random_state)
-
         mask_na = np.isnan(X)
 
         # first imputation
-        X_transformed = np.apply_along_axis(self._linear_interpolation, 1, X_)
+        X_transformed = self._linear_interpolation(X_)
 
         self.fit_distribution(X_transformed)
-        self.dict_criteria_stop = {key: [] for key in self.dict_criteria_stop}
 
         for iter_em in range(self.max_iter_em):
 
-            X_transformed = self._sample_ou(X_transformed, mask_na, rng)
+            X_transformed = self._sample_ou(X_transformed, mask_na)
 
-            if (
-                self._check_convergence()
-            ):
-                if self.verbose:
-                    print(f"EM converged after {iter_em} iterations.")
+            if self._check_convergence():
+                logger.info(f"EM converged after {iter_em} iterations.")
                 break
-            
+
         if self.strategy == "mle":
             X_transformed = self._maximize_likelihood(X_)
         elif self.strategy == "ou":
-            X_transformed = self._sample_ou(X_transformed, mask_na, rng)
+            X_transformed = self._sample_ou(X_transformed, mask_na)
+
+        self.dict_criteria_stop = {key: [] for key in self.dict_criteria_stop}
 
         if np.all(np.isnan(X_transformed)):
             raise WarningMessage("Result contains NaN. This is a bug.")
@@ -289,7 +283,7 @@ class ImputeEM(_BaseImputer):  # type: ignore
 
         if df.shape[1] < 2:
             raise AssertionError("Invalid dimensions: X must be of dimension (n,m) with m>1.")
-        
+
         X = df.values
 
         scaler = StandardScaler()
@@ -330,8 +324,6 @@ class ImputeMultiNormalEM(ImputeEM):  # type: ignore
         or to maximise likelihood (0), by default 1.
     random_state : int, optional
         The seed of the pseudo random number generator to use, for reproductibility.
-    verbose : bool, optional
-        Verbosity flag, controls the debug messages that are issued as functions are evaluated.
     dt : float
         Process integration time step, a large value increases the sample bias and can make
         the algorithm unstable, but compensates for a smaller n_iter_ou. By default, 2e-2.
@@ -362,34 +354,40 @@ class ImputeMultiNormalEM(ImputeEM):  # type: ignore
         n_iter_ou: Optional[int] = 50,
         ampli: Optional[int] = 1,
         random_state: Optional[int] = 123,
-        verbose: Optional[bool] = True,
         dt: Optional[float] = 2e-2,
         tolerance: Optional[float] = 1e-4,
         stagnation_threshold: Optional[float] = 5e-3,
         stagnation_loglik: Optional[float] = 1e1,
     ) -> None:
 
-        super().__init__(strategy,max_iter_em,n_iter_ou,ampli,random_state,verbose,dt,stagnation_threshold,stagnation_loglik)
+        super().__init__(
+            strategy,
+            max_iter_em,
+            n_iter_ou,
+            ampli,
+            random_state,
+            dt,
+            stagnation_threshold,
+            stagnation_loglik,
+        )
         self.tolerance = tolerance
-        
+
         # self.list_logliks = []
         # self.list_means = []
         # self.list_covs = []
         self.dict_criteria_stop = {"logliks": [], "means": [], "covs": []}
 
-
     def fit_distribution(self, X):
         # first estimation of params
         self.means = np.mean(X, axis=1)
         self.cov = np.cov(X)
-        
+
         self.cov_inv = invert_robust(self.cov, epsilon=1e-2)
 
     def _sample_ou(
         self,
         X: ArrayLike,
         mask_na: ArrayLike,
-        rng: int,
     ) -> ArrayLike:
         """
         Samples the Gaussian distribution under the constraint that not na values must remain
@@ -405,8 +403,6 @@ class ImputeMultiNormalEM(ImputeEM):  # type: ignore
             method. This first imputation will be used as an initial guess.
         mask_na : ArrayLike
             Boolean dataframe indicating which coefficients should be resampled.
-        rng : int
-            Random number generator to be used (for reproducibility).
         n_iter_ou : int
             Number of iterations for the OU process, a large value decreases the sample bias
             but increases the computation time.
@@ -425,9 +421,13 @@ class ImputeMultiNormalEM(ImputeEM):  # type: ignore
         list_means = []
         list_cov = []
         for iter_ou in range(self.n_iter_ou):
-            noise = self.ampli * rng.normal(0, 1, size=(n_samples, n_variables))
+            noise = self.ampli * self.rng.normal(0, 1, size=(n_samples, n_variables))
             X_center = X - self.means[:, None]
-            X = X - gamma * self.cov_inv @ X_center * self.dt + noise * np.sqrt(2 * gamma * self.dt)
+            X = (
+                X
+                - gamma * self.cov_inv @ X_center * self.dt
+                + noise * np.sqrt(2 * gamma * self.dt)
+            )
             X[~mask_na] = X_init[~mask_na]
             if iter_ou > self.n_iter_ou - 50:
                 list_means.append(np.mean(X, axis=1))
@@ -440,6 +440,7 @@ class ImputeMultiNormalEM(ImputeEM):  # type: ignore
         self.cov = np.mean(cov_stack, axis=2) + np.cov(means_stack, bias=True)
         self.cov_inv = invert_robust(self.cov, epsilon=1e-2)
 
+        # Stop criteria
         self.loglik = scipy.stats.multivariate_normal.logpdf(X.T, self.means, self.cov).mean()
 
         self.dict_criteria_stop["means"].append(self.means)
@@ -447,7 +448,7 @@ class ImputeMultiNormalEM(ImputeEM):  # type: ignore
         self.dict_criteria_stop["logliks"].append(self.loglik)
 
         return X
-    
+
     def _check_convergence(self) -> bool:
         """Check if the EM algorithm has converged. Three criteria:
         1) if the differences between the estimates of the parameters (mean and covariance) is
@@ -463,7 +464,6 @@ class ImputeMultiNormalEM(ImputeEM):  # type: ignore
         bool
             True/False if the algorithm has converged
         """
-        
 
         # self.list_means.append(self.means)
         # self.list_covs.append(self.cov)
@@ -472,20 +472,29 @@ class ImputeMultiNormalEM(ImputeEM):  # type: ignore
         list_means = self.dict_criteria_stop["means"]
         list_covs = self.dict_criteria_stop["covs"]
         list_logliks = self.dict_criteria_stop["logliks"]
-        
+
         n_iter = len(list_means)
 
         min_diff_reached = (
             n_iter > 5
-            and scipy.linalg.norm(list_means[-1] - list_means[-2], np.inf) < self.convergence_threshold
-            and scipy.linalg.norm(list_covs[-1] - list_covs[-2], np.inf) < self.convergence_threshold
+            and scipy.linalg.norm(list_means[-1] - list_means[-2], np.inf)
+            < self.convergence_threshold
+            and scipy.linalg.norm(list_covs[-1] - list_covs[-2], np.inf)
+            < self.convergence_threshold
         )
 
         min_diff_stable = (
             n_iter > 10
-            and min([scipy.linalg.norm(t - s, np.inf) for s, t in zip(list_means[-6:], list_means[-5:])])
+            and min(
+                [
+                    scipy.linalg.norm(t - s, np.inf)
+                    for s, t in zip(list_means[-6:], list_means[-5:])
+                ]
+            )
             < self.stagnation_threshold
-            and min([scipy.linalg.norm(t - s, np.inf) for s, t in zip(list_covs[-6:], list_covs[-5:])])
+            and min(
+                [scipy.linalg.norm(t - s, np.inf) for s, t in zip(list_covs[-6:], list_covs[-5:])]
+            )
             < self.stagnation_threshold
         )
 
@@ -517,8 +526,6 @@ class ImputeVAR1EM(ImputeEM):  # type: ignore
         or to maximise likelihood (0), by default 1.
     random_state : int, optional
         The seed of the pseudo random number generator to use, for reproductibility.
-    verbose : bool, optional
-        Verbosity flag, controls the debug messages that are issued as functions are evaluated.
 
     Attributes
     ----------
@@ -546,14 +553,22 @@ class ImputeVAR1EM(ImputeEM):  # type: ignore
         n_iter_ou: Optional[int] = 50,
         ampli: Optional[int] = 1,
         random_state: Optional[int] = 123,
-        verbose: Optional[bool] = True,
         dt: Optional[float] = 2e-2,
         tolerance: Optional[float] = 1e-4,
         stagnation_threshold: Optional[float] = 5e-3,
         stagnation_loglik: Optional[float] = 1e1,
     ) -> None:
 
-        super().__init__(strategy,max_iter_em,n_iter_ou,ampli,random_state,verbose,dt,stagnation_threshold,stagnation_loglik)
+        super().__init__(
+            strategy,
+            max_iter_em,
+            n_iter_ou,
+            ampli,
+            random_state,
+            dt,
+            stagnation_threshold,
+            stagnation_loglik,
+        )
         self.tolerance = tolerance
 
     def fit_parameter_A(self, X):
@@ -577,8 +592,6 @@ class ImputeVAR1EM(ImputeEM):  # type: ignore
         self.omega = (Z_back @ Z_back.T) / n_samples
         self.omega_inv = invert_robust(self.omega, epsilon=1e-2)
 
-
-
     def fit_distribution(self, X):
         n_variables, n_samples = X.shape
 
@@ -601,15 +614,12 @@ class ImputeVAR1EM(ImputeEM):  # type: ignore
         Xc_fore = np.roll(Xc, -1, axis=1)
         Xc_fore[:, -1] = 0
         Z_fore = Xc_fore - self.A @ Xc
-        return - self.omega_inv @ Z_back + self.A.T @ self.omega_inv @ Z_fore
-
-        
+        return -self.omega_inv @ Z_back + self.A.T @ self.omega_inv @ Z_fore
 
     def _sample_ou(
         self,
         X: ArrayLike,
         mask_na: ArrayLike,
-        rng: int,
     ) -> ArrayLike:
         """
         Samples the Gaussian distribution under the constraint that not na values must remain
@@ -626,8 +636,6 @@ class ImputeVAR1EM(ImputeEM):  # type: ignore
             method. This first imputation will be used as an initial guess.
         mask_na : ArrayLike
             Boolean dataframe indicating which coefficients should be resampled.
-        rng : int
-            Random number generator to be used (for reproducibility).
         n_iter_ou : int
             Number of iterations for the OU process, a large value decreases the sample bias
             but increases the computation time.
@@ -640,23 +648,24 @@ class ImputeVAR1EM(ImputeEM):  # type: ignore
             DataFrame after Ornstein-Uhlenbeck process.
         """
         n_variables, n_samples = X.shape
-        list_var = []
 
         X_init = X.copy()
         gamma = np.diagonal(self.omega)[:, None]
         Xc = X - self.B[:, None]
         Xc_init = X_init - self.B[:, None]
         for iter_ou in range(self.n_iter_ou):
-            noise = self.ampli * rng.normal(0, 1, size=(n_variables, n_samples))
-            
+            noise = self.ampli * self.rng.normal(0, 1, size=(n_variables, n_samples))
+
             # Xc_lag = np.roll(Xc, 1, axis=1)
             # Z_back = Xc - self.A @ Xc_lag
             # Z_fore = np.roll(Z_back, -1, axis=1)
             # Z_back[:, 0] = 0
             # Z_fore[:, -1] = 0
-            # Xc = Xc - gamma * self.omega_inv @ Z_back * dt - gamma * self.A.T @ self.omega_inv @ Z_fore * dt + np.sqrt(2 * gamma[:, None] * dt) * noise
+            # Xc = Xc - gamma * self.omega_inv @ Z_back * dt
+            # - gamma * self.A.T @ self.omega_inv @ Z_fore * dt
+            # + np.sqrt(2 * gamma[:, None] * dt) * noise
             grad_X = self.gradient_X_centered_loglik(Xc)
-            
+
             # print("Xc")
             # print(Xc)
             # print(gamma)
@@ -672,14 +681,14 @@ class ImputeVAR1EM(ImputeEM):  # type: ignore
             # plt.ylim(-2, 2)
             # plt.legend()
             # plt.show()
-            
+
             Xc[~mask_na] = Xc_init[~mask_na]
         X = Xc + self.B[:, None]
 
         self.fit_distribution(X)
 
         return X
-    
+
     # def _sample_ou(
     #     self,
     #     X: ArrayLike,
@@ -735,8 +744,11 @@ class ImputeVAR1EM(ImputeEM):  # type: ignore
     #         Z_back = Xc - self.A @ Xc_lag
     #         Z_back[:, 0] = 0
     #         Z_front = np.roll(Z_back, -1, axis=1)
-    #         # X = X - self.omega_inv @ Z_back * dt - self.A.T @ self.omega_inv @ Z_front * dt + noise * np.sqrt(2 * dt)
-    #         X = X - gamma * self.omega_inv @ Z_back * dt - gamma * self.A.T @ self.omega_inv @ Z_front * dt + np.sqrt(2 * gamma[:, None] * dt) * noise
+    #         # X = X - self.omega_inv @ Z_back * dt
+    #           - self.A.T @ self.omega_inv @ Z_front * dt + noise * np.sqrt(2 * dt)
+    #         X = X - gamma * self.omega_inv @ Z_back * dt
+    #           - gamma * self.A.T @ self.omega_inv @ Z_front * dt
+    # + np.sqrt(2 * gamma[:, None] * dt) * noise
     #         X[~mask_na] = X_init[~mask_na]
     #         if iter_ou > self.n_iter_ou - 50:
     #             X_lag = np.roll(X, 1, axis=1)
@@ -747,11 +759,11 @@ class ImputeVAR1EM(ImputeEM):  # type: ignore
 
     #             XX = X @ X.T
     #             XX_lag = Xc[:, 1:] @ X_lag[:, :-1].T
-                
+
     #             Z_back = Xc - self.A @ Xc_lag
     #             Z_back[:, 0] = 0
 
-    #             list_B.append(B) 
+    #             list_B.append(B)
     #             list_XX.append(XX)
     #             list_XX_lag.append(XX_lag)
     #             list_ZZ.append(Z_back @ Z_back.T)
