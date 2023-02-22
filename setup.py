@@ -17,7 +17,7 @@ tmorzadec@quantmetry.com,
 rhajou@quantmetry.com
 """
 
-"""
+
 PACKAGES = find_packages()
 INSTALL_REQUIRES = [
     "numpy",
@@ -31,7 +31,7 @@ INSTALL_REQUIRES = [
     "scikit-learn",
     "missingpy"
 ]
-"""
+
 PYTHON_REQUIRES = ">=3.8"
 
 setup(
@@ -43,9 +43,10 @@ setup(
     long_description_content_type=LONG_DESCRIPTION_CONTENT_TYPE,
     author=AUTHORS,
     author_email=AUTHORS_EMAIL,
-    #packages=PACKAGES,
-    #install_requires=INSTALL_REQUIRES,
+    packages=PACKAGES,
     python_requires=PYTHON_REQUIRES,
+    install_requires=INSTALL_REQUIRES
+    
 )
 
 
