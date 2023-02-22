@@ -17,10 +17,65 @@ from statsmodels.tsa.seasonal import seasonal_decompose
 
 from qolmat.benchmark import utils
 from qolmat.imputations.rpca.pcp_rpca import RPCA
-from qolmat.imputations.rpca.temporal_rpca import OnlineTemporalRPCA, TemporalRPCA
 
 
-class ImputeColumnWise(_BaseImputer):
+class QolmatImputer(_BaseImputer):
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    def _set_params(self, **params):
+        if len(params) > len(set(params)):
+            raise ValueError(f"{','.join(params.keys())} contains duplicates")
+        
+        if not set(params.keys()).issubset(set(self.__dict__.keys())):
+            raise ValueError(
+                f"{','.join(params.keys())} not contained in {','.join(self.rpca_params.keys())}"
+                )
+        self.__dict__.update(params)
+        return self
+
+
+    def _check_impute_model_params(impute_model, selected_columns=None, **hyper_params):
+
+        if len(hyper_params) > len(set(hyper_params)):
+            raise ValueError(f"{','.join(hyper_params.keys())} contains duplicates")
+        
+        for key in hyper_params.keys():
+            if key in impute_model().__dict__.keys():
+                pass
+            
+            else:                
+                if selected_columns and (key in selected_columns):
+                    if len(hyper_params[key]) > len(set(hyper_params[key])):
+                        raise ValueError(
+                            f"{','.join(hyper_params[key].keys())} contains duplicates"
+                    )
+                    if not set(hyper_params[key]).issubset(set(impute_model().__dict__.keys())):
+                        raise ValueError(
+                            f"{','.join(hyper_params[key])} not contained in ",
+                            f"{','.join(impute_model().__dict__.keys())}"
+                            )
+                else:
+                    raise ValueError(f"{key} does not belong to {impute_model().__class__.__name__}'s ",
+                                     f"attribute nor to ``selected_columns``.")
+        return hyper_params
+    
+    def _set_impute_model_params(self, **hyper_params):
+        if not hasattr(self, "impute_model"):
+            raise AttributeError(f"Class {self.__class__.__name__} ",
+                                  "has not attribute 'impute_model'.",
+                                  "You cannot use ``set_impute_model_params``")
+
+        if not hasattr(self, "impute_model_params"):
+            raise AttributeError(f"Class {self.__class__.__name__} ",
+                                  "has not attribute 'impute_model_params'.",
+                                  "You cannot use ``set_impute_model_params``")
+        
+        self.impute_model_params.update(hyper_params)
+        return self
+
+class ImputeColumnWise(QolmatImputer):
     """
     This class implements the imputation column wise.
 
@@ -79,22 +134,6 @@ class ImputeColumnWise(_BaseImputer):
                 "Problem: there are still nan",
                 " in the DataFrame to be imputed")
         return df_imputed
-
-    def get_hyperparams(self) -> Dict[str, Union[str, float, int]]:
-        """
-        Return the hyperparameters, if relevant
-
-        Returns
-        -------
-        Dict[str, Union[str, float, int]]
-            dictionary with hyperparameters and their value
-        """
-        return self.__dict__.copy()
-
-    def set_params(self, **params):
-        for key, value in params.items():
-            setattr(self, key, value)
-        return self
 
 
 class ImputeByMean(ImputeColumnWise):
@@ -405,7 +444,7 @@ class ImputeOnResiduals(ImputeColumnWise):
             )
         )
 
-class ImputeKNN(_BaseImputer):
+class ImputeKNN(QolmatImputer):
     """
     This class implements an imputation by the k-nearest neighbors, column wise
 
@@ -461,56 +500,42 @@ class ImputeKNN(_BaseImputer):
         results = imputer.fit_transform(df)
         return pd.DataFrame(data=results, columns=df.columns, index=df.index)
 
-    def get_hyperparams(self) -> Dict[str, int]:
-        """
-        Get the value of the hyperparameter of the method, i.e. number of nearest neighbors
-
-        Returns
-        -------
-        Dict[str, int]
-            number of nearest neighbors
-        """
-        return {"k": self.k}
-    
-    def set_params(self, **params):
-        for key, value in params.items():
-            setattr(self, key, value)
-        return self
-    
-
-class ImputeRPCA(_BaseImputer):
+class ImputeRPCA(QolmatImputer):
     """
     This class implements the RPCA imputation
 
     Parameters
     ----------
-    method : str
-        name of the RPCA method:
-            "PCP" for basic RPCA
-            "temporal" for temporal RPCA, with regularisations
-            "online" for online RPCA
-    columnwise : bool
-        for RPCA method to be applied columnwise (with reshaping of each column into an array)
-        or to be applied directly on the dataframe. By default, the value is set to False.
+    impute_model: RPCA
+        class of RPCA model:
+                        - PcpRPCA
+                        - TemporalRPCA
+                        - OnlineTemporalRPCA
+
+    impute_model_params: dict[str, float]
+        parameters of the RPCA impute model.
+        If self.selected_columns is not ``None`` it may
+        contain different values for the different columns. 
+    selected_columns: Optional[List[str]]
+        for RPCA method to be applied columnwise for selected columns
+        (with reshaping of each column into an array)
+        or to be applied directly on the dataframe.
+        By default ``None``.
     """
 
     def __init__(
         self,
-        method: str = "temporal",
-        columnwise: bool = False,
-        **params
+        rpca_model: RPCA,
+        selected_columns: Optional[List[str]] = None,
+        **rpca_params,
         ) -> None:
-        
-        self.columnwise = columnwise
-        self.method = method
-        
-        for key, value in params.items():
-            setattr(self, key, value) 
-
-    def set_params(self, **params):
-        for key, value in params.items():
-            setattr(self, key, value)
-        return self
+        super().__init__()
+        self.impute_model = rpca_model
+        self.selected_columns = selected_columns
+        self.impute_model_params = QolmatImputer._check_impute_model_params(
+            impute_model=rpca_model,
+            selected_columns=selected_columns,
+            **rpca_params)
         
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -526,79 +551,34 @@ class ImputeRPCA(_BaseImputer):
         pd.DataFrame
             imputed dataframe
         """
-        rpca_params = self.__dict__.copy()
-        del rpca_params["columnwise"]
-        del rpca_params["method"]
 
-        if self.columnwise:
+        rpca_params = {
+            key:value for key, value in self.impute_model_params.items() if (
+                key in self.impute_model().__dict__.keys()
+                )}
+
+        if self.selected_columns:
             
-            rpca_params_per_col = [
-                eval(param) for param in rpca_params.keys() if (
-                    (param[0] == "(") and (param[-1]== ")") and ("," in param)
-                    )
-            ]
+            imputed = pd.DataFrame(columns=df.columns, index=df.index)
             
-            rpca_params_common = [param for param in rpca_params.keys() if not (
-                (param[0] == "(") and (param[-1] == ")")
-                )
-            ]
-
-            rpca_models_col = list(set([x[0] for x in rpca_params_per_col]))
-            
-            rpca_models_col_params = list(
-                set([x[1] for x in rpca_params_per_col])
-            )
-
-            imputed = pd.DataFrame(index=df.index)
-
-            for col in rpca_models_col:
-                if self.method == "PCP":
-                    rpca = RPCA()
-                elif self.method == "temporal":
-                    rpca = TemporalRPCA()
-                elif self.method == "onlinetemporal":
-                    rpca = OnlineTemporalRPCA()
-
-                for param in rpca_models_col_params:
-                    setattr(rpca, param, rpca_params[f"('{col}', '{param}')"])
-                for param in rpca_params_common:
-                    setattr(rpca, param, rpca_params[param])
+            for col in imputed.columns:
+                if col in self.selected_columns:
                     
-                imputed_signal, _, _, _, _ = rpca.fit_transform(X=df[col].values)
-                imputed[col] = imputed_signal
+                    if col in self.impute_model_params.keys():
+                        rpca_params.update(self.impute_model_params[col])
+                    rpca = self.impute_model(**rpca_params)
+                    imputed_signal, _ = rpca.fit_transform(X=df[col].values)
+                    imputed[col] = imputed_signal
+                
+                else:
+                    imputed[col] = df[col].values
+
         else:
-            if self.method == "PCP":
-                rpca = RPCA()
-            elif self.method == "temporal":
-                rpca = TemporalRPCA()
-            elif self.method == "onlinetemporal":
-                rpca = OnlineTemporalRPCA()
-
-            rpca_params = [param for param in rpca_params.keys() if not (
-                    (param[0] == "(") and (param[-1]== ")")
-                )
-            ]
-
-            for key, value in rpca_params.items():
-                setattr(rpca, key, value)
-            
-            imputed, _, _, _, _= rpca.fit_transform(X=df.values)
-            
+            rpca = self.impute_model(**rpca_params)
+            imputed, _= rpca.fit_transform(X=df.values)
             imputed = pd.DataFrame(imputed, columns=df.columns, index=df.index)
 
         return imputed
-
-    def get_hyperparams(self) -> Dict[str, Union[str, float, int]]:
-        """
-        Get the hyperparameters of the RPCA imputer
-
-        Returns
-        -------
-        Dict[str, Union[str, float, int]]
-            dictonary with the hyperparameters and their value
-        """
-        return self.__dict__.copy()
-
 
 class ImputeMICE(_BaseImputer):
     """

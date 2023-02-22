@@ -86,16 +86,31 @@ class CrossValidation:
         else:
             raise ValueError("loss_norm has to be 0 or 1 (int)")
 
-    def _set_params(self, all_params: Dict[str, Union[float, int, str]]):
-        """
-        Set the hyperparameters to the model
+    def flat_to_structured_params(self, params_flat):
+        params_structured = {
+            key:value for key, value in params_flat.items() if "/" not in key
+            }
 
-        Parameters
-        ----------
-        all_params : Dict[str, Union[int, float, str]]
-            dictionary containing the hyperparameters and their value
-        """
-        self.model.set_params(**all_params)
+        for key, value in params_flat.items():
+            if "/" in key:
+                if getattr(self, "selected_columns", default = None):
+                    col, hyperparameter = key.split("/")
+                    if col not in params_structured.keys():
+                        params_structured[col] = {hyperparameter:value}
+                    else:
+                        params_structured[col][hyperparameter] = value
+
+        return params_structured
+
+    def _set_params(self, **params_flat):
+        params_structured = self.flat_to_structured_params(
+            params_flat
+            )
+
+        if hasattr(self.model, "impute_model"):
+            self.model._set_impute_model_params(**params_structured)
+        else:
+            self.model._set_params(**params_structured)
         return self
 
     def objective(self, X):
@@ -108,11 +123,10 @@ class CrossValidation:
             objective function
         """
         @skopt.utils.use_named_args(self.search_space)
-        def obj_func(**all_params):
-            self._set_params(all_params=all_params)
-            if self.verbose:
-                print(all_params)
+        def obj_func(**params_flat):
 
+            _ = self._set_params(**params_flat)
+            
             errors = []
 
             for df_mask in self.hole_generator.split(X):
@@ -155,7 +169,7 @@ class CrossValidation:
             imputed dataframe
         """
 
-        n0 = self.n_calls//5 if (self.n_calls//5) >= 1 else self.n_calls        
+        n0 = self.n_calls//5 if (self.n_calls//5) >= 1 else self.n_calls   
 
         res = skopt.gp_minimize(
             self.objective(X=X),
@@ -170,7 +184,7 @@ class CrossValidation:
             self.search_space[param].name: res["x"][param] for param in range(len(res["x"]))
         }
 
-        self._set_params(all_params=best_params)
+        self._set_params(**best_params)
         df_imputed = self.model.fit_transform(X=X)
 
         if return_hyper_params:

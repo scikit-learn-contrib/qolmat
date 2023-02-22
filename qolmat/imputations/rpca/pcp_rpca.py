@@ -30,7 +30,7 @@ class PcpRPCA(RPCA):
 
     def __init__(
         self,
-        n_rows: Optional[int] = None,
+        period: Optional[int] = None,
         mu: Optional[float] = None,
         lam: Optional[float] = None,
         max_iter: int = int(1e4),
@@ -39,7 +39,7 @@ class PcpRPCA(RPCA):
     ) -> None:
 
         super().__init__(
-            n_rows=n_rows,
+            period=period,
             max_iter=max_iter,
             tol=tol,
             verbose=verbose
@@ -47,15 +47,8 @@ class PcpRPCA(RPCA):
         self.mu = mu
         self.lam = lam
 
-    def get_params(self):
-        dict_params = super().get_params()
-        dict_params["mu"] = self.mu
-        dict_params["lam"] = self.lam
-        return dict_params
-
-    def get_params_scale(self, X):
-        D_init, _, _ = self._prepare_data(signal=X)
-        proj_D = utils.impute_nans(D_init, method="median")
+    def get_params_scale(self, X: NDArray):
+        proj_D = utils.impute_nans(X, method="median")
         mu = proj_D.size / (4.0 * utils.l1_norm(proj_D))
         lam = 1 / np.sqrt(np.max(proj_D.shape))
         dict_params = {"mu": mu, "lam": lam}
@@ -67,15 +60,13 @@ class PcpRPCA(RPCA):
         ) -> Tuple[
             NDArray,
             NDArray,
-            NDArray,
-            NDArray,
         ]:
         """
         Compute the RPCA decomposition of a matrix based on PCP method
 
         Parameters
         ----------
-        X : NDArray
+        X: NDArray
 
         Returns
         -------
@@ -83,15 +74,8 @@ class PcpRPCA(RPCA):
             Low-rank signal
         A: NDArray
             Anomalies
-        U: NDArray
-            Basis Unitary array
-        V: NDArray
-            Basis Unitary array
-
-        errors: NDArray
-            Array of iterative errors
         """
-        D_init, n_add_values, input_data = self._prepare_data(signal=X)
+        D_init = self._prepare_data(signal=X)
         proj_D = utils.impute_nans(D_init, method="median")
 
         params_scale = self.get_params_scale(X=proj_D)
@@ -104,8 +88,6 @@ class PcpRPCA(RPCA):
         A = np.full_like(D_init, 0)
         Y = np.full_like(D_init, 0)
 
-        errors = np.full((self.max_iter,), fill_value=np.nan)
-
         for iteration in range(self.max_iter):
 
             M = utils.svd_thresholding(proj_D - A + Y/mu, 1/mu)
@@ -113,18 +95,15 @@ class PcpRPCA(RPCA):
             Y += mu * (proj_D - M - A)
 
             error = np.linalg.norm(proj_D - M - A, "fro")/D_norm
-            errors[iteration] = error
 
             if error < self.tol:
                 if self.verbose:
                     print(f"Converged in {iteration} iterations")
                 break
-            
-        U, _, V = np.linalg.svd(M, full_matrices=False, compute_uv=True)
-        
-        if input_data == "1DArray":
-            M = M.T.flatten()[:(M.size - n_add_values)]
-            A = A.T.flatten()[:(M.size - n_add_values)]
-        return M, A, U, V, errors
+                    
+        if len(X.shape) == 1:
+            M = M.T.flatten()[:len(X)]
+            A = A.T.flatten()[:len(X)]
+        return M, A
 
     

@@ -14,31 +14,6 @@ from scipy.linalg import toeplitz
 from sklearn.neighbors import kneighbors_graph
 
 
-def get_period(
-    signal: NDArray,
-    max_period: Optional[int] = None,
-) -> int:
-    """
-    Return the lag of maximum auto-correlation based on the Auto-Correlation Function,
-    in an possibly given range.
-
-    Parameters
-    ----------
-    signal : NDArray
-        time series
-
-    Returns
-    -------
-    int
-        lag of maximum auto-correlation
-        of the time series
-    """
-    ts = pd.Series(signal)
-    max_period = len(ts)//3 if max_period is None else max_period
-    acf = [round(ts.autocorr(lag=lag), 2) for lag in range(1, max_period + 1)]
-    return np.argmax(acf) + 1
-
-
 def signal_to_matrix(
     signal: NDArray,
     n_rows: int
@@ -70,8 +45,7 @@ def signal_to_matrix(
     else:
         M = signal
     M = M.reshape(-1, n_rows).T
-    nb_nan = M.size - len(signal)
-    return M, nb_nan
+    return M
 
 def approx_rank(
     M: NDArray,

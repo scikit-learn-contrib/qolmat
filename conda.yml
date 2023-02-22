@@ -34,5 +34,5 @@ dependencies:
               - seaborn==0.12.2
               - scikit-learn==1.1.3
               - scikit-optimize==0.9.0
-      - forge:
-              - gcc=12.1.0
+      #- forge:
+      #        - gcc==12.1.0

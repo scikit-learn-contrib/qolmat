@@ -1,3 +1,25 @@
+# ---
+# jupyter:
+#   jupytext:
+#     text_representation:
+#       extension: .py
+#       format_name: light
+#       format_version: '1.5'
+#       jupytext_version: 1.14.4
+#   kernelspec:
+#     display_name: Python 3 (ipykernel)
+#     language: python
+#     name: python3
+# ---
+
+# **This notebook aims to present the Qolmat repo through an example of a multivariate time series.
+# In Qolmat, a few data imputation methods are implemented as well as a way to evaluate their performance.**
+
+# First, import some useful librairies
+
+# +
+# %reload_ext autoreload
+# %autoreload 2
 
 import pandas as pd
 import numpy as np
@@ -28,12 +50,37 @@ from qolmat.benchmark.utils import kl_divergence
 from qolmat.imputations import models
 from qolmat.utils import data, utils, plot
 from qolmat.imputations.em_sampler import ImputeEM
+from qolmat.imputations.rpca.pcp_rpca import PcpRPCA
+from qolmat.imputations.rpca.temporal_rpca import TemporalRPCA
+# from qolmat.drawing import display_bar_table
 
+# -
 
+# ### **I. Load data**
 
+# The data used in this example is the Beijing Multi-Site Air-Quality Data Set. It consists in hourly air pollutants data from 12 chinese nationally-controlled air-quality monitoring sites and is available at https://archive.ics.uci.edu/ml/machine-learning-databases/00501/.
+# This dataset only contains numerical vairables.
+
+# df = pd.read_csv("/Users/hlbotterman/Downloads/m5-daily-sales.csv")
+# df.head()
+# df["Date"] = pd.to_datetime(df["Date"])
+# df = df.rename(columns={"Date": "datetime"})
+# df.set_index("datetime", inplace = True)
+# df["Sales"] = df['Sales'].astype(float)
+# cols_to_impute = ["Sales"]
+
+# +
 download = True
 df_data = data.get_data_corrupted(download=download, ratio_masked=.2, mean_size=120 , groups=["station"])
+
+# cols_to_impute = ["TEMP", "PRES", "DEWP", "NO2", "CO", "O3", "WSPM"]
+# cols_to_impute = df_data.columns[df_data.isna().any()]
 cols_to_impute = ["TEMP", "PRES"]
+
+# -
+
+# Let's take a look at variables to impute. We only consider a station, Aotizhongxin.
+# Time series display seasonalities (roughly 12 months).
 
 n_stations = len(df_data.groupby("station").size())
 n_cols = len(cols_to_impute)
@@ -73,9 +120,8 @@ imputer_interpol = models.ImputeByInterpolation(method="linear")
 imputer_spline = models.ImputeByInterpolation(method="spline")
 imputer_random = models.ImputeRandom()
 imputer_residuals = models.ImputeOnResiduals("additive", 7, "freq", "linear")
-imputer_rpca = models.ImputeRPCA(
-  method="temporal", columnwise=True, n_rows=7*4, max_iter=int(1e4)
-  )
+imputer_rpca_ts = models.ImputeRPCA(rpca_model=TemporalRPCA, period=7*4, max_iter=int(1e1))
+imputer_rpca_pcp = models.ImputeRPCA(rpca_model=PcpRPCA, period=7*4, max_iter=int(1e1))
 imputer_em = ImputeEM(n_iter_em=34, n_iter_ou=15, verbose=0, strategy="ou", temporal=False)
 imputer_locf = models.ImputeLOCF()
 imputer_nocb = models.ImputeNOCB()
@@ -98,16 +144,21 @@ dict_models = {
     #"residuals": imputer_residuals,
     #"iterative": imputer_iterative,
     "EM": imputer_em,
-    "RPCA": imputer_rpca,
+    "RPCA_TS": imputer_rpca_ts,
+    "RPCA_PCP": imputer_rpca_pcp,
 }
 n_models = len(dict_models)
 
 
 search_params = {
-  "ImputeRPCA": {
-    "lam": {"min": 0.5, "max": 1, "type":"Real"},
+  "RPCA_TS": {
+    "lam": {"min": 0.5, "max": 1, "type":"Real", "columnwise":True},
     "tau": {"min": 1, "max": 1.5, "type":"Real"},
-  }
+  },
+  "RPCA_PCP": {
+    "lam": {"min": 0.5, "max": 1, "type":"Real", "columnwise":True},
+    "tau": {"min": 1, "max": 1.5, "type":"Real", "columnwise":True},
+  },
 }
 
 prop_nan = 0.05
@@ -130,6 +181,8 @@ filter_value_nan = 0.01
 
 missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], ratio_masked=0.1)
 
+df_data.columns
+
 # +
 doy = pd.Series(df_data.reset_index().datetime.dt.isocalendar().week.values, index=df_data.index)
 
@@ -143,12 +196,20 @@ comparison = comparator.Comparator(
     dict_models,
     cols_to_impute,
     generator_holes = generator_holes,
-    n_cv_calls=2,
+    n_cv_calls=5,
     search_params=search_params,
 )
 results = comparison.compare(df_data)
 results
 # -
+
+#
+
+imputer_rpca.__dict__
+
+df_data.shape
+
+
 
 # ### **IV. Comparison of methods**
 
@@ -169,7 +230,7 @@ palette = sns.color_palette("icefire", n_colors=len(dict_models))
 #palette = sns.color_palette("husl", 8)
 sns.set_palette(palette)
 markers = ["o", "s", "D", "+", "P", ">", "^", "d"]
-colors = ["tab:red", "tab:blue", "tab:blue"]
+colors = ["tab:red", "tab:blue", "tab:green"]
 
 
 for col in cols_to_impute:
@@ -272,10 +333,3 @@ for model, df_imputed in dfs_imputed_station.items():
         df_wasserstein.loc[model, col] = wasserstein
 
 plot.display_bar_table(df_wasserstein, ylabel="Wasserstein distance")
-# -
-
-
-
-
-
-

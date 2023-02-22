@@ -1,3 +1,4 @@
+from collections import Counter
 from typing import Dict, List, Optional, Union
 
 import numpy as np
@@ -14,17 +15,45 @@ from skopt.space import Categorical, Integer, Real
 BOUNDS = Bounds(1, np.inf, keep_feasible=True)
 EPS = np.finfo(float).eps
 
+def _check_dfs_columns(df1: pd.DataFrame, df2: pd.DataFrame):
+    if not Counter(df1.columns) == Counter(df2.columns):
+        raise ValueError("The columns of the two dataframes do not match")
+
 def has_given_attribute(tested_model, name_param):
+    
     has_attribute = hasattr(tested_model, name_param) and (getattr(tested_model, name_param) is not None)
 
-    if ((name_param[0] == "(") and (name_param[-1] == ")") and ("," in name_param)):
-        name_param_col = eval(name_param)[1]
-        has_attribute = (has_attribute
-        or (hasattr(tested_model, name_param_col) and (getattr(tested_model, name_param_col) is not None))
-        )
+    if hasattr(tested_model, "impute_model"):
+        has_attribute_impute_model = has_given_attribute(
+            tested_model.impute_model, name_param)
+        return has_attribute or has_attribute_impute_model
     return has_attribute
 
 
+def convert_dict_to_space(dict_param, name):
+    if dict_param["type"] == "Integer":
+        space = Integer(
+            low=dict_param["min"],
+            high=dict_param["max"],
+            name=name
+            )
+    elif dict_param["type"] == "Real":
+        space = Real(
+            low=dict_param["min"],
+            high=dict_param["max"],
+            name=name
+            )
+    elif dict_param["type"] == "Categorical":
+        space = Categorical(
+            categories=dict_param["categories"],
+            name=name,
+            )
+    else:
+        raise ValueError(
+            "Value of 'type' has to belong to ",
+            "['Integer', 'Real', 'Categorical']"
+        )
+    return space  
 
 def get_search_space(tested_model: any, search_params: Dict) -> Union[None, List]:
     """Construct the search space for the tested_model
@@ -51,20 +80,20 @@ def get_search_space(tested_model: any, search_params: Dict) -> Union[None, List
                 f"Sorry, you set the value {getattr(tested_model, name_param)} to {name_param}"
                     " and asked for a search..."
             )
+        search_space.append(
+            convert_dict_to_space(
+                dict_param=vals_params,
+                name=name_param
+                )
+        )
 
-        if vals_params["type"] == "Integer":
-            search_space.append(
-                Integer(low=vals_params["min"], high=vals_params["max"], name=name_param)
-            )
-        elif vals_params["type"] == "Real":
-            search_space.append(
-                Real(low=vals_params["min"], high=vals_params["max"], name=name_param)
-            )
-        elif vals_params["type"] == "Categorical":
-            search_space.append(
-                Categorical(categories=vals_params["categories"], name=name_param)
-            )
-
+        if getattr(tested_model, "selected_columns", None) and getattr(vals_params, "columnwise", False):
+            search_space += [
+                convert_dict_to_space(
+                    dict_param=vals_params,
+                    name = f"{col}/{name_param}")
+                    for col in tested_model.selected_columns
+                    ]
     return search_space
 
 
@@ -104,82 +133,85 @@ def custom_groupby(
 def mean_squared_error(
     df1: NDArray,
     df2: NDArray,
-) -> pd.Series:
+) -> float:
     """Mean squared error between two dataframes.
 
     Parameters
     ----------
-    df1 : pd.DataFrame
-        True dataframe
-    df2 : pd.DataFrame
-        Predicted dataframe
-
+    df1 : NDArray
+        True array
+    df2 : NDArray
+        Imputed array
 
     Returns
     -------
-    pd.Series
+    float
     """
-    return ((df1 - df2) ** 2).mean()
+    return np.nanmean(np.square(df1 - df2))
 
 
 def root_mean_squared_error(
-    df1: pd.DataFrame,
-    df2: pd.DataFrame,
-) -> pd.Series:
-    """Root mean squared error between two dataframes.
+    df1: NDArray,
+    df2: NDArray,
+) -> float:
+    """Root mean squared error between two arrays.
 
     Parameters
     ----------
-    df1 : pd.DataFrame
-        True dataframe
-    df2 : pd.DataFrame
-        Predicted dataframe
+    df1 : NDArray
+        True array
+    df2 : NDArray
+        Imputed array
 
     Returns
     -------
-    pd.Series
+    float
     """
-    mse = mean_squared_error(df1, df2)
-    return mse.pow(0.5)
+    return np.sqrt(
+        mean_squared_error(df1, df2)
+        )
 
 
-def mean_absolute_error(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.Series:
-    """Mean absolute error between two dataframes.
+def mean_absolute_error(
+    df1: NDArray,
+    df2: NDArray
+    ) -> float:
+    """
+    Mean absolute error between two dataframes.
 
     Parameters
     ----------
-    df1 : pd.DataFrame
-        True dataframe
-    df2 : pd.DataFrame
-        Predicted dataframe
+    df1 : NDArray
+        True array
+    df2 : NDArray
+        Imputed array
 
     Returns
     -------
-    pd.Series
+    float
     """
-    return (df1 - df2).abs().mean()
+    return np.nanmean(np.abs(df1 - df2))
 
 
 def weighted_mean_absolute_percentage_error(
-    df1: pd.DataFrame,
-    df2: pd.DataFrame,
-) -> pd.Series:
-    """Weighted mean absolute percentage error between two dataframes.
+    df1: NDArray,
+    df2: NDArray,
+) -> float:
+    """
+    Weighted mean absolute percentage error between two dataframes.
 
     Parameters
     ----------
-    Parameters
-    ----------
-    df1 : pd.DataFrame
-        True dataframe
-    df2 : pd.DataFrame
-        Predicted dataframe
+    df1 : NDArray
+        True array
+    df2 : NDArray
+        Imputed array
 
     Returns
     -------
-    Union[float, pd.Series]
+    float
     """
-    return (df1 - df2).abs().mean() / df1.abs().mean()
+    return np.nanmean(np.abs(df1 - df2))/np.nanmean(np.abs(df1))
 
 
 def wasser_distance(
@@ -198,11 +230,21 @@ def wasser_distance(
     -------
     wasserstein distances : pd.Series
     """
+
+    _check_dfs_columns(df1, df2)
+
     cols = df1.columns.tolist()
-    wd = [
-        scipy.stats.wasserstein_distance(df1[col].dropna(), df2[col].ffill().bfill())
-        for col in cols
-    ]
+
+    wd = []
+
+    for col in cols:
+        if (np.any(np.isnan(df1[col])) or np.any(np.isnan(df2[col]))):
+            raise ValueError(
+                f"The column {col} contains nan in one of the dataframe"
+                )
+        wd.append(
+            scipy.stats.wasserstein_distance(df1[col], df2[col])
+            )
     return pd.Series(wd, index=cols)
 
 

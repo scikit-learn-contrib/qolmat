@@ -30,13 +30,13 @@ class RPCA(BaseEstimator, TransformerMixin):
 
     def __init__(
         self,
-        n_rows: Optional[int] = None,
+        period: Optional[int] = None,
         max_iter: int = int(1e4),
         tol: float = 1e-6,
         verbose: bool = False,
     ) -> None:
 
-        self.n_rows = n_rows
+        self.period = period
         self.max_iter = max_iter
         self.tol = tol
         self.verbose = verbose
@@ -49,25 +49,18 @@ class RPCA(BaseEstimator, TransformerMixin):
         Transform signal to 2D-array in case of 1D-array.
         """
         if len(signal.shape) == 1:
-            n_rows = utils.get_period(signal) if self.n_rows is None else self.n_rows
-            D_init, n_add_values = utils.signal_to_matrix(signal, n_rows=n_rows)
-        else:
+            if self.period is None:
+                raise ValueError("``period`` argument should not be ``None`` when X is 1D")
+            D_init = utils.signal_to_matrix(signal, n_rows=self.period)
+        elif len(signal.shape) == 2:
+            if self.period is not None:
+                raise ValueError("``period`` argument should be ``None`` when X is 2D")
             D_init = signal.copy()
-            n_add_values = 0
-        
-        input_data = f"{len(signal.shape)}DArray"
-        return D_init, n_add_values, input_data
+        else:
+            raise ValueError("signal should be a 1D or 2D array.")
+        return D_init
 
-    def get_params(self) -> dict[str, Union[int, bool]]:
-        """Return the attributes"""
-        return {
-            "n_rows": self.n_rows,
-            "max_iter": self.max_iter,
-            "tol": self.tol,
-            "verbose": self.verbose,
-        }
-
-    def set_params(self, **kargs) -> RPCA:
+    def _set_params(self, **kargs) -> RPCA:
         """Set the attributes"""
         for key, value in kargs.items():
             if key in self.__dict__.keys():
@@ -78,38 +71,3 @@ class RPCA(BaseEstimator, TransformerMixin):
                     f"It is not one of {', '.join(self.__dict__.keys())}"
                     )
         return self
-
-    def fit_transform(
-        self,
-        X: NDArray,
-    ) -> Tuple[NDArray, NDArray, NDArray, NDArray]:
-        """
-        Parameters
-        ----------
-        X : NDArray
-
-        Returns
-        -------
-        M: NDArray
-            Low-rank signal
-        A: NDArray
-            Anomalies
-        U: NDArray
-            Basis Unitary array
-        V: NDArray
-            Basis Unitary array
-
-        errors: NDArray
-            Array of iterative errors
-        """
-
-        M, _, input_data= self._prepare_data(signal=X)
-        A = np.zeros(M.shape, dtype=float)
-        
-        if input_data == "1DArray":
-            M, A = M.flatten(), A.flatten()
-
-        errors = None 
-        U, _, V = np.linalg.svd(M, full_matrices=False, compute_uv=True)
-
-        return M, A, U, V, errors
