@@ -3,7 +3,7 @@ name: Unit test Qolmat
 on:
   push:
     branches:
-      - 'Unit_test-FDA'
+      - 'Unit_test_FDA'
   pull_request:
     branches:
       - 'Unit_test_FDA'
