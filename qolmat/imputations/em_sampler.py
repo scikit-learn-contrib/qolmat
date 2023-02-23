@@ -650,32 +650,9 @@ class ImputeVAR1EM(ImputeEM):  # type: ignore
         Xc_init = X_init - self.B[:, None]
         for iter_ou in range(self.n_iter_ou):
             noise = self.ampli * self.rng.normal(0, 1, size=(n_variables, n_samples))
-
-            # Xc_lag = np.roll(Xc, 1, axis=1)
-            # Z_back = Xc - self.A @ Xc_lag
-            # Z_fore = np.roll(Z_back, -1, axis=1)
-            # Z_back[:, 0] = 0
-            # Z_fore[:, -1] = 0
-            # Xc = Xc - gamma * self.omega_inv @ Z_back * dt
-            # - gamma * self.A.T @ self.omega_inv @ Z_fore * dt
-            # + np.sqrt(2 * gamma[:, None] * dt) * noise
             grad_X = self.gradient_X_centered_loglik(Xc)
 
-            # print("Xc")
-            # print(Xc)
-            # print(gamma)
-            # print(grad_X)
-            # print(noise)
             Xc = Xc + self.dt * gamma * grad_X + np.sqrt(2 * gamma * self.dt) * noise
-
-            # from matplotlib import pyplot as plt
-            # plt.figure(figsize=(24, 4))
-            # plt.plot(Xc[0], label="before")
-            # plt.plot((self.dt * gamma * grad_X)[0], label="grad")
-            # plt.plot(Xc[0], label="after")
-            # plt.ylim(-2, 2)
-            # plt.legend()
-            # plt.show()
 
             Xc[~mask_na] = Xc_init[~mask_na]
         X = Xc + self.B[:, None]
@@ -683,103 +660,3 @@ class ImputeVAR1EM(ImputeEM):  # type: ignore
         self.fit_distribution(X)
 
         return X
-
-    # def _sample_ou(
-    #     self,
-    #     X: ArrayLike,
-    #     mask_na: ArrayLike,
-    #     rng: int,
-    #     dt: float = 2e-2,
-    # ) -> ArrayLike:
-    #     """
-    #     Samples the Gaussian distribution under the constraint that not na values must remain
-    #     unchanged, using a projected Ornstein-Uhlenbeck process.
-    #     The sampled distribution tends to the target one in the limit dt -> 0 and
-    #     n_iter_ou x dt -> infty.
-    #     Called by `impute_sample_ts`.
-    #     X = A X_t-1 + B + E where E ~ N(0, omega)
-
-    #     Parameters
-    #     ----------
-    #     df : ArrayLike
-    #         Inital dataframe to be imputed, which should have been already imputed using a simple
-    #         method. This first imputation will be used as an initial guess.
-    #     mask_na : ArrayLike
-    #         Boolean dataframe indicating which coefficients should be resampled.
-    #     rng : int
-    #         Random number generator to be used (for reproducibility).
-    #     n_iter_ou : int
-    #         Number of iterations for the OU process, a large value decreases the sample bias
-    #         but increases the computation time.
-    #     dt : float
-    #         Process integration time step, a large value increases the sample bias and can make
-    #         the algorithm unstable, but compensates for a smaller n_iter_ou. By default, 2e-2.
-    #     ampli : float
-    #         Amplification of the noise, if less than 1 the variance is reduced. By default, 1.
-
-    #     Returns
-    #     -------
-    #     ArrayLike
-    #         DataFrame after Ornstein-Uhlenbeck process.
-    #     """
-    #     n_variables, n_samples = X.shape
-
-    #     X_init = X.copy()
-    #     gamma = np.diagonal(self.omega)
-
-    #     # list_X = []
-    #     list_B = []
-    #     list_XX_lag = []
-    #     list_XX = []
-    #     list_ZZ = []
-    #     for iter_ou in range(self.n_iter_ou):
-    #         noise = self.ampli * rng.normal(0, 1, size=(n_variables, n_samples))
-    #         Xc = X - self.B[:, None]
-    #         Xc_lag = np.roll(Xc, 1, axis=1)
-    #         Z_back = Xc - self.A @ Xc_lag
-    #         Z_back[:, 0] = 0
-    #         Z_front = np.roll(Z_back, -1, axis=1)
-    #         # X = X - self.omega_inv @ Z_back * dt
-    #           - self.A.T @ self.omega_inv @ Z_front * dt + noise * np.sqrt(2 * dt)
-    #         X = X - gamma * self.omega_inv @ Z_back * dt
-    #           - gamma * self.A.T @ self.omega_inv @ Z_front * dt
-    # + np.sqrt(2 * gamma[:, None] * dt) * noise
-    #         X[~mask_na] = X_init[~mask_na]
-    #         if iter_ou > self.n_iter_ou - 50:
-    #             X_lag = np.roll(X, 1, axis=1)
-    #             B = np.mean(X - self.A @ X_lag, axis=1)
-
-    #             Xc = X - self.B[:, None]
-    #             Xc_lag = X_lag  - self.B[:, None]
-
-    #             XX = X @ X.T
-    #             XX_lag = Xc[:, 1:] @ X_lag[:, :-1].T
-
-    #             Z_back = Xc - self.A @ Xc_lag
-    #             Z_back[:, 0] = 0
-
-    #             list_B.append(B)
-    #             list_XX.append(XX)
-    #             list_XX_lag.append(XX_lag)
-    #             list_ZZ.append(Z_back @ Z_back.T)
-
-    #     B_stack = np.stack(list_B, axis=1)
-    #     self.B = np.mean(B_stack, axis=1)
-
-    #     XX_stack = np.stack(list_XX, axis=2)
-    #     # XX_mean = np.mean(XX_stack, axis=2)
-    #     XX_lag_stack = np.stack(list_XX_lag, axis=2)
-    #     # XX_lag_mean = np.mean(XX_lag_stack, axis=2)
-
-    #     # MANOVA formula
-    #     cov_B = np.cov(B_stack, bias=True)
-    #     cov_XX = np.mean(XX_stack, axis=2) + cov_B
-    #     cov_XX_lag = np.mean(XX_lag_stack, axis=2) + cov_B
-    #     self.A = cov_XX_lag @ invert_robust(cov_XX, epsilon=1e-2)
-    #     ZZ_stack = np.stack(list_ZZ, axis=2)
-
-    #     # Biased estimation of omega, ignoring intra-group covariances
-    #     self.omega = np.mean(ZZ_stack, axis=2) # / n_variables
-    #     self.omega_inv = invert_robust(self.omega, epsilon=1e-2)
-
-    #     return X
