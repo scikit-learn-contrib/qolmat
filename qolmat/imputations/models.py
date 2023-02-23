@@ -19,6 +19,7 @@ sys.modules["sklearn.neighbors.base"] = sklearn.neighbors._base
 import missingpy
 
 from qolmat.benchmark import utils
+from qolmat.imputations import em_sampler
 from qolmat.imputations.rpca.pcp_rpca import RPCA
 from qolmat.imputations.rpca.temporal_rpca import OnlineTemporalRPCA, TemporalRPCA
 
@@ -559,6 +560,59 @@ class ImputeRPCA(_BaseImputer):
             **{"method": self.method, "multivariate": self.multivariate},
             **self.rpca.__dict__,
         }
+
+
+class ImputeEM(_BaseImputer):
+    def __init__(
+        self,
+        strategy: Optional[str] = "mle",
+        method: Optional[str] = "multinormal",
+        max_iter_em: Optional[int] = 200,
+        n_iter_ou: Optional[int] = 50,
+        ampli: Optional[int] = 1,
+        random_state: Optional[int] = 123,
+        dt: Optional[float] = 2e-2,
+        tolerance: Optional[float] = 1e-4,
+        stagnation_threshold: Optional[float] = 5e-3,
+        stagnation_loglik: Optional[float] = 2,
+    ):
+        if method == "multinormal":
+            self.model = em_sampler.ImputeMultiNormalEM(
+                strategy=strategy,
+                max_iter_em=max_iter_em,
+                n_iter_ou=n_iter_ou,
+                ampli=ampli,
+                random_state=random_state,
+                dt=dt,
+                tolerance=tolerance,
+                stagnation_threshold=stagnation_threshold,
+                stagnation_loglik=stagnation_loglik,
+            )
+        elif method == "VAR1":
+            self.model = em_sampler.ImputeVAR1EM(
+                strategy=strategy,
+                max_iter_em=max_iter_em,
+                n_iter_ou=n_iter_ou,
+                ampli=ampli,
+                random_state=random_state,
+                dt=dt,
+                tolerance=tolerance,
+                stagnation_threshold=stagnation_threshold,
+                stagnation_loglik=stagnation_loglik,
+            )
+        else:
+            raise ValueError("Strategy '{strategy}' is not handled by ImputeEM!")
+
+    def fit(self, df):
+        X = df.values
+        self.model.fit(X)
+        return self
+
+    def transform(self, df):
+        X = df.values
+        X_transformed = self.model.transform(X)
+        df_transformed = pd.DataFrame(X_transformed, columns=df.columns, index=df.index)
+        return df_transformed
 
 
 class ImputeMICE(_BaseImputer):

@@ -44,7 +44,8 @@ def get_sizes_max(values_isna: pd.Series) -> pd.Series:
 
 class _HoleGenerator:
     """
-    This abstract class implements the generic method to generate masks according to law of missing values.
+    This abstract class implements the generic method to generate masks according to law of missing
+    values.
 
     Parameters
     ----------
@@ -192,7 +193,8 @@ class UniformHoleGenerator(_HoleGenerator):
 
 
 class _SamplerHoleGenerator(_HoleGenerator):
-    """This abstract class implements a generic way to generate holes in a dataframe by sampling 1D hole size distributions.
+    """This abstract class implements a generic way to generate holes in a dataframe by sampling 1D
+    hole size distributions.
 
     Parameters
     ----------

@@ -53,7 +53,6 @@ from qolmat.benchmark import comparator, missing_patterns
 from qolmat.benchmark.utils import kl_divergence
 from qolmat.imputations import models
 from qolmat.utils import data, utils, plot
-from qolmat.imputations.em_sampler import ImputeMultiNormalEM, ImputeVAR1EM
 # from qolmat.drawing import display_bar_table
 
 ```
@@ -133,8 +132,9 @@ imputer_residuals = models.ImputeOnResiduals("additive", 7, "freq", "linear")
 imputer_rpca = models.ImputeRPCA(
   method="temporal", multivariate=False, **{"n_rows":7*4, "maxIter":1000, "tau":1, "lam":0.7}
   )
-imputer_ou = ImputeMultiNormalEM(max_iter_em=34, n_iter_ou=15, verbose=0, strategy="ou")
-imputer_tsou = ImputeVAR1EM(max_iter_em=34, n_iter_ou=15, verbose=0, strategy="ou")
+imputer_ou = models.ImputeEM(method="multinormal", max_iter_em=34, n_iter_ou=15, strategy="ou")
+imputer_tsou = models.ImputeEM(method="VAR1", strategy="ou", max_iter_em=34, n_iter_ou=15)
+imputer_tsmle = models.ImputeEM(method="VAR1", strategy="mle", max_iter_em=34, n_iter_ou=15)
 imputer_locf = models.ImputeLOCF()
 imputer_nocb = models.ImputeNOCB()
 imputer_knn = models.ImputeKNN(k=10)
@@ -157,6 +157,7 @@ dict_models = {
     #"iterative": imputer_iterative,
     "OU": imputer_ou,
     "TSOU": imputer_tsou,
+    "TSMLE": imputer_tsmle,
     #"RPCA": imputer_rpca,
 }
 n_models = len(dict_models)
@@ -226,10 +227,6 @@ dfs_imputed_station = {name: df.loc[station] for name, df in dfs_imputed.items()
 Let's look at the imputations.
 When the data is missing at random, imputation is easier. Missing block are more challenging.
 Note here we didn't fit the hyperparams of the RPCA... results might be of poor quality...
-
-```python
-plt.scatter(df_station["TEMP"], df_station["PRES"])
-```
 
 ```python
 palette = sns.color_palette("icefire", n_colors=len(dict_models))

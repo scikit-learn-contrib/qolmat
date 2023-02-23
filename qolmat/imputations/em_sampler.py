@@ -148,6 +148,7 @@ class ImputeEM(_BaseImputer):  # type: ignore
         self.convergence_threshold = tolerance
         self.stagnation_threshold = stagnation_threshold
         self.stagnation_loglik = stagnation_loglik
+        self.scaler = StandardScaler()
 
         self.dict_criteria_stop = {}
 
@@ -200,109 +201,79 @@ class ImputeEM(_BaseImputer):  # type: ignore
     def _check_convergence(self) -> bool:
         return False
 
-    def _maximize_likelihood(self, X: ArrayLike) -> ArrayLike:
+    def fit(self, X: np.array):
         """
-        Get the argmax of a posterior distribution.
+        Fit the statistical distribution with the input X array.
 
         Parameters
         ----------
-        X : ArrayLike
-            Input DataFrame.
-
-        Returns
-        -------
-        ArrayLike
-            DataFrame with imputed values.
+        X : np.array
+            Numpy array to be imputed
         """
-        X_center = X - self.means[:, None]
-        X_imputed = _gradient_conjugue(self.cov_inv, X_center)
-        X_imputed = self.means[:, None] + X_imputed
-        return X_imputed
+        X = X.copy()
+        self.hash_fit = hash(X.tobytes())
+        if not isinstance(X, np.ndarray):
+            raise AssertionError("Invalid type. X must be a np.ndarray.")
 
-    def impute_em(self, X: ArrayLike) -> ArrayLike:
-        """Imputation via EM algorithm
+        if X.shape[0] < 2:
+            raise AssertionError("Invalid dimensions: X must be of dimension (n,m) with m>1.")
 
-        Parameters
-        ----------
-        X : ArrayLike
-            array with missing values
-
-        Returns
-        -------
-        X_transformed
-            imputed array
-        """
-
-        X_ = self._convert_numpy(X)
-        if np.nansum(X_) == 0:
-            return X_
+        X = self.scaler.fit_transform(X)
+        X = X.T
 
         mask_na = np.isnan(X)
 
         # first imputation
-        X_transformed = self._linear_interpolation(X_)
+        X_sample_last = self._linear_interpolation(X)
 
-        self.fit_distribution(X_transformed)
+        self.fit_distribution(X_sample_last)
 
         for iter_em in range(self.max_iter_em):
 
-            X_transformed = self._sample_ou(X_transformed, mask_na)
+            X_sample_last = self._sample_ou(X_sample_last, mask_na)
 
             if self._check_convergence():
                 logger.info(f"EM converged after {iter_em} iterations.")
                 break
 
-        if self.strategy == "mle":
-            X_transformed = self._maximize_likelihood(X_)
-        elif self.strategy == "ou":
-            X_transformed = self._sample_ou(X_transformed, mask_na)
-
         self.dict_criteria_stop = {key: [] for key in self.dict_criteria_stop}
+        self.X_sample_last = X_sample_last
+        return self
 
-        if np.all(np.isnan(X_transformed)):
-            raise WarningMessage("Result contains NaN. This is a bug.")
-
-        return X_transformed
-
-    def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+    def transform(self, X: np.array) -> np.array:
         """
-        Fit and impute input X array.
+        Transform the input X array by imputing the missing values.
 
         Parameters
         ----------
-        X : pd.DataFrame
-            DataFrame to be imputed
+        X : np.array
+            Numpy array to be imputed
 
         Returns
         -------
         ArrayLike
             Final array after EM sampling.
         """
-        if not ((isinstance(df, np.ndarray)) or (isinstance(df, pd.DataFrame))):
-            raise AssertionError("Invalid type. X must be either pd.DataFrame or np.ndarray.")
 
-        if df.shape[1] < 2:
-            raise AssertionError("Invalid dimensions: X must be of dimension (n,m) with m>1.")
+        if hash(X.tobytes()) == self.hash_fit:
+            X = self.X_sample_last
+        else:
+            X = self.scaler.transform(X)
+            X = X.T
+            X = self._linear_interpolation(X)
 
-        X = df.values
+        if self.strategy == "mle":
+            X_transformed = self._maximize_likelihood(X)
+        elif self.strategy == "ou":
+            mask_na = np.isnan(X)
+            X_transformed = self._sample_ou(X, mask_na)
 
-        scaler = StandardScaler()
-        X = scaler.fit_transform(X)
-        X = X.T
-        X = self.impute_em(X)
-        X = X.T
-        X = scaler.inverse_transform(X)
-
-        if np.isnan(np.sum(X)):
+        if np.all(np.isnan(X_transformed)):
             raise WarningMessage("Result contains NaN. This is a bug.")
 
-        if isinstance(df, np.ndarray):
-            return X
-        elif isinstance(df, pd.DataFrame):
-            return pd.DataFrame(X, index=df.index, columns=df.columns)
-
-        else:
-            raise AssertionError("Invalid type. X must be either pd.DataFrame or np.ndarray.")
+        X_transformed = X_transformed.T
+        X_transformed = self.scaler.inverse_transform(X_transformed)
+        return X_transformed
 
 
 class ImputeMultiNormalEM(ImputeEM):  # type: ignore
@@ -372,17 +343,31 @@ class ImputeMultiNormalEM(ImputeEM):  # type: ignore
         )
         self.tolerance = tolerance
 
-        # self.list_logliks = []
-        # self.list_means = []
-        # self.list_covs = []
         self.dict_criteria_stop = {"logliks": [], "means": [], "covs": []}
 
     def fit_distribution(self, X):
-        # first estimation of params
         self.means = np.mean(X, axis=1)
         self.cov = np.cov(X)
-
         self.cov_inv = invert_robust(self.cov, epsilon=1e-2)
+
+    def _maximize_likelihood(self, X: ArrayLike) -> ArrayLike:
+        """
+        Get the argmax of a posterior distribution.
+
+        Parameters
+        ----------
+        X : ArrayLike
+            Input DataFrame.
+
+        Returns
+        -------
+        ArrayLike
+            DataFrame with imputed values.
+        """
+        X_center = X - self.means[:, None]
+        X_imputed = _gradient_conjugue(self.cov_inv, X_center)
+        X_imputed = self.means[:, None] + X_imputed
+        return X_imputed
 
     def _sample_ou(
         self,
@@ -464,10 +449,6 @@ class ImputeMultiNormalEM(ImputeEM):  # type: ignore
         bool
             True/False if the algorithm has converged
         """
-
-        # self.list_means.append(self.means)
-        # self.list_covs.append(self.cov)
-        # self.list_logliks.append(self.loglik)
 
         list_means = self.dict_criteria_stop["means"]
         list_covs = self.dict_criteria_stop["covs"]
@@ -602,11 +583,6 @@ class ImputeVAR1EM(ImputeEM):  # type: ignore
             self.fit_parameter_A(X)
         self.fit_parameter_omega(X)
 
-        # print("distribution fitted :")
-        # print(self.A)
-        # print(self.B)
-        # print(self.omega)
-
     def gradient_X_centered_loglik(self, Xc):
         Xc_back = np.roll(Xc, 1, axis=1)
         Xc_back[:, 0] = 0
@@ -615,6 +591,25 @@ class ImputeVAR1EM(ImputeEM):  # type: ignore
         Xc_fore[:, -1] = 0
         Z_fore = Xc_fore - self.A @ Xc
         return -self.omega_inv @ Z_back + self.A.T @ self.omega_inv @ Z_fore
+
+    def _maximize_likelihood(self, X: ArrayLike, dt=1e-2) -> ArrayLike:
+        """
+        Get the argmax of a posterior distribution.
+
+        Parameters
+        ----------
+        X : ArrayLike
+            Input numpy array.
+
+        Returns
+        -------
+        ArrayLike
+            DataFrame with imputed values.
+        """
+        Xc = X - self.B[:, None]
+        for n_optim in range(1000):
+            Xc += dt * self.gradient_X_centered_loglik(Xc)
+        return Xc + self.B[:, None]
 
     def _sample_ou(
         self,
