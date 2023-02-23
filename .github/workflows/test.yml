@@ -36,6 +36,7 @@ jobs:
         conda install flake8
         #flake8
         echo you shoud decomment flake8 and delete this line 
+        ls
     - name: Test with pytest
       run: |
         conda install pytest
