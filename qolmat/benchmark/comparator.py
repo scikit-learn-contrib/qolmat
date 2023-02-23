@@ -1,5 +1,3 @@
-import copy
-
 from typing import Dict, List, Optional, Union
 import numpy as np
 import pandas as pd
@@ -31,12 +29,6 @@ class Comparator:
         10.
     """
 
-    def _set_selected_columns(model, selected_columns):
-        model_copy = copy.copy(model)
-        if hasattr(model_copy, "selected_columns"):
-            model._set_params(selected_columns=selected_columns)
-        return model_copy
-
     def __init__(
         self,
         dict_models: Dict[str, any],
@@ -53,8 +45,8 @@ class Comparator:
         self.n_cv_calls = n_cv_calls
 
     def get_errors(
-        df_origin: pd.DataFrame, df_imputed: pd.DataFrame, mask: Optional[List[str]],
-    ) -> pd.Series:
+        df_origin: pd.DataFrame, df_imputed: pd.DataFrame, df_mask: pd.DataFrame
+    ) -> float:
         """Functions evaluating the reconstruction's quality
 
         Parameters
@@ -72,29 +64,27 @@ class Comparator:
 
         dict_errors = {}
         dict_errors["rmse"] = utils.root_mean_squared_error(
-            df_origin[mask],
-            df_imputed[mask],
+            df_origin[df_mask],
+            df_imputed[df_mask],
         )
         dict_errors["mae"] = utils.mean_absolute_error(
-            df_origin[mask],
-            df_imputed[mask],
+            df_origin[df_mask],
+            df_imputed[df_mask],
         )
         dict_errors["wmape"] = utils.weighted_mean_absolute_percentage_error(
-            df_origin[mask],
-            df_imputed[mask],
+            df_origin[df_mask],
+            df_imputed[df_mask],
         )
         dict_errors["kl"] = utils.kl_divergence(
-            df_origin[mask],
-            df_imputed[mask],
+            df_origin[df_mask],
+            df_imputed[df_mask],
         )
-
-        errors = pd.DataFrame(dict_errors)
+       
+        errors = pd.concat(dict_errors.values(), keys=dict_errors.keys())
         return errors
 
-    
-
     def evaluate_errors_sample(
-        self, tested_model: any, df: pd.DataFrame, search_space: Optional[dict] = None
+        self, tested_model: any, df: pd.DataFrame, search_params: Optional[dict] = None
     ) -> Dict:
         """Evaluate the errors in the cross-validation
 
@@ -114,13 +104,20 @@ class Comparator:
         """
         list_errors = []
         df_origin = df[self.selected_columns].copy()
-        Comparator._set_selected_columns(tested_model, self.selected_columns)
-        
+
         for df_mask in self.generator_holes.split(df_origin):
             df_corrupted = df_origin.copy()
             df_corrupted[df_mask] = np.nan
+
+            columns_with_nan = df_corrupted.columns[df_corrupted.isnull().any(axis=0)]
+
+            search_space = utils.get_search_space(
+                    tested_model=tested_model,
+                    search_params=search_params,
+                    columns_with_nan=columns_with_nan)
+
             if search_space is None:
-                df_imputed = tested_model.fit_transform(X=df_corrupted)
+                df_imputed = tested_model.fit_transform(df_corrupted)
             else:
                 cv = cross_validation.CrossValidation(
                     tested_model,
@@ -128,15 +125,16 @@ class Comparator:
                     hole_generator=self.generator_holes,
                     n_calls=self.n_cv_calls,
                 )
-                df_imputed = cv.fit_transform(X=df_corrupted)
+                df_imputed = cv.fit_transform(df_corrupted)
 
             subset = self.generator_holes.subset
-            errors = Comparator.get_errors(df_origin[subset], df_imputed[subset], subset)
+            errors = Comparator.get_errors(df_origin[subset], df_imputed[subset], df_mask[subset])
             list_errors.append(errors)
-        df_errors = pd.concat(list_errors, axis=0)
-        errors_mean = df_errors.mean(axis=0)
+        df_errors = pd.DataFrame(list_errors)
+        errors_mean = df_errors.mean()
 
         return errors_mean
+
 
     def compare(self, df: pd.DataFrame):
         """Function to compare different imputation methods on dataframe df
@@ -157,15 +155,14 @@ class Comparator:
             
             if name_imputer in self.search_params.keys():
                 search_params = self.search_params[name_imputer]
-                search_space = utils.get_search_space(tested_model, search_params)
-
+                
             else:
-                search_space = None
+                search_params = None
             try:
                 dict_errors[name_imputer] = self.evaluate_errors_sample(
-                    tested_model,
-                    df,
-                    search_space,
+                    tested_model=tested_model,
+                    df=df,
+                    search_params=search_params,
                     )
             except Exception as excp:
                 print(type(tested_model).__name__)

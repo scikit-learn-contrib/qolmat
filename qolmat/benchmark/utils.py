@@ -15,20 +15,12 @@ from skopt.space import Categorical, Integer, Real
 BOUNDS = Bounds(1, np.inf, keep_feasible=True)
 EPS = np.finfo(float).eps
 
-def _check_dfs_columns(df1: pd.DataFrame, df2: pd.DataFrame):
-    if not Counter(df1.columns) == Counter(df2.columns):
-        raise ValueError("The columns of the two dataframes do not match")
-
 def has_given_attribute(tested_model, name_param):
-    
-    has_attribute = hasattr(tested_model, name_param) and (getattr(tested_model, name_param) is not None)
 
     if hasattr(tested_model, "impute_model"):
-        has_attribute_impute_model = has_given_attribute(
+        return has_given_attribute(
             tested_model.impute_model, name_param)
-        return has_attribute or has_attribute_impute_model
-    return has_attribute
-
+    return getattr(tested_model, name_param, None) is not None
 
 def convert_dict_to_space(dict_param, name):
     if dict_param["type"] == "Integer":
@@ -55,7 +47,10 @@ def convert_dict_to_space(dict_param, name):
         )
     return space  
 
-def get_search_space(tested_model: any, search_params: Dict) -> Union[None, List]:
+def get_search_space(
+    tested_model: any,
+    search_params: Optional[Dict[str, Dict[str, Union[int, float, str]]]],
+    columns_with_nan: Optional[List[str]]) -> Union[None, List]:
     """Construct the search space for the tested_model
     based on the search_params
 
@@ -71,6 +66,10 @@ def get_search_space(tested_model: any, search_params: Dict) -> Union[None, List
         search space
 
     """
+
+    if search_params is None:
+        return None
+    
     search_space = []
 
     for name_param, vals_params in search_params.items():
@@ -86,13 +85,13 @@ def get_search_space(tested_model: any, search_params: Dict) -> Union[None, List
                 name=name_param
                 )
         )
-
-        if getattr(tested_model, "selected_columns", None) and getattr(vals_params, "columnwise", False):
+        
+        if (getattr(columns_with_nan, "__len__", 0) and getattr(vals_params, "columnwise", False)):
             search_space += [
                 convert_dict_to_space(
                     dict_param=vals_params,
                     name = f"{col}/{name_param}")
-                    for col in tested_model.selected_columns
+                    for col in columns_with_nan
                     ]
     return search_space
 
@@ -131,87 +130,84 @@ def custom_groupby(
 
 
 def mean_squared_error(
-    df1: NDArray,
-    df2: NDArray,
-) -> float:
+    df1: pd.DataFrame,
+    df2: pd.DataFrame,
+) -> pd.Series:
     """Mean squared error between two dataframes.
 
     Parameters
     ----------
-    df1 : NDArray
-        True array
-    df2 : NDArray
-        Imputed array
+    df1 : pd.DataFrame
+        True dataframe
+    df2 : pd.DataFrame
+        Predicted dataframe
+
 
     Returns
     -------
-    float
+    pd.Series
     """
-    return np.nanmean(np.square(df1 - df2))
+    return ((df1 - df2) ** 2).mean()
 
 
 def root_mean_squared_error(
-    df1: NDArray,
-    df2: NDArray,
-) -> float:
-    """Root mean squared error between two arrays.
+    df1: pd.DataFrame,
+    df2: pd.DataFrame,
+) -> pd.Series:
+    """Root mean squared error between two dataframes.
 
     Parameters
     ----------
-    df1 : NDArray
-        True array
-    df2 : NDArray
-        Imputed array
+    df1 : pd.DataFrame
+        True dataframe
+    df2 : pd.DataFrame
+        Predicted dataframe
 
     Returns
     -------
-    float
+    pd.Series
     """
-    return np.sqrt(
-        mean_squared_error(df1, df2)
-        )
+    mse = mean_squared_error(df1, df2)
+    return mse.pow(0.5)
 
 
-def mean_absolute_error(
-    df1: NDArray,
-    df2: NDArray
-    ) -> float:
-    """
-    Mean absolute error between two dataframes.
+def mean_absolute_error(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.Series:
+    """Mean absolute error between two dataframes.
 
     Parameters
     ----------
-    df1 : NDArray
-        True array
-    df2 : NDArray
-        Imputed array
+    df1 : pd.DataFrame
+        True dataframe
+    df2 : pd.DataFrame
+        Predicted dataframe
 
     Returns
     -------
-    float
+    pd.Series
     """
-    return np.nanmean(np.abs(df1 - df2))
+    return (df1 - df2).abs().mean()
 
 
 def weighted_mean_absolute_percentage_error(
-    df1: NDArray,
-    df2: NDArray,
-) -> float:
-    """
-    Weighted mean absolute percentage error between two dataframes.
+    df1: pd.DataFrame,
+    df2: pd.DataFrame,
+) -> pd.Series:
+    """Weighted mean absolute percentage error between two dataframes.
 
     Parameters
     ----------
-    df1 : NDArray
-        True array
-    df2 : NDArray
-        Imputed array
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        True dataframe
+    df2 : pd.DataFrame
+        Predicted dataframe
 
     Returns
     -------
-    float
+    Union[float, pd.Series]
     """
-    return np.nanmean(np.abs(df1 - df2))/np.nanmean(np.abs(df1))
+    return (df1 - df2).abs().mean() / df1.abs().mean()
 
 
 def wasser_distance(
@@ -230,21 +226,11 @@ def wasser_distance(
     -------
     wasserstein distances : pd.Series
     """
-
-    _check_dfs_columns(df1, df2)
-
     cols = df1.columns.tolist()
-
-    wd = []
-
-    for col in cols:
-        if (np.any(np.isnan(df1[col])) or np.any(np.isnan(df2[col]))):
-            raise ValueError(
-                f"The column {col} contains nan in one of the dataframe"
-                )
-        wd.append(
-            scipy.stats.wasserstein_distance(df1[col], df2[col])
-            )
+    wd = [
+        scipy.stats.wasserstein_distance(df1[col].dropna(), df2[col].ffill().bfill())
+        for col in cols
+    ]
     return pd.Series(wd, index=cols)
 
 
@@ -355,129 +341,3 @@ def frechet_distance(
         return frechet_dist / df_true.shape[0]
     else:
         return frechet_dist
-
-
-###########################
-# Aggregation and entropy #
-###########################
-
-
-def get_agg_matrix(x, y, freq):
-    delta = pd.Timedelta(freq)
-    x = x.reshape(-1, 1)
-    x = np.tile(x, (1, len(y)))
-    y = np.tile(y, (len(x), 1))
-
-    increasing = 1 + ((y - x) / delta)
-    increasing = np.logical_and(x - delta <= y, y < x) * increasing
-    decreasing = 1 + ((x - y) / delta)
-    decreasing[-1, :] = 1
-    decreasing = np.logical_and(x <= y, y < x + delta) * decreasing
-
-    A = sparse.csc_matrix(decreasing + increasing)
-    return A
-
-
-def agg_df_values(df, target, agg_time):
-    df_dt = df["datetime"]
-    df_dt_agg = np.sort(df["datetime"].dt.floor(agg_time).unique())
-    A = get_agg_matrix(x=df_dt_agg, y=df_dt, freq=agg_time)
-    df_values_agg = A.dot(df[target].values)
-    df_res = pd.DataFrame({"agg_time": df_dt_agg, "agg_values": df_values_agg})
-    return df_res
-
-
-def aggregate_time_data(df, target, agg_time):
-    df.loc[:, "datetime"] = df.datetime.dt.tz_localize(tz=None)
-    df["day_SNCF"] = (df["datetime"] - pd.Timedelta("4H")).dt.date
-    df_aggregated = df.groupby("day_SNCF").apply(lambda x: agg_df_values(x, target, agg_time))
-    return df_aggregated
-
-
-def cross_entropy(t, t_hyp):
-    loss = np.sum(t * np.log(t / t_hyp))
-    jac = np.log(t / t_hyp) - 1
-    return loss, jac
-
-
-def hessian(t):
-    return np.diag(1 / t)
-
-
-def impute_by_max_entropy(
-    df_dt,
-    df_dt_agg,
-    df_values_agg,
-    freq,
-    df_values_hyp,
-):
-    A = get_agg_matrix(x=df_dt_agg, y=df_dt, freq=freq)
-    np.random.seed(42)
-    res = lsq_linear(A, b=df_values_agg, bounds=(1, np.inf), method="trf", tol=1e-10)
-    df_res = pd.DataFrame({"datetime": df_dt, "impute": res.x})
-    return df_res
-
-
-def is_in_a_slot(df_dt, df_dt_agg, freq):
-    delta = pd.Timedelta(freq)
-    df_dt_agg = df_dt_agg.values.reshape(-1, 1)
-    df_dt_agg = np.tile(df_dt_agg, (1, len(df_dt)))
-    df_dt = df_dt.values
-    df_dt = np.tile(df_dt, (len(df_dt_agg), 1))
-
-    lower_bound = df_dt >= df_dt_agg - delta
-    upper_bound = df_dt < df_dt_agg + delta
-
-    in_any_slots = np.logical_and(lower_bound, upper_bound)
-    in_any_slots = np.any(in_any_slots, axis=0)
-    return in_any_slots
-
-
-def impute_entropy_day(df, target, ts_agg, agg_time, zero_soil=0.0):
-    col_name = ts_agg.name
-
-    df_day = df.drop_duplicates(subset=["datetime"])
-    ts_agg = ts_agg.to_frame().reset_index()
-    ts_agg = ts_agg.loc[
-        (ts_agg.agg_time >= df_day.datetime.min()) & (ts_agg.agg_time <= df_day.datetime.max())
-    ]
-    if len(ts_agg) < 2:
-        df_day = pd.DataFrame({"datetime": df_day.datetime.values})
-        df_day["impute"] = np.nan
-        df_res = df.merge(df_day[["datetime", "impute"]], on="datetime", how="left")
-        return df_res
-
-    df_day["datetime_round"] = df_day.datetime.dt.round(agg_time)
-    df_day["n_train"] = df_day.groupby("datetime_round")[target].transform(lambda x: x.shape[0])
-
-    df_day["hyp_values"] = (
-        df_day[["datetime_round"]]
-        .merge(ts_agg, left_on="datetime_round", right_on="agg_time", how="left")[col_name]
-        .values
-    )
-
-    df_day["hyp_values"] = df_day["hyp_values"] / df_day["n_train"]
-    df_day.loc[df_day[target].notna(), "hyp_values"] = df_day.loc[df_day[target].notna(), target]
-    ts_agg_zeros = ts_agg.loc[ts_agg[col_name] <= zero_soil, "agg_time"]
-    is_in_zero_slot = is_in_a_slot(df_dt=df_day["datetime"], df_dt_agg=ts_agg_zeros, freq=agg_time)
-
-    df_day["impute"] = np.nan
-    df_day.loc[is_in_zero_slot, "impute"] = 0
-
-    non_zero_impute = impute_by_max_entropy(
-        df_dt=df_day.loc[~is_in_zero_slot, "datetime"].values,
-        df_dt_agg=ts_agg.loc[ts_agg[col_name] > zero_soil, "agg_time"].values,
-        df_values_agg=ts_agg.loc[ts_agg[col_name] > zero_soil, col_name].values,
-        freq=agg_time,
-        df_values_hyp=df_day.loc[~is_in_zero_slot, "hyp_values"].values,
-    )
-
-    df_day.loc[~is_in_zero_slot, "impute"] = (
-        df_day.loc[~is_in_zero_slot, ["datetime"]]
-        .merge(non_zero_impute, on="datetime", how="left")["impute"]
-        .values
-    )
-
-    df_res = df.merge(df_day[["datetime", "impute"]], on="datetime", how="left")
-
-    return df_res

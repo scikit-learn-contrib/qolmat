@@ -21,9 +21,6 @@ from qolmat.imputations.rpca.pcp_rpca import RPCA
 
 class QolmatImputer(_BaseImputer):
 
-    def __init__(self) -> None:
-        super().__init__()
-
     def _set_params(self, **params):
         if len(params) > len(set(params)):
             raise ValueError(f"{','.join(params.keys())} contains duplicates")
@@ -36,29 +33,30 @@ class QolmatImputer(_BaseImputer):
         return self
 
 
-    def _check_impute_model_params(impute_model, selected_columns=None, **hyper_params):
+    def _check_impute_model_params(impute_model, columnwise=False, **hyper_params):
 
         if len(hyper_params) > len(set(hyper_params)):
             raise ValueError(f"{','.join(hyper_params.keys())} contains duplicates")
         
+        impute_model_instance = impute_model()
+        
         for key in hyper_params.keys():
-            if key in impute_model().__dict__.keys():
+            if key in impute_model_instance.__dict__.keys():
                 pass
-            
             else:                
-                if selected_columns and (key in selected_columns):
+                if columnwise:
                     if len(hyper_params[key]) > len(set(hyper_params[key])):
                         raise ValueError(
                             f"{','.join(hyper_params[key].keys())} contains duplicates"
                     )
-                    if not set(hyper_params[key]).issubset(set(impute_model().__dict__.keys())):
+                    if not set(hyper_params[key]).issubset(set(impute_model_instance.__dict__.keys())):
                         raise ValueError(
                             f"{','.join(hyper_params[key])} not contained in ",
-                            f"{','.join(impute_model().__dict__.keys())}"
+                            f"{','.join(impute_model_instance.__dict__.keys())}"
                             )
                 else:
                     raise ValueError(f"{key} does not belong to {impute_model().__class__.__name__}'s ",
-                                     f"attribute nor to ``selected_columns``.")
+                                     f"attribute.")
         return hyper_params
     
     def _set_impute_model_params(self, **hyper_params):
@@ -514,27 +512,27 @@ class ImputeRPCA(QolmatImputer):
 
     impute_model_params: dict[str, float]
         parameters of the RPCA impute model.
-        If self.selected_columns is not ``None`` it may
+        If self.columnwise is ``True`` it may
         contain different values for the different columns. 
-    selected_columns: Optional[List[str]]
-        for RPCA method to be applied columnwise for selected columns
+    columnwise: bool
+        for RPCA method to be applied columnwise
         (with reshaping of each column into an array)
         or to be applied directly on the dataframe.
-        By default ``None``.
+        By default False.
     """
 
     def __init__(
         self,
         rpca_model: RPCA,
-        selected_columns: Optional[List[str]] = None,
+        columnwise: bool = False,
         **rpca_params,
         ) -> None:
         super().__init__()
         self.impute_model = rpca_model
-        self.selected_columns = selected_columns
+        self.columnwise = columnwise
         self.impute_model_params = QolmatImputer._check_impute_model_params(
             impute_model=rpca_model,
-            selected_columns=selected_columns,
+            columnwise=columnwise,
             **rpca_params)
         
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -557,13 +555,12 @@ class ImputeRPCA(QolmatImputer):
                 key in self.impute_model().__dict__.keys()
                 )}
 
-        if self.selected_columns:
+        if self.columnwise:
             
             imputed = pd.DataFrame(columns=df.columns, index=df.index)
             
             for col in imputed.columns:
-                if col in self.selected_columns:
-                    
+                if df[col].isnull().any():
                     if col in self.impute_model_params.keys():
                         rpca_params.update(self.impute_model_params[col])
                     rpca = self.impute_model(**rpca_params)

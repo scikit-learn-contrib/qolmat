@@ -7,7 +7,7 @@
 #       format_version: '1.5'
 #       jupytext_version: 1.14.4
 #   kernelspec:
-#     display_name: Python 3 (ipykernel)
+#     display_name: env_qolmat
 #     language: python
 #     name: python3
 # ---
@@ -120,8 +120,8 @@ imputer_interpol = models.ImputeByInterpolation(method="linear")
 imputer_spline = models.ImputeByInterpolation(method="spline")
 imputer_random = models.ImputeRandom()
 imputer_residuals = models.ImputeOnResiduals("additive", 7, "freq", "linear")
-imputer_rpca_ts = models.ImputeRPCA(rpca_model=TemporalRPCA, period=7*4, max_iter=int(1e1))
-imputer_rpca_pcp = models.ImputeRPCA(rpca_model=PcpRPCA, period=7*4, max_iter=int(1e1))
+imputer_rpca_ts = models.ImputeRPCA(rpca_model=TemporalRPCA, period=7*4, max_iter=int(1e2), columnwise = True)
+imputer_rpca_pcp = models.ImputeRPCA(rpca_model=PcpRPCA, period=7*4, max_iter=int(1e2), columnwise = True)
 imputer_em = ImputeEM(n_iter_em=34, n_iter_ou=15, verbose=0, strategy="ou", temporal=False)
 imputer_locf = models.ImputeLOCF()
 imputer_nocb = models.ImputeNOCB()
@@ -145,7 +145,7 @@ dict_models = {
     #"iterative": imputer_iterative,
     "EM": imputer_em,
     "RPCA_TS": imputer_rpca_ts,
-    "RPCA_PCP": imputer_rpca_pcp,
+    #"RPCA_PCP": imputer_rpca_pcp,
 }
 n_models = len(dict_models)
 
@@ -153,12 +153,12 @@ n_models = len(dict_models)
 search_params = {
   "RPCA_TS": {
     "lam": {"min": 0.5, "max": 1, "type":"Real", "columnwise":True},
-    "tau": {"min": 1, "max": 1.5, "type":"Real"},
-  },
-  "RPCA_PCP": {
-    "lam": {"min": 0.5, "max": 1, "type":"Real", "columnwise":True},
     "tau": {"min": 1, "max": 1.5, "type":"Real", "columnwise":True},
   },
+  # "RPCA_PCP": {
+  #   "lam": {"min": 0.5, "max": 1, "type":"Real", "columnwise":True},
+  #   "tau": {"min": 1, "max": 1.5, "type":"Real", "columnwise":True},
+  # },
 }
 
 prop_nan = 0.05
@@ -205,8 +205,6 @@ results
 
 #
 
-imputer_rpca.__dict__
-
 df_data.shape
 
 
@@ -230,7 +228,7 @@ palette = sns.color_palette("icefire", n_colors=len(dict_models))
 #palette = sns.color_palette("husl", 8)
 sns.set_palette(palette)
 markers = ["o", "s", "D", "+", "P", ">", "^", "d"]
-colors = ["tab:red", "tab:blue", "tab:green"]
+colors = ["tab:red", "tab:blue", "tab:green", "tab:pink"]
 
 
 for col in cols_to_impute:
