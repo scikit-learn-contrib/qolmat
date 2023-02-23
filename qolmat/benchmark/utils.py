@@ -32,7 +32,6 @@ def get_search_space(tested_model: any, search_params: Dict) -> Union[None, List
     if str(type(tested_model).__name__) in search_params.keys():
         search_space = []
         for name_param, vals_params in search_params[str(type(tested_model).__name__)].items():
-
             if str(type(tested_model).__name__) == "ImputeRPCA":
                 if hasattr(tested_model.rpca, name_param):
                     raise ValueError(
@@ -45,11 +44,19 @@ def get_search_space(tested_model: any, search_params: Dict) -> Union[None, List
 
             if vals_params["type"] == "Integer":
                 search_space.append(
-                    Integer(low=vals_params["min"], high=vals_params["max"], name=name_param)
+                    Integer(
+                        low=vals_params["min"],
+                        high=vals_params["max"],
+                        name=name_param,
+                    )
                 )
             elif vals_params["type"] == "Real":
                 search_space.append(
-                    Real(low=vals_params["min"], high=vals_params["max"], name=name_param)
+                    Real(
+                        low=vals_params["min"],
+                        high=vals_params["max"],
+                        name=name_param,
+                    )
                 )
             elif vals_params["type"] == "Categorical":
                 search_space.append(

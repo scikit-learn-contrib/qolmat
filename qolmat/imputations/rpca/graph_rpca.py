@@ -59,7 +59,6 @@ class GraphRPCA(RPCA):
         tol: Optional[float] = 1e-6,
         verbose: Optional[bool] = False,
     ) -> None:
-
         super().__init__(n_rows=n_rows, maxIter=maxIter, tol=tol, verbose=verbose)
         self.rank = rank
         self.gamma1 = gamma1

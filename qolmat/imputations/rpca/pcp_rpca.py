@@ -36,7 +36,6 @@ class PcpRPCA(RPCA):
         tol: Optional[float] = 1e-6,
         verbose: bool = False,
     ) -> None:
-
         super().__init__(n_rows=n_rows, maxIter=maxIter, tol=tol, verbose=verbose)
         self.mu = mu
         self.lam = lam

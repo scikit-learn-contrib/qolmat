@@ -31,7 +31,6 @@ class RPCA(BaseEstimator, TransformerMixin):
         tol: Optional[float] = 1e-6,
         verbose: bool = False,
     ) -> None:
-
         self.n_rows = n_rows
         self.maxIter = maxIter
         self.tol = tol

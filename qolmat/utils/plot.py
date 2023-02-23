@@ -195,7 +195,12 @@ def make_ellipses(
 
 
 def compare_covariances(
-    df1: pd.DataFrame, df2: pd.DataFrame, col_x: str, col_y: str, ax: any, color=None
+    df1: pd.DataFrame,
+    df2: pd.DataFrame,
+    col_x: str,
+    col_y: str,
+    ax: any,
+    color=None,
 ):
     """
     Covariance plot: scatter plot with ellipses

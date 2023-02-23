@@ -16,7 +16,7 @@ repos:
         args:
           - "-l 99"
   # Flake8
-  - repo: https://gitlab.com/pycqa/flake8
+  - repo: https://github.com/PyCQA/flake8
     rev: 4.0.1
     hooks:
       - id: flake8

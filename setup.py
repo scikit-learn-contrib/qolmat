@@ -29,7 +29,7 @@ INSTALL_REQUIRES = [
     "tqdm",
     "pillow",
     "scikit-learn",
-    "missingpy"
+    "missingpy",
 ]
 
 PYTHON_REQUIRES = ">=3.8"
@@ -45,8 +45,7 @@ setup(
     author_email=AUTHORS_EMAIL,
     packages=PACKAGES,
     python_requires=PYTHON_REQUIRES,
-    install_requires=INSTALL_REQUIRES
-    
+    install_requires=INSTALL_REQUIRES,
 )
 
 

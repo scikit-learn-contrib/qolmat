@@ -74,7 +74,6 @@ class ImputeEM(_BaseImputer):  # type: ignore
         stagnation_threshold: Optional[float] = 5e-3,
         stagnation_loglik: Optional[float] = 1e1,
     ) -> None:
-
         if strategy not in ["mle", "ou", "mh"]:
             raise Exception("strategy has to be 'mle' or 'ou' or 'mh'")
 
@@ -352,12 +351,10 @@ class ImputeEM(_BaseImputer):  # type: ignore
         X: np.ndarray,
         mask_na: np.ndarray,
     ) -> float:
-
         m, n = X.shape
         X_ = X.copy()
 
         for _ in range(self.n_iter_mh):
-
             for i in range(X.shape[0]):
                 if mask_na[i, :].sum() == 0:
                     continue
@@ -435,7 +432,6 @@ class ImputeEM(_BaseImputer):  # type: ignore
 
         list_X_transformed, list_means, list_covs = [], [], []
         for iter_em in range(self.n_iter_em):
-
             if self.temporal:
                 shift = 1
                 X_past = X_transformed.copy()

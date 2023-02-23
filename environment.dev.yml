@@ -1,0 +1,36 @@
+name: env_qolmat_dev
+channels:
+    - defaults
+    - conda-forge
+dependencies:
+      - bump2version
+      - ipykernel
+      - jupyter
+      - seaborn
+      - sphinx
+      - sphinx-gallery
+      - sphinx_rtd_theme
+      - twine
+      - wheel
+      - jupyterlab
+      - jupytext
+      - s3fs
+      - pyarrow
+      - pip
+      - pip:
+              - flake8==6.0.0
+              - jupytext==1.14.4
+              - matplotlib==3.6.2
+              - missingpy==0.2.0
+              - numpy==1.24.1
+              - numpydoc==1.5.0
+              - mypy==0.910
+              - pandas==1.5.2
+              - plotly==5.11.0
+              - pre-commit==2.21.0
+              - pytest==7.2.0
+              - pytest-cov==4.0.0
+              - seaborn==0.12.2
+              - scikit-learn==1.1.3
+              - scikit-optimize==0.9.0
+              - -e .

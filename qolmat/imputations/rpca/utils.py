@@ -277,7 +277,11 @@ def construct_graph(
         Graph's adjacency matrix
     """
     G_val = kneighbors_graph(
-        X=X, n_neighbors=n_neighbors, metric=distance, mode="distance", n_jobs=n_jobs
+        X=X,
+        n_neighbors=n_neighbors,
+        metric=distance,
+        mode="distance",
+        n_jobs=n_jobs,
     ).toarray()
 
     G_val = np.exp(-G_val)

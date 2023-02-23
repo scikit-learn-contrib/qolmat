@@ -15,12 +15,15 @@ from sklearn.impute import IterativeImputer, KNNImputer
 from sklearn.impute._base import _BaseImputer
 from statsmodels.tsa.seasonal import seasonal_decompose
 
-sys.modules["sklearn.neighbors.base"] = sklearn.neighbors._base
+sys.modules["sklearn.neighbors.base"] == sklearn.neighbors._base
 import missingpy
 
 from qolmat.benchmark import utils
 from qolmat.imputations.rpca.pcp_rpca import RPCA
-from qolmat.imputations.rpca.temporal_rpca import OnlineTemporalRPCA, TemporalRPCA
+from qolmat.imputations.rpca.temporal_rpca import (
+    OnlineTemporalRPCA,
+    TemporalRPCA,
+)
 
 
 class ImputeColumnWise(_BaseImputer):
@@ -326,7 +329,10 @@ class ImputeByInterpolation(ImputeColumnWise):
     """
 
     def __init__(
-        self, groups: Optional[List[str]] = [], method: str = "linear", order: int = None
+        self,
+        groups: Optional[List[str]] = [],
+        method: str = "linear",
+        order: int = None,
     ) -> None:
         super().__init__(groups=groups)
         self.method = method
@@ -470,7 +476,9 @@ class ImputeKNN(_BaseImputer):
             raise ValueError("Input has to be a pandas.DataFrame.")
 
         imputer = KNNImputer(
-            n_neighbors=self.n_neighbors, weights=self.weights, metric="nan_euclidean"
+            n_neighbors=self.n_neighbors,
+            weights=self.weights,
+            metric="nan_euclidean",
         )
         results = imputer.fit_transform(df)
         return pd.DataFrame(data=results, columns=df.columns, index=df.index)
@@ -847,7 +855,6 @@ class ImputeMissForest(_BaseImputer):
         self.verbose = verbose
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
-
         imputer = missingpy.MissForest(
             max_features=self.max_features,
             criterion=self.criterion,

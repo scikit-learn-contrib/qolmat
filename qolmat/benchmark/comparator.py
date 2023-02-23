@@ -36,7 +36,6 @@ class Comparator:
         search_params: Optional[Dict] = {},
         n_cv_calls: Optional[int] = 10,
     ):
-
         self.dict_models = dict_models
         self.selected_columns = selected_columns
         self.generator_holes = generator_holes
@@ -45,7 +44,10 @@ class Comparator:
         self.n_cv_calls = n_cv_calls
 
     def get_errors(
-        self, df_origin: pd.DataFrame, df_imputed: pd.DataFrame, df_mask: pd.DataFrame
+        self,
+        df_origin: pd.DataFrame,
+        df_imputed: pd.DataFrame,
+        df_mask: pd.DataFrame,
     ) -> float:
         """Functions evaluating the reconstruction's quality
 
@@ -94,7 +96,10 @@ class Comparator:
         return errors
 
     def evaluate_errors_sample(
-        self, tested_model: any, df: pd.DataFrame, search_space: Optional[dict] = None
+        self,
+        tested_model: any,
+        df: pd.DataFrame,
+        search_space: Optional[dict] = None,
     ) -> Dict:
         """Evaluate the errors in the cross-validation
 

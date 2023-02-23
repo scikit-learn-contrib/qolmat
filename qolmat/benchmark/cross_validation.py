@@ -52,7 +52,10 @@ class CrossValidation:
         self.verbose = verbose
 
     def loss_function(
-        self, df_origin: pd.DataFrame, df_imputed: pd.DataFrame, df_mask: pd.DataFrame
+        self,
+        df_origin: pd.DataFrame,
+        df_imputed: pd.DataFrame,
+        df_mask: pd.DataFrame,
     ) -> float:
         """
         Compute the loss function associated to the loss_norm parameter
@@ -111,7 +114,6 @@ class CrossValidation:
 
         @skopt.utils.use_named_args(self.search_space)
         def obj_func(**all_params):
-
             self._set_params(all_params=all_params)
             if self.verbose:
                 print(all_params)
@@ -125,7 +127,9 @@ class CrossValidation:
                 cols_with_nans = X.columns[X.isna().any()]
                 imputed = self.model.fit_transform(df_corrupted)
                 error = self.loss_function(
-                    df_origin[cols_with_nans], imputed[cols_with_nans], df_mask[cols_with_nans]
+                    df_origin[cols_with_nans],
+                    imputed[cols_with_nans],
+                    df_mask[cols_with_nans],
                 )
                 errors.append(error)
 
