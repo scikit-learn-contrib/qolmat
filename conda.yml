@@ -14,8 +14,8 @@ dependencies:
       - wheel
       - jupyterlab
       - jupytext
-      - s3fs
-      - pyarrow
+      - s3fs ## to delete
+      - pyarrow  ## to delete
       - pip
       - pip:
               - flake8==6.0.0
