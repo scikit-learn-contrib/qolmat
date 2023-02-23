@@ -1,0 +1,8 @@
+[flake8]
+exclude = .git,__pycache__,.vscode,tests
+ignore=E302,E305,W503,E203,E203,E731,E402
+indent-size = 4
+max-line-length=99
+per-file-ignores=
+    qolmat/imputations/models.py:F401
+    */__init__.py:F401
