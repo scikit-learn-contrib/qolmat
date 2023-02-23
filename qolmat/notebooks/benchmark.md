@@ -53,13 +53,13 @@ from qolmat.benchmark import comparator, missing_patterns
 from qolmat.benchmark.utils import kl_divergence
 from qolmat.imputations import models
 from qolmat.utils import data, utils, plot
-from qolmat.imputations.em_sampler import ImputeEM
 # from qolmat.drawing import display_bar_table
 
 ```
 
+<!-- #region tags=[] -->
 ### **I. Load data**
-
+<!-- #endregion -->
 
 The data used in this example is the Beijing Multi-Site Air-Quality Data Set. It consists in hourly air pollutants data from 12 chinese nationally-controlled air-quality monitoring sites and is available at https://archive.ics.uci.edu/ml/machine-learning-databases/00501/.
 This dataset only contains numerical vairables.
@@ -132,7 +132,9 @@ imputer_residuals = models.ImputeOnResiduals("additive", 7, "freq", "linear")
 imputer_rpca = models.ImputeRPCA(
   method="temporal", multivariate=False, **{"n_rows":7*4, "maxIter":1000, "tau":1, "lam":0.7}
   )
-imputer_em = ImputeEM(n_iter_em=34, n_iter_ou=15, verbose=0, strategy="ou", temporal=False)
+imputer_ou = models.ImputeEM(method="multinormal", max_iter_em=34, n_iter_ou=15, strategy="ou")
+imputer_tsou = models.ImputeEM(method="VAR1", strategy="ou", max_iter_em=34, n_iter_ou=15)
+imputer_tsmle = models.ImputeEM(method="VAR1", strategy="mle", max_iter_em=34, n_iter_ou=15)
 imputer_locf = models.ImputeLOCF()
 imputer_nocb = models.ImputeNOCB()
 imputer_knn = models.ImputeKNN(k=10)
@@ -153,7 +155,9 @@ dict_models = {
     "interpolation": imputer_interpol,
     #"residuals": imputer_residuals,
     #"iterative": imputer_iterative,
-    "EM": imputer_em,
+    "OU": imputer_ou,
+    "TSOU": imputer_tsou,
+    "TSMLE": imputer_tsmle,
     #"RPCA": imputer_rpca,
 }
 n_models = len(dict_models)
@@ -184,10 +188,6 @@ Then, it suffices to use the compare function to obtain the results: a dataframe
 This allows an easy comparison of the different imputations.
 
 Note these metrics compute reconstruction errors; it tells nothing about the distances between the "true" and "imputed" distributions.
-
-```python
-missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], ratio_masked=0.1)
-```
 
 ```python
 doy = pd.Series(df_data.reset_index().datetime.dt.isocalendar().week.values, index=df_data.index)
@@ -246,7 +246,7 @@ for col in cols_to_impute:
     for ind, (name, model) in enumerate(list(dict_models.items())):
         values_imp = dfs_imputed_station[name][col].copy()
         values_imp[values_orig.notna()] = np.nan
-        plt.plot(values_imp, ".", color=colors[ind], label=name, alpha=1)
+        plt.plot(values_imp, ".", color=tab10(ind), label=name, alpha=1)
     plt.ylabel(col, fontsize=16)
     plt.legend(loc=[1, 0], fontsize=18)
     loc = plticker.MultipleLocator(base=2*365)
