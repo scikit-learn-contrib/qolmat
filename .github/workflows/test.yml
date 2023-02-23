@@ -8,6 +8,8 @@ on:
     branches:
       - 'Unit_test_FDA'
 
+  workflow_dispatch:
+
 jobs:
   build-linux:
     runs-on: ${{matrix.os}}
