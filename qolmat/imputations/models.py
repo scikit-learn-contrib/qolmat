@@ -61,11 +61,11 @@ class ImputeColumnWise(_BaseImputer):
         for col in cols_with_nans:
             if self.groups:
                 groupby = utils.custom_groupby(df, self.groups)
-                imputation_values = groupby[col].transform(self.apply_imputation)
+                self.imputation_values = groupby[col].transform(self.apply_imputation)
             else:
-                imputation_values = self.apply_imputation(df[col])
+                self.imputation_values = self.apply_imputation(df[col])
 
-            df_imputed[col] = df_imputed[col].fillna(imputation_values)
+            df_imputed[col] = df_imputed[col].fillna(self.imputation_values)
 
             # fill na by applying imputation method without groups
             if df_imputed[col].isna().any():
@@ -650,8 +650,10 @@ class ImputeRegressor(_BaseImputer):
     >>> imputor.fit_transform(X)
     """
 
-    def __init__(self, model, **kwargs) -> None:
+    def __init__(self, model, cols_to_impute=None, fit_on_nan = True,  **kwargs) -> None:
         self.model = model
+        self.cols_to_impute = cols_to_impute
+        self.fit_on_nan = fit_on_nan
 
         for name, value in kwargs.items():
             setattr(self, name, value)
@@ -673,21 +675,28 @@ class ImputeRegressor(_BaseImputer):
         if not isinstance(df, pd.DataFrame):
             raise ValueError("Input has to be a pandas.DataFrame.")
 
-        df_imputed = df.copy()
-
         cols_with_nans = df.columns[df.isna().any()]
-        cols_without_nans = df.columns[df.notna().all()]
+        self.cols_without_nans = df.columns[df.notna().all()]
 
-        if len(cols_without_nans) == 0:
-            raise Exception("There must be at least one column without missing values.")
-
-        for col in cols_with_nans:
-            X = df[cols_without_nans]
+        if self.cols_to_impute is None:
+            self.cols_to_impute = cols_with_nans
+        elif not set(self.cols_to_impute).issubset(set(df.columns) ):
+            raise ValueError("Input has to have at least one column of cols_to_impute")
+        else:
+            self.cols_to_impute =list(set(self.cols_to_impute) & set(cols_with_nans)) 
+        
+        df_imputed = df.copy()
+    
+        self.models = {col: self.model() for col in self.cols_to_impute} 
+        for col in self.cols_to_impute:
+            if self.fit_on_nan:
+                X = df.drop(columns=col)
+            else:
+                X = df[self.cols_without_nans].drop(columns=col)
             y = df[col]
             is_na = y.isna()
-            self.model.fit(X[~is_na], y[~is_na])
-            df_imputed.loc[is_na, col] = self.model.predict(X[is_na])
-
+            self.models[col].fit(X[~is_na], y[~is_na])
+            df_imputed.loc[is_na, col] = self.models[col].predict(X[is_na])
         return df_imputed
 
     def get_hyperparams(self):
