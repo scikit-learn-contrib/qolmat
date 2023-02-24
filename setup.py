@@ -7,7 +7,7 @@ DISTNAME = "qolmat"
 VERSION = "0.0.2"
 DESCRIPTION = "Tools to impute"
 LONG_DESCRIPTION_CONTENT_TYPE = "text/x-rst"
-with codecs.open("NEW_README.rst", encoding="utf-8-sig") as f:
+with codecs.open("README.rst", encoding="utf-8-sig") as f:
     LONG_DESCRIPTION = f.read()
 # LONG_DESCRIPTION = "hello"
 
