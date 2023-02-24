@@ -1,4 +1,4 @@
-name: qolmat-ci
+name: env_qolmat_ci
 channels:
     - defaults
     - conda-forge
