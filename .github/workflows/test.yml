@@ -24,6 +24,10 @@ jobs:
         environemnt-file: environment.ci.yml
         channels: default, conda-forge
 
+    - name: Create Activate venv
+      run: |
+        conda env create -f environment.ci.yml
+        conda activate env_qolmat_ci
     - name: Lint with flake8
       run: |
         flake8
