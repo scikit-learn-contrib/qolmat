@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 import codecs
 
 DISTNAME = "qolmat"
-VERSION = "0.0.1"
+VERSION = "0.0.2"
 DESCRIPTION = "Tools to impute"
 with codecs.open("README.rst", encoding="utf-8-sig") as f:
     LONG_DESCRIPTION = f.read()
