@@ -1,3 +1,4 @@
+
 ##############################################
 RPCA for anomaly detection and data imputation
 ##############################################
@@ -71,7 +72,7 @@ What’s in this repo?
 
 Some classes are implemented:
 
-* :class:`RPCA` class (see p.29 of this `paper <https://arxiv.org/abs/0912.3599>`__). The optimisation problem is the following
+**RPCA** class based on `RPCA <https://arxiv.org/abs/0912.3599>`_ p.29.
 
 .. math::
 
@@ -80,7 +81,7 @@ Some classes are implemented:
    & \text{s.t.} \quad \mathbf{D} = \mathbf{X} + \mathbf{A}
    \end{align*}
 
-* :class:`GraphRPCA` class (based on this `paper <https://arxiv.org/abs/1507.08173>`__). The optimisation problem is the following
+**GraphRPCA** class based on  `GraphRPCA <https://arxiv.org/abs/1507.08173>`_.
 
 .. math::
 
@@ -89,7 +90,7 @@ Some classes are implemented:
    & \text{s.t.} \quad \mathbf{D} = \mathbf{X} + \mathbf{A}
    \end{align*}
 
-* :class:`TemporalRPCA` class (based on this `paper <https://arxiv.org/abs/2001.05484>`__ and this `paper <https://www.hindawi.com/journals/jat/2018/7191549/>`__). The optimisation problem is the following
+**TemporalRPCA** class based on  `Link 1 <https://arxiv.org/abs/2001.05484>`__ and this `Link 2 <https://www.hindawi.com/journals/jat/2018/7191549/>`__). The optimisation problem is the following
 
 .. math::
 

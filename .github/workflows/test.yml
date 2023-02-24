@@ -26,15 +26,12 @@ jobs:
 
     - name: Lint with flake8
       run: |
-        conda install flake8
         flake8
     - name: Test with pytest
       run: |
-        conda install pytest
         #pytest
         echo you should uncomment pytest and delete this line
     - name: typing with mypy
       run: |
-        conda install mypy
         #mypy qolmat
         echo you should uncomment mypy qolmat and delete this line

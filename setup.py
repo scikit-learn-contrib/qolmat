@@ -1,21 +1,26 @@
 from setuptools import find_packages, setup
 import codecs
 
+# from setup_backup import LONG_DESCRIPTION
+
 DISTNAME = "qolmat"
 VERSION = "0.0.2"
 DESCRIPTION = "Tools to impute"
-with codecs.open("README.rst", encoding="utf-8-sig") as f:
+LONG_DESCRIPTION_CONTENT_TYPE = "text/x-rst"
+with codecs.open("NEW_README.rst", encoding="utf-8-sig") as f:
     LONG_DESCRIPTION = f.read()
-"""
- Here we should add the correct
- URL = "https://github.com/scikit-learn-contrib/...."
- DOWNLOAD_URL = "https://pypi.org/project/......"
- PROJECT_URLS = {
-    "Bug Tracker": "https://github.com/scikit-learn-contrib/...../issues",
-    "Documentation": "https://......readthedocs.io/en/latest/",
-    "Source Code": "https://github.com/scikit-learn-contrib/......"
- }
-"""
+# LONG_DESCRIPTION = "hello"
+
+# """
+# Here we should add the correct
+# URL = "https://github.com/scikit-learn-contrib/...."
+# DOWNLOAD_URL = "https://pypi.org/project/......"
+# PROJECT_URLS = {
+#     "Bug Tracker": "https://github.com/scikit-learn-contrib/...../issues",
+#     "Documentation": "https://......readthedocs.io/en/latest/",
+#     "Source Code": "https://github.com/scikit-learn-contrib/......"
+# }
+# """
 
 LICENSE = "new BSD"
 AUTHORS = "Hong-Lan Botterman, Julien Roussel, Thomas Morzadec, Rima Hajou"
@@ -64,6 +69,7 @@ setup(
     license=LICENSE,
     description=DESCRIPTION,
     long_description=LONG_DESCRIPTION,
+    long_description_content_type=LONG_DESCRIPTION_CONTENT_TYPE,
     author=AUTHORS,
     author_email=AUTHORS_EMAIL,
     packages=PACKAGES,
