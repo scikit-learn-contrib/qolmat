@@ -51,7 +51,7 @@ On each sample, different imputation models are tested and reconstruction errors
 ### **Installation for conda user**
 
 ```
-conda env create -f conda.yml
+cconda env create -f environment.dev.yml
 conda activate env_qolmat_dev
 ```
 ### installtion for pip user
