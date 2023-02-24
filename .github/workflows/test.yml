@@ -23,11 +23,13 @@ jobs:
         python-version: ${{matrix.python-version}}
         environemnt-file: environment.ci.yml
         channels: default, conda-forge
-
-    - name: Create Activate venv
+    - name: Create venv
       run: |
         conda env create -f environment.ci.yml
+    - name: Activate venv
+      run: |
         conda activate env_qolmat_ci
+        echo venv is activated
     - name: Lint with flake8
       run: |
         flake8
