@@ -156,7 +156,7 @@ class CrossValidation:
         """
 
         res = skopt.gp_minimize(
-            self.objective(),
+            self.objective(X),
             self.search_space,
             n_calls=self.n_calls,
             n_initial_points=self.n_calls // 5,
