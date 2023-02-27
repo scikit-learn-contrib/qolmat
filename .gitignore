@@ -1,6 +1,5 @@
 __pycache__/
 .pyc
-.vscode
 .DS_Store
 .ipynb_checkpoints
 /data
@@ -13,4 +12,4 @@ qolmat/notebooks/*.ipynb
 *SOURCES.txt
 TimeSynth*
 /scripts
-.flake8
+.vscode
