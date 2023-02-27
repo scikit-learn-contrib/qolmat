@@ -1,9 +1,0 @@
-{
-    "python.testing.pytestPath": "/Users/firasdakhli/miniconda3/envs/env_qolmat/bin/python",
-    "editor.formatOnSave": true,
-    "python.testing.pytestArgs": [
-        "."
-    ],
-    "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true
-}
