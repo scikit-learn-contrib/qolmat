@@ -7,7 +7,6 @@ import skopt
 from qolmat.benchmark.missing_patterns import _HoleGenerator
 
 
-
 class CrossValidation:
     """
     This class implements a cross-validation to find the hyperparameters

@@ -52,13 +52,13 @@ from qolmat.benchmark import comparator, missing_patterns
 from qolmat.benchmark.utils import kl_divergence
 from qolmat.imputations import models
 from qolmat.utils import data, utils, plot
-from qolmat.imputations.em_sampler import ImputeEM
 # from qolmat.drawing import display_bar_table
 
 ```
 
+<!-- #region tags=[] -->
 ### **I. Load data**
-
+<!-- #endregion -->
 
 The data used in this example is the Beijing Multi-Site Air-Quality Data Set. It consists in hourly air pollutants data from 12 chinese nationally-controlled air-quality monitoring sites and is available at https://archive.ics.uci.edu/ml/machine-learning-databases/00501/.
 This dataset only contains numerical vairables.
@@ -129,12 +129,17 @@ imputer_interpol = models.ImputerInterpolation(groups=["station"], method="linea
 imputer_spline = models.ImputerInterpolation(groups=["station"], method="spline", order=2)
 imputer_shuffle = models.ImputerShuffle(groups=["station"])
 imputer_residuals = models.ImputerResiduals(groups=["station"], period=7, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
+
 # imputer_rpca = models.ImputerRPCA(groups=["station"], method="temporal", columnwise=False, n_rows=7*4, max_iter=1000, tau=1, lam=0.7)
 dict_tau = {"TEMP": 1, "PRES": 1.1}
 dict_lam = {"TEMP": 0.7, "PRES": 0.8}
 imputer_rpca = models.ImputerRPCA(groups=["station"], method="temporal", columnwise=True, n_rows=7*4, max_iter=1000, tau=dict_tau, lam=dict_lam)
 imputer_rpca_opti = models.ImputerRPCA(groups=["station"], method="temporal", columnwise=False, n_rows=7*4, max_iter=1000)
-# imputer_em = ImputerEM(groups=["station"], n_iter_em=34, n_iter_ou=15, verbose=0, strategy="ou", temporal=False)
+
+imputer_ou = models.ImputeEM(groups=["station"], method="multinormal", max_iter_em=34, n_iter_ou=15, strategy="ou")
+imputer_tsou = models.ImputeEM(groups=["station"], method="VAR1", strategy="ou", max_iter_em=34, n_iter_ou=15)
+imputer_tsmle = models.ImputeEM(groups=["station"], method="VAR1", strategy="mle", max_iter_em=34, n_iter_ou=15)
+
 imputer_locf = models.ImputerLOCF(groups=["station"])
 imputer_nocb = models.ImputerNOCB(groups=["station"])
 imputer_knn = models.ImputerKNN(groups=["station"], k=10)
@@ -155,7 +160,9 @@ dict_models = {
     "spline": imputer_spline,
     "shuffle": imputer_shuffle,
     "residuals": imputer_residuals,
-    # "EM": imputer_em,
+    "OU": imputer_ou,
+    "TSOU": imputer_tsou,
+    "TSMLE": imputer_tsmle,
     "RPCA": imputer_rpca,
     "RPCA_opti": imputer_rpca_opti,
     "locf": imputer_locf,
@@ -252,7 +259,7 @@ for col in cols_to_impute:
     for ind, (name, model) in enumerate(list(dict_models.items())):
         values_imp = dfs_imputed_station[name][col].copy()
         values_imp[values_orig.notna()] = np.nan
-        plt.plot(values_imp, ".", color=colors[ind], label=name, alpha=1)
+        plt.plot(values_imp, ".", color=tab10(ind), label=name, alpha=1)
     plt.ylabel(col, fontsize=16)
     plt.legend(loc=[1, 0], fontsize=18)
     loc = plticker.MultipleLocator(base=2*365)

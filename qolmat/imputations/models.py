@@ -16,6 +16,7 @@ from sklearn.impute._base import _BaseImputer
 from statsmodels.tsa import seasonal as tsa_seasonal
 
 from qolmat.benchmark import utils
+from qolmat.imputations import em_sampler
 from qolmat.imputations.rpca.pcp_rpca import RPCA
 from qolmat.imputations.rpca.temporal_rpca import OnlineTemporalRPCA, TemporalRPCA
 
@@ -539,7 +540,60 @@ class ImputerRPCA(Imputer):
         return df_imputed
 
 
-class ImputerMICE(Imputer):
+class ImputeEM(_BaseImputer):
+    def __init__(
+        self,
+        strategy: Optional[str] = "mle",
+        method: Optional[str] = "multinormal",
+        max_iter_em: Optional[int] = 200,
+        n_iter_ou: Optional[int] = 50,
+        ampli: Optional[int] = 1,
+        random_state: Optional[int] = 123,
+        dt: Optional[float] = 2e-2,
+        tolerance: Optional[float] = 1e-4,
+        stagnation_threshold: Optional[float] = 5e-3,
+        stagnation_loglik: Optional[float] = 2,
+    ):
+        if method == "multinormal":
+            self.model = em_sampler.ImputeMultiNormalEM(
+                strategy=strategy,
+                max_iter_em=max_iter_em,
+                n_iter_ou=n_iter_ou,
+                ampli=ampli,
+                random_state=random_state,
+                dt=dt,
+                tolerance=tolerance,
+                stagnation_threshold=stagnation_threshold,
+                stagnation_loglik=stagnation_loglik,
+            )
+        elif method == "VAR1":
+            self.model = em_sampler.ImputeVAR1EM(
+                strategy=strategy,
+                max_iter_em=max_iter_em,
+                n_iter_ou=n_iter_ou,
+                ampli=ampli,
+                random_state=random_state,
+                dt=dt,
+                tolerance=tolerance,
+                stagnation_threshold=stagnation_threshold,
+                stagnation_loglik=stagnation_loglik,
+            )
+        else:
+            raise ValueError("Strategy '{strategy}' is not handled by ImputeEM!")
+
+    def fit(self, df):
+        X = df.values
+        self.model.fit(X)
+        return self
+
+    def transform(self, df):
+        X = df.values
+        X_transformed = self.model.transform(X)
+        df_transformed = pd.DataFrame(X_transformed, columns=df.columns, index=df.index)
+        return df_transformed
+
+
+class ImputeMICE(Imputer):
     """
     This class implements an iterative imputer in the multivariate case.
     It imputes each Series within a DataFrame multiple times using an iteration of fits
@@ -630,12 +684,13 @@ class ImputerRegressor(Imputer):
     >>> imputor.fit_transform(X)
     """
 
-    def __init__(self, type_model, **hyperparams) -> None:
+    def __init__(self, type_model, fit_on_nan:bool=False, **hyperparams):
         super().__init__(hyperparams=hyperparams)
+        self.columnwise = False
         self.type_model = type_model
+        self.fit_on_nan = fit_on_nan
 
-
-    def fit_transform_element(self, df: pd.DataFrame) -> pd.Series:
+    def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Fit/transform using a (specified) regression model
 
@@ -649,20 +704,35 @@ class ImputerRegressor(Imputer):
         pd.DataFrame
             imputed dataframe
         """
-        if not isinstance(df, pd.DataFrame):
-            raise ValueError("Input has to be a pandas.DataFrame.")
 
         df_imputed = df.copy()
-        model = self.type_model(**self.get_hyperparams)
 
         cols_with_nans = df.columns[df.isna().any()]
-        cols_without_nans = df.columns[df.notna().all()]
+        self.cols_without_nans = df.columns[df.notna().all()]
 
-        if len(cols_without_nans) == 0:
-            raise Exception("There must be at least one column without missing values.")
+        if self.cols_to_impute is None:
+            self.cols_to_impute = cols_with_nans
+        elif not set(self.cols_to_impute).issubset(set(df.columns) ):
+            raise ValueError("Input has to have at least one column of cols_to_impute")
+        else:
+            self.cols_to_impute =list(set(self.cols_to_impute) & set(cols_with_nans)) 
+        
+        df_imputed = df.copy()
+    
+        self.models = {col: self.model() for col in self.cols_to_impute} 
+        for col in self.cols_to_impute:
+            hyperparams = {}
+            for hyperparam, value in hyperparams.items():
+                if isinstance(value, dict):
+                    value = value[col]
+                hyperparams[hyperparam] = value
 
-        for col in cols_with_nans:
-            X = df[cols_without_nans]
+            model = self.type_model(**hyperparams)
+            
+            if self.fit_on_nan:
+                X = df.drop(columns=col)
+            else:
+                X = df[self.cols_without_nans].drop(columns=col)
             y = df[col]
             is_na = y.isna()
             model.fit(X[~is_na], y[~is_na])
