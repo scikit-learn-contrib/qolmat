@@ -482,118 +482,9 @@ class ImputerKNN(Imputer):
         )
         results = imputer.fit_transform(df)
         return pd.DataFrame(data=results, columns=df.columns, index=df.index)
-    
-
-class ImputerRPCA(Imputer):
-    """
-    This class implements the RPCA imputation
-
-    Parameters
-    ----------
-    method : str
-        name of the RPCA method:
-            "PCP" for basic RPCA
-            "temporal" for temporal RPCA, with regularisations
-            "online" for online RPCA
-    columnwise : bool
-        for RPCA method to be applied columnwise (with reshaping of each column into an array)
-        or to be applied directly on the dataframe. By default, the value is set to False.
-    """
-
-    def __init__(
-        self,
-        method: str = "temporal",
-        groups: List[str] = [],
-        columnwise: bool = False,
-        **hyperparams
-        ) -> None:
-        super().__init__(groups=groups, columnwise=columnwise, hyperparams=hyperparams)
-        
-        self.method = method
-        
-    def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Fit/transform to impute with RPCA methods
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            dataframe to impute
-
-        Returns
-        -------
-        pd.DataFrame
-            imputed dataframe
-        """
-        if not isinstance(df, pd.DataFrame):
-            raise ValueError("Input has to be a pandas.DataFrame.")
-
-        if self.method == "PCP":
-            rpca = RPCA(**self.hyperparams_element)
-        elif self.method == "temporal":
-            rpca = TemporalRPCA(**self.hyperparams_element)
-        elif self.method == "onlinetemporal":
-            rpca = OnlineTemporalRPCA(**self.hyperparams_element)
-            
-        df_imputed = pd.DataFrame(rpca.fit_transform(X=df.values), index=df.index, columns=df.columns)
-
-        return df_imputed
 
 
-class ImputeEM(_BaseImputer):
-    def __init__(
-        self,
-        strategy: Optional[str] = "mle",
-        method: Optional[str] = "multinormal",
-        max_iter_em: Optional[int] = 200,
-        n_iter_ou: Optional[int] = 50,
-        ampli: Optional[int] = 1,
-        random_state: Optional[int] = 123,
-        dt: Optional[float] = 2e-2,
-        tolerance: Optional[float] = 1e-4,
-        stagnation_threshold: Optional[float] = 5e-3,
-        stagnation_loglik: Optional[float] = 2,
-    ):
-        if method == "multinormal":
-            self.model = em_sampler.ImputeMultiNormalEM(
-                strategy=strategy,
-                max_iter_em=max_iter_em,
-                n_iter_ou=n_iter_ou,
-                ampli=ampli,
-                random_state=random_state,
-                dt=dt,
-                tolerance=tolerance,
-                stagnation_threshold=stagnation_threshold,
-                stagnation_loglik=stagnation_loglik,
-            )
-        elif method == "VAR1":
-            self.model = em_sampler.ImputeVAR1EM(
-                strategy=strategy,
-                max_iter_em=max_iter_em,
-                n_iter_ou=n_iter_ou,
-                ampli=ampli,
-                random_state=random_state,
-                dt=dt,
-                tolerance=tolerance,
-                stagnation_threshold=stagnation_threshold,
-                stagnation_loglik=stagnation_loglik,
-            )
-        else:
-            raise ValueError("Strategy '{strategy}' is not handled by ImputeEM!")
-
-    def fit(self, df):
-        X = df.values
-        self.model.fit(X)
-        return self
-
-    def transform(self, df):
-        X = df.values
-        X_transformed = self.model.transform(X)
-        df_transformed = pd.DataFrame(X_transformed, columns=df.columns, index=df.index)
-        return df_transformed
-
-
-class ImputeMICE(Imputer):
+class ImputerMICE(Imputer):
     """
     This class implements an iterative imputer in the multivariate case.
     It imputes each Series within a DataFrame multiple times using an iteration of fits
@@ -728,7 +619,7 @@ class ImputerRegressor(Imputer):
                 hyperparams[hyperparam] = value
 
             model = self.type_model(**hyperparams)
-            
+
             if self.fit_on_nan:
                 X = df.drop(columns=col)
             else:
@@ -802,3 +693,111 @@ class ImputerStochasticRegressor(Imputer):
             df_imp.loc[is_na, col] = random_pred[is_na]
 
         return df_imp
+
+
+class ImputerRPCA(Imputer):
+    """
+    This class implements the RPCA imputation
+
+    Parameters
+    ----------
+    method : str
+        name of the RPCA method:
+            "PCP" for basic RPCA
+            "temporal" for temporal RPCA, with regularisations
+            "online" for online RPCA
+    columnwise : bool
+        for RPCA method to be applied columnwise (with reshaping of each column into an array)
+        or to be applied directly on the dataframe. By default, the value is set to False.
+    """
+
+    def __init__(
+        self,
+        method: str = "temporal",
+        groups: List[str] = [],
+        columnwise: bool = False,
+        **hyperparams
+        ) -> None:
+        super().__init__(groups=groups, columnwise=columnwise, hyperparams=hyperparams)
+        
+        self.method = method
+        
+    def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Fit/transform to impute with RPCA methods
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            dataframe to impute
+
+        Returns
+        -------
+        pd.DataFrame
+            imputed dataframe
+        """
+        if not isinstance(df, pd.DataFrame):
+            raise ValueError("Input has to be a pandas.DataFrame.")
+
+        if self.method == "PCP":
+            rpca = RPCA(**self.hyperparams_element)
+        elif self.method == "temporal":
+            rpca = TemporalRPCA(**self.hyperparams_element)
+        elif self.method == "onlinetemporal":
+            rpca = OnlineTemporalRPCA(**self.hyperparams_element)
+            
+        df_imputed = pd.DataFrame(rpca.fit_transform(X=df.values), index=df.index, columns=df.columns)
+
+        return df_imputed
+
+
+class ImputeEM(Imputer):
+    def __init__(
+        self,
+        groups: List[str]=[],
+        method: Optional[str] = "multinormal",
+        columnwise: bool=False,
+        **hyperparams
+
+    ):
+        super().__init__(groups=groups, columnwise=columnwise, hyperparams=hyperparams)
+        self.method = method
+        # if method == "multinormal":
+        #     self.model = em_sampler.ImputeMultiNormalEM(
+        #         **hyperparams
+        #     )
+        # elif method == "VAR1":
+        #     self.model = em_sampler.ImputeVAR1EM(
+        #         **hyperparams
+        #     )
+        # else:
+        #     raise ValueError("Strategy '{strategy}' is not handled by ImputeEM!")
+        
+    def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
+        if self.method == "multinormal":
+            model = em_sampler.MultiNormalEM(
+                **self.hyperparams_element
+            )
+        elif self.method == "VAR1":
+            model = em_sampler.VAR1EM(
+                **self.hyperparams_element
+            )
+        else:
+            raise ValueError("Strategy '{strategy}' is not handled by ImputeEM!")
+        X = df.values
+        model.fit(X)
+
+        X_transformed = model.transform(X)
+        df_transformed = pd.DataFrame(X_transformed, columns=df.columns, index=df.index)
+        return df_transformed
+
+    # def fit(self, df):
+    #     X = df.values
+    #     self.model.fit(X)
+    #     return self
+
+    # def transform(self, df):
+    #     X = df.values
+    #     X_transformed = self.model.transform(X)
+    #     df_transformed = pd.DataFrame(X_transformed, columns=df.columns, index=df.index)
+    #     return df_transformed

@@ -217,3 +217,36 @@ def compare_covariances(
     ax.set_xlabel(col_x)
     ax.set_ylabel(col_y)
 
+def multibar(df, ax=None, orientation="vertical", colors=None, decimals=0):
+    if ax is None:
+        ax = plt.gca()
+        if colors is None:
+            colors = tab10
+    x = np.arange(len(df))  # the label locations
+    n_columns = len(df.columns)
+    width_tot = 0.8
+    width_col = width_tot / n_columns  # the width of the bars
+    # fig, ax = plt.subplots()
+    # ax = plt.gca()
+    for i_column, column in enumerate(df.columns):
+        color_col = colors(i_column % 10)
+        dx = width_tot * (-0.5 + float(i_column) / n_columns)
+        if orientation == "horizontal":
+            rect = ax.barh(
+                x + dx, df[column], width_col, label=column, align="edge", color=color_col
+            )
+            plt.yticks(x, df.index)
+        else:
+            rect = ax.bar(
+                x + dx, df[column], width_col, label=column, align="edge", color=color_col
+            )
+            plt.xticks(x, df.index)
+        ax.bar_label(rect, padding=3, fmt=f"%.{decimals}f")
+
+    # Add some text for labels, title and custom x-axis tick labels, etc.
+    plt.legend()
+
+    # ax.bar_label(rects1, padding=3)
+    # ax.bar_label(rects2, padding=3)
+
+    # plt.tight_layout()

@@ -219,22 +219,29 @@ results = comparison.compare(df_data)
 results
 ```
 
+```python
+fig = plt.figure(figsize=(24, 4))
+plot.multibar(results.loc["mae"])
+plt.show()
+```
+
 ### **IV. Comparison of methods**
 
-```python
-df
-```
 
 We now run just one time each algorithm on the initial corrupted dataframe and compare the different performances through multiple analysis.
 
 ```python
-dfs_imputed = {name: imp.fit_transform(df_data) for name, imp in dict_models.items()}
+df_plot = df_data[["TEMP", "PRES"]]
+```
+
+```python
+dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_models.items()}
 ```
 
 ```python
 station = "Aotizhongxin"
-df_station = df_data.loc[station]
-dfs_imputed_station = {name: df.loc[station] for name, df in dfs_imputed.items()}
+df_station = df_plot.loc[station]
+dfs_imputed_station = {name: df_plot.loc[station] for name, df_plot in dfs_imputed.items()}
 ```
 
 Let's look at the imputations.
@@ -243,11 +250,9 @@ Note here we didn't fit the hyperparams of the RPCA... results might be of poor 
 
 ```python
 # palette = sns.color_palette("icefire", n_colors=len(dict_models))
-#palette = sns.color_palette("husl", 8)
+# palette = sns.color_palette("husl", 8)
 # sns.set_palette(palette)
-markers = ["o", "s", "D", "+", "P", ">", "^", "d"]
-colors = ["tab:red", "tab:blue", "tab:blue"]
-
+# markers = ["o", "s", "D", "+", "P", ">", "^", "d"]
 
 for col in cols_to_impute:
     fig, ax = plt.subplots(figsize=(10, 3))
@@ -265,8 +270,35 @@ for col in cols_to_impute:
     loc = plticker.MultipleLocator(base=2*365)
     ax.xaxis.set_major_locator(loc)
     ax.tick_params(axis='both', which='major', labelsize=17)
-    sns.despine()
     plt.show()
+
+```
+
+```python
+# palette = sns.color_palette("icefire", n_colors=len(dict_models))
+# palette = sns.color_palette("husl", 8)
+# sns.set_palette(palette)
+# markers = ["o", "s", "D", "+", "P", ">", "^", "d"]
+
+fig = plt.figure(figsize=(
+for col in cols_to_impute:
+    fig, ax = plt.subplots(figsize=(10, 3))
+    values_orig = df_station[col]
+
+    plt.plot(values_orig, ".", color='black', label="original")
+    #plt.plot(df.iloc[870:1000][col], markers[0], color='k', linestyle='-' , ms=3)
+
+    for ind, (name, model) in enumerate(list(dict_models.items())):
+        values_imp = dfs_imputed_station[name][col].copy()
+        values_imp[values_orig.notna()] = np.nan
+        plt.plot(values_imp, ".", color=tab10(ind), label=name, alpha=1)
+    plt.ylabel(col, fontsize=16)
+    plt.legend(loc=[1, 0], fontsize=18)
+    loc = plticker.MultipleLocator(base=2*365)
+    ax.xaxis.set_major_locator(loc)
+    ax.tick_params(axis='both', which='major', labelsize=17)
+    plt.show()
+
 ```
 
 **IV.a. Covariance**

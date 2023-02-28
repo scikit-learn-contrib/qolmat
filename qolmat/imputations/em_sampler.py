@@ -8,13 +8,13 @@ import numpy as np
 import pandas as pd
 import scipy
 from numpy.typing import ArrayLike
-from sklearn.impute._base import _BaseImputer
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import StandardScaler
 
 logger = logging.getLogger(__name__)
 
 
-def _gradient_conjugue(A: ArrayLike, X: ArrayLike, tol: float = 1e-6) -> ArrayLike:
+def _gradient_conjugue(A: ArrayLike, X: ArrayLike) -> ArrayLike:
     """
     Minimize Tr(X.T AX) by imputing missing values.
     To this aim, we compute in parallel a gradient algorithm for each data.
@@ -25,8 +25,6 @@ def _gradient_conjugue(A: ArrayLike, X: ArrayLike, tol: float = 1e-6) -> ArrayLi
         A array
     X : ArrayLike
         X array
-    tol : float, optional
-        Tolerance, by default 1e-6
 
     Returns
     -------
@@ -79,7 +77,7 @@ def invert_robust(M, epsilon=1e-2):
     return scipy.linalg.inv(Meps)
 
 
-class ImputeEM(BaseEstimator, TransformerMixin):
+class EM(BaseEstimator, TransformerMixin):
     """
     Imputation of missing values using a multivariate Gaussian model through EM optimization and
     using a projected Ornstein-Uhlenbeck process.
@@ -131,7 +129,7 @@ class ImputeEM(BaseEstimator, TransformerMixin):
         tolerance: Optional[float] = 1e-4,
         stagnation_threshold: Optional[float] = 5e-3,
         stagnation_loglik: Optional[float] = 2,
-    ) -> None:
+    ):
 
         if strategy not in ["mle", "ou"]:
             raise Exception("strategy has to be 'mle' or 'ou'")
@@ -276,7 +274,7 @@ class ImputeEM(BaseEstimator, TransformerMixin):
         return X_transformed
 
 
-class ImputeMultiNormalEM(ImputeEM):
+class MultiNormalEM(EM):
     """
     Imputation of missing values using a multivariate Gaussian model through EM optimization and
     using a projected Ornstein-Uhlenbeck process.
@@ -488,7 +486,7 @@ class ImputeMultiNormalEM(ImputeEM):
         return min_diff_reached or min_diff_stable or max_loglik
 
 
-class ImputeVAR1EM(ImputeEM):
+class VAR1EM(EM):
     """
     Imputation of missing values using a vector autoregressive model through EM optimization and
     using a projected Ornstein-Uhlenbeck process.
