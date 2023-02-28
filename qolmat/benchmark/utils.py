@@ -85,10 +85,7 @@ def custom_groupby(
     df_out = df.reset_index().copy()
     df_out.index = df.index
     if len(groups) > 0:
-        groupby = []
-        for g in groups:
-            groupby.append(df_out[g])
-        return df.groupby(groupby)
+        return df.groupby(groups, group_keys=False)
     else:
         return df
 
@@ -116,7 +113,7 @@ def mean_squared_error(
     -------
     pd.Series
     """
-    return ((df1 - df2) ** 2).mean()
+    return ((df1 - df2) ** 2).mean(axis=0)
 
 
 def root_mean_squared_error(
@@ -154,7 +151,7 @@ def mean_absolute_error(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.Series:
     -------
     pd.Series
     """
-    return (df1 - df2).abs().mean()
+    return (df1 - df2).abs().mean(axis=0)
 
 
 def weighted_mean_absolute_percentage_error(
@@ -176,7 +173,7 @@ def weighted_mean_absolute_percentage_error(
     -------
     Union[float, pd.Series]
     """
-    return (df1 - df2).abs().mean() / df1.abs().mean()
+    return (df1 - df2).abs().mean(axis=0) / df1.abs().mean(axis=0)
 
 
 def wasser_distance(

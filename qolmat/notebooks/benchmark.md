@@ -6,7 +6,7 @@ jupyter:
       extension: .md
       format_name: markdown
       format_version: '1.3'
-      jupytext_version: 1.14.4
+      jupytext_version: 1.14.1
   kernelspec:
     display_name: env_qolmat
     language: python
@@ -20,6 +20,11 @@ In Qolmat, a few data imputation methods are implemented as well as a way to eva
 First, import some useful librairies
 
 ```python
+import warnings
+warnings.filterwarnings('error')
+```
+
+```python
 %reload_ext autoreload
 %autoreload 2
 
@@ -31,12 +36,6 @@ import pprint
 from matplotlib import pyplot as plt
 import matplotlib.image as mpimg
 import matplotlib.ticker as plticker
-
-import seaborn as sns
-
-sns.set_context("paper")
-sns.set_style("whitegrid", {'axes.grid' : False})
-sns.set_theme(style="ticks")
 
 tab10 = plt.get_cmap("tab10")
 
@@ -123,47 +122,55 @@ Some methods require hyperparameters. The user can directly specify them, or he 
 In pratice, we rely on a cross validation to find the best hyperparams values minimising an error reconstruction.
 
 ```python
-imputer_mean = models.ImputeByMean(["datetime.dt.month"]) #["datetime.dt.month", "datetime.dt.dayofweek"]
-imputer_median = models.ImputeByMedian(["datetime.dt.month"]) # ["datetime.dt.month", "datetime.dt.dayofweek"] #, "datetime.dt.round('10min')"])
-imputer_interpol = models.ImputeByInterpolation(method="linear")
-imputer_spline = models.ImputeByInterpolation(method="spline")
-imputer_random = models.ImputeRandom()
-imputer_residuals = models.ImputeOnResiduals("additive", 7, "freq", "linear")
-imputer_rpca = models.ImputeRPCA(
-  method="temporal", multivariate=False, **{"n_rows":7*4, "maxIter":1000, "tau":1, "lam":0.7}
-  )
-imputer_em = ImputeEM(n_iter_em=34, n_iter_ou=15, verbose=0, strategy="ou", temporal=False)
-imputer_locf = models.ImputeLOCF()
-imputer_nocb = models.ImputeNOCB()
-imputer_knn = models.ImputeKNN(k=10)
-imputer_iterative = models.ImputeMICE(
-  **{"estimator": LinearRegression(), "sample_posterior": False, "max_iter": 100, "missing_values": np.nan}
-  )
-impute_regressor = models.ImputeRegressor(
+imputer_mean = models.ImputerMean(groups=["station"])
+imputer_median = models.ImputerMedian(groups=["station"])
+imputer_mode = models.ImputerMode(groups=["station"])
+imputer_interpol = models.ImputerInterpolation(groups=["station"], method="linear")
+imputer_spline = models.ImputerInterpolation(groups=["station"], method="spline", order=2)
+imputer_shuffle = models.ImputerShuffle(groups=["station"])
+imputer_residuals = models.ImputerResiduals(groups=["station"], period=7, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
+# imputer_rpca = models.ImputerRPCA(groups=["station"], method="temporal", columnwise=False, n_rows=7*4, max_iter=1000, tau=1, lam=0.7)
+dict_tau = {"TEMP": 1, "PRES": 1.1}
+dict_lam = {"TEMP": 0.7, "PRES": 0.8}
+imputer_rpca = models.ImputerRPCA(groups=["station"], method="temporal", columnwise=True, n_rows=7*4, max_iter=1000, tau=dict_tau, lam=dict_lam)
+imputer_rpca_opti = models.ImputerRPCA(groups=["station"], method="temporal", columnwise=False, n_rows=7*4, max_iter=1000)
+# imputer_em = ImputerEM(groups=["station"], n_iter_em=34, n_iter_ou=15, verbose=0, strategy="ou", temporal=False)
+imputer_locf = models.ImputerLOCF(groups=["station"])
+imputer_nocb = models.ImputerNOCB(groups=["station"])
+imputer_knn = models.ImputerKNN(groups=["station"], k=10)
+imputer_iterative = models.ImputerMICE(groups=["station"], estimator=LinearRegression(), sample_posterior=False, max_iter=100, missing_values=np.nan)
+impute_regressor = models.ImputerRegressor(
   HistGradientBoostingRegressor(), cols_to_impute=cols_to_impute
 )
-impute_stochastic_regressor = models.ImputeStochasticRegressor(
+impute_stochastic_regressor = models.ImputerStochasticRegressor(
   HistGradientBoostingRegressor(), cols_to_impute=cols_to_impute
 )
-impute_mfe = models.ImputeMissForest()
+# impute_mfe = models.ImputeMissForest()
 
 dict_models = {
-    #"mean": imputer_mean,
-    #"median": imputer_median,
+    "mean": imputer_mean,
+    "median": imputer_median,
+    "mode": imputer_mode,
     "interpolation": imputer_interpol,
-    #"residuals": imputer_residuals,
-    #"iterative": imputer_iterative,
-    "EM": imputer_em,
-    #"RPCA": imputer_rpca,
+    "spline": imputer_spline,
+    "shuffle": imputer_shuffle,
+    "residuals": imputer_residuals,
+    # "EM": imputer_em,
+    "RPCA": imputer_rpca,
+    "RPCA_opti": imputer_rpca_opti,
+    "locf": imputer_locf,
+    "nocb": imputer_nocb,
+    "knn": imputer_knn,
+    "iterative": imputer_iterative,
 }
 n_models = len(dict_models)
 
 
 search_params = {
-  # "ImputeRPCA": {
-  #   "lam": {"min": 0.5, "max": 1, "type":"Real"},
-  #   "tau": {"min": 1, "max": 1.5, "type":"Real"},
-  # }
+    "RPCA_opti": {
+        "lam": {"min": 0.5, "max": 1, "type":"Real"},
+        "tau": {"min": 1, "max": 1.5, "type":"Real"},
+    }
 }
 
 prop_nan = 0.05
@@ -184,10 +191,6 @@ Then, it suffices to use the compare function to obtain the results: a dataframe
 This allows an easy comparison of the different imputations.
 
 Note these metrics compute reconstruction errors; it tells nothing about the distances between the "true" and "imputed" distributions.
-
-```python
-missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], ratio_masked=0.1)
-```
 
 ```python
 doy = pd.Series(df_data.reset_index().datetime.dt.isocalendar().week.values, index=df_data.index)
@@ -211,6 +214,9 @@ results
 
 ### **IV. Comparison of methods**
 
+```python
+df
+```
 
 We now run just one time each algorithm on the initial corrupted dataframe and compare the different performances through multiple analysis.
 
@@ -229,9 +235,9 @@ When the data is missing at random, imputation is easier. Missing block are more
 Note here we didn't fit the hyperparams of the RPCA... results might be of poor quality...
 
 ```python
-palette = sns.color_palette("icefire", n_colors=len(dict_models))
+# palette = sns.color_palette("icefire", n_colors=len(dict_models))
 #palette = sns.color_palette("husl", 8)
-sns.set_palette(palette)
+# sns.set_palette(palette)
 markers = ["o", "s", "D", "+", "P", ">", "^", "d"]
 colors = ["tab:red", "tab:blue", "tab:blue"]
 

@@ -1,10 +1,10 @@
 from typing import Dict, List, Optional, Union
+
 import numpy as np
 import pandas as pd
 
 from qolmat.benchmark import cross_validation, utils
 from qolmat.benchmark.missing_patterns import _HoleGenerator
-
 
 
 class Comparator:
@@ -120,7 +120,7 @@ class Comparator:
             errors = self.get_errors(df_origin[subset], df_imputed[subset], df_mask[subset])
             list_errors.append(errors)
         df_errors = pd.DataFrame(list_errors)
-        errors_mean = df_errors.mean()
+        errors_mean = df_errors.mean(axis=0)
 
         return errors_mean
 
@@ -142,7 +142,7 @@ class Comparator:
 
         for name, tested_model in self.dict_models.items():
             if verbose:
-                print(type(tested_model).__name__)
+                print("Tested model:", type(tested_model).__name__)
             
             if str(type(tested_model).__name__) in self.search_params.keys():
                 if hasattr(tested_model, "columnwise") and tested_model.columnwise:
@@ -163,7 +163,7 @@ class Comparator:
             try:
                 dict_errors[name] = self.evaluate_errors_sample(tested_model, df, search_space)
             except Exception as excp:
-                print(type(tested_model).__name__)
+                print("Error while testing ", type(tested_model).__name__)
                 raise excp
 
         df_errors = pd.DataFrame(dict_errors)

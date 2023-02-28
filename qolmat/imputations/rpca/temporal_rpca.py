@@ -342,7 +342,8 @@ class TemporalRPCA(RPCA):
             M = M.flatten()[:(M.size - n_add_values)]
             A = A.flatten()[:(M.size - n_add_values)]
 
-        return M, A, U, V, errors    
+        # return M, A, U, V, errors    
+        return M
 
 
 class OnlineTemporalRPCA(TemporalRPCA):
