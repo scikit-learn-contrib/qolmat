@@ -4,13 +4,8 @@ from typing import Dict, List, Optional, Union
 import numpy as np
 import pandas as pd
 
-from qolmat import logging as qlog
 from qolmat.benchmark import cross_validation, utils
 from qolmat.benchmark.missing_patterns import _HoleGenerator
-
-qlog.log_setup()
-logger = logging.getLogger(__name__)
-# logger.setLevel(logging.DEBUG)
 
 
 class Comparator:
@@ -153,7 +148,6 @@ class Comparator:
         dict_errors = {}
 
         for name, imputer in self.dict_models.items():
-            logger.setLevel(logging.DEBUG)
             print(f"Tested model: {type(imputer).__name__}")
 
             search_params = self.search_params.get(name, {})

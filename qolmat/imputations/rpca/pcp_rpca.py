@@ -59,7 +59,18 @@ class PcpRPCA(RPCA):
         dict_params = {"mu": mu, "lam": lam}
         return dict_params
     
-    def decompose_rpca(self, D: NDArray, mu:float, lam: float) -> Tuple[NDArray, NDArray]:
+    def decompose_rpca(self, D: NDArray) -> Tuple[NDArray, NDArray]:
+        proj_D = utils.impute_nans(D, method="median")
+
+        params_scale = self.get_params_scale(proj_D)
+
+        mu = params_scale["mu"] if self.mu is None else self.mu
+        lam = params_scale["lam"] if self.lam is None else self.lam
+        Omega = ~np.isnan(D)
+
+        print("mu:", mu)
+        print("lam:", lam)
+        
         D_norm = np.linalg.norm(D, "fro")
 
         A = np.full_like(D, 0)
@@ -69,15 +80,15 @@ class PcpRPCA(RPCA):
 
         for iteration in range(self.max_iter):
 
-            M = utils.svd_thresholding(D - A + Y/mu, 1/mu)
-            A = utils.soft_thresholding(D - M + Y/mu, lam/mu)
-            Y += mu * (D - M - A)
+            M = utils.svd_thresholding(proj_D - A + Y/mu, 1/mu)
+            A = utils.soft_thresholding(proj_D - M + Y/mu, lam/mu)
+            A[~Omega] = (proj_D - M)[~Omega]
+            Y += mu * (proj_D - M - A)
 
             error = np.linalg.norm(D - M - A, "fro")/D_norm
             errors[iteration] = error
 
             if error < self.tol:
-                print(iteration, ":", error, "vs", self.tol)
                 if self.verbose:
                     print(f"Converged in {iteration} iterations")
                 break
@@ -110,20 +121,8 @@ class PcpRPCA(RPCA):
             Array of iterative errors
         """
         X = X.copy().T
-        D_init = self._prepare_data(X)
-        print("D_init")
-        print(D_init.shape)
-        proj_D = utils.impute_nans(D_init, method="median")
-
-        params_scale = self.get_params_scale(proj_D)
-
-        mu = params_scale["mu"] if self.mu is None else self.mu
-        lam = params_scale["lam"] if self.lam is None else self.lam
-
-        print("mu:", mu)
-        print("lam:", lam)
-
-        M, A = self.decompose_rpca(proj_D, mu, lam)
+        D = self._prepare_data(X)
+        M, A = self.decompose_rpca(D)
             
         # U, _, V = np.linalg.svd(M, full_matrices=False, compute_uv=True)
         

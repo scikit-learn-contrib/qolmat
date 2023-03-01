@@ -137,24 +137,15 @@ df_imputed = imputer_rpca.fit_transform(df_data)
 ```
 
 ```python
-df_imputed.shape
-```
-
-```python
 df_imputed.iloc[:365 * (df_imputed.size // 365)]
 ```
 
 ```python
-D = df_imputed.iloc[:365 * (df_imputed.size // 365)].values.reshape(365, -1)
+D = df_imputed.iloc[:365 * (df_imputed.size // 365)].values.reshape(-1, 365).T
 ```
 
 ```python
 plt.plot(D)
-```
-
-```python
-plt.plot(df_data["TEMP"].loc[station], ".", color="black")
-plt.plot(df_imputed["TEMP"].loc[station])
 ```
 
 This part is devoted to the imputation methods. The idea is to try different algorithms and compare them.
