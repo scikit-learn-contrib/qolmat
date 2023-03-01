@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from typing import Optional
-from xmlrpc.client import boolean
+from typing import Optional, Tuple
 
 import numpy as np
 from numpy.typing import NDArray
-from qolmat.imputations.rpca.rpca import RPCA
+
 from qolmat.imputations.rpca import utils
+from qolmat.imputations.rpca.rpca import RPCA
 from qolmat.utils.utils import progress_bar
 
 
@@ -22,22 +22,27 @@ class PcpRPCA(RPCA):
     Parameters
     ----------
     mu: Optional
-        parameter for the convergence and shrinkage operator
+        Parameter for the convergence and shrinkage operator
     lam: Optional
-        penalizing parameter for the sparse matrix
+        Penalizing parameter for the sparse array
     """
 
     def __init__(
         self,
-        n_rows: Optional[int] = None,
+        period: Optional[int] = None,
         mu: Optional[float] = None,
         lam: Optional[float] = None,
-        maxIter: Optional[int] = int(1e4),
-        tol: Optional[float] = 1e-6,
+        max_iter: int = int(1e4),
+        tol: float = 1e-6,
         verbose: bool = False,
     ) -> None:
 
-        super().__init__(n_rows=n_rows, maxIter=maxIter, tol=tol, verbose=verbose)
+        super().__init__(
+            period=period,
+            max_iter=max_iter,
+            tol=tol,
+            verbose=verbose
+        )
         self.mu = mu
         self.lam = lam
 
@@ -47,73 +52,82 @@ class PcpRPCA(RPCA):
         dict_params["lam"] = self.lam
         return dict_params
 
-    def get_params_scale(self, signal):
-        D_init, _ = self._prepare_data(signal=signal)
-        proj_D = utils.impute_nans(D_init, method="median")
-        mu = np.prod(proj_D.shape) / (4.0 * utils.l1_norm(self.proj_D))
-        lam = 1 / np.sqrt(np.max(self.proj_D.shape))
+    def get_params_scale(self, D):
+        mu = D.size / (4.0 * utils.l1_norm(D))
+        lam = 1 / np.sqrt(np.max(D.shape))
         dict_params = {"mu": mu, "lam": lam}
         return dict_params
+    
+    def decompose_rpca(self, D: NDArray) -> Tuple[NDArray, NDArray]:
+        proj_D = utils.impute_nans(D, method="median")
 
-    def fit_transform(self, signal: NDArray, return_basis: boolean = False) -> PcpRPCA:
-        """
-        Compute the RPCA decomposition of a matrix based on the PCP method
+        params_scale = self.get_params_scale(proj_D)
 
-        Parameters
-        ----------
-        signal : NDArray
-            Observations
-        """
-        self.input_data = "2DArray"
-        D_init, n_add_values = self._prepare_data(signal=signal)
-        proj_D = utils.impute_nans(D_init, method="median")
+        mu = params_scale["mu"] if self.mu is None else self.mu
+        lam = params_scale["lam"] if self.lam is None else self.lam
+        Omega = ~np.isnan(D)
+        
+        D_norm = np.linalg.norm(D, "fro")
 
-        if self.mu is None:
-            self.mu = np.prod(proj_D.shape) / (4.0 * utils.l1_norm(proj_D))
+        A = np.full_like(D, 0)
+        Y = np.full_like(D, 0)
 
-        if self.lam is None:
-            self.lam = 1 / np.sqrt(np.max(proj_D.shape))
+        errors = np.full((self.max_iter,), fill_value=np.nan)
 
-        D_norm = np.linalg.norm(proj_D, "fro")
+        for iteration in range(self.max_iter):
 
-        n, m = D_init.shape
-        A = np.zeros((n, m))
-        Y = np.zeros((n, m))
+            M = utils.svd_thresholding(proj_D - A + Y/mu, 1/mu)
+            A = utils.soft_thresholding(proj_D - M + Y/mu, lam/mu)
+            A[~Omega] = (proj_D - M)[~Omega]
+            Y += mu * (proj_D - M - A)
 
-        errors = []
-        for iteration in range(self.maxIter):
-            if self.verbose:
-                progress_bar(
-                    iteration,
-                    self.maxIter,
-                    prefix="Progress:",
-                    suffix="Complete",
-                    length=50,
-                )
-            X = utils.svd_thresholding(proj_D - A + Y / self.mu, 1 / self.mu)
-            A = utils.soft_thresholding(proj_D - X + Y / self.mu, self.lam / self.mu)
-            Y += self.mu * (proj_D - X - A)
+            error = np.linalg.norm(D - M - A, "fro")/D_norm
+            errors[iteration] = error
 
-            errors.append(np.linalg.norm(proj_D - X - A, "fro") / D_norm)
-            if errors[-1] <= self.tol:
+            if error < self.tol:
                 if self.verbose:
                     print(f"Converged in {iteration} iterations")
                 break
+        return M, A
 
-        if return_basis:
-            U, _, Vh = np.linalg.svd(X, full_matrices=False, compute_uv=True)
-            result = [U, Vh]
-        else:
-            result = []
 
-        if n_add_values > 0:
-            X.flat[-n_add_values:] = np.nan
-            A.flat[-n_add_values:] = np.nan
+    def fit_transform(
+        self,
+        X: NDArray,
+        ) -> NDArray:
+        """
+        Compute the RPCA decomposition of a matrix based on PCP method
 
-        if self.input_data == "2DArray":
-            result = [X, A, errors] + result
-        elif self.input_data == "1DArray":
-            result = [X.T.flatten(), A.T.flatten(), errors] + result
-        else:
-            raise ValueError("Data shape not recognized")
-        return tuple(result)
+        Parameters
+        ----------
+        X : NDArray
+
+        Returns
+        -------
+        M: NDArray
+            Low-rank signal
+        A: NDArray
+            Anomalies
+        U: NDArray
+            Basis Unitary array
+        V: NDArray
+            Basis Unitary array
+
+        errors: NDArray
+            Array of iterative errors
+        """
+        X = X.copy().T
+        D = self._prepare_data(X)
+        M, A = self.decompose_rpca(D)
+            
+        # U, _, V = np.linalg.svd(M, full_matrices=False, compute_uv=True)
+        
+        if X.shape[0] == 1:
+            M = M.reshape(1, -1)[:, :X.size]
+            A = A.reshape(1, -1)[:, :X.size]
+        M = M.T
+        A = A.T
+        # return M, A, U, V, errors
+        return M
+
+    

@@ -11,12 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy
-import seaborn as sns
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-
-sns.set_context("paper")
-sns.set_style("whitegrid", {"axes.grid": False})
-sns.set_theme(style="ticks")
 
 plt.rcParams["axes.spines.right"] = False
 plt.rcParams["axes.spines.top"] = False
@@ -185,7 +180,7 @@ def make_ellipses(
     u = w[0] / np.linalg.norm(w[0])
     angle = np.arctan2(u[1], u[0])
     angle = 180 * angle / np.pi  # convert to degrees
-    center = X.mean()  # .means_[0]
+    center = X.mean(axis=0)  # .means_[0]
     v = 2.0 * np.sqrt(2.0) * np.sqrt(v)
     ell = mpl.patches.Ellipse(center, v[0], v[1], 180 + angle, color=color)
     ell.set_clip_box(ax.bbox)
@@ -222,36 +217,36 @@ def compare_covariances(
     ax.set_xlabel(col_x)
     ax.set_ylabel(col_y)
 
+def multibar(df, ax=None, orientation="vertical", colors=None, decimals=0):
+    if ax is None:
+        ax = plt.gca()
+        if colors is None:
+            colors = tab10
+    x = np.arange(len(df))  # the label locations
+    n_columns = len(df.columns)
+    width_tot = 0.8
+    width_col = width_tot / n_columns  # the width of the bars
+    # fig, ax = plt.subplots()
+    # ax = plt.gca()
+    for i_column, column in enumerate(df.columns):
+        color_col = colors(i_column % 10)
+        dx = width_tot * (-0.5 + float(i_column) / n_columns)
+        if orientation == "horizontal":
+            rect = ax.barh(
+                x + dx, df[column], width_col, label=column, align="edge", color=color_col
+            )
+            plt.yticks(x, df.index)
+        else:
+            rect = ax.bar(
+                x + dx, df[column], width_col, label=column, align="edge", color=color_col
+            )
+            plt.xticks(x, df.index)
+        ax.bar_label(rect, padding=3, fmt=f"%.{decimals}f")
 
-def display_bar_table(data: pd.DataFrame, ylabel: Optional[str] = "", path: Optional[str] = None):
-    """Displaying barplot and table with the associated data side by side
+    # Add some text for labels, title and custom x-axis tick labels, etc.
+    plt.legend()
 
-    Parameters
-    ----------
-    data : pd.DataFrame
-        dataframe containing the data to display. Indices = groups
-    ylabel : Optional[str], optional
-        ylabel of the plot, by default ""
-    path : Optional[str], optional
-        entire path for saving, by default None
-    """
-    colors = plt.cm.YlGnBu(np.linspace(0.2, 0.75, len(data)))
+    # ax.bar_label(rects1, padding=3)
+    # ax.bar_label(rects2, padding=3)
 
-    data.T.plot(x=data.T.index.name, kind="bar", stacked=False, color=colors)
-    sns.despine()
-
-    plt.table(
-        cellText=np.around(data.values, 4),
-        rowLabels=data.index,
-        rowColours=colors,
-        colLabels=data.columns,
-        bbox=[1.5, 0, 1.6, 1],
-    )
-
-    plt.xticks(fontsize=14)
-    plt.ylabel(f"{ylabel}", fontsize=14)
-    sns.despine()
-
-    if path:
-        plt.savefig(f"{path}.png", transparent=True)
-    plt.show()
+    # plt.tight_layout()
