@@ -72,7 +72,7 @@ df["Sales"] = df['Sales'].astype(float)
 cols_to_impute = ["Sales"]
 
 ```python
-download = False
+download = True
 df_data = data.get_data_corrupted(download=download, ratio_masked=.2, mean_size=120 , groups=["station"])
 
 # cols_to_impute = ["TEMP", "PRES", "DEWP", "NO2", "CO", "O3", "WSPM"]
@@ -84,67 +84,9 @@ cols_to_impute = ["TEMP", "PRES"]
 Let's take a look at variables to impute. We only consider a station, Aotizhongxin.
 Time series display seasonalities (roughly 12 months).
 
-```python
-df_data
-```
-
-```python
-df0 = df_data
-```
-
-```python
-# df_data = df0[df0.index.get_level_values("station").isin(["Gucheng"])]
-# df_data = df0[df0.index.get_level_values("station").isin(["Gucheng", "Aotizhongxin"])]
-```
-
-```python
-n_stations = len(df_data.groupby("station").size())
-n_cols = len(cols_to_impute)
-```
-
-```python
-fig = plt.figure(figsize=(10 * n_stations, 2 * n_cols))
-for i_station, (station, df) in enumerate(df_data.groupby("station")):
-    for i_col, col in enumerate(cols_to_impute):
-        fig.add_subplot(n_cols, n_stations, i_col * n_stations + i_station + 1)
-        plt.plot(df.reset_index().datetime, df[col], '.', label=station)
-        # break
-        plt.ylabel(col, fontsize=12)
-        if i_col == 0:
-            plt.title(station)
-plt.show()
-```
 
 ### **II. Imputation methods**
 
-```python
-station = "Gucheng"
-df_data = df0[df0.index.get_level_values("station").isin([station])]
-df_data = df_data[["TEMP"]]
-```
-
-```python
-# imputer_rpca = imputers.ImputerRPCA(groups=["station"], method="PCP", columnwise=True, period=365, max_iter=1000)
-imputer_rpca = imputers.ImputerRPCA(groups=["station"], method="temporal", columnwise=True, max_iter=1000, period=10, tau=2, lam=0.3, list_periods=[10], list_etas=[0.01], norm="L2")
-
-```
-
-```python
-df_data.values.size
-```
-
-```python
-df_imputed = imputer_rpca.fit_transform(df_data)
-```
-
-```python
-df_imputed.iloc[:365 * (df_imputed.size // 365)]
-```
-
-```python
-plt.plot(df_data.loc["Wonderland"], ".", color="black")
-plt.plot(df_imputed.loc["Wonderland"])
-```
 
 This part is devoted to the imputation methods. The idea is to try different algorithms and compare them.
 
@@ -175,8 +117,8 @@ imputer_residuals = imputers.ImputerResiduals(groups=["station"], period=7, mode
 # imputer_rpca = imputers.ImputerRPCA(groups=["station"], method="temporal", columnwise=False, n_rows=7*4, max_iter=1000, tau=1, lam=0.7)
 dict_tau = {"TEMP": 1, "PRES": 1.1}
 dict_lam = {"TEMP": 0.7, "PRES": 0.8}
-imputer_rpca = imputers.ImputerRPCA(groups=["station"], method="temporal", columnwise=True, n_rows=7*4, max_iter=1000, tau=dict_tau, lam=dict_lam)
-imputer_rpca_opti = imputers.ImputerRPCA(groups=["station"], method="temporal", columnwise=True, n_rows=7*4, max_iter=1000)
+imputer_rpca = imputers.ImputerRPCA(groups=["station"], method="temporal", columnwise=True, period=365, max_iter=1000, tau=dict_tau, lam=dict_lam)
+imputer_rpca_opti = imputers.ImputerRPCA(groups=["station"], method="temporal", columnwise=True, n_rows=365, max_iter=1000)
 
 imputer_ou = imputers.ImputeEM(groups=["station"], method="multinormal", max_iter_em=34, n_iter_ou=15, strategy="ou")
 imputer_tsou = imputers.ImputeEM(groups=["station"], method="VAR1", strategy="ou", max_iter_em=34, n_iter_ou=15)
@@ -197,15 +139,15 @@ dict_imputers = {
     "mean": imputer_mean,
     # "median": imputer_median,
     # "mode": imputer_mode,
-    # "interpolation": imputer_interpol,
+    "interpolation": imputer_interpol,
     # "spline": imputer_spline,
     # "shuffle": imputer_shuffle,
     # "residuals": imputer_residuals,
-    # "OU": imputer_ou,
-    # "TSOU": imputer_tsou,
-    # "TSMLE": imputer_tsmle,
+    "OU": imputer_ou,
+    "TSOU": imputer_tsou,
+    "TSMLE": imputer_tsmle,
     "RPCA": imputer_rpca,
-    "RPCA_opti": imputer_rpca_opti,
+    # "RPCA_opti": imputer_rpca_opti,
     # "locf": imputer_locf,
     # "nocb": imputer_nocb,
     # "knn": imputer_knn,

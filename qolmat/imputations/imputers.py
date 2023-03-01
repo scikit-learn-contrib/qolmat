@@ -739,12 +739,8 @@ class ImputerRPCA(Imputer):
             model = TemporalRPCA(**self.hyperparams_element)
         elif self.method == "onlinetemporal":
             model = OnlineTemporalRPCA(**self.hyperparams_element)
-
-        print(type(model))
             
         X_imputed = model.fit_transform(df.values)
-        print("X_imputed.shape")
-        print(X_imputed.shape)
         df_imputed = pd.DataFrame(X_imputed, index=df.index, columns=df.columns)
 
         return df_imputed
