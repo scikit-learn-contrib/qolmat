@@ -44,7 +44,7 @@ def get_data(datapath: str = "data/", download: Optional[bool] = True):
         return df
     else:
         city = "Wonderland"
-        x = np.linspace(0, 4 * np.pi, 200)
+        x = np.linspace(0, 40 * np.pi, 1000)
         y = 3 + np.sin(x) + np.random.random(len(x)) * 0.2
         datelist = pd.date_range(datetime(2013, 3, 1), periods=len(y)).tolist()
         dataset = pd.DataFrame({"var": y, "datetime": datelist[: len(y)], "station": city})

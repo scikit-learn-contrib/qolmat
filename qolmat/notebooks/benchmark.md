@@ -72,7 +72,7 @@ df["Sales"] = df['Sales'].astype(float)
 cols_to_impute = ["Sales"]
 
 ```python
-download = True
+download = False
 df_data = data.get_data_corrupted(download=download, ratio_masked=.2, mean_size=120 , groups=["station"])
 
 # cols_to_impute = ["TEMP", "PRES", "DEWP", "NO2", "CO", "O3", "WSPM"]
@@ -94,7 +94,7 @@ df0 = df_data
 
 ```python
 # df_data = df0[df0.index.get_level_values("station").isin(["Gucheng"])]
-df_data = df0[df0.index.get_level_values("station").isin(["Gucheng", "Aotizhongxin"])]
+# df_data = df0[df0.index.get_level_values("station").isin(["Gucheng", "Aotizhongxin"])]
 ```
 
 ```python
@@ -124,8 +124,9 @@ df_data = df_data[["TEMP"]]
 ```
 
 ```python
-imputer_rpca = imputers.ImputerRPCA(groups=["station"], method="PCP", columnwise=True, period=365, max_iter=1000)
-# imputer_rpca = imputers.ImputerRPCA(groups=["station"], method="temporal", columnwise=True, n_rows=365, max_iter=1000, tau=1, lam=0.7)
+# imputer_rpca = imputers.ImputerRPCA(groups=["station"], method="PCP", columnwise=True, period=365, max_iter=1000)
+imputer_rpca = imputers.ImputerRPCA(groups=["station"], method="temporal", columnwise=True, max_iter=1000, period=10, tau=2, lam=0.3, list_periods=[10], list_etas=[0.01], norm="L2")
+
 ```
 
 ```python
@@ -141,11 +142,8 @@ df_imputed.iloc[:365 * (df_imputed.size // 365)]
 ```
 
 ```python
-D = df_imputed.iloc[:365 * (df_imputed.size // 365)].values.reshape(-1, 365).T
-```
-
-```python
-plt.plot(D)
+plt.plot(df_data.loc["Wonderland"], ".", color="black")
+plt.plot(df_imputed.loc["Wonderland"])
 ```
 
 This part is devoted to the imputation methods. The idea is to try different algorithms and compare them.

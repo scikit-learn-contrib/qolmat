@@ -320,8 +320,6 @@ class TemporalRPCA(RPCA):
         """
         X = X.copy().T
         D_init = self._prepare_data(X)
-        print("D")
-        print(D_init.shape)
         omega = ~np.isnan(D_init)
         proj_D = utils.impute_nans(D_init, method="median")
 

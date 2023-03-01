@@ -53,7 +53,6 @@ class PcpRPCA(RPCA):
         return dict_params
 
     def get_params_scale(self, D):
-        print(D.size, D.shape)
         mu = D.size / (4.0 * utils.l1_norm(D))
         lam = 1 / np.sqrt(np.max(D.shape))
         dict_params = {"mu": mu, "lam": lam}
@@ -67,9 +66,6 @@ class PcpRPCA(RPCA):
         mu = params_scale["mu"] if self.mu is None else self.mu
         lam = params_scale["lam"] if self.lam is None else self.lam
         Omega = ~np.isnan(D)
-
-        print("mu:", mu)
-        print("lam:", lam)
         
         D_norm = np.linalg.norm(D, "fro")
 
@@ -126,15 +122,12 @@ class PcpRPCA(RPCA):
             
         # U, _, V = np.linalg.svd(M, full_matrices=False, compute_uv=True)
         
-        print("end")
-        print(M.shape)
         if X.shape[0] == 1:
             M = M.reshape(1, -1)[:, :X.size]
             A = A.reshape(1, -1)[:, :X.size]
         M = M.T
         A = A.T
         # return M, A, U, V, errors
-        print(M.shape)
         return M
 
     
