@@ -2,13 +2,12 @@
 Modular utility functions for RPCA
 """
 
-from typing import List, Optional, Tuple
 import warnings
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 import scipy
-
 from numpy.typing import NDArray
 from scipy.linalg import toeplitz
 from sklearn.neighbors import kneighbors_graph
@@ -39,8 +38,8 @@ def get_period(
     return np.argmax(acf) + 1
 
 
-def signal_to_matrix(
-    signal: NDArray,
+def fold_signal(
+    X: NDArray,
     n_rows: int
 ) -> Tuple[NDArray, int]:
     """
@@ -48,7 +47,7 @@ def signal_to_matrix(
 
     Parameters
     ----------
-    signal : NDArray
+    X : NDArray
     n_rows : int
         Number of rows of the 2D-array
 
@@ -60,18 +59,17 @@ def signal_to_matrix(
     Raises
     ------
     ValueError
-        if signal is not a 1D array
+        if X is not a 1D array
     """
-    if len(signal.shape) > 1:
-        raise ValueError("'signal' should be 1D")
+    if len(X.shape) != 2 or X.shape[0] != 1:
+        raise ValueError("'X' should be 2D with a single line")
 
-    if (len(signal) % n_rows) > 0:
-        M = np.append(signal, [np.nan] * (n_rows - (len(signal) % n_rows)))
-    else:
-        M = signal
-    M = M.reshape(-1, n_rows).T
-    nb_nan = M.size - len(signal)
-    return M, nb_nan
+    if (X.size % n_rows) > 0:
+        X = X[0]
+        X = np.append(X, [np.nan] * (n_rows - (X.size % n_rows)))
+    X = X.reshape(n_rows, -1)
+
+    return X
 
 def approx_rank(
     M: NDArray,

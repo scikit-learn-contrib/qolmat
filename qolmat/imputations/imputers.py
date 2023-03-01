@@ -17,7 +17,7 @@ from statsmodels.tsa import seasonal as tsa_seasonal
 
 from qolmat.benchmark import utils
 from qolmat.imputations import em_sampler
-from qolmat.imputations.rpca.pcp_rpca import RPCA
+from qolmat.imputations.rpca.pcp_rpca import PcpRPCA
 from qolmat.imputations.rpca.temporal_rpca import OnlineTemporalRPCA, TemporalRPCA
 
 
@@ -108,11 +108,11 @@ class ImputerMean(Imputer):
     >>> import pandas as pd
     >>> from qolmat.imputations.models import ImputeByMean
     >>> imputor = ImputeByMean()
-    >>> X = pd.DataFrame(data=[[1, 1, 1, 1],
+    >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
     >>>                        [np.nan, np.nan, np.nan, np.nan],
     >>>                        [1, 2, 2, 5], [2, 2, 2, 2]],
     >>>                         columns=["var1", "var2", "var3", "var4"])
-    >>> imputor.fit_transform(X)
+    >>> imputor.fit_transform(df)
     """
 
     def __init__(
@@ -133,11 +133,11 @@ class ImputerMedian(Imputer):
     >>> import pandas as pd
     >>> from qolmat.imputations.models import ImputeByMedian
     >>> imputor = ImputeByMedian()
-    >>> X = pd.DataFrame(data=[[1, 1, 1, 1],
+    >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
     >>>                         [np.nan, np.nan, np.nan, np.nan],
     >>>                         [1, 2, 2, 5], [2, 2, 2, 2]],
     >>>                         columns=["var1", "var2", "var3", "var4"])
-    >>> imputor.fit_transform(X)
+    >>> imputor.fit_transform(df)
     """
 
     def __init__(
@@ -158,11 +158,11 @@ class ImputerMode(Imputer):
     >>> import pandas as pd
     >>> from qolmat.imputations.models import ImputeByMode
     >>> imputor = ImputeByMode()
-    >>> X = pd.DataFrame(data=[[1, 1, 1, 1],
+    >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
     >>>                        [np.nan, np.nan, np.nan, np.nan],
     >>>                        [1, 2, 2, 5], [2, 2, 2, 2]],
     >>>                        columns=["var1", "var2", "var3", "var4"])
-    >>> imputor.fit_transform(X)
+    >>> imputor.fit_transform(df)
     """
 
     
@@ -176,9 +176,6 @@ class ImputerMode(Imputer):
         )
         self.fit_transform_element = lambda df: df.mode().iloc[0]
 
-    # def fit_transform_element(self, X):
-    #     return X.mode()[0] if not (X.isna().all()) else np.nan
-
 class ImputerShuffle(Imputer):
     """
     This class implements the imputation by a random value (from the observed ones) of each column
@@ -189,11 +186,11 @@ class ImputerShuffle(Imputer):
     >>> import pandas as pd
     >>> from qolmat.imputations.models import ImputeRandom
     >>> imputor = ImputeRandom()
-    >>> X = pd.DataFrame(data=[[1, 1, 1, 1],
+    >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
     >>>                        [np.nan, np.nan, np.nan, np.nan],
     >>>                        [1, 2, 2, 5], [2, 2, 2, 2]],
     >>>                        columns=["var1", "var2", "var3", "var4"])
-    >>> imputor.fit_transform(X)
+    >>> imputor.fit_transform(df)
     """
 
     def __init__(
@@ -227,13 +224,13 @@ class ImputerLOCF(Imputer):
     >>> import pandas as pd
     >>> from qolmat.imputations.models import ImputeLOCF
     >>> imputor = ImputeLOCF()
-    >>> X = pd.DataFrame(data=[[np.nan, np.nan, np.nan, np.nan],
+    >>> df = pd.DataFrame(data=[[np.nan, np.nan, np.nan, np.nan],
     >>>                        [1, 1, 1, 1],
     >>>                        [np.nan, np.nan, np.nan, np.nan],
     >>>                        [1, 2, 2, 5],
     >>>                        [2, 2, 2, 2]],
     >>>                         columns=["var1", "var2", "var3", "var4"])
-    >>> imputor.fit_transform(X)
+    >>> imputor.fit_transform(df)
     """
     def __init__(
         self,
@@ -264,11 +261,11 @@ class ImputerNOCB(Imputer):
     >>> import pandas as pd
     >>> from qolmat.imputations.models import ImputeNOCB
     >>> imputor = ImputeNOCB()
-    >>> X = pd.DataFrame(data=[[1, 1, 1, 1],
+    >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
     >>>                        [np.nan, np.nan, np.nan, np.nan],
     >>>                        [1, 2, 2, 5], [2, 2, 2, 2]],
     >>>                        columns=["var1", "var2", "var3", "var4"])
-    >>> imputor.fit_transform(X)
+    >>> imputor.fit_transform(df)
     """
 
     def __init__(
@@ -312,11 +309,11 @@ class ImputerInterpolation(Imputer):
     >>> import numpy as np
     >>> from qolmat.imputations.models import ImputeByInterpolation
     >>> imputor = ImputeByInterpolation(method="spline", order=2)
-    >>> X = pd.DataFrame(data=[[1, 1, 1, 1],
+    >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
     >>>                        [np.nan, np.nan, np.nan, np.nan],
     >>>                        [1, 2, 2, 5], [2, 2, 2, 2]],
     >>>                        columns=["var1", "var2", "var3", "var4"])
-    >>> imputor.fit_transform(X)
+    >>> imputor.fit_transform(df)
     """
 
     def __init__(
@@ -330,16 +327,16 @@ class ImputerInterpolation(Imputer):
         self.order = order
         self.col_time = col_time
 
-    def fit_transform_element(self, X):
-        index = X.index
+    def fit_transform_element(self, df:pd.DataFrame) -> pd.DataFrame:
+        index = df.index
         if self.col_time is None:
-            X = X.reset_index(drop=True)
+            df = df.reset_index(drop=True)
         else:
-            X.index = X.index.get_level_values(self.col_time)
-        X_imputed = X.interpolate(method=self.method, order=self.order)
-        X_imputed = X_imputed.ffill().bfill()
-        X_imputed.index = index
-        return X_imputed
+            df.index = df.index.get_level_values(self.col_time)
+        df_imputed = df.interpolate(method=self.method, order=self.order)
+        df_imputed = df_imputed.ffill().bfill()
+        df_imputed.index = index
+        return df_imputed
 
 class ImputerResiduals(Imputer):
     """
@@ -402,18 +399,18 @@ class ImputerResiduals(Imputer):
         self.extrapolate_trend=extrapolate_trend
         self.method_interpolation=method_interpolation
 
-    def fit_transform_element(self, X: pd.DataFrame) -> pd.DataFrame:
+    def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Fit/transform missing values on residuals.
         """
-        if len(X.columns) != 1:
-            raise AssertionError("Function ImputerResiduals.fit_transform_element expects a dataframe X with one column")
-        name = X.columns[0]
-        X = X[name]
-        if X.isna().all():
+        if len(df.columns) != 1:
+            raise AssertionError("Function ImputerResiduals.fit_transform_element expects a dataframe df with one column")
+        name = df.columns[0]
+        df = df[name]
+        if df.isna().all():
             return np.nan
         result = tsa_seasonal.seasonal_decompose(
-            X.interpolate().bfill().ffill(),
+            df.interpolate().bfill().ffill(),
             model=self.model_tsa,
             period=self.period,
             extrapolate_trend=self.extrapolate_trend,
@@ -421,7 +418,7 @@ class ImputerResiduals(Imputer):
 
         residuals = result.resid
 
-        residuals[X.isna()] = np.nan
+        residuals[df.isna()] = np.nan
         residuals = residuals.interpolate(method=self.method_interpolation).ffill().bfill()
         df_result = pd.DataFrame({name: result.seasonal + result.trend + residuals})
 
@@ -443,11 +440,11 @@ class ImputerKNN(Imputer):
     >>> import pandas as pd
     >>> from qolmat.imputations.models import ImputeKNN
     >>> imputor = ImputeKNN(k=2)
-    >>> X = pd.DataFrame(data=[[1, 1, 1, 1],
+    >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
     >>>                        [np.nan, np.nan, np.nan, np.nan],
     >>>                        [1, 2, 2, 5], [2, 2, 2, 2]],
     >>>                        columns=["var1", "var2", "var3", "var4"])
-    >>> imputor.fit_transform(X)
+    >>> imputor.fit_transform(df)
     """
 
     def __init__(
@@ -511,11 +508,11 @@ class ImputerMICE(Imputer):
     >>> imputor = ImputeMICE(estimator=ExtraTreesRegressor(),
     >>>                           sample_posterior=False,
     >>>                           max_iter=100, missing_values=np.nan)
-    >>> X = pd.DataFrame(data=[[1, 1, 1, 1],
+    >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
     >>>                        [np.nan, np.nan, np.nan, np.nan],
     >>>                        [1, 2, 2, 5], [2, 2, 2, 2]],
     >>>                         columns=["var1", "var2", "var3", "var4"])
-    >>> imputor.fit_transform(X)
+    >>> imputor.fit_transform(df)
     """
 
     def __init__(
@@ -568,11 +565,11 @@ class ImputerRegressor(Imputer):
     >>> from qolmat.imputations.models import ImputeRegressor
     >>> from sklearn.ensemble import ExtraTreesRegressor
     >>> imputor = ImputeRegressor(model=ExtraTreesRegressor())
-    >>> X = pd.DataFrame(data=[[1, 1, 1, 1],
+    >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
     >>>                       [np.nan, np.nan, 2, 3],
     >>>                       [1, 2, 2, 5], [2, 2, 2, 2]],
     >>>                       columns=["var1", "var2", "var3", "var4"])
-    >>> imputor.fit_transform(X)
+    >>> imputor.fit_transform(df)
     """
 
     def __init__(self, type_model, fit_on_nan:bool=False, **hyperparams):
@@ -599,7 +596,7 @@ class ImputerRegressor(Imputer):
         df_imputed = df.copy()
 
         cols_with_nans = df.columns[df.isna().any()]
-        self.cols_without_nans = df.columns[df.notna().all()]
+        cols_without_nans = df.columns[df.notna().all()]
 
         if self.cols_to_impute is None:
             self.cols_to_impute = cols_with_nans
@@ -607,10 +604,7 @@ class ImputerRegressor(Imputer):
             raise ValueError("Input has to have at least one column of cols_to_impute")
         else:
             self.cols_to_impute =list(set(self.cols_to_impute) & set(cols_with_nans)) 
-        
-        df_imputed = df.copy()
-    
-        self.models = {col: self.model() for col in self.cols_to_impute} 
+            
         for col in self.cols_to_impute:
             hyperparams = {}
             for hyperparam, value in hyperparams.items():
@@ -623,7 +617,7 @@ class ImputerRegressor(Imputer):
             if self.fit_on_nan:
                 X = df.drop(columns=col)
             else:
-                X = df[self.cols_without_nans].drop(columns=col)
+                X = df[cols_without_nans].drop(columns=col)
             y = df[col]
             is_na = y.isna()
             model.fit(X[~is_na], y[~is_na])
@@ -649,11 +643,11 @@ class ImputerStochasticRegressor(Imputer):
     >>> from qolmat.imputations.models import ImputeStochasticRegressor
     >>> from sklearn.ensemble import ExtraTreesRegressor
     >>> imputor = ImputeStochasticRegressor(model=ExtraTreesRegressor())
-    >>> X = pd.DataFrame(data=[[1, 1, 1, 1],
+    >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
     >>>                        [np.nan, np.nan, 2, 3],
     >>>                        [1, 2, 2, 5], [2, 2, 2, 2]],
     >>>                        columns=["var1", "var2", "var3", "var4"])
-    >>> imputor.fit_transform(X)
+    >>> imputor.fit_transform(df)
     """
 
     def __init__(self, type_model, **hyperparams) -> None:
@@ -740,13 +734,18 @@ class ImputerRPCA(Imputer):
             raise ValueError("Input has to be a pandas.DataFrame.")
 
         if self.method == "PCP":
-            rpca = RPCA(**self.hyperparams_element)
+            model = PcpRPCA(**self.hyperparams_element)
         elif self.method == "temporal":
-            rpca = TemporalRPCA(**self.hyperparams_element)
+            model = TemporalRPCA(**self.hyperparams_element)
         elif self.method == "onlinetemporal":
-            rpca = OnlineTemporalRPCA(**self.hyperparams_element)
+            model = OnlineTemporalRPCA(**self.hyperparams_element)
+
+        print(type(model))
             
-        df_imputed = pd.DataFrame(rpca.fit_transform(X=df.values), index=df.index, columns=df.columns)
+        X_imputed = model.fit_transform(df.values)
+        print("X_imputed.shape")
+        print(X_imputed.shape)
+        df_imputed = pd.DataFrame(X_imputed, index=df.index, columns=df.columns)
 
         return df_imputed
 

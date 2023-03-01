@@ -89,7 +89,7 @@ class _HoleGenerator:
         if self.groups == []:
             self.ngroups = None
         else:
-            self.ngroups = X.groupby(self.groups).ngroup()
+            self.ngroups = X.groupby(self.groups).ngroup().rename("_ngroup")
 
         return self
 
@@ -395,10 +395,11 @@ class EmpiricalHoleGenerator(_SamplerHoleGenerator):
             groups=groups,
         )
 
-    def compute_distribution_holes(self, states):
+    def compute_distribution_holes(self, states: pd.Series) -> pd.Series:
         series_id = (states.diff() != 0).cumsum()
         series_id = series_id[states]
         distribution_holes = series_id.value_counts().value_counts()
+        distribution_holes.index.name = "_size_hole"
         # distribution_holes /= distribution_holes.sum()
         return distribution_holes
 
@@ -428,7 +429,7 @@ class EmpiricalHoleGenerator(_SamplerHoleGenerator):
                 distributions_holes = states.groupby(self.ngroups).apply(
                     self.compute_distribution_holes
                 )
-                distributions_holes = distributions_holes.groupby(level=0).sum()
+                distributions_holes = distributions_holes.groupby(by="_size_hole").sum()
                 self.dict_distributions_holes[column] = distributions_holes
 
     def sample_sizes(self, column, n_masked):

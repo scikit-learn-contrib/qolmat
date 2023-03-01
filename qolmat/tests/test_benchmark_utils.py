@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-import pytest
-import pandas as pd
-from pandas.testing import assert_series_equal, assert_frame_equal
 import numpy as np
-from qolmat.benchmark import utils
-from qolmat.imputations import models
+import pandas as pd
+import pytest
+from pandas.testing import assert_frame_equal, assert_series_equal
 from skopt.space import Integer
+
+from qolmat.benchmark import utils
+from qolmat.imputations import imputers
 
 
 def test_get_search_space() -> None:
-    model = models.ImputeKNN()
+    model = imputers.ImputeKNN()
     search_params = {"k": {"min": 2, "max": 10, "type": "Integer"}}
     print(utils.get_search_space(model, {}))
     assert utils.get_search_space(model, {}) == []

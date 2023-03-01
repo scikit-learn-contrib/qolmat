@@ -231,7 +231,7 @@ class EM(BaseEstimator, TransformerMixin):
             X_sample_last = self._sample_ou(X_sample_last, mask_na)
 
             if self._check_convergence():
-                logger.info(f"EM converged after {iter_em} iterations.")
+                print(f"EM converged after {iter_em} iterations.")
                 break
 
         self.dict_criteria_stop = {key: [] for key in self.dict_criteria_stop}

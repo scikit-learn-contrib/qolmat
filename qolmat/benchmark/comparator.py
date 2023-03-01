@@ -1,10 +1,16 @@
+import logging
 from typing import Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
 
+from qolmat import logging as qlog
 from qolmat.benchmark import cross_validation, utils
 from qolmat.benchmark.missing_patterns import _HoleGenerator
+
+qlog.log_setup()
+logger = logging.getLogger(__name__)
+# logger.setLevel(logging.DEBUG)
 
 
 class Comparator:
@@ -22,8 +28,8 @@ class Comparator:
     search_params: Optional[Dict[str, Dict[str, Union[str, float, int]]]] = {}
         dictionary of search space for each implementation method. By default, the value is set to
         {}.
-    n_cv_calls: Optional[int] = 10
-        number of calls of the hyperparameters cross-validation. By default, the value is set to
+    n_calls_opt: Optional[int] = 10
+        number of calls of the optimization algorithm
         10.
     """
 
@@ -33,18 +39,18 @@ class Comparator:
         selected_columns: List[str],
         generator_holes: _HoleGenerator,
         search_params: Optional[Dict[str, Dict[str, Union[float, int, str]]]] = {},
-        n_cv_calls: Optional[int] = 10,
+        n_calls_opt: Optional[int] = 10,
     ):
 
         self.dict_models = dict_models
         self.selected_columns = selected_columns
         self.generator_holes = generator_holes
         self.search_params = search_params
-        self.n_cv_calls = n_cv_calls
+        self.n_calls_opt = n_calls_opt
 
     def get_errors(
         self, df_origin: pd.DataFrame, df_imputed: pd.DataFrame, df_mask: pd.DataFrame
-    ) -> float:
+    ) -> pd.DataFrame:
         """Functions evaluating the reconstruction's quality
 
         Parameters
@@ -73,6 +79,7 @@ class Comparator:
             df_origin[df_mask],
             df_imputed[df_mask],
         )
+
         dict_errors["kl"] = utils.kl_divergence(
             df_origin[df_mask],
             df_imputed[df_mask],
@@ -82,8 +89,8 @@ class Comparator:
         return errors
 
     def evaluate_errors_sample(
-        self, tested_model: any, df: pd.DataFrame, search_space: Optional[dict] = None
-    ) -> Dict:
+        self, imputer: any, df: pd.DataFrame, list_spaces: List[Dict] = {}
+    ) -> pd.Series:
         """Evaluate the errors in the cross-validation
 
         Parameters
@@ -92,8 +99,8 @@ class Comparator:
             imputation model
         df : pd.DataFrame
             dataframe to impute
-        search_space : Optional[dict], optional
-            search space for tested_model's hyperparameters, by default None
+        search_space : Dict
+            search space for tested_model's hyperparameters
 
         Returns
         -------
@@ -102,19 +109,24 @@ class Comparator:
         """
         list_errors = []
         df_origin = df[self.selected_columns].copy()
+        if list_spaces:
+            print("Hyperparameter optimization")
+            print(list_spaces)
+        else:
+            print("No hyperparameter optimization")
         for df_mask in self.generator_holes.split(df_origin):
             df_corrupted = df_origin.copy()
             df_corrupted[df_mask] = np.nan
-            if search_space is None:
-                df_imputed = tested_model.fit_transform(X=df_corrupted)
-            else:
+            if list_spaces:
                 cv = cross_validation.CrossValidation(
-                    tested_model,
-                    search_space=search_space,
+                    imputer,
+                    list_spaces=list_spaces,
                     hole_generator=self.generator_holes,
-                    n_calls=self.n_cv_calls,
+                    n_calls=self.n_calls_opt,
                 )
-                df_imputed = cv.fit_transform(X=df_corrupted)
+                df_imputed = cv.fit_transform(df_corrupted)
+            else:
+                df_imputed = imputer.fit_transform(df_corrupted)
 
             subset = self.generator_holes.subset
             errors = self.get_errors(df_origin[subset], df_imputed[subset], df_mask[subset])
@@ -140,30 +152,29 @@ class Comparator:
 
         dict_errors = {}
 
-        for name, tested_model in self.dict_models.items():
-            if verbose:
-                print("Tested model:", type(tested_model).__name__)
+        for name, imputer in self.dict_models.items():
+            logger.setLevel(logging.DEBUG)
+            print(f"Tested model: {type(imputer).__name__}")
+
+            search_params = self.search_params.get(name, {})
             
-            if str(type(tested_model).__name__) in self.search_params.keys():
-                if hasattr(tested_model, "columnwise") and tested_model.columnwise:
-                    if len(self.selected_columns) > 0:
-                        search_params = {}
-                        for col in self.selected_columns:
-                            for key, value in self.search_params[type(tested_model).__name__].items():
-                                search_params[f"('{col}', '{key}')"] = value
-                    else:
-                        search_params = self.search_params[type(tested_model).__name__]
-                else:
-                    search_params = self.search_params[type(tested_model).__name__]
+            # if imputer.columnwise:
+            #     if len(self.selected_columns) > 0:
+            #         search_params = {}
+            #         for col in self.selected_columns:
+            #             for key, value in self.search_params[type(imputer).__name__].items():
+            #                 search_params[f"('{col}', '{key}')"] = value
+            #     else:
+            #         search_params = self.search_params[type(imputer).__name__]
+            # else:
+            #     search_params = self.search_params[type(imputer).__name__]
 
-                search_space = utils.get_search_space(tested_model, search_params)
+            list_spaces = utils.get_search_space(search_params)
 
-            else:
-                search_space = None
             try:
-                dict_errors[name] = self.evaluate_errors_sample(tested_model, df, search_space)
+                dict_errors[name] = self.evaluate_errors_sample(imputer, df, list_spaces)
             except Exception as excp:
-                print("Error while testing ", type(tested_model).__name__)
+                print("Error while testing ", type(imputer).__name__)
                 raise excp
 
         df_errors = pd.DataFrame(dict_errors)

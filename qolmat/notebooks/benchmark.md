@@ -21,7 +21,7 @@ First, import some useful librairies
 
 ```python
 import warnings
-warnings.filterwarnings('error')
+# warnings.filterwarnings('error')
 ```
 
 ```python
@@ -41,7 +41,6 @@ tab10 = plt.get_cmap("tab10")
 
 from typing import Optional
 
-# models for imputations
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor, HistGradientBoostingRegressor
 
@@ -50,7 +49,7 @@ import sys
 # sys.path.append("../../")
 from qolmat.benchmark import comparator, missing_patterns
 from qolmat.benchmark.utils import kl_divergence
-from qolmat.imputations import models
+from qolmat.imputations import imputers
 from qolmat.utils import data, utils, plot
 # from qolmat.drawing import display_bar_table
 
@@ -86,6 +85,19 @@ Let's take a look at variables to impute. We only consider a station, Aotizhongx
 Time series display seasonalities (roughly 12 months).
 
 ```python
+df_data
+```
+
+```python
+df0 = df_data
+```
+
+```python
+# df_data = df0[df0.index.get_level_values("station").isin(["Gucheng"])]
+df_data = df0[df0.index.get_level_values("station").isin(["Gucheng", "Aotizhongxin"])]
+```
+
+```python
 n_stations = len(df_data.groupby("station").size())
 n_cols = len(cols_to_impute)
 ```
@@ -105,6 +117,45 @@ plt.show()
 
 ### **II. Imputation methods**
 
+```python
+station = "Gucheng"
+df_data = df0[df0.index.get_level_values("station").isin([station])]
+df_data = df_data[["TEMP"]]
+```
+
+```python
+imputer_rpca = imputers.ImputerRPCA(groups=["station"], method="PCP", columnwise=True, period=365, max_iter=1000)
+# imputer_rpca = imputers.ImputerRPCA(groups=["station"], method="temporal", columnwise=True, n_rows=365, max_iter=1000, tau=1, lam=0.7)
+```
+
+```python
+df_data.values.size
+```
+
+```python
+df_imputed = imputer_rpca.fit_transform(df_data)
+```
+
+```python
+df_imputed.shape
+```
+
+```python
+df_imputed.iloc[:365 * (df_imputed.size // 365)]
+```
+
+```python
+D = df_imputed.iloc[:365 * (df_imputed.size // 365)].values.reshape(365, -1)
+```
+
+```python
+plt.plot(D)
+```
+
+```python
+plt.plot(df_data["TEMP"].loc[station], ".", color="black")
+plt.plot(df_imputed["TEMP"].loc[station])
+```
 
 This part is devoted to the imputation methods. The idea is to try different algorithms and compare them.
 
@@ -122,66 +173,72 @@ Some methods require hyperparameters. The user can directly specify them, or he 
 In pratice, we rely on a cross validation to find the best hyperparams values minimising an error reconstruction.
 
 ```python
-imputer_mean = models.ImputerMean(groups=["station"])
-imputer_median = models.ImputerMedian(groups=["station"])
-imputer_mode = models.ImputerMode(groups=["station"])
-imputer_interpol = models.ImputerInterpolation(groups=["station"], method="linear")
-imputer_spline = models.ImputerInterpolation(groups=["station"], method="spline", order=2)
-imputer_shuffle = models.ImputerShuffle(groups=["station"])
-imputer_residuals = models.ImputerResiduals(groups=["station"], period=7, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
+imputer_mean = imputers.ImputerMean(groups=["station"])
+imputer_median = imputers.ImputerMedian(groups=["station"])
+imputer_mode = imputers.ImputerMode(groups=["station"])
+imputer_locf = imputers.ImputerLOCF(groups=["station"])
+imputer_nocb = imputers.ImputerNOCB(groups=["station"])
+imputer_interpol = imputers.ImputerInterpolation(groups=["station"], method="linear")
+imputer_spline = imputers.ImputerInterpolation(groups=["station"], method="spline", order=2)
+imputer_shuffle = imputers.ImputerShuffle(groups=["station"])
+imputer_residuals = imputers.ImputerResiduals(groups=["station"], period=7, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
 
-# imputer_rpca = models.ImputerRPCA(groups=["station"], method="temporal", columnwise=False, n_rows=7*4, max_iter=1000, tau=1, lam=0.7)
+# imputer_rpca = imputers.ImputerRPCA(groups=["station"], method="temporal", columnwise=False, n_rows=7*4, max_iter=1000, tau=1, lam=0.7)
 dict_tau = {"TEMP": 1, "PRES": 1.1}
 dict_lam = {"TEMP": 0.7, "PRES": 0.8}
-imputer_rpca = models.ImputerRPCA(groups=["station"], method="temporal", columnwise=True, n_rows=7*4, max_iter=1000, tau=dict_tau, lam=dict_lam)
-imputer_rpca_opti = models.ImputerRPCA(groups=["station"], method="temporal", columnwise=False, n_rows=7*4, max_iter=1000)
+imputer_rpca = imputers.ImputerRPCA(groups=["station"], method="temporal", columnwise=True, n_rows=7*4, max_iter=1000, tau=dict_tau, lam=dict_lam)
+imputer_rpca_opti = imputers.ImputerRPCA(groups=["station"], method="temporal", columnwise=True, n_rows=7*4, max_iter=1000)
 
-imputer_ou = models.ImputeEM(groups=["station"], method="multinormal", max_iter_em=34, n_iter_ou=15, strategy="ou")
-imputer_tsou = models.ImputeEM(groups=["station"], method="VAR1", strategy="ou", max_iter_em=34, n_iter_ou=15)
-imputer_tsmle = models.ImputeEM(groups=["station"], method="VAR1", strategy="mle", max_iter_em=34, n_iter_ou=15)
+imputer_ou = imputers.ImputeEM(groups=["station"], method="multinormal", max_iter_em=34, n_iter_ou=15, strategy="ou")
+imputer_tsou = imputers.ImputeEM(groups=["station"], method="VAR1", strategy="ou", max_iter_em=34, n_iter_ou=15)
+imputer_tsmle = imputers.ImputeEM(groups=["station"], method="VAR1", strategy="mle", max_iter_em=34, n_iter_ou=15)
 
-imputer_locf = models.ImputerLOCF(groups=["station"])
-imputer_nocb = models.ImputerNOCB(groups=["station"])
-imputer_knn = models.ImputerKNN(groups=["station"], k=10)
-imputer_iterative = models.ImputerMICE(groups=["station"], estimator=LinearRegression(), sample_posterior=False, max_iter=100, missing_values=np.nan)
-impute_regressor = models.ImputerRegressor(
+
+imputer_knn = imputers.ImputerKNN(groups=["station"], k=10)
+imputer_iterative = imputers.ImputerMICE(groups=["station"], estimator=LinearRegression(), sample_posterior=False, max_iter=100, missing_values=np.nan)
+impute_regressor = imputers.ImputerRegressor(
   HistGradientBoostingRegressor(), cols_to_impute=cols_to_impute
 )
-impute_stochastic_regressor = models.ImputerStochasticRegressor(
+impute_stochastic_regressor = imputers.ImputerStochasticRegressor(
   HistGradientBoostingRegressor(), cols_to_impute=cols_to_impute
 )
-# impute_mfe = models.ImputeMissForest()
+# impute_mfe = imputers.ImputeMissForest()
 
-dict_models = {
+dict_imputers = {
     "mean": imputer_mean,
-    "median": imputer_median,
-    "mode": imputer_mode,
-    "interpolation": imputer_interpol,
-    "spline": imputer_spline,
-    "shuffle": imputer_shuffle,
-    "residuals": imputer_residuals,
-    "OU": imputer_ou,
-    "TSOU": imputer_tsou,
-    "TSMLE": imputer_tsmle,
+    # "median": imputer_median,
+    # "mode": imputer_mode,
+    # "interpolation": imputer_interpol,
+    # "spline": imputer_spline,
+    # "shuffle": imputer_shuffle,
+    # "residuals": imputer_residuals,
+    # "OU": imputer_ou,
+    # "TSOU": imputer_tsou,
+    # "TSMLE": imputer_tsmle,
     "RPCA": imputer_rpca,
     "RPCA_opti": imputer_rpca_opti,
-    "locf": imputer_locf,
-    "nocb": imputer_nocb,
-    "knn": imputer_knn,
-    "iterative": imputer_iterative,
+    # "locf": imputer_locf,
+    # "nocb": imputer_nocb,
+    # "knn": imputer_knn,
+    # "iterative": imputer_iterative,
 }
-n_models = len(dict_models)
+n_imputers = len(dict_imputers)
 
 
 search_params = {
     "RPCA_opti": {
-        "lam": {"min": 0.5, "max": 1, "type":"Real"},
-        "tau": {"min": 1, "max": 1.5, "type":"Real"},
+        "lam": {
+            "TEMP": {"min": .1, "max": 10, "type":"Real"},
+            "PRES": {"min": .1, "max": 10, "type":"Real"}
+        },
+        "tau": {
+            "TEMP": {"min": .1, "max": 10, "type":"Real"},
+            "PRES": {"min": .1, "max": 10, "type":"Real"}
+        }
     }
 }
 
-prop_nan = 0.05
-filter_value_nan = 0.01
+ratio_masked = 0.1
 ```
 
 In order to compare the methods, we $i)$ artificially create missing data (for missing data mechanisms, see the docs); $ii)$ then impute it using the different methods chosen and $iii)$ calculate the reconstruction error. These three steps are repeated a cv number of times. For each method, we calculate the average error and compare the final errors.
@@ -192,7 +249,7 @@ In order to compare the methods, we $i)$ artificially create missing data (for m
 
 
 
-Concretely, the comparator takes as input a dataframe to impute, a proportion of nan to create, a dictionary of models (those previously mentioned), a list with the columns names to impute, the number of articially corrupted dataframe to create: n_samples, the search dictionary search_params, and possibly a threshold for filter the nan value.
+Concretely, the comparator takes as input a dataframe to impute, a proportion of nan to create, a dictionary of imputers (those previously mentioned), a list with the columns names to impute, the number of articially corrupted dataframe to create: n_samples, the search dictionary search_params, and possibly a threshold for filter the nan value.
 
 Then, it suffices to use the compare function to obtain the results: a dataframe with different metrics.
 This allows an easy comparison of the different imputations.
@@ -200,19 +257,19 @@ This allows an easy comparison of the different imputations.
 Note these metrics compute reconstruction errors; it tells nothing about the distances between the "true" and "imputed" distributions.
 
 ```python
-doy = pd.Series(df_data.reset_index().datetime.dt.isocalendar().week.values, index=df_data.index)
+# doy = pd.Series(df_data.reset_index().datetime.dt.isocalendar().week.values, index=df_data.index)
 
-generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], ratio_masked=0.1)
-# generator_holes = missing_patterns.GeometricHoleGenerator(n_splits=10, groups=["station"], ratio_masked=0.1)
-# generator_holes = missing_patterns.UniformHoleGenerator(n_splits=2, ratio_masked=0.4)
-# generator_holes = missing_patterns.GroupedHoleGenerator(n_splits=2, groups=["station", doy], ratio_masked=0.4)
-# generator_holes = missing_patterns.MultiMarkovHoleGenerator(n_splits=2, groups=["station"], ratio_masked=0.1)
+generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], ratio_masked=ratio_masked)
+# generator_holes = missing_patterns.GeometricHoleGenerator(n_splits=10, groups=["station"], ratio_masked=ratio_masked)
+# generator_holes = missing_patterns.UniformHoleGenerator(n_splits=2, ratio_masked=ratio_masked)
+# generator_holes = missing_patterns.GroupedHoleGenerator(n_splits=2, groups=["station", doy], ratio_masked=ratio_masked)
+# generator_holes = missing_patterns.MultiMarkovHoleGenerator(n_splits=2, groups=["station"], ratio_masked=ratio_masked)
 
 comparison = comparator.Comparator(
-    dict_models,
+    dict_imputers,
     cols_to_impute,
     generator_holes = generator_holes,
-    n_cv_calls=2,
+    n_calls_opt=10,
     search_params=search_params,
 )
 results = comparison.compare(df_data)
@@ -235,7 +292,7 @@ df_plot = df_data[["TEMP", "PRES"]]
 ```
 
 ```python
-dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_models.items()}
+dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_imputers.items()}
 ```
 
 ```python
@@ -249,7 +306,7 @@ When the data is missing at random, imputation is easier. Missing block are more
 Note here we didn't fit the hyperparams of the RPCA... results might be of poor quality...
 
 ```python
-# palette = sns.color_palette("icefire", n_colors=len(dict_models))
+# palette = sns.color_palette("icefire", n_colors=len(dict_imputers))
 # palette = sns.color_palette("husl", 8)
 # sns.set_palette(palette)
 # markers = ["o", "s", "D", "+", "P", ">", "^", "d"]
@@ -261,7 +318,7 @@ for col in cols_to_impute:
     plt.plot(values_orig, ".", color='black', label="original")
     #plt.plot(df.iloc[870:1000][col], markers[0], color='k', linestyle='-' , ms=3)
 
-    for ind, (name, model) in enumerate(list(dict_models.items())):
+    for ind, (name, model) in enumerate(list(dict_imputers.items())):
         values_imp = dfs_imputed_station[name][col].copy()
         values_imp[values_orig.notna()] = np.nan
         plt.plot(values_imp, ".", color=tab10(ind), label=name, alpha=1)
@@ -275,29 +332,37 @@ for col in cols_to_impute:
 ```
 
 ```python
-# palette = sns.color_palette("icefire", n_colors=len(dict_models))
+# palette = sns.color_palette("icefire", n_colors=len(dict_imputers))
 # palette = sns.color_palette("husl", 8)
 # sns.set_palette(palette)
 # markers = ["o", "s", "D", "+", "P", ">", "^", "d"]
 
-fig = plt.figure(figsize=(
-for col in cols_to_impute:
-    fig, ax = plt.subplots(figsize=(10, 3))
-    values_orig = df_station[col]
+n_columns = len(df_plot.columns)
+n_imputers = len(dict_imputers)
 
-    plt.plot(values_orig, ".", color='black', label="original")
-    #plt.plot(df.iloc[870:1000][col], markers[0], color='k', linestyle='-' , ms=3)
+fig = plt.figure(figsize=(8 * n_columns, 6 * n_imputers))
+i_plot = 1
+for name_imputer in dict_imputers:
+    for col in df_plot:
+    
+        fig.add_subplot(n_imputers, n_columns, i_plot)
+        values_orig = df_station[col]
 
-    for ind, (name, model) in enumerate(list(dict_models.items())):
-        values_imp = dfs_imputed_station[name][col].copy()
+        plt.plot(values_orig, ".", color='black', label="original")
+        #plt.plot(df.iloc[870:1000][col], markers[0], color='k', linestyle='-' , ms=3)
+
+        values_imp = dfs_imputed_station[name_imputer][col].copy()
         values_imp[values_orig.notna()] = np.nan
-        plt.plot(values_imp, ".", color=tab10(ind), label=name, alpha=1)
-    plt.ylabel(col, fontsize=16)
-    plt.legend(loc=[1, 0], fontsize=18)
-    loc = plticker.MultipleLocator(base=2*365)
-    ax.xaxis.set_major_locator(loc)
-    ax.tick_params(axis='both', which='major', labelsize=17)
-    plt.show()
+        plt.plot(values_imp, ".", color=tab10(0), label=name_imputer, alpha=1)
+        plt.ylabel(col, fontsize=16)
+        if i_plot % 2 == 0:
+            plt.legend(loc=[1, 0], fontsize=18)
+        loc = plticker.MultipleLocator(base=2*365)
+        ax.xaxis.set_major_locator(loc)
+        ax.tick_params(axis='both', which='major', labelsize=17)
+        i_plot += 1
+plt.savefig("figures/imputations_benchmark.png")
+plt.show()
 
 ```
 
@@ -308,7 +373,7 @@ We first check the covariance. We simply plot one variable versus one another.
 One observes the methods provide similar visual resuls: it's difficult to compare them based on this criterion.
 
 ```python
-for i_model, model in enumerate(dict_models.keys()):
+for i_model, model in enumerate(dict_imputers.keys()):
     fig, axs = plt.subplots(1, len(cols_to_impute)-1, figsize=(4 * (len(cols_to_impute)-1), 4))
     df_imp = dfs_imputed_station[model]
     for i in range(len(cols_to_impute)-1):
@@ -332,7 +397,7 @@ Finally, for the DEWP variable, the methods cannot impute to obtain a behavior c
 ```python
 from statsmodels.tsa.stattools import acf
 
-palette = sns.dark_palette("b", n_colors=len(dict_models), reverse=False)
+palette = sns.dark_palette("b", n_colors=len(dict_i), reverse=False)
 sns.set_palette(palette)
 markers = ["o", "s", "*", "D", "P", ">", "^", "d"]
 

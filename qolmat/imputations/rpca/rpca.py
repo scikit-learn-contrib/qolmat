@@ -30,33 +30,34 @@ class RPCA(BaseEstimator, TransformerMixin):
 
     def __init__(
         self,
-        n_rows: Optional[int] = None,
+        period: Optional[int] = None,
         max_iter: int = int(1e4),
         tol: float = 1e-6,
         verbose: bool = False,
     ) -> None:
 
-        self.n_rows = n_rows
+        self.n_rows = period
         self.max_iter = max_iter
         self.tol = tol
         self.verbose = verbose
 
     def _prepare_data(
         self,
-        signal: NDArray
+        X: NDArray
     ) -> Tuple[NDArray, int, int]:
         """
         Transform signal to 2D-array in case of 1D-array.
         """
-        if len(signal.shape) == 1:
-            n_rows = utils.get_period(signal) if self.n_rows is None else self.n_rows
-            D_init, n_add_values = utils.signal_to_matrix(signal, n_rows=n_rows)
+        print("shape:", X.shape)
+        n_rows_X, n_cols_X = X.shape
+        if n_rows_X == 1:
+            if self.n_rows is None:
+                raise ValueError("`n_rows`must be specified when imputing 1D data.")
+            D_init = utils.fold_signal(X, self.n_rows)
         else:
-            D_init = signal.copy()
-            n_add_values = 0
+            D_init = X.copy()
         
-        input_data = f"{len(signal.shape)}DArray"
-        return D_init, n_add_values, input_data
+        return D_init
 
     def get_params(self) -> dict[str, Union[int, bool]]:
         """Return the attributes"""
@@ -78,38 +79,4 @@ class RPCA(BaseEstimator, TransformerMixin):
                     f"It is not one of {', '.join(self.__dict__.keys())}"
                     )
         return self
-
-    def fit_transform(
-        self,
-        X: NDArray,
-    ) -> Tuple[NDArray, NDArray, NDArray, NDArray]:
-        """
-        Parameters
-        ----------
-        X : NDArray
-
-        Returns
-        -------
-        M: NDArray
-            Low-rank signal
-        A: NDArray
-            Anomalies
-        U: NDArray
-            Basis Unitary array
-        V: NDArray
-            Basis Unitary array
-
-        errors: NDArray
-            Array of iterative errors
-        """
-
-        M, _, input_data= self._prepare_data(signal=X)
-        A = np.zeros(M.shape, dtype=float)
-        
-        if input_data == "1DArray":
-            M, A = M.flatten(), A.flatten()
-
-        errors = None 
-        U, _, V = np.linalg.svd(M, full_matrices=False, compute_uv=True)
-
-        return M, A, U, V, errors
+    
