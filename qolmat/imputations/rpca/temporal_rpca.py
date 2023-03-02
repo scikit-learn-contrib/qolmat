@@ -120,10 +120,11 @@ class TemporalRPCA(RPCA):
             
             if np.any(np.isnan(proj_D)):
                 A_omega = utils.soft_thresholding(proj_D - X, lam)
-                A_omega = utils.ortho_proj(A_omega, omega, inverse=False)
+                # A_omega = utils.ortho_proj(A_omega, omega, inverse=False)
                 A_omega_C = proj_D - X
-                A_omega_C = utils.ortho_proj(A_omega_C, omega, inverse=True)
-                A = A_omega + A_omega_C
+                # A_omega_C = utils.ortho_proj(A_omega_C, omega, inverse=True)
+                # A = A_omega + A_omega_C
+                A = np.where(omega, A_omega, A_omega_C)
             else:
                 A = utils.soft_thresholding(proj_D - X, lam)
 
@@ -169,7 +170,7 @@ class TemporalRPCA(RPCA):
         V = Q
         return M, A, U, V, errors
 
-    def compute_L2(self, proj_D, omega, lam, tau, rank) -> None:
+    def compute_L2(self, proj_D, Omega, lam, tau, rank) -> None:
         """
         compute RPCA with possible temporal regularisations, penalised with L2 norm
         """
@@ -208,12 +209,13 @@ class TemporalRPCA(RPCA):
                 b=(proj_D - A + mu * L @ Q.T - Y).T,
             ).T
             
-            if np.any(~omega):
+            if np.any(~Omega):
                 A_omega = utils.soft_thresholding(proj_D - X, lam)
-                A_omega = utils.ortho_proj(A_omega, omega, inverse=False)
+                # A_omega = utils.ortho_proj(A_omega, omega, inverse=False)
                 A_omega_C = proj_D - X
-                A_omega_C = utils.ortho_proj(A_omega_C, omega, inverse=True)
-                A = A_omega + A_omega_C
+                # A_omega_C = utils.ortho_proj(A_omega_C, omega, inverse=True)
+                # A = A_omega + A_omega_C
+                A = np.where(Omega, A_omega, A_omega_C)
             else:
                 A = utils.soft_thresholding(proj_D - X, lam)
 
@@ -446,7 +448,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
 
     def get_params_scale_online(
         self,
-        D:NDArray, Lhat: NDArray
+        D:NDArray, M: NDArray
     ) -> dict[str, float]:
         # D_init = self._prepare_data(signal=X)
         params_scale = self.get_params_scale(D)
@@ -454,9 +456,9 @@ class OnlineTemporalRPCA(TemporalRPCA):
 
         # super_class = TemporalRPCA(**super().get_params())
         # Lhat, _, _ = super_class.fit_transform(X=D_init[:, :burnin])
-        _, sigmas_hat, _ = np.linalg.svd(Lhat)
-        online_tau = 1.0 / np.sqrt(len(Lhat)) / np.mean(sigmas_hat[: params_scale["rank"]])
-        online_lam = 1.0 / np.sqrt(len(Lhat))
+        _, sigmas_hat, _ = np.linalg.svd(M)
+        online_tau = 1.0 / np.sqrt(len(M)) / np.mean(sigmas_hat[: params_scale["rank"]])
+        online_lam = 1.0 / np.sqrt(len(M))
         params_scale["online_tau"] = online_tau
         params_scale["online_lam"] = online_lam
         return params_scale
@@ -499,7 +501,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
         # Lhat, Shat, _, _, _ =super_class.fit_transform(X=D_init[:, :burnin])
         
         proj_D = utils.impute_nans(D_init, method="median")
-        omega = ~np.isnan(D_init)
+        Omega = ~np.isnan(D_init)
 
         params_scale = self.get_params_scale(proj_D)
 
@@ -507,26 +509,28 @@ class OnlineTemporalRPCA(TemporalRPCA):
         rank = params_scale["rank"] if self.rank is None else self.rank
         tau = params_scale["tau"] if self.tau is None else self.tau
 
+        D_burnin = proj_D[:, :burnin]
+        Omega_burnin = Omega[:, :burnin]
+
         if self.norm == "L1":
-            M, A, U, V, errors = self.compute_L1(proj_D, omega, lam, tau, rank)
+            M, A, U, V, errors = self.compute_L1(D_burnin, Omega_burnin, lam, tau, rank)
         elif self.norm == "L2":
-            M, A, U, V, errors = self.compute_L2(proj_D, omega, lam, tau, rank)
+            M, A, U, V, errors = self.compute_L2(D_burnin, Omega_burnin, lam, tau, rank)
 
-        Lhat, Shat, _ = np.linalg.svd(M, full_matrices=False, compute_uv=True)
+        # Lhat, Shat, _ = np.linalg.svd(M, full_matrices=False, compute_uv=True)
 
-        params_scale = self.get_params_scale_online(proj_D, Lhat)
+        params_scale_online = self.get_params_scale_online(proj_D, M)
 
-        online_tau = params_scale["online_tau"] if self.online_tau is None else self.online_tau 
-        online_lam = params_scale["online_lam"] if self.online_lam is None else self.online_lam 
+        online_tau = self.online_tau or params_scale_online["online_tau"]
+        online_lam = params_scale_online["online_lam"] if self.online_lam is None else self.online_lam 
 
         if len(self.online_list_etas) == 0:
             self.online_list_etas = self.list_etas
         
-        approx_rank =  utils.approx_rank(proj_D[:, :burnin])
+        approx_rank =  utils.approx_rank(D_burnin)
 
-        # TODO : is it really Lhat that should be used here?!
         Uhat, sigmas_hat, Vhat = randomized_svd(
-            Lhat, n_components=approx_rank, n_iter=5, random_state=42
+            M, n_components=approx_rank, n_iter=5, random_state=42
         )
         U = Uhat[:, :approx_rank]@(np.sqrt(np.diag(sigmas_hat[:approx_rank])))
 
