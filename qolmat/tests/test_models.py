@@ -4,12 +4,12 @@ import numpy as np
 import pandas as pd
 
 from qolmat.benchmark import utils
-from qolmat.imputations import models
-from qolmat.benchmark import missing_patterns
+from qolmat.imputations import imputers
+from qolmat.utils import missing_patterns
 
 
 def test_impute_by_mean_fit_transform() -> None:
-    test_imputer = models.ImputeByMean()
+    test_imputer = imputers.ImputeByMean()
     res = test_imputer.fit_transform(
         pd.DataFrame(
             [
@@ -27,7 +27,7 @@ def test_impute_by_mean_fit_transform() -> None:
 
 
 def test_impute_by_median_fit_transform() -> None:
-    test_imputer = models.ImputeByMedian()
+    test_imputer = imputers.ImputeByMedian()
     res = test_imputer.fit_transform(
         pd.DataFrame(
             [
@@ -45,7 +45,7 @@ def test_impute_by_median_fit_transform() -> None:
 
 
 def test_impute_by_mode_fit_transform() -> None:
-    test_imputer = models.ImputeByMode()
+    test_imputer = imputers.ImputeByMode()
     res = test_imputer.fit_transform(
         pd.DataFrame(
             [
@@ -63,7 +63,7 @@ def test_impute_by_mode_fit_transform() -> None:
 
 
 def test_impute_random_fit_transform() -> None:
-    test_imputer = models.ImputeRandom()
+    test_imputer = imputers.ImputeRandom()
     res = test_imputer.fit_transform(
         pd.DataFrame(
             [
@@ -87,7 +87,7 @@ def test_impute_random_fit_transform() -> None:
 
 
 def test_impute_LOCF_fit_transform() -> None:
-    test_imputer = models.ImputeLOCF()
+    test_imputer = imputers.ImputeLOCF()
     res = test_imputer.fit_transform(
         pd.DataFrame(
             [
@@ -105,7 +105,7 @@ def test_impute_LOCF_fit_transform() -> None:
 
 
 def test_impute_NOCB_fit_transform() -> None:
-    test_imputer = models.ImputeNOCB()
+    test_imputer = imputers.ImputeNOCB()
     res = test_imputer.fit_transform(
         pd.DataFrame(
             [
@@ -123,7 +123,7 @@ def test_impute_NOCB_fit_transform() -> None:
 
 
 def test_impute_linear_interpolation_fit_transform() -> None:
-    test_imputer = models.ImputeByInterpolation(method='linear')
+    test_imputer = imputers.ImputeByInterpolation(method="linear")
     res = test_imputer.fit_transform(
         pd.DataFrame(
             [
@@ -141,7 +141,7 @@ def test_impute_linear_interpolation_fit_transform() -> None:
 
 
 def test_impute_KNN_fit_transform() -> None:
-    test_imputer = models.ImputeKNN(k=2)
+    test_imputer = imputers.ImputeKNN(k=2)
     res = test_imputer.fit_transform(
         pd.DataFrame(
             [
@@ -165,7 +165,8 @@ def test_impute_KNN_fit_transform() -> None:
 
 
 def test_impute_KNN_hyperparameters() -> None:
-    test_imputer = models.ImputeKNN(k=2)
+
+    test_imputer = imputers.ImputeKNN(k=2)
 
     assert len(test_imputer.get_hyperparams()) == 1
     assert test_imputer.get_hyperparams() == {'k': 2}
@@ -188,7 +189,7 @@ def test_impute_MICE_fit_transform() -> None:
     df_corrupted = X_miss_mcar['X_incomp']
     mask_mcar = X_miss_mcar['mask']
 
-    test_imputer = models.ImputeMICE(
+    test_imputer = imputers.ImputeMICE(
         estimator=ExtraTreesRegressor(),
         sample_posterior=False,
         max_iter=100,
@@ -200,7 +201,7 @@ def test_impute_MICE_fit_transform() -> None:
         df_init[mask_mcar], res_mice[mask_mcar], columnwise=False
     )
 
-    test_imputer = models.ImputeRandom()
+    test_imputer = imputers.ImputeRandom()
     res_random = test_imputer.fit_transform(df_corrupted)
     rmse_random = utils.mean_absolute_error(
         df_init[mask_mcar], res_random[mask_mcar], columnwise=False
@@ -212,7 +213,7 @@ def test_impute_MICE_fit_transform() -> None:
 def test_impute_MICE_hyperparameters() -> None:
     from sklearn.ensemble import ExtraTreesRegressor
 
-    test_imputer = models.ImputeMICE(
+    test_imputer = imputers.ImputeMICE(
         estimator=ExtraTreesRegressor(),
         sample_posterior=False,
         max_iter=100,

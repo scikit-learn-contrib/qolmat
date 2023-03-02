@@ -30,15 +30,14 @@ def compute_transition_matrix(states: pd.Series, ngroups: List = None):
     return df_transition
 
 
-def get_sizes_max(values_isna: pd.Series) -> pd.Series:
+def get_sizes_max(values_isna: pd.Series) -> int:
     ids_hole = (values_isna.diff() != 0).cumsum()
-    sizes_max = (
-        values_isna.groupby(ids_hole)
-        .apply(lambda x: (~x) * np.arange(len(x)))
-        .shift(1)
-        .fillna(0)
-        .astype(int)
+    sizes_max = values_isna.groupby(ids_hole, group_keys=True).apply(
+        lambda x: (~x) * np.arange(len(x))
     )
+    sizes_max = sizes_max.shift(1)
+    sizes_max = sizes_max.fillna(0)
+    sizes_max = sizes_max.astype(int)
     return sizes_max
 
 
@@ -91,7 +90,7 @@ class _HoleGenerator:
         if self.groups == []:
             self.ngroups = None
         else:
-            self.ngroups = X.groupby(self.groups).ngroup()
+            self.ngroups = X.groupby(self.groups).ngroup().rename("_ngroup")
 
         return self
 
@@ -115,7 +114,7 @@ class _HoleGenerator:
             if self.ngroups is None:
                 mask = self.generate_mask(X)
             else:
-                mask = X.groupby(self.ngroups).apply(self.generate_mask)
+                mask = X.groupby(self.ngroups, group_keys=False).apply(self.generate_mask)
             list_masks.append(mask)
         return list_masks
 
@@ -192,8 +191,7 @@ class UniformHoleGenerator(_HoleGenerator):
 
 
 class _SamplerHoleGenerator(_HoleGenerator):
-    """This abstract class implements a generic way to generate holes in a dataframe by sampling 1D
-    hole size distributions.
+    """This abstract class implements a generic way to generate holes in a dataframe by sampling 1D hole size distributions.
 
     Parameters
     ----------
@@ -397,11 +395,12 @@ class EmpiricalHoleGenerator(_SamplerHoleGenerator):
             groups=groups,
         )
 
-    def compute_distribution_holes(self, states):
+    def compute_distribution_holes(self, states: pd.Series) -> pd.Series:
         series_id = (states.diff() != 0).cumsum()
         series_id = series_id[states]
         distribution_holes = series_id.value_counts().value_counts()
-
+        distribution_holes.index.name = "_size_hole"
+        # distribution_holes /= distribution_holes.sum()
         return distribution_holes
 
     def fit(self, X: pd.DataFrame) -> EmpiricalHoleGenerator:
@@ -430,7 +429,7 @@ class EmpiricalHoleGenerator(_SamplerHoleGenerator):
                 distributions_holes = states.groupby(self.ngroups).apply(
                     self.compute_distribution_holes
                 )
-                distributions_holes = distributions_holes.groupby(level=1).sum()
+                distributions_holes = distributions_holes.groupby(by="_size_hole").sum()
                 self.dict_distributions_holes[column] = distributions_holes
 
     def sample_sizes(self, column, n_masked):
