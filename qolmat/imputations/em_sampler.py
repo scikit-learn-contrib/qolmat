@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import logging
-from functools import reduce
-from typing import List, Optional
+from typing import Optional
 from warnings import WarningMessage
 
 import numpy as np
@@ -15,9 +14,7 @@ from sklearn.preprocessing import StandardScaler
 logger = logging.getLogger(__name__)
 
 
-def _gradient_conjugue(
-        A: ArrayLike, X: ArrayLike, tol: float = 1e-6
-    ) -> ArrayLike:
+def _gradient_conjugue(A: ArrayLike, X: ArrayLike, tol: float = 1e-6) -> ArrayLike:
     """
     Minimize np.sum(X * AX) by imputing missing values.
     To this aim, we compute in parallel a gradient algorithm for each data.
@@ -50,15 +47,11 @@ def _gradient_conjugue(
         #     return X_temp.transpose()
         Apn = A @ pn
         Apn[~mask] = 0
-        alphan = np.sum(rn ** 2, axis=0) / np.sum(pn * Apn, axis=0)
-        alphan[
-            np.isnan(alphan)
-        ] = 0  # we stop updating if convergence is reached for this date
+        alphan = np.sum(rn**2, axis=0) / np.sum(pn * Apn, axis=0)
+        alphan[np.isnan(alphan)] = 0  # we stop updating if convergence is reached for this date
         xn, rnp1 = xn + alphan * pn, rn - alphan * Apn
-        betan = np.sum(rnp1 ** 2, axis=0) / np.sum(rn ** 2, axis=0)
-        betan[
-            np.isnan(betan)
-        ] = 0  # we stop updating if convergence is reached for this date
+        betan = np.sum(rnp1**2, axis=0) / np.sum(rn**2, axis=0)
+        betan[np.isnan(betan)] = 0  # we stop updating if convergence is reached for this date
         pn, rn = rnp1 + betan * pn, rnp1
 
     X_temp[mask] = xn[mask]
@@ -66,6 +59,7 @@ def _gradient_conjugue(
     X_final[:, index_imputed] = X_temp
 
     return X_final
+
 
 def invert_robust(M, epsilon=1e-2):
     # In case of inversibility problem, one can add a penalty term
@@ -77,7 +71,7 @@ def invert_robust(M, epsilon=1e-2):
         )
     if np.abs(scipy.linalg.eigh(M)[0].min()) > 1e20:
         raise WarningMessage("Large eigenvalues, imputation may be inflated.")
-    
+
     return scipy.linalg.inv(Meps)
 
 
@@ -191,9 +185,7 @@ class ImputeEM(_BaseImputer):  # type: ignore
             X = X.to_numpy()
         return X
 
-    def _check_convergence(
-        self
-    ) -> bool:
+    def _check_convergence(self) -> bool:
         return False
 
     def _maximize_likelihood(self, X: ArrayLike) -> ArrayLike:
@@ -247,13 +239,11 @@ class ImputeEM(_BaseImputer):  # type: ignore
 
             X_transformed = self._sample_ou(X_transformed, mask_na, rng, dt=2e-2)
 
-            if (
-                self._check_convergence()
-            ):
+            if self._check_convergence():
                 if self.verbose:
                     print(f"EM converged after {iter_em} iterations.")
                 break
-            
+
         if self.strategy == "mle":
             X_transformed = self._maximize_likelihood(X_)
         elif self.strategy == "ou":
@@ -291,7 +281,7 @@ class ImputeEM(_BaseImputer):  # type: ignore
 
         if df.shape[1] < 2:
             raise AssertionError("Invalid dimensions: X must be of dimension (n,m) with m>1.")
-        
+
         X = df.values
 
         scaler = StandardScaler()
@@ -368,11 +358,20 @@ class ImputeMultiNormalEM(ImputeEM):  # type: ignore
         stagnation_loglik: Optional[float] = 1e1,
     ) -> None:
 
-        super().__init__(strategy,max_iter_em,n_iter_ou,ampli,random_state,verbose,dt,tolerance,stagnation_threshold,stagnation_loglik)
+        super().__init__(
+            strategy,
+            max_iter_em,
+            n_iter_ou,
+            ampli,
+            random_state,
+            verbose,
+            dt,
+            tolerance,
+            stagnation_threshold,
+            stagnation_loglik,
+        )
 
-    def _check_convergence(
-        self
-    ) -> bool:
+    def _check_convergence(self) -> bool:
         """Check if the EM algorithm has converged. Three criteria:
         1) if the differences between the estimates of the parameters (mean and covariance) is
         less than a threshold (min_diff_reached - convergence_threshold).
@@ -387,25 +386,36 @@ class ImputeMultiNormalEM(ImputeEM):  # type: ignore
         bool
             True/False if the algorithm has converged
         """
-        
 
         self.list_means.append(self.means)
         self.list_covs.append(self.cov)
         self.list_logliks.append(self.loglik)
-        
+
         n_iter = len(self.list_means)
 
         min_diff_reached = (
             n_iter > 5
-            and scipy.linalg.norm(self.list_means[-1] - self.list_means[-2], np.inf) < self.convergence_threshold
-            and scipy.linalg.norm(self.list_covs[-1] - self.list_covs[-2], np.inf) < self.convergence_threshold
+            and scipy.linalg.norm(self.list_means[-1] - self.list_means[-2], np.inf)
+            < self.convergence_threshold
+            and scipy.linalg.norm(self.list_covs[-1] - self.list_covs[-2], np.inf)
+            < self.convergence_threshold
         )
 
         min_diff_stable = (
             n_iter > 10
-            and min([scipy.linalg.norm(t - s, np.inf) for s, t in zip(self.list_means[-6:], self.list_means[-5:])])
+            and min(
+                [
+                    scipy.linalg.norm(t - s, np.inf)
+                    for s, t in zip(self.list_means[-6:], self.list_means[-5:])
+                ]
+            )
             < self.stagnation_threshold
-            and min([scipy.linalg.norm(t - s, np.inf) for s, t in zip(self.list_covs[-6:], self.list_covs[-5:])])
+            and min(
+                [
+                    scipy.linalg.norm(t - s, np.inf)
+                    for s, t in zip(self.list_covs[-6:], self.list_covs[-5:])
+                ]
+            )
             < self.stagnation_threshold
         )
 
@@ -421,7 +431,7 @@ class ImputeMultiNormalEM(ImputeEM):  # type: ignore
         # first estimation of params
         self.means = np.mean(X, axis=1)
         self.cov = np.cov(X)
-        
+
         self.cov_inv = self._invert_covariance(epsilon=1e-2)
 
     def _sample_ou(
@@ -547,7 +557,18 @@ class ImputeVAR1EM(ImputeEM):  # type: ignore
         stagnation_loglik: Optional[float] = 1e1,
     ) -> None:
 
-        super().__init__(strategy,max_iter_em,n_iter_ou,ampli,random_state,verbose,dt,tolerance,stagnation_threshold,stagnation_loglik)
+        super().__init__(
+            strategy,
+            max_iter_em,
+            n_iter_ou,
+            ampli,
+            random_state,
+            verbose,
+            dt,
+            tolerance,
+            stagnation_threshold,
+            stagnation_loglik,
+        )
 
     def fit_parameter_A(self, X):
         n_variables, n_samples = X.shape
@@ -573,10 +594,8 @@ class ImputeVAR1EM(ImputeEM):  # type: ignore
         Z_back = Xc - self.A @ Xc_lag
         Z_back[:, 0] = 0
         self.omega = (Z_back @ Z_back.T) / n_variables
-        
+
         self.omega_inv = invert_robust(self.omega, epsilon=1e-2)
-
-
 
     def fit_distribution(self, X):
         n_variables, n_samples = X.shape
@@ -587,7 +606,6 @@ class ImputeVAR1EM(ImputeEM):  # type: ignore
             self.fit_parameter_B(X)
             self.fit_parameter_A(X)
         self.fit_parameter_omega(X)
-        
 
     def _sample_ou(
         self,
@@ -646,7 +664,12 @@ class ImputeVAR1EM(ImputeEM):  # type: ignore
             # Z_front = np.roll(X, -1) - self.A @ X  - self.B[:, None]
             # Z_front[-1, :] = 0
             Z_front = np.roll(Z_back, -1, axis=1)
-            X = X - self.omega_inv @ Z_back * dt - self.A.T @ self.omega_inv @ Z_front * dt + noise * np.sqrt(2 * dt)
+            X = (
+                X
+                - self.omega_inv @ Z_back * dt
+                - self.A.T @ self.omega_inv @ Z_front * dt
+                + noise * np.sqrt(2 * dt)
+            )
             X[~mask_na] = X_init[~mask_na]
             if iter_ou > self.n_iter_ou - 50:
                 # list_X.append(X)
@@ -654,16 +677,15 @@ class ImputeVAR1EM(ImputeEM):  # type: ignore
                 B = np.mean(X - self.A @ X_lag, axis=1)
 
                 Xc = X - self.B[:, None]
-                Xc_lag = X_lag  - self.B[:, None]
+                Xc_lag = X_lag - self.B[:, None]
 
                 XX = X @ X.T
                 XX_lag = Xc[:, :-1] @ X_lag[:, 1:].T
-                
+
                 Z_back = Xc - self.A @ Xc_lag
                 Z_back[:, 0] = 0
-                
 
-                list_B.append(B) 
+                list_B.append(B)
                 list_XX.append(XX)
                 list_XX_lag.append(XX_lag)
                 list_ZZ.append(Z_back @ Z_back.T)
@@ -685,7 +707,7 @@ class ImputeVAR1EM(ImputeEM):  # type: ignore
         ZZ_stack = np.stack(list_ZZ, axis=2)
 
         # Biased estimation of omega, ignoring intra-group covariances
-        self.omega = np.mean(ZZ_stack, axis=2) # / n_variables
+        self.omega = np.mean(ZZ_stack, axis=2)  # / n_variables
         self.omega_inv = invert_robust(self.omega, epsilon=1e-2)
 
         return X
