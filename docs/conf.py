@@ -22,7 +22,7 @@ copyright = "2022, Quantmetry"
 author = "Quantmetry"
 
 # The full version, including alpha/beta/rc tags
-version = "0.0.4"
+version = "0.0.5"
 release = version
 
 
