@@ -44,9 +44,7 @@ INSTALL_REQUIRES = [
 EXTRAS_REQUIRE = {
     "tests": ["flake8", "mypy", "pandas", "pytest", "pytest-cov", "typed-ast"],
     "docs": [
-        "matplotlib",
         "numpydoc",
-        "pandas",
         "sphinx",
         "sphinx-gallery",
         "sphinx_rtd_theme",
