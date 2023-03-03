@@ -38,7 +38,6 @@ INSTALL_REQUIRES = [
     "packaging",
     "scikit-optimize",
     "scipy",
-    "lightgbm",
     "pandas",
 ]
 EXTRAS_REQUIRE = {
