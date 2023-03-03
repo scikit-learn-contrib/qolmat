@@ -14,8 +14,6 @@ __pycache__/
 .mypy*
 
 
-# documentation specific
-docs/
 
 # Distribution / packaging
 
