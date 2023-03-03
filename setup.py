@@ -21,12 +21,13 @@ with codecs.open("README.rst", encoding="utf-8-sig") as f:
 # """
 
 LICENSE = "new BSD"
-AUTHORS = "Hong-Lan Botterman, Julien Roussel, Thomas Morzadec, Rima Hajou"
+AUTHORS = "Hong-Lan Botterman, Julien Roussel, Thomas Morzadec, Rima Hajou, Firas Dakhli"
 AUTHORS_EMAIL = """
 hlbotterman@quantmetry.com,
 jroussel@quantmetry.com,
 tmorzadec@quantmetry.com,
-rhajou@quantmetry.com
+rhajou@quantmetry.com,
+fdakhli@quantmetry.com
 """
 
 PYTHON_REQUIRES = ">=3.8"
