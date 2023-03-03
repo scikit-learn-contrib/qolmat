@@ -222,6 +222,7 @@ def compare_covariances(
     ax.set_xlabel(col_x)
     ax.set_ylabel(col_y)
 
+
 def multibar(df, ax=None, orientation="vertical", colors=None, decimals=0):
     if ax is None:
         ax = plt.gca()

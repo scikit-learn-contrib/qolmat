@@ -117,7 +117,7 @@ class TemporalRPCA(RPCA):
                 a=((1 + mu) * In + 2 * HHT).T,
                 b=(proj_D - A + mu * L @ Q.T - Y + sums).T,
             ).T
-            
+
             if np.any(np.isnan(proj_D)):
                 A_omega = utils.soft_thresholding(proj_D - X, lam)
                 A_omega = utils.ortho_proj(A_omega, omega, inverse=False)
@@ -207,7 +207,7 @@ class TemporalRPCA(RPCA):
                 a=((1 + mu) * In + HHT).T,
                 b=(proj_D - A + mu * L @ Q.T - Y).T,
             ).T
-            
+
             if np.any(~omega):
                 A_omega = utils.soft_thresholding(proj_D - X, lam)
                 A_omega = utils.ortho_proj(A_omega, omega, inverse=False)
@@ -221,12 +221,12 @@ class TemporalRPCA(RPCA):
                 a=(tau * Ir + mu * (Q.T @ Q)).T,
                 b=((mu * X + Y) @ Q).T,
             ).T
-            
+
             Q = scp.linalg.solve(
                 a=(tau * Ir + mu * (L.T @ L)).T,
                 b=((mu * X.T + Y.T) @ L).T,
             ).T
-            
+
             Y += mu * (X - L @ Q.T)
 
             mu = min(mu * rho, mu_bar)
@@ -248,7 +248,7 @@ class TemporalRPCA(RPCA):
         M = X
         U = L
         V = Q
-    
+
         return M, A, U, V, errors
 
     def get_params(self) -> dict:
@@ -314,7 +314,7 @@ class TemporalRPCA(RPCA):
             Basis Unitary array
         V:
             Basis Unitary array
-        
+
         errors:
             Array of iterative errors
         """
@@ -333,14 +333,14 @@ class TemporalRPCA(RPCA):
             M, A, U, V, errors = self.compute_L1(proj_D, omega, lam, tau, rank)
         elif self.norm == "L2":
             M, A, U, V, errors = self.compute_L2(proj_D, omega, lam, tau, rank)
-        
+
         if X.shape[0] == 1:
-            M = M.reshape(1, -1)[:, :X.size]
-            A = A.reshape(1, -1)[:, :X.size]
+            M = M.reshape(1, -1)[:, : X.size]
+            A = A.reshape(1, -1)[:, : X.size]
         M = M.T
         A = A.T
 
-        # return M, A, U, V, errors    
+        # return M, A, U, V, errors
         return M
 
 
@@ -442,12 +442,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
             "online_list_etas": self.online_list_etas,
         }
 
-   
-
-    def get_params_scale_online(
-        self,
-        D:NDArray, Lhat: NDArray
-    ) -> dict[str, float]:
+    def get_params_scale_online(self, D: NDArray, Lhat: NDArray) -> dict[str, float]:
         # D_init = self._prepare_data(signal=X)
         params_scale = self.get_params_scale(D)
         # burnin = int(D_init.shape[1] * self.burnin)
@@ -488,16 +483,18 @@ class OnlineTemporalRPCA(TemporalRPCA):
         X = X.copy().T
         D_init = self._prepare_data(X)
         burnin = int(self.burnin * D_init.shape[1])
-        
+
         if burnin < len(D_init):
-            raise ValueError(f"'self.burnin={self.burnin} is to small. Only {burnin} columns kept for {len(D_init)} rows",
-                            "Increase self.burnin!")
+            raise ValueError(
+                f"'self.burnin={self.burnin} is to small. Only {burnin} columns kept for {len(D_init)} rows",
+                "Increase self.burnin!",
+            )
         nwin = self.nwin
 
         m, n = D_init.shape
         # super_class = TemporalRPCA(**super().get_params())
         # Lhat, Shat, _, _, _ =super_class.fit_transform(X=D_init[:, :burnin])
-        
+
         proj_D = utils.impute_nans(D_init, method="median")
         omega = ~np.isnan(D_init)
 
@@ -516,19 +513,19 @@ class OnlineTemporalRPCA(TemporalRPCA):
 
         params_scale = self.get_params_scale_online(proj_D, Lhat)
 
-        online_tau = params_scale["online_tau"] if self.online_tau is None else self.online_tau 
-        online_lam = params_scale["online_lam"] if self.online_lam is None else self.online_lam 
+        online_tau = params_scale["online_tau"] if self.online_tau is None else self.online_tau
+        online_lam = params_scale["online_lam"] if self.online_lam is None else self.online_lam
 
         if len(self.online_list_etas) == 0:
             self.online_list_etas = self.list_etas
-        
-        approx_rank =  utils.approx_rank(proj_D[:, :burnin])
+
+        approx_rank = utils.approx_rank(proj_D[:, :burnin])
 
         # TODO : is it really Lhat that should be used here?!
         Uhat, sigmas_hat, Vhat = randomized_svd(
             Lhat, n_components=approx_rank, n_iter=5, random_state=42
         )
-        U = Uhat[:, :approx_rank]@(np.sqrt(np.diag(sigmas_hat[:approx_rank])))
+        U = Uhat[:, :approx_rank] @ (np.sqrt(np.diag(sigmas_hat[:approx_rank])))
 
         if self.nwin == 0:
             Vhat_win = Vhat.copy()
@@ -553,7 +550,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
                     proj_D[:, burnin - nwin + col] - Shat[:, burnin - nwin + col],
                     Vhat_win[:, col],
                 )
-        
+
         m_lhat, n_lhat = Lhat.shape
         m_shat, n_shat = Shat.shape
         m_vhat, n_vhat = Vhat.shape
@@ -618,7 +615,7 @@ class OnlineTemporalRPCA(TemporalRPCA):
         if len(X) == 1:
             M = Lhat_grow.T.flatten()
             A = Shat_grow.T.flatten()
-            M, A = M[:(M.size - n_add_values)], A[:(M.size - n_add_values)]
+            M, A = M[: (M.size - n_add_values)], A[: (M.size - n_add_values)]
         else:
             M = Lhat_grow
             A = Shat_grow

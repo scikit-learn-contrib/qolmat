@@ -1,8 +1,9 @@
 [flake8]
 exclude = .git,__pycache__,.vscode,tests
 max-line-length=99
-ignore=E302,E305,W503,E203,E203,E731,E402,E501,E266
+ignore=E302,E305,W503,E203,E731,E402,E501,E266,E712,F401,F821
 indent-size = 4
 per-file-ignores=
-    qolmat/imputations/models.py:F401
+    qolmat/imputations/imputers.py:F401
     */__init__.py:F401
+    examples/test.py:F401

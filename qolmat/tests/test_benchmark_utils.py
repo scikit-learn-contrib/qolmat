@@ -83,7 +83,7 @@ def test_weighted_mean_absolute_percentage_error() -> None:
         data=[[1, 2, 3], [1, 2, 3], [1, 8, 9], [3, 4, 8]],
         columns=['var1', 'var2', 'var3'],
     )
-    
+
     assert (
         round(
             utils.weighted_mean_absolute_percentage_error(

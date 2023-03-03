@@ -150,7 +150,7 @@ class Comparator:
             print(f"Tested model: {type(imputer).__name__}")
 
             search_params = self.search_params.get(name, {})
-            
+
             # if imputer.columnwise:
             #     if len(self.selected_columns) > 0:
             #         search_params = {}

@@ -37,12 +37,7 @@ class PcpRPCA(RPCA):
         verbose: bool = False,
     ) -> None:
 
-        super().__init__(
-            period=period,
-            max_iter=max_iter,
-            tol=tol,
-            verbose=verbose
-        )
+        super().__init__(period=period, max_iter=max_iter, tol=tol, verbose=verbose)
         self.mu = mu
         self.lam = lam
 
@@ -57,7 +52,7 @@ class PcpRPCA(RPCA):
         lam = 1 / np.sqrt(np.max(D.shape))
         dict_params = {"mu": mu, "lam": lam}
         return dict_params
-    
+
     def decompose_rpca(self, D: NDArray) -> Tuple[NDArray, NDArray]:
         proj_D = utils.impute_nans(D, method="median")
 
@@ -66,7 +61,7 @@ class PcpRPCA(RPCA):
         mu = params_scale["mu"] if self.mu is None else self.mu
         lam = params_scale["lam"] if self.lam is None else self.lam
         Omega = ~np.isnan(D)
-        
+
         D_norm = np.linalg.norm(D, "fro")
 
         A = np.full_like(D, 0)
@@ -76,12 +71,12 @@ class PcpRPCA(RPCA):
 
         for iteration in range(self.max_iter):
 
-            M = utils.svd_thresholding(proj_D - A + Y/mu, 1/mu)
-            A = utils.soft_thresholding(proj_D - M + Y/mu, lam/mu)
+            M = utils.svd_thresholding(proj_D - A + Y / mu, 1 / mu)
+            A = utils.soft_thresholding(proj_D - M + Y / mu, lam / mu)
             A[~Omega] = (proj_D - M)[~Omega]
             Y += mu * (proj_D - M - A)
 
-            error = np.linalg.norm(D - M - A, "fro")/D_norm
+            error = np.linalg.norm(D - M - A, "fro") / D_norm
             errors[iteration] = error
 
             if error < self.tol:
@@ -90,11 +85,10 @@ class PcpRPCA(RPCA):
                 break
         return M, A
 
-
     def fit_transform(
         self,
         X: NDArray,
-        ) -> NDArray:
+    ) -> NDArray:
         """
         Compute the RPCA decomposition of a matrix based on PCP method
 
@@ -119,15 +113,13 @@ class PcpRPCA(RPCA):
         X = X.copy().T
         D = self._prepare_data(X)
         M, A = self.decompose_rpca(D)
-            
+
         # U, _, V = np.linalg.svd(M, full_matrices=False, compute_uv=True)
-        
+
         if X.shape[0] == 1:
-            M = M.reshape(1, -1)[:, :X.size]
-            A = A.reshape(1, -1)[:, :X.size]
+            M = M.reshape(1, -1)[:, : X.size]
+            A = A.reshape(1, -1)[:, : X.size]
         M = M.T
         A = A.T
         # return M, A, U, V, errors
         return M
-
-    

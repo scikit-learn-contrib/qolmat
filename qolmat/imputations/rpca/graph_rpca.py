@@ -140,4 +140,3 @@ class GraphRPCA(RPCA):
         else:
             result = [X, A, None, None, errors]
         return tuple(result)
-        

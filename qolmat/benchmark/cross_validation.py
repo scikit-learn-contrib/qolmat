@@ -123,6 +123,7 @@ class CrossValidation:
         _type_
             objective function
         """
+
         @skopt.utils.use_named_args(self.list_spaces)
         def obj_func(**hyperparams_flat):
             self.imputer.hyperparams_optim = self.deflat_hyperparams(hyperparams_flat)
@@ -135,11 +136,11 @@ class CrossValidation:
                 df_corrupted[df_mask] = np.nan
                 cols_with_nans = X.columns[X.isna().any(axis=0)].tolist()
                 imputed = self.imputer.fit_transform(df_corrupted)
-                
+
                 error = self.loss_function(
                     df_origin.loc[:, cols_with_nans],
                     imputed.loc[:, cols_with_nans],
-                    df_mask.loc[:, cols_with_nans]
+                    df_mask.loc[:, cols_with_nans],
                 )
                 errors.append(error)
 
