@@ -1,5 +1,6 @@
-from setuptools import find_packages, setup
 import codecs
+
+from setuptools import find_packages, setup
 
 DISTNAME = "qolmat"
 VERSION = "0.0.3"
@@ -30,7 +31,15 @@ rhajou@quantmetry.com
 
 PYTHON_REQUIRES = ">=3.8"
 PACKAGES = find_packages()
-INSTALL_REQUIRES = ["scikit-learn", "numpy>=1.21", "packaging"]
+INSTALL_REQUIRES = [
+    "scikit-learn",
+    "numpy>=1.21",
+    "packaging",
+    "scikit-optimize",
+    "scipy",
+    "lightgbm",
+    "pandas",
+]
 EXTRAS_REQUIRE = {
     "tests": ["flake8", "mypy", "pandas", "pytest", "pytest-cov", "typed-ast"],
     "docs": [

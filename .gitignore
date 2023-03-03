@@ -1,16 +1,67 @@
-__pycache__/
-.pyc
-.DS_Store
-.ipynb_checkpoints
+#Ignore Data file
 /data
+
+# Figures
 /figures
 qolmat/notebooks/figures
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+.pyc
+.DS_Store
+.mypy*
+
+
+# documentation specific
+docs/
+
+# Distribution / packaging
+
+.Python
+env/
+build/
+develop-eggs/
+dist/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*,cover
+.hypothesis/
+
+
+# Notebooks
+**.ipynb_checkpoints
 qolmat/notebooks/*.ipynb
 qolmat/examples/*.ipynb
-*.egg-info
-/dist
-/build
-*SOURCES.txt
-TimeSynth*
-/scripts
+
+
+# VSCode
 .vscode

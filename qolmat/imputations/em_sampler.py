@@ -1,34 +1,34 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import Dict, List, Optional
 from warnings import WarningMessage
 
 import numpy as np
 import pandas as pd
 import scipy
-from numpy.typing import ArrayLike
+from numpy.typing import NDArray
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import StandardScaler
 
 logger = logging.getLogger(__name__)
 
 
-def _gradient_conjugue(A: ArrayLike, X: ArrayLike) -> ArrayLike:
+def _gradient_conjugue(A: NDArray, X: NDArray) -> NDArray:
     """
     Minimize Tr(X.T AX) by imputing missing values.
     To this aim, we compute in parallel a gradient algorithm for each data.
 
     Parameters
     ----------
-    A : ArrayLike
+    A : NDArray
         A array
-    X : ArrayLike
+    X : NDArray
         X array
 
     Returns
     -------
-    ArrayLike
+    NDArray
         Minimized array.
     """
     index_imputed = np.isnan(X).any(axis=0)
@@ -120,15 +120,15 @@ class EM(BaseEstimator, TransformerMixin):
 
     def __init__(
         self,
-        strategy: Optional[str] = "mle",
-        max_iter_em: Optional[int] = 200,
-        n_iter_ou: Optional[int] = 50,
-        ampli: Optional[int] = 1,
-        random_state: Optional[int] = 123,
-        dt: Optional[float] = 2e-2,
-        tolerance: Optional[float] = 1e-4,
-        stagnation_threshold: Optional[float] = 5e-3,
-        stagnation_loglik: Optional[float] = 2,
+        strategy: str = "mle",
+        max_iter_em: int = 200,
+        n_iter_ou: int = 50,
+        ampli: float = 1,
+        random_state: int = 123,
+        dt: float = 2e-2,
+        tolerance: float = 1e-4,
+        stagnation_threshold: float = 5e-3,
+        stagnation_loglik: float = 2,
     ):
 
         if strategy not in ["mle", "ou"]:
@@ -140,28 +140,27 @@ class EM(BaseEstimator, TransformerMixin):
         self.ampli = ampli
         self.random_state = random_state
         self.rng = np.random.default_rng(self.random_state)
-        self.mask_outliers = None
-        self.cov = None
+        self.cov = np.array([[]])
         self.dt = dt
         self.convergence_threshold = tolerance
         self.stagnation_threshold = stagnation_threshold
         self.stagnation_loglik = stagnation_loglik
         self.scaler = StandardScaler()
 
-        self.dict_criteria_stop = {}
+        self.dict_criteria_stop: Dict[str, List] = {}
 
-    def _linear_interpolation(self, X: np.ndarray) -> np.ndarray:
+    def _linear_interpolation(self, X: NDArray) -> NDArray:
         """
         Impute missing data with a linear interpolation, column-wise
 
         Parameters
         ----------
-        X : np.ndarray
+        X : NDArray
             array with missing values
 
         Returns
         -------
-        X_interpolated : np.ndarray
+        X_interpolated : NDArray
             imputed array, by linear interpolation
         """
         n_rows, n_cols = X.shape
@@ -176,42 +175,42 @@ class EM(BaseEstimator, TransformerMixin):
             X_interpolated[i_row, mask_isna] = values_interpolated
         return X_interpolated
 
-    def _convert_numpy(self, X: ArrayLike) -> np.ndarray:
+    def _convert_numpy(self, X: NDArray) -> NDArray:
         """
         Convert X pd.DataFrame to an array for internal calculations.
 
         Parameters
         ----------
-        X : ArrayLike
+        X : NDArray
             Input Array.
 
         Returns
         -------
-        np.ndarray
+        NDArray
             Return Array.
         """
         if not isinstance(X, np.ndarray):
             if (not isinstance(X, pd.DataFrame)) & (not isinstance(X, list)):
-                raise ValueError("Input array is not a list, np.array, nor pd.DataFrame.")
+                raise ValueError("Input array is not a list, NDArray, nor pd.DataFrame.")
             X = X.to_numpy()
         return X
 
     def _check_convergence(self) -> bool:
         return False
 
-    def fit(self, X: np.array):
+    def fit(self, X: NDArray):
         """
         Fit the statistical distribution with the input X array.
 
         Parameters
         ----------
-        X : np.array
+        X : NDArray
             Numpy array to be imputed
         """
         X = X.copy()
         self.hash_fit = hash(X.tobytes())
         if not isinstance(X, np.ndarray):
-            raise AssertionError("Invalid type. X must be a np.ndarray.")
+            raise AssertionError("Invalid type. X must be a NDArray.")
 
         if X.shape[0] < 2:
             raise AssertionError("Invalid dimensions: X must be of dimension (n,m) with m>1.")
@@ -238,18 +237,18 @@ class EM(BaseEstimator, TransformerMixin):
         self.X_sample_last = X_sample_last
         return self
 
-    def transform(self, X: np.array) -> np.array:
+    def transform(self, X: NDArray) -> NDArray:
         """
         Transform the input X array by imputing the missing values.
 
         Parameters
         ----------
-        X : np.array
+        X : NDArray
             Numpy array to be imputed
 
         Returns
         -------
-        ArrayLike
+        NDArray
             Final array after EM sampling.
         """
 
@@ -267,7 +266,7 @@ class EM(BaseEstimator, TransformerMixin):
             X_transformed = self._sample_ou(X, mask_na)
 
         if np.all(np.isnan(X_transformed)):
-            raise WarningMessage("Result contains NaN. This is a bug.")
+            raise AssertionError("Result contains NaN. This is a bug.")
 
         X_transformed = X_transformed.T
         X_transformed = self.scaler.inverse_transform(X_transformed)
@@ -318,15 +317,15 @@ class MultiNormalEM(EM):
 
     def __init__(
         self,
-        strategy: Optional[str] = "mle",
-        max_iter_em: Optional[int] = 200,
-        n_iter_ou: Optional[int] = 50,
-        ampli: Optional[int] = 1,
-        random_state: Optional[int] = 123,
-        dt: Optional[float] = 2e-2,
-        tolerance: Optional[float] = 1e-4,
-        stagnation_threshold: Optional[float] = 5e-3,
-        stagnation_loglik: Optional[float] = 1e1,
+        strategy: str = "mle",
+        max_iter_em: int = 200,
+        n_iter_ou: int = 50,
+        ampli: float = 1,
+        random_state: int = 123,
+        dt: float = 2e-2,
+        tolerance: float = 1e-4,
+        stagnation_threshold: float = 5e-3,
+        stagnation_loglik: float = 1e1,
     ) -> None:
 
         super().__init__(
@@ -348,18 +347,18 @@ class MultiNormalEM(EM):
         self.cov = np.cov(X)
         self.cov_inv = invert_robust(self.cov, epsilon=1e-2)
 
-    def _maximize_likelihood(self, X: ArrayLike) -> ArrayLike:
+    def _maximize_likelihood(self, X: NDArray) -> NDArray:
         """
         Get the argmax of a posterior distribution.
 
         Parameters
         ----------
-        X : ArrayLike
+        X : NDArray
             Input DataFrame.
 
         Returns
         -------
-        ArrayLike
+        NDArray
             DataFrame with imputed values.
         """
         X_center = X - self.means[:, None]
@@ -369,9 +368,9 @@ class MultiNormalEM(EM):
 
     def _sample_ou(
         self,
-        X: ArrayLike,
-        mask_na: ArrayLike,
-    ) -> ArrayLike:
+        X: NDArray,
+        mask_na: NDArray,
+    ) -> NDArray:
         """
         Samples the Gaussian distribution under the constraint that not na values must remain
         unchanged, using a projected Ornstein-Uhlenbeck process.
@@ -381,10 +380,10 @@ class MultiNormalEM(EM):
 
         Parameters
         ----------
-        df : ArrayLike
+        df : NDArray
             Inital dataframe to be imputed, which should have been already imputed using a simple
             method. This first imputation will be used as an initial guess.
-        mask_na : ArrayLike
+        mask_na : NDArray
             Boolean dataframe indicating which coefficients should be resampled.
         n_iter_ou : int
             Number of iterations for the OU process, a large value decreases the sample bias
@@ -394,7 +393,7 @@ class MultiNormalEM(EM):
 
         Returns
         -------
-        ArrayLike
+        NDArray
             DataFrame after Ornstein-Uhlenbeck process.
         """
         n_samples, n_variables = X.shape
@@ -527,15 +526,15 @@ class VAR1EM(EM):
 
     def __init__(
         self,
-        strategy: Optional[str] = "mle",
-        max_iter_em: Optional[int] = 200,
-        n_iter_ou: Optional[int] = 50,
-        ampli: Optional[int] = 1,
-        random_state: Optional[int] = 123,
-        dt: Optional[float] = 2e-2,
-        tolerance: Optional[float] = 1e-4,
-        stagnation_threshold: Optional[float] = 5e-3,
-        stagnation_loglik: Optional[float] = 1e1,
+        strategy: str = "mle",
+        max_iter_em: int = 200,
+        n_iter_ou: int = 50,
+        ampli: float = 1,
+        random_state: int = 123,
+        dt: float = 2e-2,
+        tolerance: float = 1e-4,
+        stagnation_threshold: float = 5e-3,
+        stagnation_loglik: float = 1e1,
     ) -> None:
 
         super().__init__(
@@ -590,18 +589,18 @@ class VAR1EM(EM):
         Z_fore = Xc_fore - self.A @ Xc
         return -self.omega_inv @ Z_back + self.A.T @ self.omega_inv @ Z_fore
 
-    def _maximize_likelihood(self, X: ArrayLike, dt=1e-2) -> ArrayLike:
+    def _maximize_likelihood(self, X: NDArray, dt=1e-2) -> NDArray:
         """
         Get the argmax of a posterior distribution.
 
         Parameters
         ----------
-        X : ArrayLike
+        X : NDArray
             Input numpy array.
 
         Returns
         -------
-        ArrayLike
+        NDArray
             DataFrame with imputed values.
         """
         Xc = X - self.B[:, None]
@@ -611,9 +610,9 @@ class VAR1EM(EM):
 
     def _sample_ou(
         self,
-        X: ArrayLike,
-        mask_na: ArrayLike,
-    ) -> ArrayLike:
+        X: NDArray,
+        mask_na: NDArray,
+    ) -> NDArray:
         """
         Samples the Gaussian distribution under the constraint that not na values must remain
         unchanged, using a projected Ornstein-Uhlenbeck process.
@@ -624,10 +623,10 @@ class VAR1EM(EM):
 
         Parameters
         ----------
-        df : ArrayLike
+        df : NDArray
             Inital dataframe to be imputed, which should have been already imputed using a simple
             method. This first imputation will be used as an initial guess.
-        mask_na : ArrayLike
+        mask_na : NDArray
             Boolean dataframe indicating which coefficients should be resampled.
         n_iter_ou : int
             Number of iterations for the OU process, a large value decreases the sample bias
@@ -637,7 +636,7 @@ class VAR1EM(EM):
 
         Returns
         -------
-        ArrayLike
+        NDArray
             DataFrame after Ornstein-Uhlenbeck process.
         """
         n_variables, n_samples = X.shape

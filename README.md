@@ -54,12 +54,6 @@ On each sample, different imputation models are tested and reconstruction errors
 cconda env create -f environment.dev.yml
 conda activate env_qolmat_dev
 ```
-### installtion for pip user
-
-'''
-pip install -r requirements.dev.txt
-pip install -e .
-'''
 
 ### Install pre-commit
 
