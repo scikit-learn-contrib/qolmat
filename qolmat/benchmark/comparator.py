@@ -103,11 +103,6 @@ class Comparator:
         """
         list_errors = []
         df_origin = df[self.selected_columns].copy()
-        if list_spaces:
-            print("Hyperparameter optimization")
-            print(list_spaces)
-        else:
-            print("No hyperparameter optimization")
         for df_mask in self.generator_holes.split(df_origin):
             df_corrupted = df_origin.copy()
             df_corrupted[df_mask] = np.nan

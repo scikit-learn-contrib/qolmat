@@ -212,9 +212,6 @@ class EM(BaseEstimator, TransformerMixin):
         if not isinstance(X, np.ndarray):
             raise AssertionError("Invalid type. X must be a NDArray.")
 
-        if X.shape[0] < 2:
-            raise AssertionError("Invalid dimensions: X must be of dimension (n,m) with m>1.")
-
         X = self.scaler.fit_transform(X)
         X = X.T
 
@@ -222,7 +219,6 @@ class EM(BaseEstimator, TransformerMixin):
 
         # first imputation
         X_sample_last = self._linear_interpolation(X)
-
         self.fit_distribution(X_sample_last)
 
         for iter_em in range(self.max_iter_em):
@@ -344,7 +340,7 @@ class MultiNormalEM(EM):
 
     def fit_distribution(self, X):
         self.means = np.mean(X, axis=1)
-        self.cov = np.cov(X)
+        self.cov = np.cov(X).reshape(len(X), -1)
         self.cov_inv = invert_robust(self.cov, epsilon=1e-2)
 
     def _maximize_likelihood(self, X: NDArray) -> NDArray:
@@ -413,7 +409,9 @@ class MultiNormalEM(EM):
             X[~mask_na] = X_init[~mask_na]
             if iter_ou > self.n_iter_ou - 50:
                 list_means.append(np.mean(X, axis=1))
-                list_cov.append(np.cov(X, bias=True))
+                # reshaping for 1D input
+                cov = np.cov(X, bias=True).reshape(len(X), -1)
+                list_cov.append(cov)
 
         # MANOVA formula
         means_stack = np.stack(list_means, axis=1)

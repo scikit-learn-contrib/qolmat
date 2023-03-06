@@ -59,9 +59,9 @@ qolmat/.converge
 
 # Notebooks
 **.ipynb_checkpoints
-qolmat/notebooks/*.ipynb
-qolmat/examples/*.ipynb
+examples/*.ipynb
 
 
 # VSCode
 .vscode
+examples/benchmark.ipynb
