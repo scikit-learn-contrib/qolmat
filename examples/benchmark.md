@@ -63,19 +63,19 @@ The dataset `Beijing` is the Beijing Multi-Site Air-Quality Data Set. It consist
 This dataset only contains numerical vairables.
 
 ```python
-# df_data = data.get_data_corrupted("Beijing", ratio_masked=.2, mean_size=120)
+df_data = data.get_data_corrupted("Beijing", ratio_masked=.2, mean_size=120)
 
 # cols_to_impute = ["TEMP", "PRES", "DEWP", "NO2", "CO", "O3", "WSPM"]
 # cols_to_impute = df_data.columns[df_data.isna().any()]
-# cols_to_impute = ["TEMP", "PRES"]
+cols_to_impute = ["TEMP", "PRES"]
 
 ```
 
 The dataset `Artificial` is designed to have a sum of a periodical signal, a white noise and some outliers.
 
 ```python
-df_data = data.get_data_corrupted("Artificial", ratio_masked=.2, mean_size=10)
-cols_to_impute = ["signal"]
+# df_data = data.get_data_corrupted("Artificial", ratio_masked=.2, mean_size=10)
+# cols_to_impute = ["signal"]
 ```
 
 Let's take a look at variables to impute. We only consider a station, Aotizhongxin.
@@ -123,7 +123,7 @@ imputer_spline = imputers.ImputerInterpolation(groups=["station"], method="splin
 imputer_shuffle = imputers.ImputerShuffle(groups=["station"])
 imputer_residuals = imputers.ImputerResiduals(groups=["station"], period=7, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
 
-imputer_rpca = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=100, max_iter=100, tau=2, lam=.3)
+imputer_rpca = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=365, max_iter=200, tau=2, lam=.3)
 imputer_rpca_opti = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=365, max_iter=100)
 
 imputer_ou = imputers.ImputeEM(groups=["station"], method="multinormal", max_iter_em=34, n_iter_ou=15, strategy="ou")
