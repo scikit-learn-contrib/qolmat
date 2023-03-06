@@ -5,11 +5,11 @@ jupyter:
       extension: .md
       format_name: markdown
       format_version: '1.3'
-      jupytext_version: 1.14.0
+      jupytext_version: 1.14.4
   kernelspec:
-    display_name: Python 3.9.6 64-bit
+    display_name: env_qolmat
     language: python
-    name: python3
+    name: env_qolmat
 ---
 
 ```python
@@ -17,86 +17,93 @@ jupyter:
 %autoreload 2
 
 import numpy as np
-import timesynth as ts # package for generating time series
+# import timesynth as ts # package for generating time series
 
 import matplotlib.pyplot as plt
+
 import sys
-sys.path.append("../")
-from qolmat.imputations.rpca.utils import drawing, utils
-from qolmat.imputations.rpca.pcp_rpca import PcpRPCA
-from qolmat.imputations.rpca.temporal_rpca import TemporalRPCA, OnlineTemporalRPCA
+
+from math import pi
+
+from qolmat.utils import plot, data
+from qolmat.imputations.rpca.rpca_pcp import RPCAPCP
+from qolmat.imputations.rpca.rpca_noisy import RPCANoisy
 ```
 
 **Generate synthetic data**
 
 ```python
-np.random.seed(402)
+n_samples = 1000
 
-################################################################################
+mesh = np.arange(n_samples)
+X_true = np.zeros(n_samples)
+A_true = np.zeros(n_samples)
+E_true = np.zeros(n_samples)
+p1 = 100
+p2 = 20
+X_true = 1 + np.sin(2 * pi * mesh / p1) + np.sin(2 * pi * mesh / p2)
+noise = np.random.uniform(size=n_samples)
+amplitude_A = .5
+freq_A = .05
+A_true = amplitude_A * np.where(noise < freq_A, -np.log(noise), 0) * (2 * (np.random.uniform(size=n_samples) > .5) - 1)
+amplitude_E = .1
+E_true = amplitude_E * np.random.normal(size=n_samples)
 
-time_sampler = ts.TimeSampler(stop_time=20)
-irregular_time_samples = time_sampler.sample_irregular_time(num_points=5_000, keep_percentage=100)
-sinusoid = ts.signals.Sinusoidal(frequency=2)
-white_noise = ts.noise.GaussianNoise(std=0.1)
-timeseries = ts.TimeSeries(sinusoid, noise_generator=white_noise)
-samples, signals, errors = timeseries.sample(irregular_time_samples)
+signal = X_true + E_true
+signal[A_true != 0] = A_true[A_true != 0]
+signal = signal.reshape(-1, 1)
 
-n = len(samples)
-pc = 0.02
-indices_ano1 = np.random.choice(n, int(n*pc))
-samples[indices_ano1] = [np.random.uniform(low=2*np.min(samples), high=2*np.max(samples)) for i in range(int(n*pc))]
-indices = np.random.choice(n, int(n*pc))
-samples[indices] = np.nan
+# Adding missing data
+signal[5:20, 0] = np.nan
+```
 
+```python
+fig = plt.figure(figsize=(15, 8))
+ax = fig.add_subplot(4, 1, 1)
+ax.title.set_text("Low-rank signal")
+plt.plot(X_true)
 
-################################################################################
+ax = fig.add_subplot(4, 1, 2)
+ax.title.set_text("Corruption signal")
+plt.plot(A_true)
 
-time_sampler = ts.TimeSampler(stop_time=20)
-irregular_time_samples = time_sampler.sample_irregular_time(num_points=5_000, keep_percentage=100)
-sinusoid = ts.signals.Sinusoidal(frequency=3)
-white_noise = ts.noise.GaussianNoise(std=0)
-timeseries = ts.TimeSeries(sinusoid, noise_generator=white_noise)
-samples2, signals2, errors2 = timeseries.sample(irregular_time_samples)
+ax = fig.add_subplot(4, 1, 3)
+ax.title.set_text("Noise")
+plt.plot(E_true)
 
-n2 = len(samples2)
-indices_ano2 = np.random.choice(n2, int(n*pc))
-samples2[indices_ano2] = [np.random.uniform(low=2*np.min(samples2), high=2*np.max(samples2)) for i in range(int(n2*pc))]
-indices = np.random.choice(n2, int(n*pc))
-samples2[indices] = np.nan
+ax = fig.add_subplot(4, 1, 4)
+ax.title.set_text("Corrupted signal")
+plt.plot(signal[:, 0])
 
-samples += samples2
-signals += signals2
-errors += errors2
-
-################################################################################
-
-fig, ax = plt.subplots(4, 1, sharex=True, figsize=(12,6))
-ax[0].plot(range(n), signals, c="darkblue")
-ax[0].set_title("Low-rank signal", fontsize=15)
-ax[1].plot(range(n), errors, c="darkgreen")
-ax[1].set_title("Noise", fontsize=15)
-ax[2].plot(range(n), samples-signals-errors, c="tab:red")
-ax[2].set_title("Corruptions", fontsize=15)
-ax[3].plot(range(n), samples, c="k")
-ax[3].set_title("Corrupted signal", fontsize=15)
-ax[3].set_xlabel("Time", fontsize=16)
-plt.tight_layout()
 plt.show()
 ```
 
-**RPCA**
+## PCP RPCA
 
 ```python
 %%time
 
-pcp_rpca = PcpRPCA(n_rows=25)
-X, A, errors = pcp_rpca.fit_transform(signal=samples)
-drawing.plot_signal([samples, X, A], style="matplotlib")
+rpca_pcp = RPCAPCP(period=100, max_iter=5, mu=.5, lam=1)
+X = rpca_pcp.fit_transform(signal)
+corruptions = signal - X
+```
+
+## Temporal RPCA
+
+```python
+rpca_noisy = RPCANoisy(period=10, tau=2, lam=0.3, list_periods=[10], list_etas=[0.01], norm="L2")
+X = rpca_noisy.fit_transform(signal)
+corruptions = signal - X
+plot.plot_signal([signal[:,0], X[:,0], corruptions[:, 0]])
 ```
 
 ```python
-temporal_rpca = TemporalRPCA(n_rows=25, tau=2, lam=0.3, list_periods=[20], list_etas=[0.01], norm="L2")
-X, A, errors =  temporal_rpca.fit_transform(signal=samples)
-drawing.plot_signal([samples, X, A], style="matplotlib")
+rpca_noisy = RPCANoisy(period=10, tau=2, lam=0.3, list_periods=[], list_etas=[], norm="L2")
+X = rpca_noisy.fit_transform(signal)
+corruptions = signal - X
+plot.plot_signal([signal[:,0], X[:,0], corruptions[:, 0]])
 ```
 
+```python
+
+```

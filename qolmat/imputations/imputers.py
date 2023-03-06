@@ -15,8 +15,8 @@ from statsmodels.tsa import seasonal as tsa_seasonal
 
 from qolmat.benchmark import utils
 from qolmat.imputations import em_sampler
-from qolmat.imputations.rpca.pcp_rpca import PcpRPCA
-from qolmat.imputations.rpca.temporal_rpca import TemporalRPCA
+from qolmat.imputations.rpca.rpca_noisy import RPCANoisy
+from qolmat.imputations.rpca.rpca_pcp import RPCAPCP
 
 
 class Imputer(_BaseImputer):
@@ -595,17 +595,10 @@ class ImputerRegressor(Imputer):
 
         cols_with_nans = df.columns[df.isna().any()]
         cols_without_nans = df.columns[df.notna().all()]
-
-        if self.cols_to_impute is None:
-            self.cols_to_impute = cols_with_nans
-        elif not set(self.cols_to_impute).issubset(set(df.columns) ):
-            raise ValueError("Input has to have at least one column of cols_to_impute")
-        else:
-            self.cols_to_impute =list(set(self.cols_to_impute) & set(cols_with_nans)) 
             
-        for col in self.cols_to_impute:
+        for col in cols_with_nans:
             hyperparams = {}
-            for hyperparam, value in hyperparams.items():
+            for hyperparam, value in self.hyperparams.items():
                 if isinstance(value, dict):
                     value = value[col]
                 hyperparams[hyperparam] = value
@@ -696,7 +689,7 @@ class ImputerRPCA(Imputer):
     method : str
         name of the RPCA method:
             "PCP" for basic RPCA, bad at imputing
-            "temporal" for temporal RPCA, with possible regularisations
+            "noisy" for noisy RPCA, with possible regularisations
     columnwise : bool
         for RPCA method to be applied columnwise (with reshaping of each column into an array)
         or to be applied directly on the dataframe. By default, the value is set to False.
@@ -704,7 +697,7 @@ class ImputerRPCA(Imputer):
 
     def __init__(
         self,
-        method: str = "temporal",
+        method: str = "noisy",
         groups: List[str] = [],
         columnwise: bool = False,
         **hyperparams
@@ -731,11 +724,11 @@ class ImputerRPCA(Imputer):
             raise ValueError("Input has to be a pandas.DataFrame.")
 
         if self.method == "PCP":
-            model = PcpRPCA(**self.hyperparams_element)
-        elif self.method == "temporal":
-            model = TemporalRPCA(**self.hyperparams_element)
+            model = RPCAPCP(**self.hyperparams_element)
+        elif self.method == "noisy":
+            model = RPCANoisy(**self.hyperparams_element)
         else:
-            raise ValueError("Argument method must be PCP or temporal!")
+            raise ValueError("Argument method must be `PCP` or `noisy`!")
             
         X_imputed = model.fit_transform(df.values)
         df_imputed = pd.DataFrame(X_imputed, index=df.index, columns=df.columns)

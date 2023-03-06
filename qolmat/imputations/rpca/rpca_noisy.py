@@ -11,7 +11,7 @@ from qolmat.imputations.rpca import utils
 from qolmat.imputations.rpca.rpca import RPCA
 
 
-class TemporalRPCA(RPCA):
+class RPCANoisy(RPCA):
     """
     This class implements a noisy version of the so-called 'improved RPCA'
 
@@ -44,8 +44,6 @@ class TemporalRPCA(RPCA):
     tol: Optional[float]
         stoppign critera, minimum difference between 2 consecutive iterations. By default,
         the value is set to 1e-6
-    verbose: Optional[bool]
-        verbosity. By default, the value is set to False
     norm: Optional[str]
         error norm, can be "L1" or "L2". By default, the value is set to "L2"
     """
@@ -60,10 +58,9 @@ class TemporalRPCA(RPCA):
         list_etas: List[float] = [],
         max_iter: Optional[int] = int(1e4),
         tol: Optional[float] = 1e-6,
-        verbose: Optional[bool] = False,
         norm: Optional[str] = "L2",
     ) -> None:
-        super().__init__(period=period, max_iter=max_iter, tol=tol, verbose=verbose)
+        super().__init__(period=period, max_iter=max_iter, tol=tol)
         self.rank = rank
         self.tau = tau
         self.lam = lam
@@ -162,8 +159,6 @@ class TemporalRPCA(RPCA):
             errors[iteration] = tol
 
             if tol < self.tol:
-                if self.verbose:
-                    print(f"Converged in {iteration} iterations with error: {tol}")
                 break
         M = X
         U = L
@@ -211,10 +206,7 @@ class TemporalRPCA(RPCA):
             
             if np.any(~Omega):
                 A_omega = utils.soft_thresholding(proj_D - X, lam)
-                # A_omega = utils.ortho_proj(A_omega, omega, inverse=False)
                 A_omega_C = proj_D - X
-                # A_omega_C = utils.ortho_proj(A_omega_C, omega, inverse=True)
-                # A = A_omega + A_omega_C
                 A = np.where(Omega, A_omega, A_omega_C)
             else:
                 A = utils.soft_thresholding(proj_D - X, lam)
@@ -241,8 +233,6 @@ class TemporalRPCA(RPCA):
             tol = max([Xc, Ac, Lc, Qc])
             errors[iteration] = tol
             if tol < self.tol:
-                if self.verbose:
-                    print(f"Converged in {iteration} iterations with error: {tol}")
                 break
 
         X = L @ Q.T
@@ -253,14 +243,14 @@ class TemporalRPCA(RPCA):
     
         return M, A, U, V, errors
 
-    def get_params(self) -> dict:
-        dict_params = super().get_params()
-        dict_params["tau"] = self.tau
-        dict_params["lam"] = self.lam
-        dict_params["list_periods"] = self.list_periods
-        dict_params["list_etas"] = self.list_etas
-        dict_params["norm"] = self.norm
-        return dict_params
+    # def get_params(self) -> dict:
+    #     dict_params = super().get_params()
+    #     dict_params["tau"] = self.tau
+    #     dict_params["lam"] = self.lam
+    #     dict_params["list_periods"] = self.list_periods
+    #     dict_params["list_etas"] = self.list_etas
+    #     dict_params["norm"] = self.norm
+    #     return dict_params
 
     def get_params_scale(self, D: NDArray) -> dict:
         rank = utils.approx_rank(D)
@@ -272,27 +262,27 @@ class TemporalRPCA(RPCA):
             "lam": lam,
         }
 
-    def set_params(self, **kargs):
-        _ = super().set_params(**kargs)
+    # def set_params(self, **kargs):
+    #     _ = super().set_params(**kargs)
 
-        for key, value in kargs.items():
-            setattr(self, key, value)
+    #     for key, value in kargs.items():
+    #         setattr(self, key, value)
 
-        list_periods = []
-        list_etas = []
+    #     list_periods = []
+    #     list_etas = []
 
-        for key, value in kargs.items():
-            if "period" in key:
-                index_period = int(key[7:])
-                if f"eta_{index_period}" in kargs.keys():
-                    list_periods.append(value)
-                    list_etas.append(kargs[f"eta_{index_period}"])
-                else:
-                    raise ValueError(f"No etas' index correspond to {key}")
+    #     for key, value in kargs.items():
+    #         if "period" in key:
+    #             index_period = int(key[7:])
+    #             if f"eta_{index_period}" in kargs.keys():
+    #                 list_periods.append(value)
+    #                 list_etas.append(kargs[f"eta_{index_period}"])
+    #             else:
+    #                 raise ValueError(f"No etas' index correspond to {key}")
 
-        self.list_periods = list_periods
-        self.list_etas = list_etas
-        return self
+    #     self.list_periods = list_periods
+    #     self.list_etas = list_etas
+    #     return self
 
     def fit_transform(
         self,
