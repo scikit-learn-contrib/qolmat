@@ -41,10 +41,7 @@ class RPCA(BaseEstimator, TransformerMixin):
         self.tol = tol
         self.verbose = verbose
 
-    def _prepare_data(
-        self,
-        X: NDArray
-    ) -> Tuple[NDArray, int, int]:
+    def _prepare_data(self, X: NDArray) -> Tuple[NDArray, int, int]:
         """
         Transform signal to 2D-array in case of 1D-array.
         """
@@ -55,7 +52,7 @@ class RPCA(BaseEstimator, TransformerMixin):
             D_init = utils.fold_signal(X, self.n_rows)
         else:
             D_init = X.copy()
-        
+
         return D_init
 
     def get_params(self) -> dict[str, Union[int, bool]]:
@@ -75,7 +72,6 @@ class RPCA(BaseEstimator, TransformerMixin):
             else:
                 raise ValueError(
                     f"{key} is not a parameter of {type(self).__name__}",
-                    f"It is not one of {', '.join(self.__dict__.keys())}"
-                    )
+                    f"It is not one of {', '.join(self.__dict__.keys())}",
+                )
         return self
-    

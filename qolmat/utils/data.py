@@ -71,11 +71,18 @@ def preprocess_data(df: pd.DataFrame):
     df.sort_index(inplace=True)
     dict_agg = {key: np.mean for key in df.columns}
     dict_agg["RAIN"] = np.mean
-    df = df.groupby(["station", df.index.get_level_values("datetime").floor("d")], group_keys=False).agg(dict_agg)
+    df = df.groupby(
+        ["station", df.index.get_level_values("datetime").floor("d")], group_keys=False
+    ).agg(dict_agg)
     return df
 
 
-def add_holes(X: pd.DataFrame, ratio_masked: float, mean_size: int, groups: List[str] = []):
+def add_holes(
+    X: pd.DataFrame,
+    ratio_masked: float,
+    mean_size: int,
+    groups: List[str] = [],
+):
     """
     Creates holes in a dataset with no missing value. Only used in the documentation to design
     examples.
