@@ -1,12 +1,35 @@
+---
+jupyter:
+  jupytext:
+    text_representation:
+      extension: .md
+      format_name: markdown
+      format_version: '1.3'
+      jupytext_version: 1.14.0
+  kernelspec:
+    display_name: Python 3.9.6 64-bit
+    language: python
+    name: python3
+---
+
+```python
+%reload_ext autoreload
+%autoreload 2
 
 import numpy as np
 import timesynth as ts # package for generating time series
 
 import matplotlib.pyplot as plt
-
-from qolmat.utils import plot
+import sys
+sys.path.append("../")
+from qolmat.imputations.rpca.utils import drawing, utils
 from qolmat.imputations.rpca.pcp_rpca import PcpRPCA
 from qolmat.imputations.rpca.temporal_rpca import TemporalRPCA, OnlineTemporalRPCA
+```
+
+**Generate synthetic data**
+
+```python
 np.random.seed(402)
 
 ################################################################################
@@ -45,11 +68,35 @@ samples += samples2
 signals += signals2
 errors += errors2
 
+################################################################################
 
+fig, ax = plt.subplots(4, 1, sharex=True, figsize=(12,6))
+ax[0].plot(range(n), signals, c="darkblue")
+ax[0].set_title("Low-rank signal", fontsize=15)
+ax[1].plot(range(n), errors, c="darkgreen")
+ax[1].set_title("Noise", fontsize=15)
+ax[2].plot(range(n), samples-signals-errors, c="tab:red")
+ax[2].set_title("Corruptions", fontsize=15)
+ax[3].plot(range(n), samples, c="k")
+ax[3].set_title("Corrupted signal", fontsize=15)
+ax[3].set_xlabel("Time", fontsize=16)
+plt.tight_layout()
+plt.show()
+```
 
-online_temp_rpca = OnlineTemporalRPCA(n_rows=25, tau=1, lam=0.3, list_periods=[20], list_etas=[0.01],
-                       burnin=0.2, online_list_etas=[0.3], nwin=20)
-X, A = online_temp_rpca.fit_transform(X=samples)
-plot.plot_sig
-nal([samples, X, A], style="matplotlib")
-len(samples)
+**RPCA**
+
+```python
+%%time
+
+pcp_rpca = PcpRPCA(n_rows=25)
+X, A, errors = pcp_rpca.fit_transform(signal=samples)
+drawing.plot_signal([samples, X, A], style="matplotlib")
+```
+
+```python
+temporal_rpca = TemporalRPCA(n_rows=25, tau=2, lam=0.3, list_periods=[20], list_etas=[0.01], norm="L2")
+X, A, errors =  temporal_rpca.fit_transform(signal=samples)
+drawing.plot_signal([samples, X, A], style="matplotlib")
+```
+

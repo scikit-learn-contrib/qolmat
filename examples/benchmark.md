@@ -6,7 +6,7 @@ jupyter:
       extension: .md
       format_name: markdown
       format_version: '1.3'
-      jupytext_version: 1.14.1
+      jupytext_version: 1.14.4
   kernelspec:
     display_name: env_qolmat
     language: python
@@ -59,21 +59,11 @@ from qolmat.utils import data, utils, plot
 ### **I. Load data**
 <!-- #endregion -->
 
-The data used in this example is the Beijing Multi-Site Air-Quality Data Set. It consists in hourly air pollutants data from 12 chinese nationally-controlled air-quality monitoring sites and is available at https://archive.ics.uci.edu/ml/machine-learning-databases/00501/.
+The dataset `Beijing` is the Beijing Multi-Site Air-Quality Data Set. It consists in hourly air pollutants data from 12 chinese nationally-controlled air-quality monitoring sites and is available at https://archive.ics.uci.edu/ml/machine-learning-databases/00501/.
 This dataset only contains numerical vairables.
 
-
-df = pd.read_csv("/Users/hlbotterman/Downloads/m5-daily-sales.csv")
-df.head()
-df["Date"] = pd.to_datetime(df["Date"])
-df = df.rename(columns={"Date": "datetime"})
-df.set_index("datetime", inplace = True)
-df["Sales"] = df['Sales'].astype(float)
-cols_to_impute = ["Sales"]
-
 ```python
-download = True
-df_data = data.get_data_corrupted(download=download, ratio_masked=.2, mean_size=120 , groups=["station"])
+df_data = data.get_data_corrupted("Beijing", ratio_masked=.2, mean_size=120)
 
 # cols_to_impute = ["TEMP", "PRES", "DEWP", "NO2", "CO", "O3", "WSPM"]
 # cols_to_impute = df_data.columns[df_data.isna().any()]
@@ -81,9 +71,20 @@ cols_to_impute = ["TEMP", "PRES"]
 
 ```
 
+The dataset `Artificial` is designed to have a sum of a periodical signal, a white noise and some outliers.
+
+```python
+# df_data = data.get_data_corrupted("Artificial", ratio_masked=.2, mean_size=10)
+# cols_to_impute = ["signal"]
+```
+
 Let's take a look at variables to impute. We only consider a station, Aotizhongxin.
 Time series display seasonalities (roughly 12 months).
 
+```python
+imputer = imputers.ImputerRPCA(groups=["station"], method="temporal", columnwise=True, period=20, max_iter=1000)
+df = imputer.fit_transform(df_data)
+```
 
 ### **II. Imputation methods**
 
@@ -114,11 +115,10 @@ imputer_spline = imputers.ImputerInterpolation(groups=["station"], method="splin
 imputer_shuffle = imputers.ImputerShuffle(groups=["station"])
 imputer_residuals = imputers.ImputerResiduals(groups=["station"], period=7, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
 
-# imputer_rpca = imputers.ImputerRPCA(groups=["station"], method="temporal", columnwise=False, n_rows=7*4, max_iter=1000, tau=1, lam=0.7)
-dict_tau = {"TEMP": 1, "PRES": 1.1}
-dict_lam = {"TEMP": 0.7, "PRES": 0.8}
-imputer_rpca = imputers.ImputerRPCA(groups=["station"], method="temporal", columnwise=True, period=365, max_iter=1000, tau=dict_tau, lam=dict_lam)
-imputer_rpca_opti = imputers.ImputerRPCA(groups=["station"], method="temporal", columnwise=True, n_rows=365, max_iter=1000)
+dict_tau = {"TEMP": 2, "PRES": 1.1}
+dict_lam = {"TEMP": 0.3, "PRES": 0.8}
+imputer_rpca = imputers.ImputerRPCA(groups=["station"], method="temporal", columnwise=True, period=20, max_iter=1000, tau=2, lam=.3)
+imputer_rpca_opti = imputers.ImputerRPCA(groups=["station"], method="temporal", columnwise=True, period=20, max_iter=1000)
 
 imputer_ou = imputers.ImputeEM(groups=["station"], method="multinormal", max_iter_em=34, n_iter_ou=15, strategy="ou")
 imputer_tsou = imputers.ImputeEM(groups=["station"], method="VAR1", strategy="ou", max_iter_em=34, n_iter_ou=15)
@@ -146,8 +146,8 @@ dict_imputers = {
     "OU": imputer_ou,
     "TSOU": imputer_tsou,
     "TSMLE": imputer_tsmle,
-    "RPCA": imputer_rpca,
-    # "RPCA_opti": imputer_rpca_opti,
+    "RPCA": imputer_rpca_opti,
+    "RPCA_opti": imputer_rpca_opti,
     # "locf": imputer_locf,
     # "nocb": imputer_nocb,
     # "knn": imputer_knn,
@@ -156,16 +156,23 @@ dict_imputers = {
 n_imputers = len(dict_imputers)
 
 
+# search_params = {
+#     "RPCA_opti": {
+#         "lam": {
+#             "TEMP": {"min": .1, "max": 10, "type":"Real"},
+#             "PRES": {"min": .1, "max": 10, "type":"Real"}
+#         },
+#         "tau": {
+#             "TEMP": {"min": .1, "max": 10, "type":"Real"},
+#             "PRES": {"min": .1, "max": 10, "type":"Real"}
+#         }
+#     }
+# }
+
 search_params = {
     "RPCA_opti": {
-        "lam": {
-            "TEMP": {"min": .1, "max": 10, "type":"Real"},
-            "PRES": {"min": .1, "max": 10, "type":"Real"}
-        },
-        "tau": {
-            "TEMP": {"min": .1, "max": 10, "type":"Real"},
-            "PRES": {"min": .1, "max": 10, "type":"Real"}
-        }
+        "tau": {"min": .5, "max": 5, "type":"Real"},
+        "lam": {"min": .1, "max": 1, "type":"Real"},
     }
 }
 
@@ -209,7 +216,8 @@ results
 
 ```python
 fig = plt.figure(figsize=(24, 4))
-plot.multibar(results.loc["mae"])
+plot.multibar(results.loc["mae"], decimals=1)
+plt.ylabel("mae")
 plt.show()
 ```
 
@@ -219,7 +227,7 @@ plt.show()
 We now run just one time each algorithm on the initial corrupted dataframe and compare the different performances through multiple analysis.
 
 ```python
-df_plot = df_data[["TEMP", "PRES"]]
+df_plot = df_data[cols_to_impute]
 ```
 
 ```python
@@ -227,7 +235,12 @@ dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_imputers.i
 ```
 
 ```python
-station = "Aotizhongxin"
+df_station
+```
+
+```python
+# station = "Aotizhongxin"
+station = df_plot.index.get_level_values("station")[0]
 df_station = df_plot.loc[station]
 dfs_imputed_station = {name: df_plot.loc[station] for name, df_plot in dfs_imputed.items()}
 ```
@@ -286,12 +299,13 @@ for name_imputer in dict_imputers:
         values_imp[values_orig.notna()] = np.nan
         plt.plot(values_imp, ".", color=tab10(0), label=name_imputer, alpha=1)
         plt.ylabel(col, fontsize=16)
-        if i_plot % 2 == 0:
+        if i_plot % n_columns == 0:
             plt.legend(loc=[1, 0], fontsize=18)
         loc = plticker.MultipleLocator(base=2*365)
         ax.xaxis.set_major_locator(loc)
         ax.tick_params(axis='both', which='major', labelsize=17)
         i_plot += 1
+        plt.xlim(0, 100)
 plt.savefig("figures/imputations_benchmark.png")
 plt.show()
 
@@ -310,7 +324,6 @@ for i_model, model in enumerate(dict_imputers.keys()):
     for i in range(len(cols_to_impute)-1):
         plot.compare_covariances(df_station, df_imp, cols_to_impute[i], cols_to_impute[i+1], axs, color=tab10(i_model))
         axs.set_title(f"imputation method: {model}", fontsize=20)
-        sns.despine()
     plt.show()
 ```
 

@@ -1,12 +1,10 @@
 import sys
-import warnings
-from typing import Callable, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import sklearn.neighbors._base
 
 sys.modules["sklearn.neighbors.base"] = sklearn.neighbors._base
 
-from functools import partial
 
 import numpy as np
 import pandas as pd
@@ -18,7 +16,7 @@ from statsmodels.tsa import seasonal as tsa_seasonal
 from qolmat.benchmark import utils
 from qolmat.imputations import em_sampler
 from qolmat.imputations.rpca.pcp_rpca import PcpRPCA
-from qolmat.imputations.rpca.temporal_rpca import OnlineTemporalRPCA, TemporalRPCA
+from qolmat.imputations.rpca.temporal_rpca import TemporalRPCA
 
 
 class Imputer(_BaseImputer):
@@ -697,9 +695,8 @@ class ImputerRPCA(Imputer):
     ----------
     method : str
         name of the RPCA method:
-            "PCP" for basic RPCA
-            "temporal" for temporal RPCA, with regularisations
-            "online" for online RPCA
+            "PCP" for basic RPCA, bad at imputing
+            "temporal" for temporal RPCA, with possible regularisations
     columnwise : bool
         for RPCA method to be applied columnwise (with reshaping of each column into an array)
         or to be applied directly on the dataframe. By default, the value is set to False.
@@ -737,8 +734,8 @@ class ImputerRPCA(Imputer):
             model = PcpRPCA(**self.hyperparams_element)
         elif self.method == "temporal":
             model = TemporalRPCA(**self.hyperparams_element)
-        elif self.method == "onlinetemporal":
-            model = OnlineTemporalRPCA(**self.hyperparams_element)
+        else:
+            raise ValueError("Argument method must be PCP or temporal!")
             
         X_imputed = model.fit_transform(df.values)
         df_imputed = pd.DataFrame(X_imputed, index=df.index, columns=df.columns)
@@ -757,16 +754,6 @@ class ImputeEM(Imputer):
     ):
         super().__init__(groups=groups, columnwise=columnwise, hyperparams=hyperparams)
         self.method = method
-        # if method == "multinormal":
-        #     self.model = em_sampler.ImputeMultiNormalEM(
-        #         **hyperparams
-        #     )
-        # elif method == "VAR1":
-        #     self.model = em_sampler.ImputeVAR1EM(
-        #         **hyperparams
-        #     )
-        # else:
-        #     raise ValueError("Strategy '{strategy}' is not handled by ImputeEM!")
         
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         if self.method == "multinormal":
