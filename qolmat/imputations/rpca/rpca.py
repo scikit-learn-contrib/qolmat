@@ -39,10 +39,7 @@ class RPCA(BaseEstimator, TransformerMixin):
         self.max_iter = max_iter
         self.tol = tol
 
-    def _prepare_data(
-        self,
-        X: NDArray
-    ) -> Tuple[NDArray, int, int]:
+    def _prepare_data(self, X: NDArray) -> Tuple[NDArray, int, int]:
         """
         Transform signal to 2D-array in case of 1D-array.
         """
@@ -53,27 +50,5 @@ class RPCA(BaseEstimator, TransformerMixin):
             D_init = utils.fold_signal(X, self.n_rows)
         else:
             D_init = X.copy()
-        
+
         return D_init
-
-    # def get_params(self) -> dict[str, Union[int, bool]]:
-    #     """Return the attributes"""
-    #     return {
-    #         "n_rows": self.n_rows,
-    #         "max_iter": self.max_iter,
-    #         "tol": self.tol,
-    #         "verbose": self.verbose,
-    #     }
-
-    # def set_params(self, **kargs) -> RPCA:
-    #     """Set the attributes"""
-    #     for key, value in kargs.items():
-    #         if key in self.__dict__.keys():
-    #             setattr(self, key, value)
-    #         else:
-    #             raise ValueError(
-    #                 f"{key} is not a parameter of {type(self).__name__}",
-    #                 f"It is not one of {', '.join(self.__dict__.keys())}"
-    #                 )
-    #     return self
-    

@@ -114,7 +114,7 @@ class RPCANoisy(RPCA):
                 a=((1 + mu) * In + 2 * HHT).T,
                 b=(proj_D - A + mu * L @ Q.T - Y + sums).T,
             ).T
-            
+
             if np.any(np.isnan(proj_D)):
                 A_omega = utils.soft_thresholding(proj_D - X, lam)
                 # A_omega = utils.ortho_proj(A_omega, omega, inverse=False)
@@ -203,7 +203,7 @@ class RPCANoisy(RPCA):
                 a=((1 + mu) * In + HHT).T,
                 b=(proj_D - A + mu * L @ Q.T - Y).T,
             ).T
-            
+
             if np.any(~Omega):
                 A_omega = utils.soft_thresholding(proj_D - X, lam)
                 A_omega_C = proj_D - X
@@ -215,12 +215,12 @@ class RPCANoisy(RPCA):
                 a=(tau * Ir + mu * (Q.T @ Q)).T,
                 b=((mu * X + Y) @ Q).T,
             ).T
-            
+
             Q = scp.linalg.solve(
                 a=(tau * Ir + mu * (L.T @ L)).T,
                 b=((mu * X.T + Y.T) @ L).T,
             ).T
-            
+
             Y += mu * (X - L @ Q.T)
 
             mu = min(mu * rho, mu_bar)
@@ -240,7 +240,7 @@ class RPCANoisy(RPCA):
         M = X
         U = L
         V = Q
-    
+
         return M, A, U, V, errors
 
     # def get_params(self) -> dict:
@@ -306,7 +306,7 @@ class RPCANoisy(RPCA):
             Basis Unitary array
         V:
             Basis Unitary array
-        
+
         errors:
             Array of iterative errors
         """
@@ -325,13 +325,12 @@ class RPCANoisy(RPCA):
             M, A, U, V, errors = self.compute_L1(proj_D, omega, lam, tau, rank)
         elif self.norm == "L2":
             M, A, U, V, errors = self.compute_L2(proj_D, omega, lam, tau, rank)
-        
+
         if X.shape[0] == 1:
-            M = M.reshape(1, -1)[:, :X.size]
-            A = A.reshape(1, -1)[:, :X.size]
+            M = M.reshape(1, -1)[:, : X.size]
+            A = A.reshape(1, -1)[:, : X.size]
         M = M.T
         A = A.T
 
-        # return M, A, U, V, errors    
+        # return M, A, U, V, errors
         return M
-    

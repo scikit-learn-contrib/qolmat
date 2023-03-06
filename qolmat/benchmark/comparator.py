@@ -36,7 +36,6 @@ class Comparator:
         search_params: Optional[Dict[str, Dict[str, Union[float, int, str]]]] = {},
         n_calls_opt: Optional[int] = 10,
     ):
-
         self.dict_models = dict_models
         self.selected_columns = selected_columns
         self.generator_holes = generator_holes
@@ -146,7 +145,7 @@ class Comparator:
             print(f"Tested model: {type(imputer).__name__}")
 
             search_params = self.search_params.get(name, {})
-            
+
             # if imputer.columnwise:
             #     if len(self.selected_columns) > 0:
             #         search_params = {}

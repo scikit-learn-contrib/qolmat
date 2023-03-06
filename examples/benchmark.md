@@ -253,7 +253,7 @@ fig = plt.figure(figsize=(8 * n_columns, 6 * n_imputers))
 i_plot = 1
 for name_imputer in dict_imputers:
     for col in df_plot:
-    
+
         fig.add_subplot(n_imputers, n_columns, i_plot)
         values_orig = df_station[col]
 

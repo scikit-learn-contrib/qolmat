@@ -11,7 +11,7 @@ import pandas as pd
 from qolmat.benchmark import missing_patterns
 
 
-def get_data(name_data = "Beijing", datapath: str = "data/", download: Optional[bool] = True):
+def get_data(name_data="Beijing", datapath: str = "data/", download: Optional[bool] = True):
     """Download or generate data
 
     Parameters
@@ -35,7 +35,6 @@ def get_data(name_data = "Beijing", datapath: str = "data/", download: Optional[
         if not os.path.exists(path_zip + ".zip"):
             urllib.request.urlretrieve(urllink + zipname + ".zip", path_zip + ".zip")
 
-        
         with zipfile.ZipFile(path_zip + ".zip", "r") as zip_ref:
             zip_ref.extractall(path_zip)
         data_folder = os.listdir(path_zip)
@@ -46,22 +45,26 @@ def get_data(name_data = "Beijing", datapath: str = "data/", download: Optional[
         df = pd.concat(list_df)
         return df
     elif name_data == "Artificial":
-    
+
         city = "Wonderland"
         n_samples = 1000
         p1 = 100
         p2 = 20
-        amplitude_A = .5
-        freq_A = .05
-        amplitude_E = .1
+        amplitude_A = 0.5
+        freq_A = 0.05
+        amplitude_E = 0.1
 
         mesh = np.arange(n_samples)
 
         X_true = 1 + np.sin(2 * pi * mesh / p1) + np.sin(2 * pi * mesh / p2)
-        
+
         noise = np.random.uniform(size=n_samples)
-        A_true = amplitude_A * np.where(noise < freq_A, -np.log(noise), 0) * (2 * (np.random.uniform(size=n_samples) > .5) - 1)
-        
+        A_true = (
+            amplitude_A
+            * np.where(noise < freq_A, -np.log(noise), 0)
+            * (2 * (np.random.uniform(size=n_samples) > 0.5) - 1)
+        )
+
         E_true = amplitude_E * np.random.normal(size=n_samples)
 
         signal = X_true + E_true
@@ -69,7 +72,7 @@ def get_data(name_data = "Beijing", datapath: str = "data/", download: Optional[
 
         df = pd.DataFrame({"signal": signal, "index": range(n_samples), "station": city})
         df.set_index(["station", "index"], inplace=True)
-        
+
         df["X"] = X_true
         df["A"] = A_true
         df["E"] = E_true
@@ -97,7 +100,9 @@ def preprocess_data(df: pd.DataFrame):
     df.sort_index(inplace=True)
     dict_agg = {key: np.mean for key in df.columns}
     dict_agg["RAIN"] = np.mean
-    df = df.groupby(["station", df.index.get_level_values("datetime").floor("d")], group_keys=False).agg(dict_agg)
+    df = df.groupby(
+        ["station", df.index.get_level_values("datetime").floor("d")], group_keys=False
+    ).agg(dict_agg)
     return df
 
 
@@ -142,7 +147,7 @@ def add_holes(X: pd.DataFrame, ratio_masked: float, mean_size: int):
 
 
 def get_data_corrupted(
-    name_data:str="Beijing",
+    name_data: str = "Beijing",
     mean_size: int = 90,
     ratio_masked: float = 0.2,
 ):

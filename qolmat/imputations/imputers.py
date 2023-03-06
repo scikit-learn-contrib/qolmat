@@ -20,13 +20,12 @@ from qolmat.imputations.rpca.rpca_pcp import RPCAPCP
 
 
 class Imputer(_BaseImputer):
-    def __init__(self, groups: List[str]=[], columnwise: bool=False, hyperparams: Dict={}):
+    def __init__(self, groups: List[str] = [], columnwise: bool = False, hyperparams: Dict = {}):
         self.hyperparams_user = hyperparams
         self.hyperparams_optim = {}
         self.hyperparams_local = {}
         self.groups = groups
         self.columnwise = columnwise
-
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -44,7 +43,7 @@ class Imputer(_BaseImputer):
         """
         if not isinstance(df, pd.DataFrame):
             raise ValueError("Input has to be a pandas.DataFrame.")
-        
+
         hyperparams = self.hyperparams_user.copy()
         hyperparams.update(self.hyperparams_optim)
         cols_with_nans = df.columns[df.isna().any()]
@@ -68,13 +67,11 @@ class Imputer(_BaseImputer):
 
         if df_imputed.isna().any().any():
             raise AssertionError("Result of imputation contains NaN!")
-            
+
         return df_imputed
-    
 
     def fit_transform_fallback(self, df: pd.DataFrame) -> pd.DataFrame:
         return df.fillna("median")
-    
 
     def impute_element(self, df: pd.DataFrame) -> pd.DataFrame:
         if not isinstance(df, pd.DataFrame):
@@ -92,9 +89,9 @@ class Imputer(_BaseImputer):
         # if df.isna().any().any():
         #     imputation_values = self.fit_transform_fallback(df)
         #     df = df.fillna(imputation_values)
-                    
+
         return df
-        
+
 
 class ImputerMean(Imputer):
     """
@@ -119,7 +116,7 @@ class ImputerMean(Imputer):
     ) -> None:
         super().__init__(groups=groups, columnwise=True)
         self.fit_transform_element = pd.DataFrame.mean
-    
+
 
 class ImputerMedian(Imputer):
     """
@@ -163,16 +160,13 @@ class ImputerMode(Imputer):
     >>> imputor.fit_transform(df)
     """
 
-    
-
     def __init__(
         self,
         groups: Optional[List[str]] = [],
     ) -> None:
-        super().__init__(
-            groups=groups, columnwise=True
-        )
+        super().__init__(groups=groups, columnwise=True)
         self.fit_transform_element = lambda df: df.mode().iloc[0]
+
 
 class ImputerShuffle(Imputer):
     """
@@ -195,10 +189,7 @@ class ImputerShuffle(Imputer):
         self,
         groups: Optional[List[str]] = [],
     ) -> None:
-        super().__init__(
-            groups=groups,
-            columnwise=True
-        )
+        super().__init__(groups=groups, columnwise=True)
 
     def fit_transform_element(self, df):
         n_missing = df.isna().sum().sum()
@@ -211,6 +202,7 @@ class ImputerShuffle(Imputer):
         values[values.isna()] = samples
         df_imputed = values.to_frame()
         return df_imputed
+
 
 class ImputerLOCF(Imputer):
     """
@@ -230,14 +222,12 @@ class ImputerLOCF(Imputer):
     >>>                         columns=["var1", "var2", "var3", "var4"])
     >>> imputor.fit_transform(df)
     """
+
     def __init__(
         self,
         groups: Optional[List[str]] = [],
     ) -> None:
-        super().__init__(
-            groups=groups,
-            columnwise=True
-        )
+        super().__init__(groups=groups, columnwise=True)
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -248,6 +238,7 @@ class ImputerLOCF(Imputer):
         for col in df:
             df_out[col] = pd.Series.shift(df[col], 1).ffill().bfill()
         return df_out
+
 
 class ImputerNOCB(Imputer):
     """
@@ -270,10 +261,7 @@ class ImputerNOCB(Imputer):
         self,
         groups: Optional[List[str]] = [],
     ) -> None:
-        super().__init__(
-            groups=groups,
-            columnwise=True
-        )
+        super().__init__(groups=groups, columnwise=True)
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -284,6 +272,7 @@ class ImputerNOCB(Imputer):
         for col in df:
             df_out[col] = pd.Series.shift(df[col], 1).bfill().ffill()
         return df_out
+
 
 class ImputerInterpolation(Imputer):
     """
@@ -315,17 +304,18 @@ class ImputerInterpolation(Imputer):
     """
 
     def __init__(
-        self, groups: Optional[List[str]] = [], method: str = "linear", order: int = None, col_time: Optional[str]=None
+        self,
+        groups: Optional[List[str]] = [],
+        method: str = "linear",
+        order: int = None,
+        col_time: Optional[str] = None,
     ) -> None:
-        super().__init__(
-            groups=groups,
-            columnwise=True
-        )
+        super().__init__(groups=groups, columnwise=True)
         self.method = method
         self.order = order
         self.col_time = col_time
 
-    def fit_transform_element(self, df:pd.DataFrame) -> pd.DataFrame:
+    def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         index = df.index
         if self.col_time is None:
             df = df.reset_index(drop=True)
@@ -335,6 +325,7 @@ class ImputerInterpolation(Imputer):
         df_imputed = df_imputed.ffill().bfill()
         df_imputed.index = index
         return df_imputed
+
 
 class ImputerResiduals(Imputer):
     """
@@ -388,21 +379,20 @@ class ImputerResiduals(Imputer):
         extrapolate_trend: Optional[Union[int, str]] = "freq",
         method_interpolation: Optional[str] = "linear",
     ):
-        super().__init__(
-            groups=groups,
-            columnwise=True
-        )
-        self.model_tsa=model_tsa
-        self.period=period
-        self.extrapolate_trend=extrapolate_trend
-        self.method_interpolation=method_interpolation
+        super().__init__(groups=groups, columnwise=True)
+        self.model_tsa = model_tsa
+        self.period = period
+        self.extrapolate_trend = extrapolate_trend
+        self.method_interpolation = method_interpolation
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Fit/transform missing values on residuals.
         """
         if len(df.columns) != 1:
-            raise AssertionError("Function ImputerResiduals.fit_transform_element expects a dataframe df with one column")
+            raise AssertionError(
+                "Function ImputerResiduals.fit_transform_element expects a dataframe df with one column"
+            )
         name = df.columns[0]
         df = df[name]
         if df.isna().all():
@@ -473,7 +463,9 @@ class ImputerKNN(Imputer):
             raise ValueError("Input has to be a pandas.DataFrame.")
 
         imputer = KNNImputer(
-            n_neighbors=self.n_neighbors, weights=self.weights, metric="nan_euclidean"
+            n_neighbors=self.n_neighbors,
+            weights=self.weights,
+            metric="nan_euclidean",
         )
         results = imputer.fit_transform(df)
         return pd.DataFrame(data=results, columns=df.columns, index=df.index)
@@ -570,7 +562,7 @@ class ImputerRegressor(Imputer):
     >>> imputor.fit_transform(df)
     """
 
-    def __init__(self, type_model, fit_on_nan:bool=False, **hyperparams):
+    def __init__(self, type_model, fit_on_nan: bool = False, **hyperparams):
         super().__init__(hyperparams=hyperparams)
         self.columnwise = False
         self.type_model = type_model
@@ -595,7 +587,7 @@ class ImputerRegressor(Imputer):
 
         cols_with_nans = df.columns[df.isna().any()]
         cols_without_nans = df.columns[df.notna().all()]
-            
+
         for col in cols_with_nans:
             hyperparams = {}
             for hyperparam, value in self.hyperparams.items():
@@ -700,12 +692,12 @@ class ImputerRPCA(Imputer):
         method: str = "noisy",
         groups: List[str] = [],
         columnwise: bool = False,
-        **hyperparams
-        ) -> None:
+        **hyperparams,
+    ) -> None:
         super().__init__(groups=groups, columnwise=columnwise, hyperparams=hyperparams)
-        
+
         self.method = method
-        
+
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Fit/transform to impute with RPCA methods
@@ -729,7 +721,7 @@ class ImputerRPCA(Imputer):
             model = RPCANoisy(**self.hyperparams_element)
         else:
             raise ValueError("Argument method must be `PCP` or `noisy`!")
-            
+
         X_imputed = model.fit_transform(df.values)
         df_imputed = pd.DataFrame(X_imputed, index=df.index, columns=df.columns)
 
@@ -739,24 +731,19 @@ class ImputerRPCA(Imputer):
 class ImputeEM(Imputer):
     def __init__(
         self,
-        groups: List[str]=[],
+        groups: List[str] = [],
         method: Optional[str] = "multinormal",
-        columnwise: bool=False,
-        **hyperparams
-
+        columnwise: bool = False,
+        **hyperparams,
     ):
         super().__init__(groups=groups, columnwise=columnwise, hyperparams=hyperparams)
         self.method = method
-        
+
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         if self.method == "multinormal":
-            model = em_sampler.MultiNormalEM(
-                **self.hyperparams_element
-            )
+            model = em_sampler.MultiNormalEM(**self.hyperparams_element)
         elif self.method == "VAR1":
-            model = em_sampler.VAR1EM(
-                **self.hyperparams_element
-            )
+            model = em_sampler.VAR1EM(**self.hyperparams_element)
         else:
             raise ValueError("Strategy '{strategy}' is not handled by ImputeEM!")
         X = df.values

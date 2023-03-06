@@ -23,12 +23,12 @@ EPS = np.finfo(float).eps
 
 
 def get_dimension(dict_bounds: Dict, name_dimension: str) -> Dimension:
-        if dict_bounds["type"] == "Integer":
-            return Integer(low=dict_bounds["min"], high=dict_bounds["max"], name=name_dimension)
-        elif dict_bounds["type"] == "Real":
-            return Real(low=dict_bounds["min"], high=dict_bounds["max"], name=name_dimension)
-        elif dict_bounds["type"] == "Categorical":
-            return Categorical(categories=dict_bounds["categories"], name=name_dimension)
+    if dict_bounds["type"] == "Integer":
+        return Integer(low=dict_bounds["min"], high=dict_bounds["max"], name=name_dimension)
+    elif dict_bounds["type"] == "Real":
+        return Real(low=dict_bounds["min"], high=dict_bounds["max"], name=name_dimension)
+    elif dict_bounds["type"] == "Categorical":
+        return Categorical(categories=dict_bounds["categories"], name=name_dimension)
 
 
 def get_search_space(search_params: Dict) -> List[Dimension]:
@@ -187,10 +187,7 @@ def wasser_distance(
     wasserstein distances : pd.Series
     """
     cols = df1.columns.tolist()
-    wd = [
-        scipy.stats.wasserstein_distance(df1[col].dropna(), df2[col].dropna())
-        for col in cols
-    ]
+    wd = [scipy.stats.wasserstein_distance(df1[col].dropna(), df2[col].dropna()) for col in cols]
     return pd.Series(wd, index=cols)
 
 
