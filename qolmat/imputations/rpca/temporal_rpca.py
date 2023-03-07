@@ -71,7 +71,7 @@ class TemporalRPCA(RPCA):
         self.list_etas = list_etas
         self.norm = norm
 
-    def compute_L1(self, proj_D, omega, lam, tau, rank) -> None:
+    def compute_L1(self, proj_D, omega, lam, tau, rank) -> Tuple:
         """
         compute RPCA with possible temporal regularisations, penalised with L1 norm
         """
@@ -156,8 +156,8 @@ class TemporalRPCA(RPCA):
             Qc = np.linalg.norm(Q - Q_temp, np.inf)
             Rc = -1
             for index, _ in enumerate(self.list_periods):
-                Rc = max(Rc, np.linalg.norm(R[index] - R_temp[index], np.inf))
-            tol = max([Xc, Ac, Lc, Qc, Rc])
+                Rc = np.maximum(Rc, np.linalg.norm(R[index] - R_temp[index], np.inf))
+            tol = np.amax(np.array([Xc, Ac, Lc, Qc, Rc]))
             errors[iteration] = tol
 
             if tol < self.tol:
@@ -169,7 +169,7 @@ class TemporalRPCA(RPCA):
         V = Q
         return M, A, U, V, errors
 
-    def compute_L2(self, proj_D, omega, lam, tau, rank) -> None:
+    def compute_L2(self, proj_D, omega, lam, tau, rank) -> Tuple:
         """
         compute RPCA with possible temporal regularisations, penalised with L2 norm
         """
@@ -393,11 +393,11 @@ class OnlineTemporalRPCA(TemporalRPCA):
         rank: Optional[int] = None,
         tau: Optional[float] = None,
         lam: Optional[float] = None,
-        list_periods: Optional[List[int]] = [],
-        list_etas: Optional[List[float]] = [],
-        max_iter: Optional[int] = int(1e4),
-        tol: Optional[float] = 1e-6,
-        verbose: Optional[bool] = False,
+        list_periods: List[int] = [],
+        list_etas: List[float] = [],
+        max_iter: int = int(1e4),
+        tol: float = 1e-6,
+        verbose: bool = False,
         burnin: Optional[float] = 0,
         nwin: Optional[float] = 0,
         online_tau: Optional[float] = None,

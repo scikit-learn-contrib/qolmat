@@ -374,7 +374,7 @@ class ImputerResiduals(Imputer):
     def __init__(
         self,
         groups: List[str] = [],
-        period: int = None,
+        period: Optional[int] = None,
         model_tsa: Optional[str] = "additive",
         extrapolate_trend: Optional[Union[int, str]] = "freq",
         method_interpolation: Optional[str] = "linear",
