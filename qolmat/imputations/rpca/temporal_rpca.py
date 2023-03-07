@@ -58,9 +58,9 @@ class TemporalRPCA(RPCA):
         lam: Optional[float] = None,
         list_periods: List[int] = [],
         list_etas: List[float] = [],
-        max_iter: Optional[int] = int(1e4),
-        tol: Optional[float] = 1e-6,
-        verbose: Optional[bool] = False,
+        max_iter: int = int(1e4),
+        tol: float = 1e-6,
+        verbose: bool = False,
         norm: Optional[str] = "L2",
     ) -> None:
         super().__init__(period=period, max_iter=max_iter, tol=tol, verbose=verbose)

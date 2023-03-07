@@ -1,6 +1,6 @@
 import sys
 import warnings
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Union, Any
 
 import sklearn.neighbors._base
 
@@ -24,8 +24,8 @@ from qolmat.imputations.rpca.temporal_rpca import OnlineTemporalRPCA, TemporalRP
 class Imputer(_BaseImputer):
     def __init__(self, groups: List[str] = [], columnwise: bool = False, hyperparams: Dict = {}):
         self.hyperparams_user = hyperparams
-        self.hyperparams_optim = {}
-        self.hyperparams_local = {}
+        self.hyperparams_optim: Dict = {}
+        self.hyperparams_local: Dict = {}
         self.groups = groups
         self.columnwise = columnwise
 
@@ -114,7 +114,7 @@ class ImputerMean(Imputer):
 
     def __init__(
         self,
-        groups: Optional[List[str]] = [],
+        groups: List[str] = [],
     ) -> None:
         super().__init__(groups=groups, columnwise=True)
         self.fit_transform_element = pd.DataFrame.mean
@@ -139,7 +139,7 @@ class ImputerMedian(Imputer):
 
     def __init__(
         self,
-        groups: Optional[List[str]] = [],
+        groups: List[str] = [],
     ) -> None:
         super().__init__(groups=groups, columnwise=True)
         self.fit_transform_element = pd.DataFrame.median
@@ -164,7 +164,7 @@ class ImputerMode(Imputer):
 
     def __init__(
         self,
-        groups: Optional[List[str]] = [],
+        groups: List[str] = [],
     ) -> None:
         super().__init__(groups=groups, columnwise=True)
         self.fit_transform_element = lambda df: df.mode().iloc[0]
@@ -189,7 +189,7 @@ class ImputerShuffle(Imputer):
 
     def __init__(
         self,
-        groups: Optional[List[str]] = [],
+        groups: List[str] = [],
     ) -> None:
         super().__init__(groups=groups, columnwise=True)
 
@@ -227,7 +227,7 @@ class ImputerLOCF(Imputer):
 
     def __init__(
         self,
-        groups: Optional[List[str]] = [],
+        groups: List[str] = [],
     ) -> None:
         super().__init__(groups=groups, columnwise=True)
 
@@ -261,7 +261,7 @@ class ImputerNOCB(Imputer):
 
     def __init__(
         self,
-        groups: Optional[List[str]] = [],
+        groups: List[str] = [],
     ) -> None:
         super().__init__(groups=groups, columnwise=True)
 
@@ -307,9 +307,9 @@ class ImputerInterpolation(Imputer):
 
     def __init__(
         self,
-        groups: Optional[List[str]] = [],
+        groups: List[str] = [],
         method: str = "linear",
-        order: int = None,
+        order: int = 1,
         col_time: Optional[str] = None,
     ) -> None:
         super().__init__(groups=groups, columnwise=True)
@@ -375,7 +375,7 @@ class ImputerResiduals(Imputer):
 
     def __init__(
         self,
-        groups: Optional[List[str]] = [],
+        groups: List[str] = [],
         period: int = None,
         model_tsa: Optional[str] = "additive",
         extrapolate_trend: Optional[Union[int, str]] = "freq",
@@ -598,13 +598,12 @@ class ImputerRegressor(Imputer):
             self.cols_to_impute = list(set(self.cols_to_impute) & set(cols_with_nans))
 
         for col in self.cols_to_impute:
-            hyperparams = {}
-            for hyperparam, value in hyperparams.items():
+            for hyperparam, value in self.hyperparams.items():
                 if isinstance(value, dict):
                     value = value[col]
-                hyperparams[hyperparam] = value
+                self.hyperparams[hyperparam] = value
 
-            model = self.type_model(**hyperparams)
+            model = self.type_model(**self.hyperparams)
 
             if self.fit_on_nan:
                 X = df.drop(columns=col)

@@ -35,7 +35,7 @@ def get_period(
     ts = pd.Series(signal)
     max_period = len(ts) // 3 if max_period is None else max_period
     acf = [round(ts.autocorr(lag=lag), 2) for lag in range(1, max_period + 1)]
-    return np.argmax(acf) + 1
+    return int(np.argmax(acf) + 1)
 
 
 def fold_signal(X: NDArray, n_rows: int) -> Tuple[NDArray, int]:
@@ -486,5 +486,5 @@ def update_col(lam: float, U: NDArray, A: NDArray, B: NDArray):
         uj = U[:, j]
         aj = A[:, j]
         temp = (bj - U.dot(aj)) / A[j, j] + uj
-        U[:, j] = temp / max(np.linalg.norm(temp), 1)
+        U[:, j] = temp / np.maximum(np.linalg.norm(temp), 1)
     return U

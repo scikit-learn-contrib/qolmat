@@ -55,7 +55,7 @@ class RPCA(BaseEstimator, TransformerMixin):
 
         return D_init
 
-    def get_params(self) -> dict[str, Union[int, bool]]:
+    def get_params(self) -> dict[str, Union[int, bool, float]]:
         """Return the attributes"""
         return {
             "n_rows": self.n_rows,

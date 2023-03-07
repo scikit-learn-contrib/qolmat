@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Tuple
 
 import numpy as np
 from numpy.typing import NDArray
@@ -21,7 +21,7 @@ class GraphRPCA(RPCA):
 
     Parameters
     ----------
-    n_rows : Optional[int]
+    n_rows : int
         period/seasonality of the signal
     rank : Optional[int]
         (estimated) low-rank of the matrix D
@@ -33,9 +33,9 @@ class GraphRPCA(RPCA):
         graph G1, constructed from the columns of D
     G2 : Optional[np.ndarray]
         graph G2, constructed from the rows of D
-    nbg1 : Optional[int]
+    nbg1 : int
         number of closest neighbors to construct graph G1, default=10
-    nbg2 : Optional[int]
+    nbg2 : int
         number of closest neighbors to construct graph G2, default=10
     maxIter: int, default = 1e4
         maximum number of iterations taken for the solvers to converge
@@ -53,14 +53,14 @@ class GraphRPCA(RPCA):
         gamma2: Optional[float] = None,
         G1: Optional[np.ndarray] = None,
         G2: Optional[np.ndarray] = None,
-        nbg1: Optional[int] = 10,
-        nbg2: Optional[int] = 10,
-        max_iter: Optional[int] = int(1e4),
-        tol: Optional[float] = 1e-6,
-        verbose: Optional[bool] = False,
+        nbg1: int = 10,
+        nbg2: int = 10,
+        max_iter: int = int(1e4),
+        tol: float = 1e-6,
+        verbose: bool = False,
     ) -> None:
 
-        super().__init__(n_rows=n_rows, max_iter=max_iter, tol=tol, verbose=verbose)
+        super().__init__(period=n_rows, max_iter=max_iter, tol=tol, verbose=verbose)
         self.rank = rank
         self.gamma1 = gamma1
         self.gamma2 = gamma2
@@ -69,7 +69,7 @@ class GraphRPCA(RPCA):
         self.nbg1 = nbg1
         self.nbg2 = nbg2
 
-    def fit_transform(self, X: NDArray) -> None:
+    def fit_transform(self, X: NDArray) -> Tuple:
         """Compute the RPCA on graph.
 
          Parameters
@@ -77,7 +77,7 @@ class GraphRPCA(RPCA):
         signal : NDArray
              Observations
         """
-        D_init, n_add_values, input_data = self._prepare_data(signal=X)
+        D_init, n_add_values, input_data = self._prepare_data(X)
         proj_D = utils.impute_nans(D_init, method="median")
 
         if self.rank is None:
