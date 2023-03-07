@@ -110,10 +110,7 @@ class ImputerMean(Imputer):
     >>> imputor.fit_transform(df)
     """
 
-    def __init__(
-        self,
-        groups: List[str] = [],
-    ) -> None:
+    def __init__(self, groups: List[str] = []) -> None:
         super().__init__(groups=groups, columnwise=True)
         self.fit_transform_element = pd.DataFrame.mean
 
@@ -135,10 +132,7 @@ class ImputerMedian(Imputer):
     >>> imputor.fit_transform(df)
     """
 
-    def __init__(
-        self,
-        groups: List[str] = [],
-    ) -> None:
+    def __init__(self, groups: List[str] = []) -> None:
         super().__init__(groups=groups, columnwise=True)
         self.fit_transform_element = pd.DataFrame.median
 
@@ -160,10 +154,7 @@ class ImputerMode(Imputer):
     >>> imputor.fit_transform(df)
     """
 
-    def __init__(
-        self,
-        groups: List[str] = [],
-    ) -> None:
+    def __init__(self, groups: List[str] = []) -> None:
         super().__init__(groups=groups, columnwise=True)
         self.fit_transform_element = lambda df: df.mode().iloc[0]
 
@@ -185,10 +176,7 @@ class ImputerShuffle(Imputer):
     >>> imputor.fit_transform(df)
     """
 
-    def __init__(
-        self,
-        groups: List[str] = [],
-    ) -> None:
+    def __init__(self, groups: List[str] = []) -> None:
         super().__init__(groups=groups, columnwise=True)
 
     def fit_transform_element(self, df):
@@ -257,10 +245,7 @@ class ImputerNOCB(Imputer):
     >>> imputor.fit_transform(df)
     """
 
-    def __init__(
-        self,
-        groups: List[str] = [],
-    ) -> None:
+    def __init__(self, groups: List[str] = []) -> None:
         super().__init__(groups=groups, columnwise=True)
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
