@@ -126,16 +126,14 @@ imputer_residuals = imputers.ImputerResiduals(groups=["station"], period=7, mode
 imputer_rpca = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=365, max_iter=200, tau=2, lam=.3)
 imputer_rpca_opti = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=365, max_iter=100)
 
-imputer_ou = imputers.ImputeEM(groups=["station"], method="multinormal", max_iter_em=34, n_iter_ou=15, strategy="ou")
-imputer_tsou = imputers.ImputeEM(groups=["station"], method="VAR1", strategy="ou", max_iter_em=34, n_iter_ou=15)
-imputer_tsmle = imputers.ImputeEM(groups=["station"], method="VAR1", strategy="mle", max_iter_em=34, n_iter_ou=15)
+imputer_ou = imputers.ImputerEM(groups=["station"], method="multinormal", max_iter_em=34, n_iter_ou=15, strategy="ou")
+imputer_tsou = imputers.ImputerEM(groups=["station"], method="VAR1", strategy="ou", max_iter_em=34, n_iter_ou=15)
+imputer_tsmle = imputers.ImputerEM(groups=["station"], method="VAR1", strategy="mle", max_iter_em=34, n_iter_ou=15)
 
 
 imputer_knn = imputers.ImputerKNN(groups=["station"], k=10)
 imputer_iterative = imputers.ImputerMICE(groups=["station"], estimator=LinearRegression(), sample_posterior=False, max_iter=100, missing_values=np.nan)
-impute_regressor = imputers.ImputerRegressor(
-  HistGradientBoostingRegressor(), cols_to_impute=cols_to_impute
-)
+impute_regressor = imputers.ImputerRegressor(LinearRegression, groups=["station"])
 impute_stochastic_regressor = imputers.ImputerStochasticRegressor(
   HistGradientBoostingRegressor(), cols_to_impute=cols_to_impute
 )
@@ -151,12 +149,13 @@ dict_imputers = {
     "OU": imputer_ou,
     "TSOU": imputer_tsou,
     "TSMLE": imputer_tsmle,
-    "RPCA": imputer_rpca,
+    # "RPCA": imputer_rpca,
     # "RPCA_opti": imputer_rpca_opti,
     # "locf": imputer_locf,
     # "nocb": imputer_nocb,
     # "knn": imputer_knn,
-    # "iterative": imputer_iterative,
+    "iterative": impute_regressor,
+    "regressor": imputer_iterative,
 }
 n_imputers = len(dict_imputers)
 
@@ -183,7 +182,7 @@ Concretely, the comparator takes as input a dataframe to impute, a proportion of
 Note these metrics compute reconstruction errors; it tells nothing about the distances between the "true" and "imputed" distributions.
 
 ```python tags=[]
-generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], ratio_masked=ratio_masked)
+generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=10, groups=["station"], ratio_masked=ratio_masked)
 
 comparison = comparator.Comparator(
     dict_imputers,
