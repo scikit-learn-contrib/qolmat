@@ -64,10 +64,11 @@ This dataset only contains numerical vairables.
 
 ```python
 df_data = data.get_data_corrupted("Beijing", ratio_masked=.2, mean_size=120)
+df_data["cat"] = [i % 3 for i in range(len(df_data))]
 
 # cols_to_impute = ["TEMP", "PRES", "DEWP", "NO2", "CO", "O3", "WSPM"]
 # cols_to_impute = df_data.columns[df_data.isna().any()]
-cols_to_impute = ["TEMP", "PRES"]
+cols_to_impute = ["TEMP", "PRES", "cat"]
 
 ```
 
@@ -112,9 +113,13 @@ All presented methods are group-wise: here each station is imputed independently
 Some methods require hyperparameters. The user can directly specify them, or rather determine them through an optimization step using the `search_params` dictionary. The keys are the imputation method's name and the values are a dictionary specifying the minimum, maximum or list of categories and type of values (Integer, Real, Category or a dictionary indexed by the variable names) to search.
 In pratice, we rely on a cross validation to find the best hyperparams values minimizing an error reconstruction.
 
+```python tags=[]
+hasattr(imputers.ImputerMean(), "groups")
+```
+
 ```python
 imputer_mean = imputers.ImputerMean(groups=["station"])
-imputer_median = imputers.ImputerMedian(groups=["station"])
+imputer_median = imputers.ImputerMedian(groups=["station", "cat"])
 imputer_mode = imputers.ImputerMode(groups=["station"])
 imputer_locf = imputers.ImputerLOCF(groups=["station"])
 imputer_nocb = imputers.ImputerNOCB(groups=["station"])
@@ -133,14 +138,12 @@ imputer_tsmle = imputers.ImputerEM(groups=["station"], method="VAR1", strategy="
 
 imputer_knn = imputers.ImputerKNN(groups=["station"], k=10)
 imputer_iterative = imputers.ImputerMICE(groups=["station"], estimator=LinearRegression(), sample_posterior=False, max_iter=100, missing_values=np.nan)
-impute_regressor = imputers.ImputerRegressor(LinearRegression, groups=["station"])
-impute_stochastic_regressor = imputers.ImputerStochasticRegressor(
-  HistGradientBoostingRegressor(), cols_to_impute=cols_to_impute
-)
+impute_regressor = imputers.ImputerRegressor(groups=["station"], estimator=LinearRegression())
+impute_stochastic_regressor = imputers.ImputerStochasticRegressor(groups=["station"], estimator=LinearRegression())
 
 dict_imputers = {
     "mean": imputer_mean,
-    # "median": imputer_median,
+    "median": imputer_median,
     # "mode": imputer_mode,
     "interpolation": imputer_interpol,
     # "spline": imputer_spline,
@@ -182,7 +185,7 @@ Concretely, the comparator takes as input a dataframe to impute, a proportion of
 Note these metrics compute reconstruction errors; it tells nothing about the distances between the "true" and "imputed" distributions.
 
 ```python tags=[]
-generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=10, groups=["station"], ratio_masked=ratio_masked)
+generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], ratio_masked=ratio_masked)
 
 comparison = comparator.Comparator(
     dict_imputers,
