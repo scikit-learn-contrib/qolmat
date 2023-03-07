@@ -10,7 +10,7 @@ from qolmat.imputations.rpca.rpca import RPCA
 from qolmat.utils.utils import progress_bar
 
 
-class PcpRPCA(RPCA):
+class RPCAPCP(RPCA):
     """
     This class implements the basic RPCA decomposition using Alternating Lagrangian Multipliers.
 
@@ -34,18 +34,21 @@ class PcpRPCA(RPCA):
         lam: Optional[float] = None,
         max_iter: int = int(1e4),
         tol: float = 1e-6,
-        verbose: bool = False,
     ) -> None:
 
-        super().__init__(period=period, max_iter=max_iter, tol=tol, verbose=verbose)
+        super().__init__(
+            period=period,
+            max_iter=max_iter,
+            tol=tol,
+        )
         self.mu = mu
         self.lam = lam
 
-    def get_params(self):
-        dict_params = super().get_params()
-        dict_params["mu"] = self.mu
-        dict_params["lam"] = self.lam
-        return dict_params
+    # def get_params(self):
+    #     dict_params = super().get_params()
+    #     dict_params["mu"] = self.mu
+    #     dict_params["lam"] = self.lam
+    #     return dict_params
 
     def get_params_scale(self, D):
         mu = D.size / (4.0 * utils.l1_norm(D))
@@ -69,8 +72,8 @@ class PcpRPCA(RPCA):
 
         errors = np.full((self.max_iter,), fill_value=np.nan)
 
+        M = proj_D - A
         for iteration in range(self.max_iter):
-
             M = utils.svd_thresholding(proj_D - A + Y / mu, 1 / mu)
             A = utils.soft_thresholding(proj_D - M + Y / mu, lam / mu)
             A[~Omega] = (proj_D - M)[~Omega]
@@ -80,8 +83,6 @@ class PcpRPCA(RPCA):
             errors[iteration] = error
 
             if error < self.tol:
-                if self.verbose:
-                    print(f"Converged in {iteration} iterations")
                 break
         return M, A
 
@@ -121,5 +122,4 @@ class PcpRPCA(RPCA):
             A = A.reshape(1, -1)[:, : X.size]
         M = M.T
         A = A.T
-        # return M, A, U, V, errors
         return M

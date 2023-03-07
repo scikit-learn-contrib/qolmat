@@ -33,13 +33,11 @@ class RPCA(BaseEstimator, TransformerMixin):
         period: Optional[int] = None,
         max_iter: int = int(1e4),
         tol: float = 1e-6,
-        verbose: bool = False,
     ) -> None:
 
         self.n_rows = period
         self.max_iter = max_iter
         self.tol = tol
-        self.verbose = verbose
 
     def _prepare_data(self, X: NDArray) -> Tuple[NDArray, int, int]:
         """
@@ -54,24 +52,3 @@ class RPCA(BaseEstimator, TransformerMixin):
             D_init = X.copy()
 
         return D_init
-
-    def get_params(self) -> dict[str, Union[int, bool, float]]:
-        """Return the attributes"""
-        return {
-            "n_rows": self.n_rows,
-            "max_iter": self.max_iter,
-            "tol": self.tol,
-            "verbose": self.verbose,
-        }
-
-    def set_params(self, **kargs) -> RPCA:
-        """Set the attributes"""
-        for key, value in kargs.items():
-            if key in self.__dict__.keys():
-                setattr(self, key, value)
-            else:
-                raise ValueError(
-                    f"{key} is not a parameter of {type(self).__name__}",
-                    f"It is not one of {', '.join(self.__dict__.keys())}",
-                )
-        return self
