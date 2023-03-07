@@ -1,5 +1,5 @@
 import sys
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import sklearn.neighbors._base
 
@@ -112,7 +112,7 @@ class ImputerMean(Imputer):
 
     def __init__(
         self,
-        groups: Optional[List[str]] = [],
+        groups: List[str] = [],
     ) -> None:
         super().__init__(groups=groups, columnwise=True)
         self.fit_transform_element = pd.DataFrame.mean
@@ -137,7 +137,7 @@ class ImputerMedian(Imputer):
 
     def __init__(
         self,
-        groups: Optional[List[str]] = [],
+        groups: List[str] = [],
     ) -> None:
         super().__init__(groups=groups, columnwise=True)
         self.fit_transform_element = pd.DataFrame.median
@@ -162,7 +162,7 @@ class ImputerMode(Imputer):
 
     def __init__(
         self,
-        groups: Optional[List[str]] = [],
+        groups: List[str] = [],
     ) -> None:
         super().__init__(groups=groups, columnwise=True)
         self.fit_transform_element = lambda df: df.mode().iloc[0]
@@ -187,7 +187,7 @@ class ImputerShuffle(Imputer):
 
     def __init__(
         self,
-        groups: Optional[List[str]] = [],
+        groups: List[str] = [],
     ) -> None:
         super().__init__(groups=groups, columnwise=True)
 
@@ -225,7 +225,7 @@ class ImputerLOCF(Imputer):
 
     def __init__(
         self,
-        groups: Optional[List[str]] = [],
+        groups: List[str] = [],
     ) -> None:
         super().__init__(groups=groups, columnwise=True)
 
@@ -259,7 +259,7 @@ class ImputerNOCB(Imputer):
 
     def __init__(
         self,
-        groups: Optional[List[str]] = [],
+        groups: List[str] = [],
     ) -> None:
         super().__init__(groups=groups, columnwise=True)
 
@@ -305,7 +305,7 @@ class ImputerInterpolation(Imputer):
 
     def __init__(
         self,
-        groups: Optional[List[str]] = [],
+        groups: List[str] = [],
         method: str = "linear",
         order: int = None,
         col_time: Optional[str] = None,
@@ -373,7 +373,7 @@ class ImputerResiduals(Imputer):
 
     def __init__(
         self,
-        groups: Optional[List[str]] = [],
+        groups: List[str] = [],
         period: int = None,
         model_tsa: Optional[str] = "additive",
         extrapolate_trend: Optional[Union[int, str]] = "freq",
@@ -437,11 +437,12 @@ class ImputerKNN(Imputer):
 
     def __init__(
         self,
+        groups: List[str] = [],
         n_neighbors: int = 5,
         weights: str = "distance",
         **hyperparams,
     ) -> None:
-        super().__init__(columnwise=False, hyperparams=hyperparams)
+        super().__init__(groups=groups, columnwise=False, hyperparams=hyperparams)
         self.n_neighbors = n_neighbors
         self.weights = weights
 
@@ -562,8 +563,10 @@ class ImputerRegressor(Imputer):
     >>> imputor.fit_transform(df)
     """
 
-    def __init__(self, type_model, fit_on_nan: bool = False, **hyperparams):
-        super().__init__(hyperparams=hyperparams)
+    def __init__(
+        self, type_model: Any, groups: List[str] = [], fit_on_nan: bool = False, **hyperparams
+    ):
+        super().__init__(groups=groups, hyperparams=hyperparams)
         self.columnwise = False
         self.type_model = type_model
         self.fit_on_nan = fit_on_nan
@@ -590,7 +593,7 @@ class ImputerRegressor(Imputer):
 
         for col in cols_with_nans:
             hyperparams = {}
-            for hyperparam, value in self.hyperparams.items():
+            for hyperparam, value in self.hyperparams_element.items():
                 if isinstance(value, dict):
                     value = value[col]
                 hyperparams[hyperparam] = value
@@ -600,11 +603,15 @@ class ImputerRegressor(Imputer):
             if self.fit_on_nan:
                 X = df.drop(columns=col)
             else:
-                X = df[cols_without_nans].drop(columns=col)
+                X = df[cols_without_nans].drop(columns=col, errors="ignore")
             y = df[col]
             is_na = y.isna()
-            model.fit(X[~is_na], y[~is_na])
-            df_imputed.loc[is_na, col] = model.predict(X[is_na])
+            if X.empty:
+                y_imputed = pd.Series(y.mean(), index=y.index)
+            else:
+                model.fit(X[~is_na], y[~is_na])
+                y_imputed = model.predict(X[is_na])
+            df_imputed.loc[is_na, col] = y_imputed
 
         return df_imputed
 
@@ -633,8 +640,8 @@ class ImputerStochasticRegressor(Imputer):
     >>> imputor.fit_transform(df)
     """
 
-    def __init__(self, type_model, **hyperparams) -> None:
-        super().__init__(hyperparams=hyperparams)
+    def __init__(self, type_model: str, groups: List[str] = [], **hyperparams) -> None:
+        super().__init__(groups=groups, hyperparams=hyperparams)
         self.type_model = type_model
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.Series:
@@ -728,7 +735,7 @@ class ImputerRPCA(Imputer):
         return df_imputed
 
 
-class ImputeEM(Imputer):
+class ImputerEM(Imputer):
     def __init__(
         self,
         groups: List[str] = [],
