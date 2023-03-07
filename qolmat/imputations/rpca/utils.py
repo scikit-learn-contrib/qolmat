@@ -38,7 +38,7 @@ def get_period(
     return int(np.argmax(acf) + 1)
 
 
-def fold_signal(X: NDArray, n_rows: int) -> Tuple[NDArray, int]:
+def fold_signal(X: NDArray, n_rows: int) -> NDArray:
     """
     Reshape a time series into a 2D-array
 
