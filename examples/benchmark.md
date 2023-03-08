@@ -133,14 +133,12 @@ imputer_tsmle = imputers.ImputerEM(groups=["station"], method="VAR1", strategy="
 
 imputer_knn = imputers.ImputerKNN(groups=["station"], k=10)
 imputer_iterative = imputers.ImputerMICE(groups=["station"], estimator=LinearRegression(), sample_posterior=False, max_iter=100, missing_values=np.nan)
-impute_regressor = imputers.ImputerRegressor(LinearRegression, groups=["station"])
-impute_stochastic_regressor = imputers.ImputerStochasticRegressor(
-  HistGradientBoostingRegressor(), cols_to_impute=cols_to_impute
-)
+impute_regressor = imputers.ImputerRegressor(groups=["station"], estimator=LinearRegression())
+impute_stochastic_regressor = imputers.ImputerStochasticRegressor(groups=["station"], estimator=LinearRegression())
 
 dict_imputers = {
     "mean": imputer_mean,
-    # "median": imputer_median,
+    "median": imputer_median,
     # "mode": imputer_mode,
     "interpolation": imputer_interpol,
     # "spline": imputer_spline,
@@ -182,7 +180,7 @@ Concretely, the comparator takes as input a dataframe to impute, a proportion of
 Note these metrics compute reconstruction errors; it tells nothing about the distances between the "true" and "imputed" distributions.
 
 ```python tags=[]
-generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=10, groups=["station"], ratio_masked=ratio_masked)
+generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], ratio_masked=ratio_masked)
 
 comparison = comparator.Comparator(
     dict_imputers,
@@ -245,6 +243,8 @@ for col in cols_to_impute:
 ```
 
 ```python
+# plot.plot_imputations(df_station, dfs_imputed_station)
+
 n_columns = len(df_plot.columns)
 n_imputers = len(dict_imputers)
 
@@ -269,7 +269,6 @@ for name_imputer in dict_imputers:
         ax.xaxis.set_major_locator(loc)
         ax.tick_params(axis='both', which='major', labelsize=17)
         i_plot += 1
-        plt.xlim(0, 100)
 plt.savefig("figures/imputations_benchmark.png")
 plt.show()
 
