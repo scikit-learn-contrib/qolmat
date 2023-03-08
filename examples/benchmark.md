@@ -64,11 +64,10 @@ This dataset only contains numerical vairables.
 
 ```python
 df_data = data.get_data_corrupted("Beijing", ratio_masked=.2, mean_size=120)
-df_data["cat"] = [i % 3 for i in range(len(df_data))]
 
 # cols_to_impute = ["TEMP", "PRES", "DEWP", "NO2", "CO", "O3", "WSPM"]
 # cols_to_impute = df_data.columns[df_data.isna().any()]
-cols_to_impute = ["TEMP", "PRES", "cat"]
+cols_to_impute = ["TEMP", "PRES"]
 
 ```
 
@@ -113,13 +112,9 @@ All presented methods are group-wise: here each station is imputed independently
 Some methods require hyperparameters. The user can directly specify them, or rather determine them through an optimization step using the `search_params` dictionary. The keys are the imputation method's name and the values are a dictionary specifying the minimum, maximum or list of categories and type of values (Integer, Real, Category or a dictionary indexed by the variable names) to search.
 In pratice, we rely on a cross validation to find the best hyperparams values minimizing an error reconstruction.
 
-```python tags=[]
-hasattr(imputers.ImputerMean(), "groups")
-```
-
 ```python
 imputer_mean = imputers.ImputerMean(groups=["station"])
-imputer_median = imputers.ImputerMedian(groups=["station", "cat"])
+imputer_median = imputers.ImputerMedian(groups=["station"])
 imputer_mode = imputers.ImputerMode(groups=["station"])
 imputer_locf = imputers.ImputerLOCF(groups=["station"])
 imputer_nocb = imputers.ImputerNOCB(groups=["station"])
@@ -248,6 +243,8 @@ for col in cols_to_impute:
 ```
 
 ```python
+# plot.plot_imputations(df_station, dfs_imputed_station)
+
 n_columns = len(df_plot.columns)
 n_imputers = len(dict_imputers)
 
@@ -272,7 +269,6 @@ for name_imputer in dict_imputers:
         ax.xaxis.set_major_locator(loc)
         ax.tick_params(axis='both', which='major', labelsize=17)
         i_plot += 1
-        plt.xlim(0, 100)
 plt.savefig("figures/imputations_benchmark.png")
 plt.show()
 

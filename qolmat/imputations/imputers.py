@@ -105,10 +105,10 @@ class Imputer(_BaseImputer):
             imputation_values = self.fit_transform_element(df)
 
         df = df.fillna(imputation_values)
-        # # fill na by applying imputation method without groups
-        # if df.isna().any().any():
-        #     imputation_values = self.fit_transform_fallback(df)
-        #     df = df.fillna(imputation_values)
+        # fill na by applying imputation method without groups
+        if df.isna().any().any():
+            imputation_values = self.fit_transform_fallback(df)
+            df = df.fillna(imputation_values)
 
         return df
 
