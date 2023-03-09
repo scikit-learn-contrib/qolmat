@@ -73,6 +73,10 @@ cols_to_impute = ["TEMP", "PRES"]
 
 The dataset `Artificial` is designed to have a sum of a periodical signal, a white noise and some outliers.
 
+```python tags=[]
+df_data
+```
+
 ```python
 # df_data = data.get_data_corrupted("Artificial", ratio_masked=.2, mean_size=10)
 # cols_to_impute = ["signal"]

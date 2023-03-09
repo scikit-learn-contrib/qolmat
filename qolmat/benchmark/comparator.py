@@ -36,7 +36,7 @@ class Comparator:
         search_params: Optional[Dict[str, Dict[str, Union[float, int, str]]]] = {},
         n_calls_opt: Optional[int] = 10,
     ):
-        self.dict_models = dict_models
+        self.dict_imputers = dict_models
         self.selected_columns = selected_columns
         self.generator_holes = generator_holes
         self.search_params = search_params
@@ -141,21 +141,10 @@ class Comparator:
 
         dict_errors = {}
 
-        for name, imputer in self.dict_models.items():
+        for name, imputer in self.dict_imputers.items():
             print(f"Tested model: {type(imputer).__name__}")
 
             search_params = self.search_params.get(name, {})
-
-            # if imputer.columnwise:
-            #     if len(self.selected_columns) > 0:
-            #         search_params = {}
-            #         for col in self.selected_columns:
-            #             for key, value in self.search_params[type(imputer).__name__].items():
-            #                 search_params[f"('{col}', '{key}')"] = value
-            #     else:
-            #         search_params = self.search_params[type(imputer).__name__]
-            # else:
-            #     search_params = self.search_params[type(imputer).__name__]
 
             list_spaces = utils.get_search_space(search_params)
 
