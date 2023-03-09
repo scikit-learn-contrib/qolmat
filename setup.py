@@ -38,6 +38,7 @@ INSTALL_REQUIRES = [
     "packaging",
     "scikit-optimize",
     "scipy",
+    "statsmodels",
     "pandas",
 ]
 EXTRAS_REQUIRE = {

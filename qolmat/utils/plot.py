@@ -196,6 +196,7 @@ def compare_covariances(
     col_x: str,
     col_y: str,
     ax: any,
+    label: str = "",
     color=None,
 ):
     """
@@ -216,8 +217,8 @@ def compare_covariances(
     """
     if color is None:
         color = tab10(0)
-    ax.scatter(df2[col_x], df2[col_y], marker=".", color=color)
-    ax.scatter(df1[col_x], df1[col_y], marker=".", color="black")
+    ax.scatter(df2[col_x], df2[col_y], marker=".", color=color, s=0.2, label=label)
+    ax.scatter(df1[col_x], df1[col_y], marker=".", color="black", s=0.2)
     make_ellipses(df1[[col_x, col_y]], ax, "black")
     make_ellipses(df2[[col_x, col_y]], ax, color)
     ax.set_xlabel(col_x)
