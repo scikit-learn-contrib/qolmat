@@ -60,8 +60,11 @@ qolmat/.converge
 # Notebooks
 **.ipynb_checkpoints
 examples/*.ipynb
+examples/figures/*
+examples/data/*
+examples/*.ipynb
 
 
 # VSCode
 .vscode
-examples/benchmark.ipynb
+# examples/benchmark.ipynb

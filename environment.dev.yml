@@ -6,7 +6,6 @@ dependencies:
       - bump2version
       - ipykernel
       - jupyter
-      - seaborn
       - sphinx
       - sphinx-gallery
       - sphinx_rtd_theme
@@ -14,8 +13,7 @@ dependencies:
       - wheel
       - jupyterlab
       - jupytext
-      - s3fs
-      - pyarrow
+      - statsmodels
       - pip
       - pip:
               - flake8==6.0.0
