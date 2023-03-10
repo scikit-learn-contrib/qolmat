@@ -33,6 +33,8 @@ def get_data(name_data="Beijing", datapath: str = "data/", download: Optional[bo
         path_zip = os.path.join(datapath, zipname)
 
         if not os.path.exists(path_zip + ".zip"):
+            if not os.path.exists(datapath):
+                os.mkdir(datapath)
             urllib.request.urlretrieve(urllink + zipname + ".zip", path_zip + ".zip")
 
         with zipfile.ZipFile(path_zip + ".zip", "r") as zip_ref:

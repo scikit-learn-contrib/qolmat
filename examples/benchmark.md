@@ -323,15 +323,13 @@ n_imputers = len(dict_imputers)
 fig = plt.figure(figsize=(6 * n_columns, 6))
 for i_col, col in enumerate(df_plot):
     ax = fig.add_subplot(1, n_columns, i_col + 1)
-    values_orig = df_station[col]
-
-    acf = utils.acf(values_orig)
-
-    plt.plot(acf, color="black")
     for name_imputer, df_imp in dfs_imputed_station.items():
 
         acf = utils.acf(df_imp[col])
         plt.plot(acf, label=name_imputer)
+    values_orig = df_station[col]
+    acf = utils.acf(values_orig)
+    plt.plot(acf, color="black", lw=2, ls="--", label="original")
     plt.legend()
 
 plt.savefig("figures/acf.png")
