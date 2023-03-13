@@ -36,8 +36,6 @@ class CrossValidation:
         ratio of artificially missing data. By default the value is set to 0.1
     corruption: Optional[str]
         type of corruption: "missing" or "outlier". By default the value is set to "missing"
-    verbose: Optional[bool]
-        Controls the verbosity: the higher, the more messages. By default the value is set to True
     """
 
     def __init__(
@@ -48,7 +46,6 @@ class CrossValidation:
         n_calls: int = 10,
         n_jobs: int = -1,
         loss_norm: int = 1,
-        verbose: bool = True,
     ):
         self.imputer = imputer
         self.list_spaces = list_spaces
@@ -56,7 +53,6 @@ class CrossValidation:
         self.n_calls = n_calls
         self.n_jobs = n_jobs
         self.loss_norm = loss_norm
-        self.verbose = verbose
 
     def loss_function(
         self,

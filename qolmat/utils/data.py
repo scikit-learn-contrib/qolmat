@@ -33,6 +33,8 @@ def get_data(name_data="Beijing", datapath: str = "data/", download: Optional[bo
         path_zip = os.path.join(datapath, zipname)
 
         if not os.path.exists(path_zip + ".zip"):
+            if not os.path.exists(datapath):
+                os.mkdir(datapath)
             urllib.request.urlretrieve(urllink + zipname + ".zip", path_zip + ".zip")
 
         with zipfile.ZipFile(path_zip + ".zip", "r") as zip_ref:
@@ -82,7 +84,7 @@ def get_data(name_data="Beijing", datapath: str = "data/", download: Optional[bo
 
 
 def preprocess_data(df: pd.DataFrame):
-    """Put data into dataframe
+    """Preprocess data from the "Beijing" datset
 
     Parameters
     ----------
@@ -106,14 +108,14 @@ def preprocess_data(df: pd.DataFrame):
     return df
 
 
-def add_holes(X: pd.DataFrame, ratio_masked: float, mean_size: int):
+def add_holes(df: pd.DataFrame, ratio_masked: float, mean_size: int):
     """
-    Creates holes in a dataset with no missing value. Only used in the documentation to design
+    Creates holes in a dataset with no missing value, starting from `df`. Only used in the documentation to design
     examples.
 
     Parameters
     ----------
-    X : pd.DataFrame
+    df : pd.DataFrame
         dataframe no missing values
 
     mean_size : int
@@ -130,18 +132,18 @@ def add_holes(X: pd.DataFrame, ratio_masked: float, mean_size: int):
     pd.DataFrame
         dataframe with missing values
     """
-    groups = X.index.names.difference(["datetime", "date", "index"])
+    groups = df.index.names.difference(["datetime", "date", "index"])
     generator = missing_patterns.GeometricHoleGenerator(
-        1, ratio_masked=ratio_masked, subset=X.columns, groups=groups
+        1, ratio_masked=ratio_masked, subset=df.columns, groups=groups
     )
 
-    generator.dict_probas_out = {column: 1 / mean_size for column in X.columns}
-    generator.dict_ratios = {column: 1 / len(X.columns) for column in X.columns}
+    generator.dict_probas_out = {column: 1 / mean_size for column in df.columns}
+    generator.dict_ratios = {column: 1 / len(df.columns) for column in df.columns}
     if generator.groups == []:
-        mask = generator.generate_mask(X)
+        mask = generator.generate_mask(df)
     else:
-        mask = X.groupby(groups, group_keys=False).apply(generator.generate_mask)
-    X_with_nans = X.copy()
+        mask = df.groupby(groups, group_keys=False).apply(generator.generate_mask)
+    X_with_nans = df.copy()
     X_with_nans[mask] = np.nan
     return X_with_nans
 
@@ -151,6 +153,22 @@ def get_data_corrupted(
     mean_size: int = 90,
     ratio_masked: float = 0.2,
 ):
+    """
+    Returns a dataframe with controled corruption optained from the source `name_data`
+
+    Parameters
+    ----------
+    name_data : str
+        Name of the data source, can be "Beijing" or "Artificial"
+    mean_size: int
+        Mean size of the holes to be generated using a geometric law
+    ratio_masked: float
+        Percent of missing data in each column in the output dataframe
+    Returns
+    -------
+    pd.DataFrame
+        Dataframe with missing values
+    """
     df = get_data(name_data)
     df = add_holes(df, mean_size=mean_size, ratio_masked=ratio_masked)
     return df

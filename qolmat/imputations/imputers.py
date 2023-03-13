@@ -1,7 +1,10 @@
+import abc
+import copy
 import sys
 from typing import Any, Dict, List, Optional, Union
 
 import sklearn.neighbors._base
+from sklearn.base import BaseEstimator
 
 sys.modules["sklearn.neighbors.base"] = sklearn.neighbors._base
 
@@ -21,12 +24,19 @@ from qolmat.imputations.rpca.rpca_pcp import RPCAPCP
 
 
 class Imputer(_BaseImputer):
-    def __init__(self, groups: List[str] = [], columnwise: bool = False, hyperparams: Dict = {}):
+    def __init__(
+        self,
+        groups: List[str] = [],
+        columnwise: bool = False,
+        shrink: bool = False,
+        hyperparams: Dict = {},
+    ):
         self.hyperparams_user = hyperparams
         self.hyperparams_optim = {}
         self.hyperparams_local = {}
         self.groups = groups
         self.columnwise = columnwise
+        self.shrink = shrink
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -48,6 +58,12 @@ class Imputer(_BaseImputer):
         hyperparams = self.hyperparams_user.copy()
         hyperparams.update(self.hyperparams_optim)
         cols_with_nans = df.columns[df.isna().any()]
+
+        if self.groups == []:
+            self.ngroups = pd.Series(0, index=df.index).rename("_ngroup")
+        else:
+            self.ngroups = df.groupby(self.groups).ngroup().rename("_ngroup")
+
         if self.columnwise:
 
             # imputed = pd.DataFrame(index=df.index, columns=df.columns)
@@ -80,16 +96,20 @@ class Imputer(_BaseImputer):
         df = df.copy()
         if self.groups:
 
-            groupby = utils.custom_groupby(df, self.groups)
-            imputation_values = groupby.apply(self.fit_transform_element)
+            # groupby = utils.custom_groupby(df, self.groups)
+            groupby = df.groupby(self.ngroups, group_keys=False)
+            if self.shrink:
+                imputation_values = groupby.transform(self.fit_transform_element)
+            else:
+                imputation_values = groupby.apply(self.fit_transform_element)
         else:
             imputation_values = self.fit_transform_element(df)
 
         df = df.fillna(imputation_values)
-        # # fill na by applying imputation method without groups
-        # if df.isna().any().any():
-        #     imputation_values = self.fit_transform_fallback(df)
-        #     df = df.fillna(imputation_values)
+        # fill na by applying imputation method without groups
+        if df.isna().any().any():
+            imputation_values = self.fit_transform_fallback(df)
+            df = df.fillna(imputation_values)
 
         return df
 
@@ -115,7 +135,7 @@ class ImputerMean(Imputer):
         self,
         groups: List[str] = [],
     ) -> None:
-        super().__init__(groups=groups, columnwise=True)
+        super().__init__(groups=groups, columnwise=True, shrink=True)
         self.fit_transform_element = pd.DataFrame.mean
 
 
@@ -140,7 +160,7 @@ class ImputerMedian(Imputer):
         self,
         groups: List[str] = [],
     ) -> None:
-        super().__init__(groups=groups, columnwise=True)
+        super().__init__(groups=groups, columnwise=True, shrink=True)
         self.fit_transform_element = pd.DataFrame.median
 
 
@@ -165,7 +185,7 @@ class ImputerMode(Imputer):
         self,
         groups: List[str] = [],
     ) -> None:
-        super().__init__(groups=groups, columnwise=True)
+        super().__init__(groups=groups, columnwise=True, shrink=True)
         self.fit_transform_element = lambda df: df.mode().iloc[0]
 
 
@@ -510,9 +530,11 @@ class ImputerMICE(Imputer):
     def __init__(
         self,
         groups: List[str] = [],
+        estimator: Optional[BaseEstimator] = None,
         **hyperparams,
     ) -> None:
         super().__init__(groups=groups, columnwise=False, hyperparams=hyperparams)
+        self.estimator = estimator
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -531,7 +553,7 @@ class ImputerMICE(Imputer):
         if not isinstance(df, pd.DataFrame):
             raise ValueError("Input has to be a pandas.DataFrame.")
 
-        iterative_imputer = IterativeImputer(**self.hyperparams_element)
+        iterative_imputer = IterativeImputer(estimator=self.estimator, **self.hyperparams_element)
         res = iterative_imputer.fit_transform(df.values)
         imputed = pd.DataFrame(columns=df.columns)
         for ind, col in enumerate(imputed.columns):
@@ -565,11 +587,15 @@ class ImputerRegressor(Imputer):
     """
 
     def __init__(
-        self, type_model: Any, groups: List[str] = [], fit_on_nan: bool = False, **hyperparams
+        self,
+        groups: List[str] = [],
+        estimator: Optional[BaseEstimator] = None,
+        fit_on_nan: bool = False,
+        **hyperparams,
     ):
         super().__init__(groups=groups, hyperparams=hyperparams)
         self.columnwise = False
-        self.type_model = type_model
+        self.estimator = estimator
         self.fit_on_nan = fit_on_nan
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -599,7 +625,9 @@ class ImputerRegressor(Imputer):
                     value = value[col]
                 hyperparams[hyperparam] = value
 
-            model = self.type_model(**hyperparams)
+            # model = copy.deepcopy(self.estimator)
+            # for hyperparam, value in hyperparams.items():
+            #     setattr(model, hyperparam, value)
 
             if self.fit_on_nan:
                 X = df.drop(columns=col)
@@ -610,8 +638,8 @@ class ImputerRegressor(Imputer):
             if X.empty:
                 y_imputed = pd.Series(y.mean(), index=y.index)
             else:
-                model.fit(X[~is_na], y[~is_na])
-                y_imputed = model.predict(X[is_na])
+                self.estimator.fit(X[~is_na], y[~is_na])
+                y_imputed = self.estimator.predict(X[is_na])
             df_imputed.loc[is_na, col] = y_imputed
 
         return df_imputed
@@ -633,17 +661,19 @@ class ImputerStochasticRegressor(Imputer):
     >>> import pandas as pd
     >>> from qolmat.imputations.models import ImputeStochasticRegressor
     >>> from sklearn.ensemble import ExtraTreesRegressor
-    >>> imputor = ImputeStochasticRegressor(model=ExtraTreesRegressor())
+    >>> imputer = ImputeStochasticRegressor(estimator=ExtraTreesRegressor)
     >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
     >>>                        [np.nan, np.nan, 2, 3],
     >>>                        [1, 2, 2, 5], [2, 2, 2, 2]],
     >>>                        columns=["var1", "var2", "var3", "var4"])
-    >>> imputor.fit_transform(df)
+    >>> imputer.fit_transform(df)
     """
 
-    def __init__(self, type_model: str, groups: List[str] = [], **hyperparams) -> None:
+    def __init__(
+        self, groups: List[str] = [], estimator: Optional[BaseEstimator] = None, **hyperparams
+    ) -> None:
         super().__init__(groups=groups, hyperparams=hyperparams)
-        self.type_model = type_model
+        self.estimator = estimator
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.Series:
         """
@@ -660,7 +690,6 @@ class ImputerStochasticRegressor(Imputer):
             imputed dataframe
         """
         df_imp = df.copy()
-        model = self.type_model(**self.hyperparams)
         cols_with_nans = df.columns[df.isna().any()]
         cols_without_nans = df.columns[df.notna().all()]
 
@@ -671,8 +700,8 @@ class ImputerStochasticRegressor(Imputer):
             X = df[cols_without_nans]
             y = df[col]
             is_na = y.isna()
-            model.fit(X[~is_na], y[~is_na])
-            y_pred = model.predict(X)
+            self.estimator.fit(X[~is_na], y[~is_na])
+            y_pred = self.estimator.predict(X)
             std_error = (y_pred[~is_na] - y[~is_na]).std()
             random_pred = np.random.normal(size=len(y), loc=y_pred, scale=std_error)
             df_imp.loc[is_na, col] = random_pred[is_na]
@@ -697,8 +726,8 @@ class ImputerRPCA(Imputer):
 
     def __init__(
         self,
-        method: str = "noisy",
         groups: List[str] = [],
+        method: str = "noisy",
         columnwise: bool = False,
         **hyperparams,
     ) -> None:

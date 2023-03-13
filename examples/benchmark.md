@@ -8,9 +8,9 @@ jupyter:
       format_version: '1.3'
       jupytext_version: 1.14.4
   kernelspec:
-    display_name: env_qolmat
+    display_name: env_qolmat_dev
     language: python
-    name: env_qolmat
+    name: env_qolmat_dev
 ---
 
 **This notebook aims to present the Qolmat repo through an example of a multivariate time series.
@@ -38,6 +38,7 @@ import matplotlib.image as mpimg
 import matplotlib.ticker as plticker
 
 tab10 = plt.get_cmap("tab10")
+plt.rcParams.update({'font.size': 18})
 
 from typing import Optional
 
@@ -46,7 +47,6 @@ from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor, HistGra
 
 
 import sys
-# sys.path.append("../../")
 from qolmat.benchmark import comparator, missing_patterns
 from qolmat.benchmark.utils import kl_divergence
 from qolmat.imputations import imputers
@@ -73,6 +73,10 @@ cols_to_impute = ["TEMP", "PRES"]
 
 The dataset `Artificial` is designed to have a sum of a periodical signal, a white noise and some outliers.
 
+```python tags=[]
+df_data
+```
+
 ```python
 # df_data = data.get_data_corrupted("Artificial", ratio_masked=.2, mean_size=10)
 # cols_to_impute = ["signal"]
@@ -87,16 +91,19 @@ n_cols = len(cols_to_impute)
 ```
 
 ```python tags=[]
-fig = plt.figure(figsize=(10 * n_stations, 2 * n_cols))
+fig = plt.figure(figsize=(10 * n_stations, 3 * n_cols))
 for i_station, (station, df) in enumerate(df_data.groupby("station")):
     df_station = df_data.loc[station]
     for i_col, col in enumerate(cols_to_impute):
         fig.add_subplot(n_cols, n_stations, i_col * n_stations + i_station + 1)
         plt.plot(df_station[col], '.', label=station)
         # break
-        plt.ylabel(col, fontsize=12)
+        plt.ylabel(col)
+        plt.xticks(rotation=15)
         if i_col == 0:
             plt.title(station)
+        if i_col != n_cols - 1:
+            plt.xticks([], [])
 plt.show()
 ```
 
@@ -133,14 +140,12 @@ imputer_tsmle = imputers.ImputerEM(groups=["station"], method="VAR1", strategy="
 
 imputer_knn = imputers.ImputerKNN(groups=["station"], k=10)
 imputer_iterative = imputers.ImputerMICE(groups=["station"], estimator=LinearRegression(), sample_posterior=False, max_iter=100, missing_values=np.nan)
-impute_regressor = imputers.ImputerRegressor(LinearRegression, groups=["station"])
-impute_stochastic_regressor = imputers.ImputerStochasticRegressor(
-  HistGradientBoostingRegressor(), cols_to_impute=cols_to_impute
-)
+impute_regressor = imputers.ImputerRegressor(groups=["station"], estimator=LinearRegression())
+impute_stochastic_regressor = imputers.ImputerStochasticRegressor(groups=["station"], estimator=LinearRegression())
 
 dict_imputers = {
     "mean": imputer_mean,
-    # "median": imputer_median,
+    "median": imputer_median,
     # "mode": imputer_mode,
     "interpolation": imputer_interpol,
     # "spline": imputer_spline,
@@ -182,7 +187,7 @@ Concretely, the comparator takes as input a dataframe to impute, a proportion of
 Note these metrics compute reconstruction errors; it tells nothing about the distances between the "true" and "imputed" distributions.
 
 ```python tags=[]
-generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=10, groups=["station"], ratio_masked=ratio_masked)
+generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], ratio_masked=ratio_masked)
 
 comparison = comparator.Comparator(
     dict_imputers,
@@ -202,7 +207,7 @@ plt.ylabel("mae")
 plt.show()
 ```
 
-### **IV. Comparison of methods**
+### **III. Comparison of methods**
 
 
 We now run just one time each algorithm on the initial corrupted dataframe and compare the different performances through multiple analysis.
@@ -245,53 +250,62 @@ for col in cols_to_impute:
 ```
 
 ```python
+# plot.plot_imputations(df_station, dfs_imputed_station)
+
 n_columns = len(df_plot.columns)
 n_imputers = len(dict_imputers)
 
-fig = plt.figure(figsize=(8 * n_columns, 6 * n_imputers))
+fig = plt.figure(figsize=(8 * n_imputers, 6 * n_columns))
 i_plot = 1
-for name_imputer in dict_imputers:
-    for col in df_plot:
+for i_col, col in enumerate(df_plot):
+    for name_imputer, df_imp in dfs_imputed_station.items():
 
-        fig.add_subplot(n_imputers, n_columns, i_plot)
+        fig.add_subplot(n_columns, n_imputers, i_plot)
         values_orig = df_station[col]
 
         plt.plot(values_orig, ".", color='black', label="original")
         #plt.plot(df.iloc[870:1000][col], markers[0], color='k', linestyle='-' , ms=3)
 
-        values_imp = dfs_imputed_station[name_imputer][col].copy()
+        values_imp = df_imp[col].copy()
         values_imp[values_orig.notna()] = np.nan
         plt.plot(values_imp, ".", color=tab10(0), label=name_imputer, alpha=1)
         plt.ylabel(col, fontsize=16)
-        if i_plot % n_columns == 0:
+        if i_plot % n_columns == 1:
             plt.legend(loc=[1, 0], fontsize=18)
+        plt.xticks(rotation=15)
+        if i_col == 0:
+            plt.title(name_imputer)
+        if i_col != n_columns - 1:
+            plt.xticks([], [])
         loc = plticker.MultipleLocator(base=2*365)
         ax.xaxis.set_major_locator(loc)
-        ax.tick_params(axis='both', which='major', labelsize=17)
+        ax.tick_params(axis='both', which='major')
         i_plot += 1
-        plt.xlim(0, 100)
 plt.savefig("figures/imputations_benchmark.png")
 plt.show()
 
 ```
 
-**IV.a. Covariance**
+## Covariance
 
 
 We first check the covariance. We simply plot one variable versus one another.
 One observes the methods provide similar visual resuls: it's difficult to compare them based on this criterion.
 
 ```python
-for i_model, model in enumerate(dict_imputers.keys()):
-    fig, axs = plt.subplots(1, len(cols_to_impute)-1, figsize=(4 * (len(cols_to_impute)-1), 4))
-    df_imp = dfs_imputed_station[model]
-    for i in range(len(cols_to_impute)-1):
-        plot.compare_covariances(df_station, df_imp, cols_to_impute[i], cols_to_impute[i+1], axs, color=tab10(i_model))
-        axs.set_title(f"imputation method: {model}", fontsize=20)
-    plt.show()
+fig = plt.figure(figsize=(6 * n_imputers, 6 * n_columns))
+i_plot = 1
+for i, col in enumerate(cols_to_impute[:-1]):
+    for i_imputer, (name_imputer, df_imp) in enumerate(dfs_imputed.items()):
+        ax = fig.add_subplot(n_columns, n_imputers, i_plot)
+        plot.compare_covariances(df_plot, df_imp, col, cols_to_impute[i+1], ax, color=tab10(i_imputer), label=name_imputer)
+        ax.set_title(f"imputation method: {name_imputer}", fontsize=20)
+        i_plot += 1
+        ax.legend()
+plt.show()
 ```
 
-**IV.b. Auto-correlation**
+## Auto-correlation
 
 
 We are now interested in th eauto-correlation function (ACF). As seen before, time series display seaonal patterns.
@@ -303,63 +317,24 @@ On th econtrary, for the PRES variable, all methods overestimates the autocorrel
 Finally, for the DEWP variable, the methods cannot impute to obtain a behavior close to the original: the autocorrelation decreases to linearly.
 
 ```python
-from statsmodels.tsa.stattools import acf
+n_columns = len(df_plot.columns)
+n_imputers = len(dict_imputers)
 
-palette = sns.dark_palette("b", n_colors=len(dict_i), reverse=False)
-sns.set_palette(palette)
-markers = ["o", "s", "*", "D", "P", ">", "^", "d"]
+fig = plt.figure(figsize=(6 * n_columns, 6))
+for i_col, col in enumerate(df_plot):
+    ax = fig.add_subplot(1, n_columns, i_col + 1)
+    for name_imputer, df_imp in dfs_imputed_station.items():
 
-fig, axs = plt.subplots(1, len(cols_to_impute), figsize=(16, 2))
-for i, col in enumerate(cols_to_impute):
-    axs[i].plot(acf(df_station[col].dropna()), color="k", marker=markers[0], lw=0.8)
-    for j, (name, df) in enumerate(dfs_imputed_station.items()):
-        axs[i].plot(acf(df[col]), marker=markers[j+1], lw=0.8)
-    axs[i].set_xlabel("Lags [days]", fontsize=15)
-    axs[i].set_ylabel("Correlation", fontsize=15)
-    axs[i].set_ylim([0.5, 1])
-    axs[i].set_title(col, fontsize=15)
-axs[-1].legend(["Original dataset"] +  list(dfs_imputed.keys()), loc=[1, 0])
-sns.despine()
-```
+        acf = utils.acf(df_imp[col])
+        plt.plot(acf, label=name_imputer)
+    values_orig = df_station[col]
+    acf = utils.acf(values_orig)
+    plt.plot(acf, color="black", lw=2, ls="--", label="original")
+    plt.legend()
 
-**IV.b. Distances between distributions**
+plt.savefig("figures/acf.png")
+plt.show()
 
-
-We are now interested in a way for quantifying the distance between two distributions.
-Until now, we look at the reconstruction error, whatever the distributions.
-
-There is a plethora of methods to quantify the distance between distributions $P$ and $Q$.
-For instance, those based on the information theory as for instance, the well-known [Kullback-Leibler divergence](https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence). A simple interpretation of the KL divergence of $P$ from $Q$ is the expected excess surprise from using $Q$ as a model when the actual distribution is $P$.
-
-A drawback with this divergence is it ignores the underlying geometry of the space (the KL divergence is somewhat difficult to intuitively interpret).
-As a remedy, we consider a second metric, the [Wasserstein distance](https://en.wikipedia.org/wiki/Wasserstein_metric), a distance function defined between probability distributions on a given metric space $M$.
-
-To understand one of the differences between these two quantities, let us look at this simple example.
-The KL between the 2 distributions on the left is the same as that of the 2 distributions on the right: the KL divergence does not take into account the underlying metric space. Conversely, the Wasserstein metric is larger for those on the left since the "transport" is greater than for those on the right.
-
-<p align="center">
-    <img src="../../docs/images/KL_wasser.png"  width=50% height=50%>
-</p>
-
-
-```python
-df_kl = pd.DataFrame(np.nan, index=dfs_imputed_station.keys(), columns=cols_to_impute)
-for model, df_imputed in dfs_imputed_station.items():
-    for col in cols_to_impute:
-        kl = kl_divergence(df_station[[col]].dropna(how="all"), df_imputed[[col]]).iloc[0]
-        df_kl.loc[model, col] = kl
-
-plot.display_bar_table(df_kl, ylabel="KL divergence")
-```
-
-```python
-df_wasserstein = pd.DataFrame(np.nan, index=dfs_imputed_station.keys(), columns=cols_to_impute)
-for model, df_imputed in dfs_imputed_station.items():
-    for col in cols_to_impute:
-        wasserstein = scipy.stats.wasserstein_distance(df_station[col].dropna(how="all"), df_imputed[col])
-        df_wasserstein.loc[model, col] = wasserstein
-
-plot.display_bar_table(df_wasserstein, ylabel="Wasserstein distance")
 ```
 
 ```python
