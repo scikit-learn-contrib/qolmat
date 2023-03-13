@@ -12,6 +12,7 @@ from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer, KNNImputer
 from sklearn.impute._base import _BaseImputer
 from statsmodels.tsa import seasonal as tsa_seasonal
+import tensorflow as tf
 
 from qolmat.benchmark import utils
 from qolmat.imputations import em_sampler
@@ -770,3 +771,79 @@ class ImputerEM(Imputer):
     #     X_transformed = self.model.transform(X)
     #     df_transformed = pd.DataFrame(X_transformed, columns=df.columns, index=df.index)
     #     return df_transformed
+
+class ImputerMLP(Imputer):
+    """
+    This class implements a MLP imputer in the multivariate case.
+    It imputes each Series with missing value within a DataFrame using the complete ones.
+    Parameters
+    ----------
+    model :
+        Multi-Layers Perceptron model
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> from qolmat.imputations.models import ImputerMLP
+    >>> imputor = ImputeRegressor(model=)
+    >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
+    >>>                       [np.nan, np.nan, 2, 3],
+    >>>                       [1, 2, 2, 5], [2, 2, 2, 2]],
+    >>>                       columns=["var1", "var2", "var3", "var4"])
+    >>> imputor.fit_transform(df)
+    """
+
+    def __init__(
+        self, groups: List[str] = [], fit_on_nan: bool = False, **hyperparams
+    ):
+        super().__init__(groups=groups, hyperparams=hyperparams)
+        self.columnwise = False
+        self.fit_on_nan = fit_on_nan
+
+    def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Fit/transform using a (specified) regression model
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            dataframe to impute
+
+        Returns
+        -------
+        pd.DataFrame
+            imputed dataframe
+        """
+
+        df_imputed = df.copy()
+
+        cols_with_nans = df.columns[df.isna().any()]
+        cols_without_nans = df.columns[df.notna().all()]
+
+        for col in cols_with_nans:
+            hyperparams = {}
+            for hyperparam, value in self.hyperparams_element.items():
+                if isinstance(value, dict):
+                    value = value[col]
+                hyperparams[hyperparam] = value
+
+            #model = self.type_model(**hyperparams)
+            model = tf.keras.models.Sequential([
+                tf.keras.layers.Dense(256, activation='relu'),
+                tf.keras.layers.Dense(128, activation='relu'),
+                tf.keras.layers.Dense(64, activation='relu'),
+                tf.keras.layers.Dense(1)])
+
+            model.compile(optimizer='adam', loss='mse', metrics=['mae']) 
+            
+            X = df[cols_without_nans]
+            y = df[col]
+            is_na = y.isna()
+            if X.empty:
+                y_imputed = pd.Series(y.mean(), index=y.index)
+            else:
+                model.fit(X[~is_na], y[~is_na], epoch=100)
+                y_imputed = model.predict(X[is_na])
+            df_imputed.loc[is_na, col] = y_imputed
+
+        return df_imputed
