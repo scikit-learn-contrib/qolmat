@@ -43,7 +43,7 @@ class Comparator:
         self.n_calls_opt = n_calls_opt
 
     def get_errors(
-        self, df_origin: pd.DataFrame, df_imputed: pd.DataFrame, df_mask: pd.DataFrame
+        self, df_origin: pd.DataFrame, df_imputed: pd.DataFrame, df_mask: pd.DataFrame, metrics: Dict = {}, on_mask = True
     ) -> pd.DataFrame:
         """Functions evaluating the reconstruction's quality
 
@@ -59,31 +59,38 @@ class Comparator:
         dictionary
             dictionay of results obtained via different metrics
         """
-
+        
+        if not on_mask:
+            df_mask = df_mask.replace(False, True)
         dict_errors = {}
-        dict_errors["rmse"] = utils.root_mean_squared_error(
-            df_origin[df_mask],
-            df_imputed[df_mask],
-        )
-        dict_errors["mae"] = utils.mean_absolute_error(
-            df_origin[df_mask],
-            df_imputed[df_mask],
-        )
-        dict_errors["wmape"] = utils.weighted_mean_absolute_percentage_error(
-            df_origin[df_mask],
-            df_imputed[df_mask],
-        )
-
-        dict_errors["kl"] = utils.kl_divergence(
-            df_origin[df_mask],
-            df_imputed[df_mask],
-        )
-
+        if metrics == {}:
+            dict_errors["rmse"] = utils.root_mean_squared_error(
+                df_origin[df_mask],
+                df_imputed[df_mask],
+            )
+            dict_errors["mae"] = utils.mean_absolute_error(
+                df_origin[df_mask],
+                df_imputed[df_mask],
+            )
+            dict_errors["wmape"] = utils.weighted_mean_absolute_percentage_error(
+                df_origin[df_mask],
+                df_imputed[df_mask],
+            )
+            dict_errors["kl"] = utils.kl_divergence(
+                df_origin[df_mask],
+                df_imputed[df_mask],
+            )
+        else:
+            for name, imp in metrics.items():
+                dict_errors[name] = imp(
+                    df_origin[df_mask],
+                    df_imputed[df_mask],
+            )
         errors = pd.concat(dict_errors.values(), keys=dict_errors.keys())
         return errors
 
     def evaluate_errors_sample(
-        self, imputer: any, df: pd.DataFrame, list_spaces: List[Dict] = {}
+        self, imputer: any, df: pd.DataFrame, list_spaces: List[Dict] = {}, metrics: Dict = {}, on_mask = True
     ) -> pd.Series:
         """Evaluate the errors in the cross-validation
 
@@ -101,6 +108,7 @@ class Comparator:
         pd.DataFrame
             DataFrame with the errors for each metric (in column) and at each fold (in index)
         """
+
         list_errors = []
         df_origin = df[self.selected_columns].copy()
         for df_mask in self.generator_holes.split(df_origin):
@@ -118,14 +126,14 @@ class Comparator:
                 df_imputed = imputer.fit_transform(df_corrupted)
 
             subset = self.generator_holes.subset
-            errors = self.get_errors(df_origin[subset], df_imputed[subset], df_mask[subset])
+            errors = self.get_errors(df_origin[subset], df_imputed[subset], df_mask[subset], metrics, on_mask)
             list_errors.append(errors)
         df_errors = pd.DataFrame(list_errors)
         errors_mean = df_errors.mean(axis=0)
 
         return errors_mean
 
-    def compare(self, df: pd.DataFrame, verbose: bool = True):
+    def compare(self, df: pd.DataFrame, verbose: bool = True, metrics: Dict = {}, on_mask = True):
         """Function to compare different imputation methods on dataframe df
 
         Parameters
@@ -149,7 +157,7 @@ class Comparator:
             list_spaces = utils.get_search_space(search_params)
 
             try:
-                dict_errors[name] = self.evaluate_errors_sample(imputer, df, list_spaces)
+                dict_errors[name] = self.evaluate_errors_sample(imputer, df, list_spaces, metrics, on_mask)
             except Exception as excp:
                 print("Error while testing ", type(imputer).__name__)
                 raise excp
