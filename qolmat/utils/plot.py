@@ -4,10 +4,11 @@ Useful drawing functions
 
 from __future__ import annotations
 
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import matplotlib.ticker as plticker
 import numpy as np
 import pandas as pd
 import scipy
@@ -195,6 +196,7 @@ def compare_covariances(
     col_x: str,
     col_y: str,
     ax: any,
+    label: str = "",
     color=None,
 ):
     """
@@ -215,8 +217,8 @@ def compare_covariances(
     """
     if color is None:
         color = tab10(0)
-    ax.scatter(df2[col_x], df2[col_y], marker=".", color=color)
-    ax.scatter(df1[col_x], df1[col_y], marker=".", color="black")
+    ax.scatter(df2[col_x], df2[col_y], marker=".", color=color, s=0.2, label=label)
+    ax.scatter(df1[col_x], df1[col_y], marker=".", color="black", s=0.2)
     make_ellipses(df1[[col_x, col_y]], ax, "black")
     make_ellipses(df2[[col_x, col_y]], ax, color)
     ax.set_xlabel(col_x)
@@ -256,3 +258,31 @@ def multibar(df, ax=None, orientation="vertical", colors=None, decimals=0):
     # ax.bar_label(rects2, padding=3)
 
     # plt.tight_layout()
+
+
+def plot_imputations(df: pd.DataFrame, dict_df_imputed: Dict[str, pd.DataFrame]):
+    n_columns = len(df.columns)
+    n_imputers = len(dict_df_imputed)
+
+    fig = plt.figure(figsize=(8 * n_columns, 6 * n_imputers))
+    i_plot = 1
+    for name_imputer, df_imputed in dict_df_imputed.items():
+        for col in df:
+
+            ax = fig.add_subplot(n_imputers, n_columns, i_plot)
+            values_orig = df[col]
+
+            plt.plot(values_orig, ".", color="black", label="original")
+            # plt.plot(df.iloc[870:1000][col], markers[0], color='k', linestyle='-' , ms=3)
+
+            values_imp = df_imputed[col].copy()
+            values_imp[values_orig.notna()] = np.nan
+            plt.plot(values_imp, ".", color=tab10(0), label=name_imputer, alpha=1)
+            plt.ylabel(col, fontsize=16)
+            if i_plot % n_columns == 0:
+                plt.legend(loc=[1, 0], fontsize=18)
+            loc = plticker.MultipleLocator(base=2 * 365)
+            ax.xaxis.set_major_locator(loc)
+            ax.tick_params(axis="both", which="major", labelsize=17)
+            i_plot += 1
+    plt.show()
