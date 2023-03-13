@@ -31,8 +31,8 @@ class Imputer(_BaseImputer):
         hyperparams: Dict = {},
     ):
         self.hyperparams_user = hyperparams
-        self.hyperparams_optim = {}
-        self.hyperparams_local = {}
+        self.hyperparams_optim: Dict = {}
+        self.hyperparams_local: Dict = {}
         self.groups = groups
         self.columnwise = columnwise
         self.shrink = shrink
@@ -205,10 +205,7 @@ class ImputerShuffle(Imputer):
     >>> imputor.fit_transform(df)
     """
 
-    def __init__(
-        self,
-        groups: List[str] = [],
-    ) -> None:
+    def __init__(self, groups: List[str] = []) -> None:
         super().__init__(groups=groups, columnwise=True)
 
     def fit_transform_element(self, df):
@@ -277,10 +274,7 @@ class ImputerNOCB(Imputer):
     >>> imputor.fit_transform(df)
     """
 
-    def __init__(
-        self,
-        groups: List[str] = [],
-    ) -> None:
+    def __init__(self, groups: List[str] = []) -> None:
         super().__init__(groups=groups, columnwise=True)
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -327,7 +321,7 @@ class ImputerInterpolation(Imputer):
         self,
         groups: List[str] = [],
         method: str = "linear",
-        order: int = None,
+        order: int = 1,
         col_time: Optional[str] = None,
     ) -> None:
         super().__init__(groups=groups, columnwise=True)
@@ -394,7 +388,7 @@ class ImputerResiduals(Imputer):
     def __init__(
         self,
         groups: List[str] = [],
-        period: int = None,
+        period: Optional[int] = None,
         model_tsa: Optional[str] = "additive",
         extrapolate_trend: Optional[Union[int, str]] = "freq",
         method_interpolation: Optional[str] = "linear",

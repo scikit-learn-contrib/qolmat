@@ -39,7 +39,7 @@ class RPCA(BaseEstimator, TransformerMixin):
         self.max_iter = max_iter
         self.tol = tol
 
-    def _prepare_data(self, X: NDArray) -> Tuple[NDArray, int, int]:
+    def _prepare_data(self, X: NDArray) -> NDArray:
         """
         Transform signal to 2D-array in case of 1D-array.
         """

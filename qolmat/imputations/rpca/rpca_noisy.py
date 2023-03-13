@@ -56,8 +56,8 @@ class RPCANoisy(RPCA):
         lam: Optional[float] = None,
         list_periods: List[int] = [],
         list_etas: List[float] = [],
-        max_iter: Optional[int] = int(1e4),
-        tol: Optional[float] = 1e-6,
+        max_iter: int = int(1e4),
+        tol: float = 1e-6,
         norm: Optional[str] = "L2",
     ) -> None:
         super().__init__(period=period, max_iter=max_iter, tol=tol)
@@ -68,7 +68,7 @@ class RPCANoisy(RPCA):
         self.list_etas = list_etas
         self.norm = norm
 
-    def compute_L1(self, proj_D, omega, lam, tau, rank) -> None:
+    def compute_L1(self, proj_D, omega, lam, tau, rank) -> Tuple:
         """
         compute RPCA with possible temporal regularisations, penalised with L1 norm
         """
@@ -154,8 +154,8 @@ class RPCANoisy(RPCA):
             Qc = np.linalg.norm(Q - Q_temp, np.inf)
             Rc = -1
             for index, _ in enumerate(self.list_periods):
-                Rc = max(Rc, np.linalg.norm(R[index] - R_temp[index], np.inf))
-            tol = max([Xc, Ac, Lc, Qc, Rc])
+                Rc = np.maximum(Rc, np.linalg.norm(R[index] - R_temp[index], np.inf))
+            tol = np.amax(np.array([Xc, Ac, Lc, Qc, Rc]))
             errors[iteration] = tol
 
             if tol < self.tol:
@@ -165,7 +165,7 @@ class RPCANoisy(RPCA):
         V = Q
         return M, A, U, V, errors
 
-    def compute_L2(self, proj_D, Omega, lam, tau, rank) -> None:
+    def compute_L2(self, proj_D, Omega, lam, tau, rank) -> Tuple:
         """
         compute RPCA with possible temporal regularisations, penalised with L2 norm
         """
