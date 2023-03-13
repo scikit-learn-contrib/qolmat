@@ -47,7 +47,6 @@ def get_data(name_data="Beijing", datapath: str = "data/", download: Optional[bo
         df = pd.concat(list_df)
         return df
     elif name_data == "Artificial":
-
         city = "Wonderland"
         n_samples = 1000
         p1 = 100

@@ -12,7 +12,7 @@ X_real = np.array([[1, 2], [1, 2], [1, 2], [1, 2], [1, 2]])
 s_real = 0
 
 
-@pytest.mark.parametrize('X', [X])
+@pytest.mark.parametrize("X", [X])
 def test_rpca_prepare_data(X: NDArray) -> None:
     """Test prepare data function"""
     X_output, s_output = rpca.RPCA()._prepare_data(X)
@@ -39,12 +39,8 @@ X_1d_real3 = np.array(
 )
 X_1d_real4 = np.array([[-0.4472136, -0.89442719], [0.89442719, -0.4472136]])
 
-X_2d = np.array(
-    [[1, 1, 1, 1, 1, 2, 2, 2, 2, 2], [1, 1, 1, 1, 1, 2, 2, 2, 2, 2]]
-)
-X_2d_real1 = np.array(
-    [[1, 1, 1, 1, 1, 2, 2, 2, 2, 2], [1, 1, 1, 1, 1, 2, 2, 2, 2, 2]]
-)
+X_2d = np.array([[1, 1, 1, 1, 1, 2, 2, 2, 2, 2], [1, 1, 1, 1, 1, 2, 2, 2, 2, 2]])
+X_2d_real1 = np.array([[1, 1, 1, 1, 1, 2, 2, 2, 2, 2], [1, 1, 1, 1, 1, 2, 2, 2, 2, 2]])
 X_2d_real2 = np.array(
     [
         [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
@@ -73,7 +69,7 @@ X_2d_real4 = np.array(
 x = np.zeros((2, 3, 4))
 
 
-@pytest.mark.parametrize('X', [X_1d])
+@pytest.mark.parametrize("X", [X_1d])
 def test_rpca_fit_transform(X: NDArray) -> None:
     """Test fit_transform function for rpca class"""
     if len(X.shape) == 1:

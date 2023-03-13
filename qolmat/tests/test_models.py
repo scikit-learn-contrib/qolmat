@@ -21,9 +21,7 @@ def test_impute_by_mean_fit_transform() -> None:
         )
     )
 
-    np.testing.assert_array_equal(
-        res, [[1, 1, 1, 1], [2, 2, 4, 4], [3, 3, 9, 9], [2, 2, 2, 3]]
-    )
+    np.testing.assert_array_equal(res, [[1, 1, 1, 1], [2, 2, 4, 4], [3, 3, 9, 9], [2, 2, 2, 3]])
 
 
 def test_impute_by_median_fit_transform() -> None:
@@ -39,9 +37,7 @@ def test_impute_by_median_fit_transform() -> None:
         )
     )
 
-    np.testing.assert_array_equal(
-        res, [[1, 1, 1, 1], [1, 2, 2, 1], [1, 2, 2, 1], [2, 2, 2, 2]]
-    )
+    np.testing.assert_array_equal(res, [[1, 1, 1, 1], [1, 2, 2, 1], [1, 2, 2, 1], [2, 2, 2, 2]])
 
 
 def test_impute_by_mode_fit_transform() -> None:
@@ -57,9 +53,7 @@ def test_impute_by_mode_fit_transform() -> None:
         )
     )
 
-    np.testing.assert_array_equal(
-        res, [[1, 1, 1, 1], [1, 2, 2, 1], [1, 2, 2, 1], [2, 2, 2, 2]]
-    )
+    np.testing.assert_array_equal(res, [[1, 1, 1, 1], [1, 2, 2, 1], [1, 2, 2, 1], [2, 2, 2, 2]])
 
 
 def test_impute_random_fit_transform() -> None:
@@ -76,13 +70,7 @@ def test_impute_random_fit_transform() -> None:
     )
 
     assert set(res.iloc[1, :].values).intersection(
-        set(
-            [
-                item
-                for sublist in res.iloc[[0, 2, 3], :].values
-                for item in sublist
-            ]
-        )
+        set([item for sublist in res.iloc[[0, 2, 3], :].values for item in sublist])
     ) == set(res.iloc[1, :].values)
 
 
@@ -99,9 +87,7 @@ def test_impute_LOCF_fit_transform() -> None:
         )
     )
 
-    np.testing.assert_array_equal(
-        res, [[1, 1, 1, 1], [1, 1, 1, 1], [1, 2, 2, 1], [2, 2, 2, 2]]
-    )
+    np.testing.assert_array_equal(res, [[1, 1, 1, 1], [1, 1, 1, 1], [1, 2, 2, 1], [2, 2, 2, 2]])
 
 
 def test_impute_NOCB_fit_transform() -> None:
@@ -117,9 +103,7 @@ def test_impute_NOCB_fit_transform() -> None:
         )
     )
 
-    np.testing.assert_array_equal(
-        res, [[1, 1, 1, 1], [5, 2, 2, 1], [5, 2, 2, 1], [2, 2, 2, 2]]
-    )
+    np.testing.assert_array_equal(res, [[1, 1, 1, 1], [5, 2, 2, 1], [5, 2, 2, 1], [2, 2, 2, 2]])
 
 
 def test_impute_linear_interpolation_fit_transform() -> None:
@@ -135,9 +119,7 @@ def test_impute_linear_interpolation_fit_transform() -> None:
         )
     )
 
-    np.testing.assert_array_equal(
-        res, [[1, 1, 1, 1], [2, 2, 2, 2], [3, 3, 3, 3], [4, 4, 4, 4]]
-    )
+    np.testing.assert_array_equal(res, [[1, 1, 1, 1], [2, 2, 2, 2], [3, 3, 3, 3], [4, 4, 4, 4]])
 
 
 def test_impute_KNN_fit_transform() -> None:
@@ -165,11 +147,10 @@ def test_impute_KNN_fit_transform() -> None:
 
 
 def test_impute_KNN_hyperparameters() -> None:
-
     test_imputer = imputers.ImputeKNN(k=2)
 
     assert len(test_imputer.get_hyperparams()) == 1
-    assert test_imputer.get_hyperparams() == {'k': 2}
+    assert test_imputer.get_hyperparams() == {"k": 2}
 
 
 def test_impute_MICE_fit_transform() -> None:
@@ -183,11 +164,9 @@ def test_impute_MICE_fit_transform() -> None:
     df_init = pd.DataFrame(data=df_init)
 
     df_corrupted = df_init.copy()
-    X_miss_mcar = missing_patterns.produce_NA(
-        df_corrupted, p_miss=0.2, mecha='MCAR'
-    )
-    df_corrupted = X_miss_mcar['X_incomp']
-    mask_mcar = X_miss_mcar['mask']
+    X_miss_mcar = missing_patterns.produce_NA(df_corrupted, p_miss=0.2, mecha="MCAR")
+    df_corrupted = X_miss_mcar["X_incomp"]
+    mask_mcar = X_miss_mcar["mask"]
 
     test_imputer = imputers.ImputeMICE(
         estimator=ExtraTreesRegressor(),
@@ -221,4 +200,4 @@ def test_impute_MICE_hyperparameters() -> None:
     )
 
     assert len(test_imputer.get_hyperparams()) == 4
-    assert 'estimator' in test_imputer.get_hyperparams()
+    assert "estimator" in test_imputer.get_hyperparams()

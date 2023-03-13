@@ -31,8 +31,8 @@ class Imputer(_BaseImputer):
         hyperparams: Dict = {},
     ):
         self.hyperparams_user = hyperparams
-        self.hyperparams_optim = {}
-        self.hyperparams_local = {}
+        self.hyperparams_optim: Dict = {}
+        self.hyperparams_local: Dict = {}
         self.groups = groups
         self.columnwise = columnwise
         self.shrink = shrink
@@ -64,7 +64,6 @@ class Imputer(_BaseImputer):
             self.ngroups = df.groupby(self.groups).ngroup().rename("_ngroup")
 
         if self.columnwise:
-
             # imputed = pd.DataFrame(index=df.index, columns=df.columns)
             df_imputed = df.copy()
 
@@ -94,7 +93,6 @@ class Imputer(_BaseImputer):
             raise ValueError("Input has to be a pandas.DataFrame.")
         df = df.copy()
         if self.groups:
-
             # groupby = utils.custom_groupby(df, self.groups)
             groupby = df.groupby(self.ngroups, group_keys=False)
             if self.shrink:
@@ -205,10 +203,7 @@ class ImputerShuffle(Imputer):
     >>> imputor.fit_transform(df)
     """
 
-    def __init__(
-        self,
-        groups: List[str] = [],
-    ) -> None:
+    def __init__(self, groups: List[str] = []) -> None:
         super().__init__(groups=groups, columnwise=True)
 
     def fit_transform_element(self, df):
@@ -277,10 +272,7 @@ class ImputerNOCB(Imputer):
     >>> imputor.fit_transform(df)
     """
 
-    def __init__(
-        self,
-        groups: List[str] = [],
-    ) -> None:
+    def __init__(self, groups: List[str] = []) -> None:
         super().__init__(groups=groups, columnwise=True)
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -327,7 +319,7 @@ class ImputerInterpolation(Imputer):
         self,
         groups: List[str] = [],
         method: str = "linear",
-        order: int = None,
+        order: int = 1,
         col_time: Optional[str] = None,
     ) -> None:
         super().__init__(groups=groups, columnwise=True)
@@ -394,7 +386,7 @@ class ImputerResiduals(Imputer):
     def __init__(
         self,
         groups: List[str] = [],
-        period: int = None,
+        period: Optional[int] = None,
         model_tsa: Optional[str] = "additive",
         extrapolate_trend: Optional[Union[int, str]] = "freq",
         method_interpolation: Optional[str] = "linear",
@@ -669,7 +661,10 @@ class ImputerStochasticRegressor(Imputer):
     """
 
     def __init__(
-        self, groups: List[str] = [], estimator: Optional[BaseEstimator] = None, **hyperparams
+        self,
+        groups: List[str] = [],
+        estimator: Optional[BaseEstimator] = None,
+        **hyperparams,
     ) -> None:
         super().__init__(groups=groups, hyperparams=hyperparams)
         self.estimator = estimator

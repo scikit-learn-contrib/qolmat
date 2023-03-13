@@ -191,7 +191,8 @@ class UniformHoleGenerator(_HoleGenerator):
 
 
 class _SamplerHoleGenerator(_HoleGenerator):
-    """This abstract class implements a generic way to generate holes in a dataframe by sampling 1D hole size distributions.
+    """This abstract class implements a generic way to generate holes in a dataframe by sampling 1D
+     hole size distributions.
 
     Parameters
     ----------
