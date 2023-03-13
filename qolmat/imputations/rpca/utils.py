@@ -2,28 +2,49 @@
 Modular utility functions for RPCA
 """
 
-from typing import List, Optional, Tuple
 import warnings
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 import scipy
-
 from numpy.typing import NDArray
 from scipy.linalg import toeplitz
 from sklearn.neighbors import kneighbors_graph
 
 
-def signal_to_matrix(
+def get_period(
     signal: NDArray,
-    n_rows: int
-) -> Tuple[NDArray, int]:
+    max_period: Optional[int] = None,
+) -> int:
+    """
+    Return the lag of maximum auto-correlation based on the Auto-Correlation Function,
+    in an possibly given range.
+
+    Parameters
+    ----------
+    signal : NDArray
+        time series
+
+    Returns
+    -------
+    int
+        lag of maximum auto-correlation
+        of the time series
+    """
+    ts = pd.Series(signal)
+    max_period = len(ts) // 3 if max_period is None else max_period
+    acf = [round(ts.autocorr(lag=lag), 2) for lag in range(1, max_period + 1)]
+    return int(np.argmax(acf) + 1)
+
+
+def fold_signal(X: NDArray, n_rows: int) -> NDArray:
     """
     Reshape a time series into a 2D-array
 
     Parameters
     ----------
-    signal : NDArray
+    X : NDArray
     n_rows : int
         Number of rows of the 2D-array
 
@@ -35,17 +56,18 @@ def signal_to_matrix(
     Raises
     ------
     ValueError
-        if signal is not a 1D array
+        if X is not a 1D array
     """
-    if len(signal.shape) > 1:
-        raise ValueError("'signal' should be 1D")
+    if len(X.shape) != 2 or X.shape[0] != 1:
+        raise ValueError("'X' should be 2D with a single line")
 
-    if (len(signal) % n_rows) > 0:
-        M = np.append(signal, [np.nan] * (n_rows - (len(signal) % n_rows)))
-    else:
-        M = signal
-    M = M.reshape(-1, n_rows).T
-    return M
+    if (X.size % n_rows) > 0:
+        X = X[0]
+        X = np.append(X, [np.nan] * (n_rows - (X.size % n_rows)))
+    X = X.reshape(n_rows, -1)
+
+    return X
+
 
 def approx_rank(
     M: NDArray,
@@ -59,7 +81,7 @@ def approx_rank(
     M : NDArray
     threshold : float, Optional
         fraction of the cumulative sum of the singular values, by default 0.95
-    
+
     Returns
     -------
     int: Approximated rank of M
@@ -73,11 +95,7 @@ def approx_rank(
     return np.argwhere(cum_sum > threshold)[0][0] + 1
 
 
-def proximal_operator(
-    U: NDArray,
-    X: NDArray,
-    threshold: float
-) -> NDArray:
+def proximal_operator(U: NDArray, X: NDArray, threshold: float) -> NDArray:
     """
     Compute the proximal operator with L1-norm.
 
@@ -116,10 +134,7 @@ def soft_thresholding(
     return np.sign(X) * np.maximum(np.abs(X) - threshold, 0)
 
 
-def svd_thresholding(
-    X: NDArray,
-    threshold: float
-) -> NDArray:
+def svd_thresholding(X: NDArray, threshold: float) -> NDArray:
     """
     Apply the shrinkage operator to the singular values obtained from the SVD of X.
 
@@ -143,10 +158,7 @@ def svd_thresholding(
     return U @ (np.diag(s) @ Vh)
 
 
-def impute_nans(
-    M: NDArray,
-    method: str = "zeros"
-) -> NDArray:
+def impute_nans(M: NDArray, method: str = "zeros") -> NDArray:
     """
     Impute the M's nan with the specified method
 
@@ -233,11 +245,7 @@ def l1_norm(M: NDArray) -> float:
     return np.sum(np.abs(M))
 
 
-def toeplitz_matrix(
-    T: int,
-    dimension: int,
-    model: str
-) -> NDArray:
+def toeplitz_matrix(T: int, dimension: int, model: str) -> NDArray:
     """
     Create a matrix Toeplitz matrix H to take into account temporal correlation via HX
     H=Toeplitz(0,1,-1), in which the central diagonal is defined as ones and
@@ -295,7 +303,11 @@ def construct_graph(
         Graph's adjacency matrix
     """
     G_val = kneighbors_graph(
-        X=X, n_neighbors=n_neighbors, metric=distance, mode="distance", n_jobs=n_jobs
+        X=X,
+        n_neighbors=n_neighbors,
+        metric=distance,
+        mode="distance",
+        n_jobs=n_jobs,
     ).toarray()
 
     G_val = np.exp(-G_val)
@@ -303,10 +315,7 @@ def construct_graph(
     return G_val
 
 
-def get_laplacian(
-    M: NDArray,
-    normalised: bool = True
-) -> NDArray:
+def get_laplacian(M: NDArray, normalised: bool = True) -> NDArray:
     """
     Return the Laplacian matrix of a directed graph.
 
@@ -323,6 +332,7 @@ def get_laplacian(
         Laplacian array
     """
     return scipy.sparse.csgraph.laplacian(M, normed=normalised)
+
 
 def solve_proj2(
     M: NDArray,
@@ -369,7 +379,7 @@ def solve_proj2(
         v = UUt.dot(M - s)
         stemp = s.copy()
         s = soft_thresholding(M - U.dot(v), lam2)
-        stopc = max(np.linalg.norm(v - vtemp)/p, np.linalg.norm(s - stemp)/n)
+        stopc = max(np.linalg.norm(v - vtemp) / p, np.linalg.norm(s - stemp) / n)
         if stopc < tol:
             break
     return v, s
@@ -383,7 +393,7 @@ def solve_projection(
     list_lams: List[float],
     list_periods: List[int],
     X: NDArray,
-    max_iter:int = int(1e4),
+    max_iter: int = int(1e4),
     tol: float = 1e-6,
 ):
     """
@@ -440,7 +450,7 @@ def solve_projection(
         r = tmp @ L.T @ (Z - e + sums_rk)
         e = soft_thresholding(Z - L.dot(r), lam2)
 
-        stopc = max(np.linalg.norm(r - rtemp)/p, np.linalg.norm(e - etemp)/n)
+        stopc = max(np.linalg.norm(r - rtemp) / p, np.linalg.norm(e - etemp) / n)
         if stopc < tol:
             break
 
@@ -476,5 +486,5 @@ def update_col(lam: float, U: NDArray, A: NDArray, B: NDArray):
         uj = U[:, j]
         aj = A[:, j]
         temp = (bj - U.dot(aj)) / A[j, j] + uj
-        U[:, j] = temp / max(np.linalg.norm(temp), 1)
+        U[:, j] = temp / np.maximum(np.linalg.norm(temp), 1)
     return U

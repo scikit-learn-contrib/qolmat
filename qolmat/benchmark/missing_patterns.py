@@ -43,7 +43,8 @@ def get_sizes_max(values_isna: pd.Series) -> int:
 
 class _HoleGenerator:
     """
-    This class implements a method to get indices of observed and missing values.
+    This abstract class implements the generic method to generate masks according to law of missing
+    values.
 
     Parameters
     ----------
@@ -89,7 +90,7 @@ class _HoleGenerator:
         if self.groups == []:
             self.ngroups = None
         else:
-            self.ngroups = X.groupby(self.groups).ngroup()
+            self.ngroups = X.groupby(self.groups).ngroup().rename("_ngroup")
 
         return self
 
@@ -177,7 +178,6 @@ class UniformHoleGenerator(_HoleGenerator):
         n_masked_col = round(self.ratio_masked * len(X))
 
         for column in self.subset:
-
             indices = np.where(X[column].notna())[0]
             indices = resample(
                 indices,
@@ -271,7 +271,6 @@ class _SamplerHoleGenerator(_HoleGenerator):
             assert sum(sizes_sampled) == n_masked_col
             sizes_sampled += self.generate_hole_sizes(column, n_masked_col, sort=False)
             for sample in sizes_sampled:
-
                 sample = min(min(sample, sizes_max.max()), n_masked_left)
                 i_hole = np.random.choice(np.where(sample <= sizes_max)[0])
 
@@ -281,7 +280,8 @@ class _SamplerHoleGenerator(_HoleGenerator):
 
                 sizes_max.iloc[i_hole - sample : i_hole] = 0
                 sizes_max.iloc[i_hole:] = np.minimum(
-                    sizes_max.iloc[i_hole:], np.arange(len(sizes_max.iloc[i_hole:]))
+                    sizes_max.iloc[i_hole:],
+                    np.arange(len(sizes_max.iloc[i_hole:])),
                 )
                 if n_masked_left == 0:
                     break
@@ -395,10 +395,11 @@ class EmpiricalHoleGenerator(_SamplerHoleGenerator):
             groups=groups,
         )
 
-    def compute_distribution_holes(self, states):
+    def compute_distribution_holes(self, states: pd.Series) -> pd.Series:
         series_id = (states.diff() != 0).cumsum()
         series_id = series_id[states]
         distribution_holes = series_id.value_counts().value_counts()
+        distribution_holes.index.name = "_size_hole"
         # distribution_holes /= distribution_holes.sum()
         return distribution_holes
 
@@ -428,7 +429,7 @@ class EmpiricalHoleGenerator(_SamplerHoleGenerator):
                 distributions_holes = states.groupby(self.ngroups).apply(
                     self.compute_distribution_holes
                 )
-                distributions_holes = distributions_holes.groupby(level=0).sum()
+                distributions_holes = distributions_holes.groupby(by="_size_hole").sum()
                 self.dict_distributions_holes[column] = distributions_holes
 
     def sample_sizes(self, column, n_masked):
@@ -592,7 +593,8 @@ class MultiMarkovHoleGenerator(_HoleGenerator):
 
             sizes_max.iloc[i_hole - size_hole : i_hole] = 0
             sizes_max.iloc[i_hole:] = np.minimum(
-                sizes_max.iloc[i_hole:], np.arange(len(sizes_max.iloc[i_hole:]))
+                sizes_max.iloc[i_hole:],
+                np.arange(len(sizes_max.iloc[i_hole:])),
             )
             if n_masked_left <= 0:
                 break

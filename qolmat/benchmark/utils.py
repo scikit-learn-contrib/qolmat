@@ -10,90 +10,57 @@ from numpy.typing import NDArray
 
 from scipy.optimize import Bounds, lsq_linear
 from sklearn.preprocessing import StandardScaler
-from skopt.space import Categorical, Integer, Real
+from skopt.space import Categorical, Dimension, Integer, Real
 
 BOUNDS = Bounds(1, np.inf, keep_feasible=True)
 EPS = np.finfo(float).eps
 
-def has_given_attribute(tested_model, name_param):
+# def has_given_attribute(tested_model, name_param):
+#     has_attribute = hasattr(tested_model, name_param) and (getattr(tested_model, name_param) is not None)
 
-    if hasattr(tested_model, "impute_model"):
-        return has_given_attribute(
-            tested_model.impute_model, name_param)
-    return getattr(tested_model, name_param, None) is not None
+#     if ((name_param[0] == "(") and (name_param[-1] == ")") and ("," in name_param)):
+#         name_param_col = eval(name_param)[1]
+#         has_attribute = (has_attribute
+#         or (hasattr(tested_model, name_param_col) and (getattr(tested_model, name_param_col) is not None))
+#         )
+#     return has_attribute
 
-def convert_dict_to_space(dict_param, name):
-    if dict_param["type"] == "Integer":
-        space = Integer(
-            low=dict_param["min"],
-            high=dict_param["max"],
-            name=name
-            )
-    elif dict_param["type"] == "Real":
-        space = Real(
-            low=dict_param["min"],
-            high=dict_param["max"],
-            name=name
-            )
-    elif dict_param["type"] == "Categorical":
-        space = Categorical(
-            categories=dict_param["categories"],
-            name=name,
-            )
-    else:
-        raise ValueError(
-            "Value of 'type' has to belong to ",
-            "['Integer', 'Real', 'Categorical']"
-        )
-    return space  
 
-def get_search_space(
-    tested_model: any,
-    search_params: Optional[Dict[str, Dict[str, Union[int, float, str]]]],
-    columns_with_nan: Optional[List[str]]) -> Union[None, List]:
+def get_dimension(dict_bounds: Dict, name_dimension: str) -> Dimension:
+    if dict_bounds["type"] == "Integer":
+        return Integer(low=dict_bounds["min"], high=dict_bounds["max"], name=name_dimension)
+    elif dict_bounds["type"] == "Real":
+        return Real(low=dict_bounds["min"], high=dict_bounds["max"], name=name_dimension)
+    elif dict_bounds["type"] == "Categorical":
+        return Categorical(categories=dict_bounds["categories"], name=name_dimension)
+
+
+def get_search_space(search_params: Dict) -> List[Dimension]:
     """Construct the search space for the tested_model
     based on the search_params
 
     Parameters
     ----------
-    tested_model : any
-        imputation model
     search_params : Dict
 
     Returns
     -------
-    Union[None, List]
+    List[Dimension]
         search space
 
     """
+    list_spaces = []
 
-    if search_params is None:
-        return None
-    
-    search_space = []
+    for name_hyperparam, value in search_params.items():
+        # space common for all columns
+        if "type" in value:
+            list_spaces.append(get_dimension(value, name_hyperparam))
+        else:
+            for col, dict_bounds in value.items():
+                name = f"{name_hyperparam}/{col}"
+                list_spaces.append(get_dimension(dict_bounds, name))
 
-    for name_param, vals_params in search_params.items():
-
-        if has_given_attribute(tested_model, name_param):
-            raise ValueError(
-                f"Sorry, you set the value {getattr(tested_model, name_param)} to {name_param}"
-                    " and asked for a search..."
-            )
-        search_space.append(
-            convert_dict_to_space(
-                dict_param=vals_params,
-                name=name_param
-                )
-        )
-        
-        if (getattr(columns_with_nan, "__len__", 0) and getattr(vals_params, "columnwise", False)):
-            search_space += [
-                convert_dict_to_space(
-                    dict_param=vals_params,
-                    name = f"{col}/{name_param}")
-                    for col in columns_with_nan
-                    ]
-    return search_space
+    return list_spaces
 
 
 def custom_groupby(
@@ -116,10 +83,7 @@ def custom_groupby(
     df_out = df.reset_index().copy()
     df_out.index = df.index
     if len(groups) > 0:
-        groupby = []
-        for g in groups:
-            groupby.append(df_out[g])
-        return df.groupby(groupby)
+        return df.groupby(groups, group_keys=False)
     else:
         return df
 
@@ -147,7 +111,7 @@ def mean_squared_error(
     -------
     pd.Series
     """
-    return ((df1 - df2) ** 2).mean()
+    return ((df1 - df2) ** 2).mean(axis=0)
 
 
 def root_mean_squared_error(
@@ -185,7 +149,7 @@ def mean_absolute_error(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.Series:
     -------
     pd.Series
     """
-    return (df1 - df2).abs().mean()
+    return (df1 - df2).abs().mean(axis=0)
 
 
 def weighted_mean_absolute_percentage_error(
@@ -207,7 +171,7 @@ def weighted_mean_absolute_percentage_error(
     -------
     Union[float, pd.Series]
     """
-    return (df1 - df2).abs().mean() / df1.abs().mean()
+    return (df1 - df2).abs().mean(axis=0) / df1.abs().mean(axis=0)
 
 
 def wasser_distance(
@@ -227,10 +191,7 @@ def wasser_distance(
     wasserstein distances : pd.Series
     """
     cols = df1.columns.tolist()
-    wd = [
-        scipy.stats.wasserstein_distance(df1[col].dropna(), df2[col].ffill().bfill())
-        for col in cols
-    ]
+    wd = [scipy.stats.wasserstein_distance(df1[col].dropna(), df2[col].dropna()) for col in cols]
     return pd.Series(wd, index=cols)
 
 
@@ -261,8 +222,8 @@ def kl_divergence(
             min_val = min(df1[col].min(), df2[col].min())
             max_val = min(df1[col].max(), df2[col].max())
             bins = np.linspace(min_val, max_val, 20)
-            p = np.histogram(df1[col], bins=bins, density=True)[0]
-            q = np.histogram(df2[col], bins=bins, density=True)[0]
+            p = np.histogram(df1[col].dropna(), bins=bins, density=True)[0]
+            q = np.histogram(df2[col].dropna(), bins=bins, density=True)[0]
             list_kl.append(scipy.stats.entropy(p + EPS, q + EPS))
         return pd.Series(list_kl, index=cols)
     else:

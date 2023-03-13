@@ -33,41 +33,22 @@ class RPCA(BaseEstimator, TransformerMixin):
         period: Optional[int] = None,
         max_iter: int = int(1e4),
         tol: float = 1e-6,
-        verbose: bool = False,
     ) -> None:
 
-        self.period = period
+        self.n_rows = period
         self.max_iter = max_iter
         self.tol = tol
-        self.verbose = verbose
 
-    def _prepare_data(
-        self,
-        signal: NDArray
-    ) -> Tuple[NDArray, int, int]:
+    def _prepare_data(self, X: NDArray) -> NDArray:
         """
         Transform signal to 2D-array in case of 1D-array.
         """
-        if len(signal.shape) == 1:
-            if self.period is None:
-                raise ValueError("``period`` argument should not be ``None`` when X is 1D")
-            D_init = utils.signal_to_matrix(signal, n_rows=self.period)
-        elif len(signal.shape) == 2:
-            if self.period is not None:
-                raise ValueError("``period`` argument should be ``None`` when X is 2D")
-            D_init = signal.copy()
+        n_rows_X, n_cols_X = X.shape
+        if n_rows_X == 1:
+            if self.n_rows is None:
+                raise ValueError("`n_rows`must be specified when imputing 1D data.")
+            D_init = utils.fold_signal(X, self.n_rows)
         else:
-            raise ValueError("signal should be a 1D or 2D array.")
-        return D_init
+            D_init = X.copy()
 
-    def _set_params(self, **kargs) -> RPCA:
-        """Set the attributes"""
-        for key, value in kargs.items():
-            if key in self.__dict__.keys():
-                setattr(self, key, value)
-            else:
-                raise ValueError(
-                    f"{key} is not a parameter of {type(self).__name__}",
-                    f"It is not one of {', '.join(self.__dict__.keys())}"
-                    )
-        return self
+        return D_init

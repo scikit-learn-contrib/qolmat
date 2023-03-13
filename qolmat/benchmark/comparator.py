@@ -1,13 +1,12 @@
+import logging
 from typing import Dict, List, Optional, Union
+
 import numpy as np
 import pandas as pd
 
 from qolmat.benchmark import cross_validation, utils
 from qolmat.benchmark.missing_patterns import _HoleGenerator
 
-import logging
-
-logger = logging.getLogger(__file__)
 
 class Comparator:
     """
@@ -24,8 +23,8 @@ class Comparator:
     search_params: Optional[Dict[str, Dict[str, Union[str, float, int]]]] = {}
         dictionary of search space for each implementation method. By default, the value is set to
         {}.
-    n_cv_calls: Optional[int] = 10
-        number of calls of the hyperparameters cross-validation. By default, the value is set to
+    n_calls_opt: Optional[int] = 10
+        number of calls of the optimization algorithm
         10.
     """
 
@@ -35,18 +34,17 @@ class Comparator:
         selected_columns: List[str],
         generator_holes: _HoleGenerator,
         search_params: Optional[Dict[str, Dict[str, Union[float, int, str]]]] = {},
-        n_cv_calls: Optional[int] = 10,
+        n_calls_opt: Optional[int] = 10,
     ):
-
-        self.dict_models = dict_models
+        self.dict_imputers = dict_models
         self.selected_columns = selected_columns
         self.generator_holes = generator_holes
         self.search_params = search_params
-        self.n_cv_calls = n_cv_calls
+        self.n_calls_opt = n_calls_opt
 
     def get_errors(
-        df_origin: pd.DataFrame, df_imputed: pd.DataFrame, df_mask: pd.DataFrame
-    ) -> float:
+        self, df_origin: pd.DataFrame, df_imputed: pd.DataFrame, df_mask: pd.DataFrame
+    ) -> pd.DataFrame:
         """Functions evaluating the reconstruction's quality
 
         Parameters
@@ -75,17 +73,18 @@ class Comparator:
             df_origin[df_mask],
             df_imputed[df_mask],
         )
+
         dict_errors["kl"] = utils.kl_divergence(
             df_origin[df_mask],
             df_imputed[df_mask],
         )
-       
+
         errors = pd.concat(dict_errors.values(), keys=dict_errors.keys())
         return errors
 
     def evaluate_errors_sample(
-        self, tested_model: any, df: pd.DataFrame, search_params: Optional[dict] = None
-    ) -> Dict:
+        self, imputer: any, df: pd.DataFrame, list_spaces: List[Dict] = {}
+    ) -> pd.Series:
         """Evaluate the errors in the cross-validation
 
         Parameters
@@ -94,8 +93,8 @@ class Comparator:
             imputation model
         df : pd.DataFrame
             dataframe to impute
-        search_space : Optional[dict], optional
-            search space for tested_model's hyperparameters, by default None
+        search_space : Dict
+            search space for tested_model's hyperparameters
 
         Returns
         -------
@@ -108,33 +107,24 @@ class Comparator:
         for df_mask in self.generator_holes.split(df_origin):
             df_corrupted = df_origin.copy()
             df_corrupted[df_mask] = np.nan
-
-            columns_with_nan = df_corrupted.columns[df_corrupted.isnull().any(axis=0)]
-
-            search_space = utils.get_search_space(
-                    tested_model=tested_model,
-                    search_params=search_params,
-                    columns_with_nan=columns_with_nan)
-
-            if search_space is None:
-                df_imputed = tested_model.fit_transform(df_corrupted)
-            else:
+            if list_spaces:
                 cv = cross_validation.CrossValidation(
-                    tested_model,
-                    search_space=search_space,
+                    imputer,
+                    list_spaces=list_spaces,
                     hole_generator=self.generator_holes,
-                    n_calls=self.n_cv_calls,
+                    n_calls=self.n_calls_opt,
                 )
                 df_imputed = cv.fit_transform(df_corrupted)
+            else:
+                df_imputed = imputer.fit_transform(df_corrupted)
 
             subset = self.generator_holes.subset
             errors = Comparator.get_errors(df_origin[subset], df_imputed[subset], df_mask[subset])
             list_errors.append(errors)
         df_errors = pd.DataFrame(list_errors)
-        errors_mean = df_errors.mean()
+        errors_mean = df_errors.mean(axis=0)
 
         return errors_mean
-
 
     def compare(self, df: pd.DataFrame):
         """Function to compare different imputation methods on dataframe df
@@ -150,22 +140,17 @@ class Comparator:
 
         dict_errors = {}
 
-        for name_imputer, tested_model in self.dict_models.items():
-            logger.info(type(tested_model).__name__)
-            
-            if name_imputer in self.search_params.keys():
-                search_params = self.search_params[name_imputer]
-                
-            else:
-                search_params = None
+        for name, imputer in self.dict_imputers.items():
+            print(f"Tested model: {type(imputer).__name__}")
+
+            search_params = self.search_params.get(name, {})
+
+            list_spaces = utils.get_search_space(search_params)
+
             try:
-                dict_errors[name_imputer] = self.evaluate_errors_sample(
-                    tested_model=tested_model,
-                    df=df,
-                    search_params=search_params,
-                    )
+                dict_errors[name] = self.evaluate_errors_sample(imputer, df, list_spaces)
             except Exception as excp:
-                print(type(tested_model).__name__)
+                print("Error while testing ", type(imputer).__name__)
                 raise excp
 
         df_errors = pd.DataFrame(dict_errors)
