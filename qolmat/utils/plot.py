@@ -241,12 +241,22 @@ def multibar(df, ax=None, orientation="vertical", colors=None, decimals=0):
         dx = width_tot * (-0.5 + float(i_column) / n_columns)
         if orientation == "horizontal":
             rect = ax.barh(
-                x + dx, df[column], width_col, label=column, align="edge", color=color_col
+                x + dx,
+                df[column],
+                width_col,
+                label=column,
+                align="edge",
+                color=color_col,
             )
             plt.yticks(x, df.index)
         else:
             rect = ax.bar(
-                x + dx, df[column], width_col, label=column, align="edge", color=color_col
+                x + dx,
+                df[column],
+                width_col,
+                label=column,
+                align="edge",
+                color=color_col,
             )
             plt.xticks(x, df.index)
         ax.bar_label(rect, padding=3, fmt=f"%.{decimals}f")
@@ -268,7 +278,6 @@ def plot_imputations(df: pd.DataFrame, dict_df_imputed: Dict[str, pd.DataFrame])
     i_plot = 1
     for name_imputer, df_imputed in dict_df_imputed.items():
         for col in df:
-
             ax = fig.add_subplot(n_imputers, n_columns, i_plot)
             values_orig = df[col]
 

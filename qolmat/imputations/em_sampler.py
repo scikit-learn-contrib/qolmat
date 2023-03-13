@@ -130,7 +130,6 @@ class EM(BaseEstimator, TransformerMixin):
         stagnation_threshold: float = 5e-3,
         stagnation_loglik: float = 2,
     ):
-
         if strategy not in ["mle", "ou"]:
             raise Exception("strategy has to be 'mle' or 'ou'")
 
@@ -222,7 +221,6 @@ class EM(BaseEstimator, TransformerMixin):
         self.fit_distribution(X_sample_last)
 
         for iter_em in range(self.max_iter_em):
-
             X_sample_last = self._sample_ou(X_sample_last, mask_na)
 
             if self._check_convergence():
@@ -323,7 +321,6 @@ class MultiNormalEM(EM):
         stagnation_threshold: float = 5e-3,
         stagnation_loglik: float = 1e1,
     ) -> None:
-
         super().__init__(
             strategy,
             max_iter_em,
@@ -534,7 +531,6 @@ class VAR1EM(EM):
         stagnation_threshold: float = 5e-3,
         stagnation_loglik: float = 1e1,
     ) -> None:
-
         super().__init__(
             strategy,
             max_iter_em,

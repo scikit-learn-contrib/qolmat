@@ -64,7 +64,6 @@ class Imputer(_BaseImputer):
             self.ngroups = df.groupby(self.groups).ngroup().rename("_ngroup")
 
         if self.columnwise:
-
             # imputed = pd.DataFrame(index=df.index, columns=df.columns)
             df_imputed = df.copy()
 
@@ -94,7 +93,6 @@ class Imputer(_BaseImputer):
             raise ValueError("Input has to be a pandas.DataFrame.")
         df = df.copy()
         if self.groups:
-
             # groupby = utils.custom_groupby(df, self.groups)
             groupby = df.groupby(self.ngroups, group_keys=False)
             if self.shrink:
@@ -663,7 +661,10 @@ class ImputerStochasticRegressor(Imputer):
     """
 
     def __init__(
-        self, groups: List[str] = [], estimator: Optional[BaseEstimator] = None, **hyperparams
+        self,
+        groups: List[str] = [],
+        estimator: Optional[BaseEstimator] = None,
+        **hyperparams,
     ) -> None:
         super().__init__(groups=groups, hyperparams=hyperparams)
         self.estimator = estimator

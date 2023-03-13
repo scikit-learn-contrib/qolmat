@@ -34,7 +34,6 @@ class RPCA(BaseEstimator, TransformerMixin):
         max_iter: int = int(1e4),
         tol: float = 1e-6,
     ) -> None:
-
         self.n_rows = period
         self.max_iter = max_iter
         self.tol = tol
