@@ -1,0 +1,37 @@
+name: Unit test Qolmat
+
+on: [push, pull_request,workflow_dispatch]
+
+
+jobs:
+  build-linux:
+    runs-on: ${{matrix.os}}
+    strategy:
+      matrix:
+        os: [ubuntu-latest,windows-latest]
+        python-version: [3.8,3.9]
+    defaults:
+      run:
+        shell: bash -l {0}
+
+    steps:
+    - name: Git clone
+      uses: actions/checkout@v3
+    - name: Set up venv for ci
+      uses: conda-incubator/setup-miniconda@v2
+      with:
+        python-version: ${{matrix.python-version}}
+        channels: default, conda-forge
+    - name: Lint with flake8
+      run: |
+        conda install flake8
+        flake8
+    - name: Test with pytest
+      run: |
+        conda install pytest
+        #pytest
+        echo you should uncomment pytest and delete this line
+    - name: typing with mypy
+      run: |
+        #mypy qolmat
+        echo you should uncomment mypy qolmat and delete this line

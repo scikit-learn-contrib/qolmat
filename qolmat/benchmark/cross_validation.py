@@ -1,8 +1,15 @@
-from typing import Dict, Optional, Union
+import logging
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
 import skopt
+from skopt.space import Dimension
+
+from qolmat.benchmark.missing_patterns import _HoleGenerator
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 class CrossValidation:
@@ -15,8 +22,8 @@ class CrossValidation:
     model:
     search_space: Optional[Dict[str, Union[int, float, str]]]
         search space for the hyperparameters
-    cv: Optional[int ]
-        number of splits. By default the value is set to 4
+    hole_generator:
+
     n_calls: Optional[int]
         number of calls. By default the value is set to 10
     n_jobs: Optional[int]
@@ -29,30 +36,29 @@ class CrossValidation:
         ratio of artificially missing data. By default the value is set to 0.1
     corruption: Optional[str]
         type of corruption: "missing" or "outlier". By default the value is set to "missing"
-    verbose: Optional[bool]
-        Controls the verbosity: the higher, the more messages. By default the value is set to True
     """
 
     def __init__(
         self,
-        model,
-        search_space,
-        hole_generator,
-        n_calls=10,
-        n_jobs=-1,
-        loss_norm=1,
-        verbose=True,
+        imputer: any,
+        list_spaces: List[Dimension],
+        hole_generator: _HoleGenerator,
+        n_calls: int = 10,
+        n_jobs: int = -1,
+        loss_norm: int = 1,
     ):
-        self.model = model
-        self.search_space = search_space
+        self.imputer = imputer
+        self.list_spaces = list_spaces
         self.hole_generator = hole_generator
         self.n_calls = n_calls
         self.n_jobs = n_jobs
         self.loss_norm = loss_norm
-        self.verbose = verbose
 
     def loss_function(
-        self, df_origin: pd.DataFrame, df_imputed: pd.DataFrame, df_mask: pd.DataFrame
+        self,
+        df_origin: pd.DataFrame,
+        df_imputed: pd.DataFrame,
+        df_mask: pd.DataFrame,
     ) -> float:
         """
         Compute the loss function associated to the loss_norm parameter
@@ -83,21 +89,26 @@ class CrossValidation:
         else:
             raise ValueError("loss_norm has to be 0 or 1 (int)")
 
-    def _set_params(self, all_params: Dict[str, Union[float, str]]):
+    def deflat_hyperparams(self, hyperparams_flat: Dict[str, Union[float, int, str]]) -> Dict:
         """
         Set the hyperparameters to the model
 
         Parameters
         ----------
-        all_params : Dict[str, Union[int, float, str]]
+        hyperparams_flat : Dict[str, Union[int, float, str]]
             dictionary containing the hyperparameters and their value
         """
-        if hasattr(self.model, "rpca"):
-            for param_name, param_value in all_params.items():
-                setattr(self.model.rpca, param_name, param_value)
-        else:
-            for param_name, param_value in all_params.items():
-                setattr(self.model, param_name, param_value)
+        hyperparams = {}
+        for name_dimension, hyperparam in hyperparams_flat.items():
+            if "/" not in name_dimension:
+                hyperparams[name_dimension] = hyperparam
+            else:
+                name_hyperparam, col = name_dimension.split("/")
+                if name_hyperparam in hyperparams:
+                    hyperparams[name_hyperparam][col] = hyperparam
+                else:
+                    hyperparams[name_hyperparam] = {col: hyperparam}
+        return hyperparams
 
     def objective(self, X):
         """
@@ -109,12 +120,9 @@ class CrossValidation:
             objective function
         """
 
-        @skopt.utils.use_named_args(self.search_space)
-        def obj_func(**all_params):
-
-            self._set_params(all_params=all_params)
-            if self.verbose:
-                print(all_params)
+        @skopt.utils.use_named_args(self.list_spaces)
+        def obj_func(**hyperparams_flat):
+            self.imputer.hyperparams_optim = self.deflat_hyperparams(hyperparams_flat)
 
             errors = []
 
@@ -122,22 +130,23 @@ class CrossValidation:
                 df_origin = X.copy()
                 df_corrupted = df_origin.copy()
                 df_corrupted[df_mask] = np.nan
-                cols_with_nans = X.columns[X.isna().any()]
-                imputed = self.model.fit_transform(df_corrupted)
+                cols_with_nans = X.columns[X.isna().any(axis=0)].tolist()
+                imputed = self.imputer.fit_transform(df_corrupted)
+
                 error = self.loss_function(
-                    df_origin[cols_with_nans], imputed[cols_with_nans], df_mask[cols_with_nans]
+                    df_origin.loc[:, cols_with_nans],
+                    imputed.loc[:, cols_with_nans],
+                    df_mask.loc[:, cols_with_nans],
                 )
                 errors.append(error)
 
             mean_errors = np.mean(errors)
-            if self.verbose:
-                print(mean_errors)
             return mean_errors
 
         return obj_func
 
     def fit_transform(
-        self, X: pd.DataFrame, return_hyper_params: Optional[bool] = False
+        self, df: pd.DataFrame, return_hyper_params: Optional[bool] = False
     ) -> pd.DataFrame:
         """
         Fit and transform estimator and impute the missing values.
@@ -146,8 +155,8 @@ class CrossValidation:
         ----------
         X : pd.DataFrame
             dataframe to impute
-        return_hyper_params : Optional[bool], optional
-            _description_, by default False
+        return_hyper_params : Optional[bool]
+            by default False
 
         Returns
         -------
@@ -155,22 +164,36 @@ class CrossValidation:
             imputed dataframe
         """
 
+        n0 = max(5, self.n_calls // 5)
+        print("---")
+        print(self.n_calls)
+        print(n0)
+
+        # res = skopt.gp_minimize(
+        #     self.objective(X=df),
+        #     dimensions=self.list_spaces,
+        #     n_calls=self.n_calls,
+        #     n_initial_points=n0,
+        #     random_state=42,
+        #     n_jobs=self.n_jobs,
+        # )
+
         res = skopt.gp_minimize(
-            self.objective(),
-            self.search_space,
+            self.objective(X=df),
+            dimensions=self.list_spaces,
             n_calls=self.n_calls,
-            n_initial_points=self.n_calls // 5,
+            n_initial_points=n0,
             random_state=42,
             n_jobs=self.n_jobs,
         )
 
-        best_params = {
-            self.search_space[param].name: res["x"][param] for param in range(len(res["x"]))
-        }
+        hyperparams_flat = {space.name: val for space, val in zip(self.list_spaces, res["x"])}
+        print(f"Optimal hyperparameters : {hyperparams_flat}")
+        print(f"Results: {res}")
 
-        self._set_params(all_params=best_params)
-        df_imputed = self.model.fit_transform(X)
+        self.imputer.hyperparams_optim = self.deflat_hyperparams(hyperparams_flat)
+        df_imputed = self.imputer.fit_transform(df)
 
         if return_hyper_params:
-            return df_imputed, best_params
+            return df_imputed, hyperparams_flat
         return df_imputed

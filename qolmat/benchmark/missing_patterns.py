@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import logging
 from typing import List, Optional, Tuple
 
@@ -22,14 +23,28 @@ def compute_transition_matrix(states: pd.Series, ngroups: List = None):
     if ngroups is None:
         df_counts = compute_transition_counts_matrix(states)
     else:
-        df_counts = states.groupby(ngroups).apply(compute_transition_counts_matrix).sum()
+        list_counts = [compute_transition_counts_matrix(df) for _, df in states.groupby(ngroups)]
+        df_counts = functools.reduce(lambda a, b: a.add(b, fill_value=0), list_counts)
+
     df_transition = df_counts.div(df_counts.sum(axis=1), axis=0)
     return df_transition
 
 
-class HoleGenerator:
+def get_sizes_max(values_isna: pd.Series) -> int:
+    ids_hole = (values_isna.diff() != 0).cumsum()
+    sizes_max = values_isna.groupby(ids_hole, group_keys=True).apply(
+        lambda x: (~x) * np.arange(len(x))
+    )
+    sizes_max = sizes_max.shift(1)
+    sizes_max = sizes_max.fillna(0)
+    sizes_max = sizes_max.astype(int)
+    return sizes_max
+
+
+class _HoleGenerator:
     """
-    This class implements a method to get indices of observed and missing values.
+    This abstract class implements the generic method to generate masks according to law of missing
+    values.
 
     Parameters
     ----------
@@ -59,7 +74,7 @@ class HoleGenerator:
         self.random_state = random_state
         self.groups = groups
 
-    def fit(self, X: pd.DataFrame) -> HoleGenerator:
+    def fit(self, X: pd.DataFrame) -> _HoleGenerator:
         """
         Fits the generator.
 
@@ -75,7 +90,7 @@ class HoleGenerator:
         if self.groups == []:
             self.ngroups = None
         else:
-            self.ngroups = X.groupby(self.groups).ngroup()
+            self.ngroups = X.groupby(self.groups).ngroup().rename("_ngroup")
 
         return self
 
@@ -99,7 +114,7 @@ class HoleGenerator:
             if self.ngroups is None:
                 mask = self.generate_mask(X)
             else:
-                mask = X.groupby(self.ngroups).apply(self.generate_mask)
+                mask = X.groupby(self.ngroups, group_keys=False).apply(self.generate_mask)
             list_masks.append(mask)
         return list_masks
 
@@ -118,7 +133,7 @@ class HoleGenerator:
                 )
 
 
-class UniformHoleGenerator(HoleGenerator):
+class UniformHoleGenerator(_HoleGenerator):
     """This class implements a way to generate holes in a dataframe.
     The holes are generated randomly, using the resample method of scikit learn.
 
@@ -163,7 +178,6 @@ class UniformHoleGenerator(HoleGenerator):
         n_masked_col = round(self.ratio_masked * len(X))
 
         for column in self.subset:
-
             indices = np.where(X[column].notna())[0]
             indices = resample(
                 indices,
@@ -176,8 +190,8 @@ class UniformHoleGenerator(HoleGenerator):
         return df_mask
 
 
-class SamplerHoleGenerator(HoleGenerator):
-    """This class implements a way to generate holes in a dataframe.
+class _SamplerHoleGenerator(_HoleGenerator):
+    """This abstract class implements a generic way to generate holes in a dataframe by sampling 1D hole size distributions.
 
     Parameters
     ----------
@@ -250,21 +264,13 @@ class SamplerHoleGenerator(HoleGenerator):
         for column in self.subset:
             states = X[column].isna()
 
-            ids_hole = (states.diff() != 0).cumsum()
-            sizes_max = (
-                states.groupby(ids_hole)
-                .apply(lambda x: (~x) * np.arange(len(x)))
-                .shift(1)
-                .fillna(0)
-                .astype(int)
-            )
+            sizes_max = get_sizes_max(states)
             n_masked_left = n_masked_col
 
             sizes_sampled = self.generate_hole_sizes(column, n_masked_col, sort=True)
             assert sum(sizes_sampled) == n_masked_col
             sizes_sampled += self.generate_hole_sizes(column, n_masked_col, sort=False)
             for sample in sizes_sampled:
-
                 sample = min(min(sample, sizes_max.max()), n_masked_left)
                 i_hole = np.random.choice(np.where(sample <= sizes_max)[0])
 
@@ -274,7 +280,8 @@ class SamplerHoleGenerator(HoleGenerator):
 
                 sizes_max.iloc[i_hole - sample : i_hole] = 0
                 sizes_max.iloc[i_hole:] = np.minimum(
-                    sizes_max.iloc[i_hole:], np.arange(len(sizes_max.iloc[i_hole:]))
+                    sizes_max.iloc[i_hole:],
+                    np.arange(len(sizes_max.iloc[i_hole:])),
                 )
                 if n_masked_left == 0:
                     break
@@ -284,7 +291,7 @@ class SamplerHoleGenerator(HoleGenerator):
         return mask
 
 
-class GeometricHoleGenerator(SamplerHoleGenerator):
+class GeometricHoleGenerator(_SamplerHoleGenerator):
     """This class implements a way to generate holes in a dataframe.
     The holes are generated following a Markov 1D process.
 
@@ -353,7 +360,7 @@ class GeometricHoleGenerator(SamplerHoleGenerator):
         return sizes_sampled
 
 
-class EmpiricalHoleGenerator(SamplerHoleGenerator):
+class EmpiricalHoleGenerator(_SamplerHoleGenerator):
     """This class implements a way to generate holes in a dataframe.
     The distribution of holes is learned from the data.
     The distributions are learned column by column.
@@ -388,10 +395,11 @@ class EmpiricalHoleGenerator(SamplerHoleGenerator):
             groups=groups,
         )
 
-    def compute_distribution_holes(self, states):
+    def compute_distribution_holes(self, states: pd.Series) -> pd.Series:
         series_id = (states.diff() != 0).cumsum()
         series_id = series_id[states]
         distribution_holes = series_id.value_counts().value_counts()
+        distribution_holes.index.name = "_size_hole"
         # distribution_holes /= distribution_holes.sum()
         return distribution_holes
 
@@ -421,7 +429,7 @@ class EmpiricalHoleGenerator(SamplerHoleGenerator):
                 distributions_holes = states.groupby(self.ngroups).apply(
                     self.compute_distribution_holes
                 )
-                distributions_holes = distributions_holes.groupby(level=0).sum()
+                distributions_holes = distributions_holes.groupby(by="_size_hole").sum()
                 self.dict_distributions_holes[column] = distributions_holes
 
     def sample_sizes(self, column, n_masked):
@@ -447,7 +455,7 @@ class EmpiricalHoleGenerator(SamplerHoleGenerator):
         return sizes_sampled
 
 
-class MultiMarkovHoleGenerator(HoleGenerator):
+class MultiMarkovHoleGenerator(_HoleGenerator):
     """This class implements a way to generate holes in a dataframe.
     The holes are generated according to a Markov process.
     Each line of the dataframe mask (np.nan) represents a state of the Markov chain.
@@ -500,7 +508,7 @@ class MultiMarkovHoleGenerator(HoleGenerator):
             The model itself
 
         """
-        self._check_subset(X)
+        super().fit(X)
 
         states = X[self.subset].isna().apply(lambda x: tuple(x), axis=1)
         self.df_transition = compute_transition_matrix(states, self.ngroups)
@@ -564,30 +572,39 @@ class MultiMarkovHoleGenerator(HoleGenerator):
         X_subset = X[self.subset]
         mask = pd.DataFrame(False, columns=X_subset.columns, index=X_subset.index)
 
-        mask_init = X_subset.isna().any(axis=1)
-        n_masked = X[self.subset].size * self.ratio_masked
+        values_hasna = X_subset.isna().any(axis=1)
 
-        realisations = self.generate_multi_realisation(n_masked)
+        sizes_max = get_sizes_max(values_hasna)
+        n_masked_left = int(X[self.subset].size * self.ratio_masked)
+
+        realisations = self.generate_multi_realisation(n_masked_left)
         realisations = sorted(realisations, reverse=True)
         for realisation in realisations:
             size_hole = len(realisation)
-            is_valid = (
-                ~(mask_init | mask).T.all().rolling(size_hole + 2).max().fillna(1).astype(bool)
-            )
-            if not np.any(is_valid):
-                logger.warning(f"No place to introduce sampled hole of size {size_hole}!")
-                continue
-            i_hole = np.random.choice(np.where(is_valid)[0])
+            n_masked = sum([sum(row) for row in realisation])
+            size_hole = min(size_hole, sizes_max.max())
+            realisation = realisation[:size_hole]
+            i_hole = np.random.choice(np.where(size_hole <= sizes_max)[0])
+            assert (~mask.iloc[i_hole - size_hole : i_hole]).all().all()
             mask.iloc[i_hole - size_hole : i_hole] = mask.iloc[i_hole - size_hole : i_hole].where(
                 ~np.array(realisation), other=True
             )
+            n_masked_left -= n_masked
+
+            sizes_max.iloc[i_hole - size_hole : i_hole] = 0
+            sizes_max.iloc[i_hole:] = np.minimum(
+                sizes_max.iloc[i_hole:],
+                np.arange(len(sizes_max.iloc[i_hole:])),
+            )
+            if n_masked_left <= 0:
+                break
 
         complete_mask = pd.DataFrame(False, columns=X.columns, index=X.index)
         complete_mask[self.subset] = mask[self.subset]
         return mask
 
 
-class GroupedHoleGenerator(HoleGenerator):
+class GroupedHoleGenerator(_HoleGenerator):
     """This class implements a way to generate holes in a dataframe.
     The holes are generated from groups, specified by the user.
     This class uses the GroupShuffleSplit function of sklearn.
@@ -644,7 +661,7 @@ class GroupedHoleGenerator(HoleGenerator):
 
         super().fit(X)
 
-        if self.n_splits > len(np.unique(self.groups_num)):
+        if self.n_splits > self.ngroups.nunique():
             raise ValueError("n_samples has to be smaller than the number of groups.")
 
         return self

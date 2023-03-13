@@ -64,3 +64,10 @@ def progress_bar(iteration, total, prefix="", suffix="", decimals=1, length=100,
     # Print New Line on Complete
     if iteration == total:
         print()
+
+
+def acf(values: pd.Series, lag_max: int = 30) -> pd.Series:
+    acf = pd.Series(0, index=range(lag_max))
+    for lag in range(lag_max):
+        acf[lag] = values.corr(values.shift(lag))
+    return acf

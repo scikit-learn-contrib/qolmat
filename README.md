@@ -48,12 +48,13 @@ On each sample, different imputation models are tested and reconstruction errors
 <img src="docs/images/comparator.png" alt="comparator" width="60%"/>
 </p>
 
-### **Installation**
+### **Installation for conda user**
 
 ```
-conda env create -f conda.yml
-conda activate env_qolmat
+cconda env create -f environment.dev.yml
+conda activate env_qolmat_dev
 ```
+
 ### Install pre-commit
 
 Once the environment is installed, pre-commit is installed, but need to be activated using the following command:
