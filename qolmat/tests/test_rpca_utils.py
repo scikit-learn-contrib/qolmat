@@ -65,11 +65,22 @@ def test_toeplitz_matrix() -> None:
     dim = 5
     rep1 = utils.toeplitz_matrix(T, dim, model="row")
     val1 = np.array(
-        [[1, -1, 0, 0, 0], [0, 1, -1, 0, 0], [0, 0, 1, -1, 0], [0, 0, 0, 1, -1]]
+        [
+            [1, -1, 0, 0, 0],
+            [0, 1, -1, 0, 0],
+            [0, 0, 1, -1, 0],
+            [0, 0, 0, 1, -1],
+        ]
     )
     rep2 = utils.toeplitz_matrix(T, dim, model="column")
     val2 = np.array(
-        [[-1, 0, 0, 0], [1, -1, 0, 0], [0, 1, -1, 0], [0, 0, 1, -1], [0, 0, 0, 1]]
+        [
+            [-1, 0, 0, 0],
+            [1, -1, 0, 0],
+            [0, 1, -1, 0],
+            [0, 0, 1, -1],
+            [0, 0, 0, 1],
+        ]
     )
     T = 2
     rep3 = utils.toeplitz_matrix(T, dim, model="row")

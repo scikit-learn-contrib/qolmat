@@ -1,14 +1,63 @@
+# Byte-compiled / optimized / DLL files
 __pycache__/
+*.py[cod]
+*$py.class
 .pyc
 .DS_Store
-.ipynb_checkpoints
-/data
-/figures
-qolmat/notebooks/figures
-qolmat/notebooks/*.ipynb
-*.egg-info
-/dist
-/build
-*SOURCES.txt
-TimeSynth*
-/scripts
+.mypy*
+
+
+
+# Distribution / packaging
+
+.Python
+env/
+build/
+develop-eggs/
+dist/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+VERSION
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*,cover
+.hypothesis/
+qolmat/.converge
+
+
+# Notebooks
+**.ipynb_checkpoints
+examples/*.ipynb
+examples/figures/*
+examples/data/*
+examples/*.ipynb
+
+
+# VSCode
+.vscode
+# examples/benchmark.ipynb
