@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Literal
 
 import numpy as np
 import pandas as pd
@@ -7,6 +7,7 @@ import scipy.sparse as sparse
 from scipy.optimize import Bounds, lsq_linear
 from sklearn.preprocessing import StandardScaler
 from skopt.space import Categorical, Dimension, Integer, Real
+from sdmetrics.single_table import BNLogLikelihood, GMLogLikelihood
 
 BOUNDS = Bounds(1, np.inf, keep_feasible=True)
 EPS = np.finfo(float).eps
@@ -299,6 +300,163 @@ def frechet_distance(
     else:
         return frechet_dist
 
+def kolmogorov_smirnov_test(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.Series:
+    """Kolmogorov Smirnov Test 
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        true dataframe
+    df2 : pd.DataFrame
+        predicted dataframe
+
+    Returns
+    -------
+    float
+        KS test statistic
+    """
+
+    numerical_cols = [col for col in df1.columns.to_list() if 'category' not in df1.dtypes[col].name]
+    if len(numerical_cols) == 0:
+        raise Exception("No numerical feature is found.")
+
+    cols = df1.columns.tolist()
+    ks_test_statistic = [scipy.stats.ks_2samp(df1[col].dropna(), df2[col].dropna())[0] for col in cols]
+
+    return pd.Series(ks_test_statistic, index=cols)
+
+def correlation_difference(df1: pd.DataFrame, df2: pd.DataFrame, method: Literal['pearson'], use_p_value: bool = True) -> pd.Series:
+    """_summary_
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        true dataframe
+    df2 : pd.DataFrame
+        predicted dataframe
+    method : _type_
+        _description_
+
+    Returns
+    -------
+    float
+        Mean absolute difference of correlation
+    """
+
+    def correlation_pearson(data: pd.DataFrame, use_p_value: bool = True):
+        corr = np.zeros((len(data.columns),len(data.columns)))
+        for idx_1, col_1 in enumerate(data.columns):
+            for idx_2, col_2 in enumerate(data.columns):
+                res = scipy.stats.mstats.pearsonr(data[col_1].array.reshape(-1, 1), data[col_2].array.reshape(-1, 1))
+                if use_p_value:
+                    corr[idx_1, idx_2] = res[1]
+                else:
+                    corr[idx_1, idx_2] = res[0]
+        return corr
+ 
+    if df1.shape != df2.shape:
+        raise Exception("inputs have to be of same dimensions.")
+    
+    df1 = df1.dropna()
+    df2 = df2.dropna()
+
+    categorical_cols = [col for col in df1.columns.to_list() if 'category' in df1.dtypes[col].name]
+    numerical_cols = [col for col in df1.columns.to_list() if col not in categorical_cols]
+
+    if method == 'pearson':
+        if len(numerical_cols) == 0:
+            raise Exception("No numerical feature is found.")
+    
+        corr_df1 = correlation_pearson(df1[numerical_cols], use_p_value=use_p_value)
+        corr_df2 = correlation_pearson(df2[numerical_cols], use_p_value=use_p_value)
+
+        corr_diff = np.abs(corr_df1 - corr_df2)
+
+        cols = numerical_cols
+        return pd.Series(np.mean(corr_diff, axis=1), index=cols)
+
+def coverage_ratio(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.Series:
+    """_summary_
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        _description_
+    df2 : pd.DataFrame
+        _description_
+
+    Returns
+    -------
+    float
+        _description_
+    """
+
+    categorical_cols = [col for col in df1.columns.to_list() if 'category' in df1.dtypes[col].name]
+    numerical_cols = [col for col in df1.columns.to_list() if col not in categorical_cols]
+
+    coverage_cols = {}
+    for col in numerical_cols:
+        min_r = df1[col].min()
+        max_r = df1[col].max()
+        min_s = df2[col].min()
+        max_s = df2[col].max()
+        if max_r - min_r == 0:
+            coverage_cols[col] = 0
+        else:
+            normalized_min = max((min_s - min_r) / (max_r - min_r), 0)
+            normalized_max = max((max_r - max_s) / (max_r - min_r), 0)
+            coverage_cols[col] = max(1 - (normalized_min + normalized_max), 0)
+
+    for col in categorical_cols:
+        real_data_value= df1[col].dropna().nunique()
+        synthetic_data_value = df2[col].dropna().nunique()
+        coverage_cols[col] = synthetic_data_value / real_data_value
+
+    return pd.Series(coverage_cols)
+
+def likelihood(df1: pd.DataFrame, df2: pd.DataFrame, retries: int = 5) -> pd.Series:
+    """_summary_
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        _description_
+    df2 : pd.DataFrame
+        _description_
+    retries : int, optional
+        _description_, by default 5
+
+    Returns
+    -------
+    float
+        _description_
+    """
+
+    categorical_cols = [col for col in df1.columns.to_list() if 'category' in df1.dtypes[col].name]
+    numerical_cols = [col for col in df1.columns.to_list() if col not in categorical_cols]
+
+    likelihoods = {}
+    for col in numerical_cols:
+        real_data_col= df1[[col]]
+        synthetic_data_col = df2[[col]]
+    
+        metadata = {'fields':{col: {'type':'numerical', 'subtype':'float'}}}
+        try:
+            likelihoods[col] =  GMLogLikelihood.compute(real_data_col, synthetic_data_col, metadata=metadata, retries=retries)
+        except:
+            likelihoods[col] = np.nan
+
+    for col in categorical_cols:
+        real_data_col= df1[[col]]
+        synthetic_data_col = df2[[col]]
+    
+        metadata = {'fields':{col: {'type':'categorical'}}}
+        try:
+            likelihoods[col] =  BNLogLikelihood.compute(real_data_col, synthetic_data_col, metadata=metadata)
+        except:
+            likelihoods[col] = np.nan
+
+    return pd.Series(likelihoods)
 
 ###########################
 # Aggregation and entropy #
