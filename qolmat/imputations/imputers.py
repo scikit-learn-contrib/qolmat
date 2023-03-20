@@ -111,6 +111,31 @@ class Imputer(_BaseImputer):
         return df
 
 
+class ImputerOracle(Imputer):
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        groups: List[str] = [],
+    ) -> None:
+        super().__init__(groups=groups, columnwise=True, shrink=True)
+        self.df = df
+
+    def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Fit/transform to impute with RPCA methods
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            unused dataframe, this argument is here for convenience purposes
+
+        Returns
+        -------
+        pd.DataFrame
+            dataframe imputed with premasked values
+        """
+        return self.df
+
+
 class ImputerMean(Imputer):
     """
     This class implements the implementation by the mean of each column
@@ -203,8 +228,14 @@ class ImputerShuffle(Imputer):
     >>> imputor.fit_transform(df)
     """
 
-    def __init__(self, groups: List[str] = []) -> None:
+    def __init__(self, groups: List[str] = [], random_state: int = None) -> None:
         super().__init__(groups=groups, columnwise=True)
+        self.random_state = random_state
+
+    def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        if isinstance(self.random_state, int):
+            np.random.seed(self.random_state)
+        return super().fit_transform(df)
 
     def fit_transform_element(self, df):
         n_missing = df.isna().sum().sum()
@@ -282,7 +313,7 @@ class ImputerNOCB(Imputer):
         """
         df_out = df.copy()
         for col in df:
-            df_out[col] = pd.Series.shift(df[col], 1).bfill().ffill()
+            df_out[col] = pd.Series.shift(df[col], -1).bfill().ffill()
         return df_out
 
 

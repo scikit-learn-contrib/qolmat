@@ -43,7 +43,12 @@ class Comparator:
         self.n_calls_opt = n_calls_opt
 
     def get_errors(
-        self, df_origin: pd.DataFrame, df_imputed: pd.DataFrame, df_mask: pd.DataFrame, metrics: Dict = {}, on_mask = True
+        self,
+        df_origin: pd.DataFrame,
+        df_imputed: pd.DataFrame,
+        df_mask: pd.DataFrame,
+        metrics: Dict = {},
+        on_mask=True,
     ) -> pd.DataFrame:
         """Functions evaluating the reconstruction's quality
 
@@ -59,7 +64,7 @@ class Comparator:
         dictionary
             dictionay of results obtained via different metrics
         """
-        
+
         if not on_mask:
             df_mask = df_mask.replace(False, True)
         dict_errors = {}
@@ -85,12 +90,17 @@ class Comparator:
                 dict_errors[name] = imp(
                     df_origin[df_mask],
                     df_imputed[df_mask],
-            )
+                )
         errors = pd.concat(dict_errors.values(), keys=dict_errors.keys())
         return errors
 
     def evaluate_errors_sample(
-        self, imputer: any, df: pd.DataFrame, list_spaces: List[Dict] = {}, metrics: Dict = {}, on_mask = True
+        self,
+        imputer: any,
+        df: pd.DataFrame,
+        list_spaces: List[Dict] = {},
+        metrics: Dict = {},
+        on_mask=True,
     ) -> pd.Series:
         """Evaluate the errors in the cross-validation
 
@@ -126,14 +136,16 @@ class Comparator:
                 df_imputed = imputer.fit_transform(df_corrupted)
 
             subset = self.generator_holes.subset
-            errors = self.get_errors(df_origin[subset], df_imputed[subset], df_mask[subset], metrics, on_mask)
+            errors = self.get_errors(
+                df_origin[subset], df_imputed[subset], df_mask[subset], metrics, on_mask
+            )
             list_errors.append(errors)
         df_errors = pd.DataFrame(list_errors)
         errors_mean = df_errors.mean(axis=0)
 
         return errors_mean
 
-    def compare(self, df: pd.DataFrame, verbose: bool = True, metrics: Dict = {}, on_mask = True):
+    def compare(self, df: pd.DataFrame, verbose: bool = True, metrics: Dict = {}, on_mask=True):
         """Function to compare different imputation methods on dataframe df
 
         Parameters
@@ -157,7 +169,9 @@ class Comparator:
             list_spaces = utils.get_search_space(search_params)
 
             try:
-                dict_errors[name] = self.evaluate_errors_sample(imputer, df, list_spaces, metrics, on_mask)
+                dict_errors[name] = self.evaluate_errors_sample(
+                    imputer, df, list_spaces, metrics, on_mask
+                )
             except Exception as excp:
                 print("Error while testing ", type(imputer).__name__)
                 raise excp
