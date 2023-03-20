@@ -627,9 +627,11 @@ class ImputerRegressor(Imputer):
             # model = copy.deepcopy(self.estimator)
             # for hyperparam, value in hyperparams.items():
             #     setattr(model, hyperparam, value)
-            
-            # Early Stopped for Keras 
-            es = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=5, verbose=0, mode='min')
+
+            # Early Stopped for Keras
+            es = tf.keras.callbacks.EarlyStopping(
+                monitor="loss", patience=5, verbose=0, mode="min"
+            )
 
             # Define the Train and Test set
             X = df.drop(columns=col, errors="ignore")
@@ -640,11 +642,13 @@ class ImputerRegressor(Imputer):
             if self.handler_nan == "fit":
                 pass
             elif self.handler_nan == "row":
-                is_valid = (~X.isna().any(axis=1))
+                is_valid = ~X.isna().any(axis=1)
             elif self.handler_nan == "column":
                 X = X.dropna(how="any", axis=1)
             else:
-                raise ValueError(f"Value '{self.handler_nan}' is not correct for argument `handler_nan'")
+                raise ValueError(
+                    f"Value '{self.handler_nan}' is not correct for argument `handler_nan'"
+                )
 
             # Selects only non-NaN values for the Test Set
             is_na = y.isna()
