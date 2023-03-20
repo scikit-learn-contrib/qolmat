@@ -657,8 +657,14 @@ class ImputerRegressor(Imputer):
             if X.empty:
                 y_imputed = pd.Series(y.mean(), index=y.index)
             else:
-                if type(self.estimator) == type(tf.keras.Sequential()):
-                    self.estimator.fit(X[(~is_na) & is_valid], y[(~is_na) & is_valid], epochs=100, callbacks=[es], verbose=0)
+                if isinstance(type(self.estimator), type(tf.keras.Sequential())):
+                    self.estimator.fit(
+                        X[(~is_na) & is_valid],
+                        y[(~is_na) & is_valid],
+                        epochs=100,
+                        callbacks=[es],
+                        verbose=0,
+                    )
                 else:
                     self.estimator.fit(X[(~is_na) & is_valid], y[(~is_na) & is_valid])
                 y_imputed = self.estimator.predict(X[is_na & is_valid])
