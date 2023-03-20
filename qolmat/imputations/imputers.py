@@ -15,6 +15,7 @@ from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer, KNNImputer
 from sklearn.impute._base import _BaseImputer
 from statsmodels.tsa import seasonal as tsa_seasonal
+import tensorflow as tf
 
 from qolmat.benchmark import utils
 from qolmat.imputations import em_sampler
@@ -31,8 +32,8 @@ class Imputer(_BaseImputer):
         hyperparams: Dict = {},
     ):
         self.hyperparams_user = hyperparams
-        self.hyperparams_optim: Dict = {}
-        self.hyperparams_local: Dict = {}
+        self.hyperparams_optim = {}
+        self.hyperparams_local = {}
         self.groups = groups
         self.columnwise = columnwise
         self.shrink = shrink
@@ -64,6 +65,7 @@ class Imputer(_BaseImputer):
             self.ngroups = df.groupby(self.groups).ngroup().rename("_ngroup")
 
         if self.columnwise:
+
             # imputed = pd.DataFrame(index=df.index, columns=df.columns)
             df_imputed = df.copy()
 
@@ -93,6 +95,7 @@ class Imputer(_BaseImputer):
             raise ValueError("Input has to be a pandas.DataFrame.")
         df = df.copy()
         if self.groups:
+
             # groupby = utils.custom_groupby(df, self.groups)
             groupby = df.groupby(self.ngroups, group_keys=False)
             if self.shrink:
@@ -203,7 +206,10 @@ class ImputerShuffle(Imputer):
     >>> imputor.fit_transform(df)
     """
 
-    def __init__(self, groups: List[str] = []) -> None:
+    def __init__(
+        self,
+        groups: List[str] = [],
+    ) -> None:
         super().__init__(groups=groups, columnwise=True)
 
     def fit_transform_element(self, df):
@@ -272,7 +278,10 @@ class ImputerNOCB(Imputer):
     >>> imputor.fit_transform(df)
     """
 
-    def __init__(self, groups: List[str] = []) -> None:
+    def __init__(
+        self,
+        groups: List[str] = [],
+    ) -> None:
         super().__init__(groups=groups, columnwise=True)
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -319,7 +328,7 @@ class ImputerInterpolation(Imputer):
         self,
         groups: List[str] = [],
         method: str = "linear",
-        order: int = 1,
+        order: int = None,
         col_time: Optional[str] = None,
     ) -> None:
         super().__init__(groups=groups, columnwise=True)
@@ -386,7 +395,7 @@ class ImputerResiduals(Imputer):
     def __init__(
         self,
         groups: List[str] = [],
-        period: Optional[int] = None,
+        period: int = None,
         model_tsa: Optional[str] = "additive",
         extrapolate_trend: Optional[Union[int, str]] = "freq",
         method_interpolation: Optional[str] = "linear",
@@ -581,13 +590,15 @@ class ImputerRegressor(Imputer):
         self,
         groups: List[str] = [],
         estimator: Optional[BaseEstimator] = None,
-        fit_on_nan: bool = False,
+        handler_nan: str = "column",
+        # col_imp: List[str] = [],
         **hyperparams,
     ):
         super().__init__(groups=groups, hyperparams=hyperparams)
         self.columnwise = False
         self.estimator = estimator
-        self.fit_on_nan = fit_on_nan
+        self.handler_nan = handler_nan
+        # self.col_imp = col_imp
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -603,11 +614,8 @@ class ImputerRegressor(Imputer):
         pd.DataFrame
             imputed dataframe
         """
-
-        df_imputed = df.copy()
-
+        df_imputed = df.apply(pd.DataFrame.median, result_type="broadcast", axis=0)
         cols_with_nans = df.columns[df.isna().any()]
-        cols_without_nans = df.columns[df.notna().all()]
 
         for col in cols_with_nans:
             hyperparams = {}
@@ -620,18 +628,50 @@ class ImputerRegressor(Imputer):
             # for hyperparam, value in hyperparams.items():
             #     setattr(model, hyperparam, value)
 
-            if self.fit_on_nan:
-                X = df.drop(columns=col)
-            else:
-                X = df[cols_without_nans].drop(columns=col, errors="ignore")
+            # Early Stopped for Keras
+            es = tf.keras.callbacks.EarlyStopping(
+                monitor="loss", patience=5, verbose=0, mode="min"
+            )
+
+            # Define the Train and Test set
+            X = df.drop(columns=col, errors="ignore")
             y = df[col]
+
+            # Selects only the valid values in the Train Set according to the chosen method
+            is_valid = pd.Series(True, index=df.index)
+            if self.handler_nan == "fit":
+                pass
+            elif self.handler_nan == "row":
+                is_valid = ~X.isna().any(axis=1)
+            elif self.handler_nan == "column":
+                X = X.dropna(how="any", axis=1)
+            else:
+                raise ValueError(
+                    f"Value '{self.handler_nan}' is not correct for argument `handler_nan'"
+                )
+
+            # Selects only non-NaN values for the Test Set
             is_na = y.isna()
+
+            # Train the model according to an ML or DL method and after predict the imputation
             if X.empty:
                 y_imputed = pd.Series(y.mean(), index=y.index)
             else:
-                self.estimator.fit(X[~is_na], y[~is_na])
-                y_imputed = self.estimator.predict(X[is_na])
-            df_imputed.loc[is_na, col] = y_imputed
+                if isinstance(type(self.estimator), type(tf.keras.Sequential())):
+                    self.estimator.fit(
+                        X[(~is_na) & is_valid],
+                        y[(~is_na) & is_valid],
+                        epochs=100,
+                        callbacks=[es],
+                        verbose=0,
+                    )
+                else:
+                    self.estimator.fit(X[(~is_na) & is_valid], y[(~is_na) & is_valid])
+                y_imputed = self.estimator.predict(X[is_na & is_valid])
+
+            # Adds the imputed values
+            df_imputed.loc[~is_na, col] = y[~is_na]
+            df_imputed.loc[is_na & is_valid, col] = y_imputed
 
         return df_imputed
 
@@ -661,10 +701,7 @@ class ImputerStochasticRegressor(Imputer):
     """
 
     def __init__(
-        self,
-        groups: List[str] = [],
-        estimator: Optional[BaseEstimator] = None,
-        **hyperparams,
+        self, groups: List[str] = [], estimator: Optional[BaseEstimator] = None, **hyperparams
     ) -> None:
         super().__init__(groups=groups, hyperparams=hyperparams)
         self.estimator = estimator

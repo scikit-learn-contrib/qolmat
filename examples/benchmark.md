@@ -8,9 +8,9 @@ jupyter:
       format_version: '1.3'
       jupytext_version: 1.14.4
   kernelspec:
-    display_name: env_qolmat_dev
+    display_name: env_qolmat
     language: python
-    name: env_qolmat_dev
+    name: env_qolmat
 ---
 
 **This notebook aims to present the Qolmat repo through an example of a multivariate time series.
@@ -44,7 +44,7 @@ from typing import Optional
 
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor, HistGradientBoostingRegressor
-
+import tensorflow as tf
 
 import sys
 from qolmat.benchmark import comparator, missing_patterns
@@ -74,7 +74,7 @@ cols_to_impute = ["TEMP", "PRES"]
 The dataset `Artificial` is designed to have a sum of a periodical signal, a white noise and some outliers.
 
 ```python tags=[]
-df_data
+df_data.isna().sum()
 ```
 
 ```python
@@ -120,6 +120,13 @@ Some methods require hyperparameters. The user can directly specify them, or rat
 In pratice, we rely on a cross validation to find the best hyperparams values minimizing an error reconstruction.
 
 ```python
+# Encodage d'une temporalité
+time = np.concatenate([np.cos(2*np.pi*np.arange(60,366)/365), np.cos(2*np.pi*np.arange(1,366)/365), np.cos(2*np.pi*np.arange(1,366)/365), np.cos(2*np.pi*np.arange(1,367)/366),np.cos(2*np.pi*np.arange(1,60)/365)  ])
+for i_station, (station, df) in enumerate(df_data.groupby("station")):
+    df_data.loc[station, "Time"] = time
+```
+
+```python
 imputer_mean = imputers.ImputerMean(groups=["station"])
 imputer_median = imputers.ImputerMedian(groups=["station"])
 imputer_mode = imputers.ImputerMode(groups=["station"])
@@ -140,8 +147,16 @@ imputer_tsmle = imputers.ImputerEM(groups=["station"], method="VAR1", strategy="
 
 imputer_knn = imputers.ImputerKNN(groups=["station"], k=10)
 imputer_iterative = imputers.ImputerMICE(groups=["station"], estimator=LinearRegression(), sample_posterior=False, max_iter=100, missing_values=np.nan)
-impute_regressor = imputers.ImputerRegressor(groups=["station"], estimator=LinearRegression())
+impute_regressor = imputers.ImputerRegressor(groups=["station"], estimator=LinearRegression(), col_imp = cols_to_impute)
 impute_stochastic_regressor = imputers.ImputerStochasticRegressor(groups=["station"], estimator=LinearRegression())
+
+estimator = tf.keras.models.Sequential([
+    tf.keras.layers.Dense(256, activation='relu'),
+    tf.keras.layers.Dense(128, activation='relu'),
+    tf.keras.layers.Dense(64, activation='relu'),
+    tf.keras.layers.Dense(1)])
+estimator.compile(optimizer='adam', loss='mse', metrics=['mae'])
+imputer_mlp = imputers.ImputerRegressor(groups=["station"], estimator=estimator, handler_nan = "column", col_imp = cols_to_impute)
 
 dict_imputers = {
     "mean": imputer_mean,
@@ -150,10 +165,10 @@ dict_imputers = {
     "interpolation": imputer_interpol,
     # "spline": imputer_spline,
     # "shuffle": imputer_shuffle,
-    # "residuals": imputer_residuals,
+    "residuals": imputer_residuals,
     "OU": imputer_ou,
     "TSOU": imputer_tsou,
-    "TSMLE": imputer_tsmle,
+    # "TSMLE": imputer_tsmle,
     # "RPCA": imputer_rpca,
     # "RPCA_opti": imputer_rpca_opti,
     # "locf": imputer_locf,
@@ -161,6 +176,7 @@ dict_imputers = {
     # "knn": imputer_knn,
     "iterative": impute_regressor,
     "regressor": imputer_iterative,
+    "mlp": imputer_mlp,
 }
 n_imputers = len(dict_imputers)
 
@@ -186,12 +202,12 @@ Concretely, the comparator takes as input a dataframe to impute, a proportion of
 
 Note these metrics compute reconstruction errors; it tells nothing about the distances between the "true" and "imputed" distributions.
 
-```python tags=[]
-generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], ratio_masked=ratio_masked)
+```python jupyter={"outputs_hidden": true} tags=[]
+generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, subset = cols_to_impute, groups=["station"], ratio_masked=ratio_masked)
 
 comparison = comparator.Comparator(
     dict_imputers,
-    cols_to_impute,
+    df_data.columns,
     generator_holes = generator_holes,
     n_calls_opt=10,
     search_params=search_params,
@@ -200,7 +216,7 @@ results = comparison.compare(df_data)
 results
 ```
 
-```python
+```python tags=[]
 fig = plt.figure(figsize=(24, 4))
 plot.multibar(results.loc["mae"], decimals=1)
 plt.ylabel("mae")
@@ -213,14 +229,14 @@ plt.show()
 We now run just one time each algorithm on the initial corrupted dataframe and compare the different performances through multiple analysis.
 
 ```python
-df_plot = df_data[cols_to_impute]
+df_plot = df_data
 ```
 
-```python
+```python jupyter={"outputs_hidden": true} tags=[]
 dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_imputers.items()}
 ```
 
-```python
+```python tags=[]
 station = df_plot.index.get_level_values("station")[0]
 df_station = df_plot.loc[station]
 dfs_imputed_station = {name: df_plot.loc[station] for name, df_plot in dfs_imputed.items()}
@@ -229,7 +245,7 @@ dfs_imputed_station = {name: df_plot.loc[station] for name, df_plot in dfs_imput
 Let's look at the imputations.
 When the data is missing at random, imputation is easier. Missing block are more challenging.
 
-```python
+```python tags=[]
 for col in cols_to_impute:
     fig, ax = plt.subplots(figsize=(10, 3))
     values_orig = df_station[col]
@@ -250,40 +266,24 @@ for col in cols_to_impute:
 ```
 
 ```python
-# plot.plot_imputations(df_station, dfs_imputed_station)
-
-n_columns = len(df_plot.columns)
-n_imputers = len(dict_imputers)
-
-fig = plt.figure(figsize=(8 * n_imputers, 6 * n_columns))
-i_plot = 1
-for i_col, col in enumerate(df_plot):
-    for name_imputer, df_imp in dfs_imputed_station.items():
-
-        fig.add_subplot(n_columns, n_imputers, i_plot)
-        values_orig = df_station[col]
-
-        plt.plot(values_orig, ".", color='black', label="original")
-        #plt.plot(df.iloc[870:1000][col], markers[0], color='k', linestyle='-' , ms=3)
-
-        values_imp = df_imp[col].copy()
-        values_imp[values_orig.notna()] = np.nan
-        plt.plot(values_imp, ".", color=tab10(0), label=name_imputer, alpha=1)
-        plt.ylabel(col, fontsize=16)
-        if i_plot % n_columns == 1:
-            plt.legend(loc=[1, 0], fontsize=18)
+n_stations = len(df_data.groupby("station").size())
+n_cols = len(cols_to_impute)
+df_imputed = dfs_imputed['mlp']
+fig = plt.figure(figsize=(10 * n_stations, 3 * n_cols))
+for i_station, (station, df) in enumerate(df_data.groupby("station")):
+    df_station = df_data.loc[station]
+    df_station_imputed = df_imputed.loc[station]
+    for i_col, col in enumerate(cols_to_impute):
+        fig.add_subplot(n_cols, n_stations, i_col * n_stations + i_station + 1)
+        plt.plot(df_station_imputed[col], '.r', label=station)
+        plt.plot(df_station[col], '.b', label=station)
+        plt.ylabel(col)
         plt.xticks(rotation=15)
         if i_col == 0:
-            plt.title(name_imputer)
-        if i_col != n_columns - 1:
+            plt.title(station)
+        if i_col != n_cols - 1:
             plt.xticks([], [])
-        loc = plticker.MultipleLocator(base=2*365)
-        ax.xaxis.set_major_locator(loc)
-        ax.tick_params(axis='both', which='major')
-        i_plot += 1
-plt.savefig("figures/imputations_benchmark.png")
 plt.show()
-
 ```
 
 ## Covariance
@@ -293,6 +293,7 @@ We first check the covariance. We simply plot one variable versus one another.
 One observes the methods provide similar visual resuls: it's difficult to compare them based on this criterion.
 
 ```python
+n_columns = len(cols_to_impute)
 fig = plt.figure(figsize=(6 * n_imputers, 6 * n_columns))
 i_plot = 1
 for i, col in enumerate(cols_to_impute[:-1]):
