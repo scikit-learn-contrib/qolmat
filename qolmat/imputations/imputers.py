@@ -590,13 +590,15 @@ class ImputerRegressor(Imputer):
         self,
         groups: List[str] = [],
         estimator: Optional[BaseEstimator] = None,
-        fit_on_nan: bool = False,
+        handler_nan: str = "column",
+        # col_imp: List[str] = [],
         **hyperparams,
     ):
         super().__init__(groups=groups, hyperparams=hyperparams)
         self.columnwise = False
         self.estimator = estimator
-        self.fit_on_nan = fit_on_nan
+        self.handler_nan = handler_nan
+        # self.col_imp = col_imp
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -612,11 +614,8 @@ class ImputerRegressor(Imputer):
         pd.DataFrame
             imputed dataframe
         """
-
-        df_imputed = df.copy()
-
+        df_imputed = df.apply(pd.DataFrame.median, result_type="broadcast", axis=0)
         cols_with_nans = df.columns[df.isna().any()]
-        cols_without_nans = df.columns[df.notna().all()]
 
         for col in cols_with_nans:
             hyperparams = {}
@@ -628,19 +627,41 @@ class ImputerRegressor(Imputer):
             # model = copy.deepcopy(self.estimator)
             # for hyperparam, value in hyperparams.items():
             #     setattr(model, hyperparam, value)
+            
+            # Early Stopped for Keras 
+            es = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=5, verbose=0, mode='min')
 
-            if self.fit_on_nan:
-                X = df.drop(columns=col)
-            else:
-                X = df[cols_without_nans].drop(columns=col, errors="ignore")
+            # Define the Train and Test set
+            X = df.drop(columns=col, errors="ignore")
             y = df[col]
+
+            # Selects only the valid values in the Train Set according to the chosen method
+            is_valid = pd.Series(True, index=df.index)
+            if self.handler_nan == "fit":
+                pass
+            elif self.handler_nan == "row":
+                is_valid = (~X.isna().any(axis=1))
+            elif self.handler_nan == "column":
+                X = X.dropna(how="any", axis=1)
+            else:
+                raise ValueError(f"Value '{self.handler_nan}' is not correct for argument `handler_nan'")
+
+            # Selects only non-NaN values for the Test Set
             is_na = y.isna()
+
+            # Train the model according to an ML or DL method and after predict the imputation
             if X.empty:
                 y_imputed = pd.Series(y.mean(), index=y.index)
             else:
-                self.estimator.fit(X[~is_na], y[~is_na])
-                y_imputed = self.estimator.predict(X[is_na])
-            df_imputed.loc[is_na, col] = y_imputed
+                if type(self.estimator) == type(tf.keras.Sequential()):
+                    self.estimator.fit(X[(~is_na) & is_valid], y[(~is_na) & is_valid], epochs=100, callbacks=[es], verbose=0)
+                else:
+                    self.estimator.fit(X[(~is_na) & is_valid], y[(~is_na) & is_valid])
+                y_imputed = self.estimator.predict(X[is_na & is_valid])
+
+            # Adds the imputed values
+            df_imputed.loc[~is_na, col] = y[~is_na]
+            df_imputed.loc[is_na & is_valid, col] = y_imputed
 
         return df_imputed
 
@@ -800,79 +821,3 @@ class ImputerEM(Imputer):
     #     X_transformed = self.model.transform(X)
     #     df_transformed = pd.DataFrame(X_transformed, columns=df.columns, index=df.index)
     #     return df_transformed
-
-class ImputerMLP(Imputer):
-    """
-    This class implements a MLP imputer in the multivariate case.
-    It imputes each Series with missing value within a DataFrame using the complete ones.
-    Parameters
-    ----------
-    model :
-        Multi-Layers Perceptron model
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import pandas as pd
-    >>> from qolmat.imputations.models import ImputerMLP
-    >>> imputor = ImputeRegressor(model=)
-    >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
-    >>>                       [np.nan, np.nan, 2, 3],
-    >>>                       [1, 2, 2, 5], [2, 2, 2, 2]],
-    >>>                       columns=["var1", "var2", "var3", "var4"])
-    >>> imputor.fit_transform(df)
-    """
-
-    def __init__(
-        self, groups: List[str] = [], fit_on_nan: bool = False, **hyperparams
-    ):
-        super().__init__(groups=groups, hyperparams=hyperparams)
-        self.columnwise = False
-        self.fit_on_nan = fit_on_nan
-
-    def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Fit/transform using a (specified) regression model
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            dataframe to impute
-
-        Returns
-        -------
-        pd.DataFrame
-            imputed dataframe
-        """
-
-        df_imputed = df.copy()
-
-        cols_with_nans = df.columns[df.isna().any()]
-        cols_without_nans = df.columns[df.notna().all()]
-
-        for col in cols_with_nans:
-            hyperparams = {}
-            for hyperparam, value in self.hyperparams_element.items():
-                if isinstance(value, dict):
-                    value = value[col]
-                hyperparams[hyperparam] = value
-
-            #model = self.type_model(**hyperparams)
-            model = tf.keras.models.Sequential([
-                tf.keras.layers.Dense(256, activation='relu'),
-                tf.keras.layers.Dense(128, activation='relu'),
-                tf.keras.layers.Dense(64, activation='relu'),
-                tf.keras.layers.Dense(1)])
-
-            model.compile(optimizer='adam', loss='mse', metrics=['mae']) 
-            
-            X = df[cols_without_nans]
-            y = df[col]
-            is_na = y.isna()
-            if X.empty:
-                y_imputed = pd.Series(y.mean(), index=y.index)
-            else:
-                model.fit(X[~is_na], y[~is_na], epoch=100)
-                y_imputed = model.predict(X[is_na])
-            df_imputed.loc[is_na, col] = y_imputed
-
-        return df_imputed
