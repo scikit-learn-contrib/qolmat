@@ -147,7 +147,7 @@ imputer_tsmle = imputers.ImputerEM(groups=["station"], method="VAR1", strategy="
 
 imputer_knn = imputers.ImputerKNN(groups=["station"], k=10)
 imputer_iterative = imputers.ImputerMICE(groups=["station"], estimator=LinearRegression(), sample_posterior=False, max_iter=100, missing_values=np.nan)
-impute_regressor = imputers.ImputerRegressor(groups=["station"], estimator=LinearRegression(), col_imp = cols_to_impute)
+impute_regressor = imputers.ImputerRegressor(groups=["station"], estimator=LinearRegression())
 impute_stochastic_regressor = imputers.ImputerStochasticRegressor(groups=["station"], estimator=LinearRegression())
 
 estimator = tf.keras.models.Sequential([
@@ -156,7 +156,7 @@ estimator = tf.keras.models.Sequential([
     tf.keras.layers.Dense(64, activation='relu'),
     tf.keras.layers.Dense(1)])
 estimator.compile(optimizer='adam', loss='mse', metrics=['mae'])
-imputer_mlp = imputers.ImputerRegressor(groups=["station"], estimator=estimator, handler_nan = "column", col_imp = cols_to_impute)
+imputer_mlp = imputers.ImputerRegressor(groups=["station"], estimator=estimator, handler_nan = "column")
 
 dict_imputers = {
     "mean": imputer_mean,
