@@ -15,7 +15,9 @@ from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer, KNNImputer
 from sklearn.impute._base import _BaseImputer
 from statsmodels.tsa import seasonal as tsa_seasonal
-import tensorflow as tf
+
+from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras import Sequential
 
 from qolmat.benchmark import utils
 from qolmat.imputations import em_sampler
@@ -32,8 +34,8 @@ class Imputer(_BaseImputer):
         hyperparams: Dict = {},
     ):
         self.hyperparams_user = hyperparams
-        self.hyperparams_optim = {}
-        self.hyperparams_local = {}
+        self.hyperparams_optim: Dict = {}
+        self.hyperparams_local: Dict = {}
         self.groups = groups
         self.columnwise = columnwise
         self.shrink = shrink
@@ -206,11 +208,7 @@ class ImputerShuffle(Imputer):
     >>> imputor.fit_transform(df)
     """
 
-    def __init__(
-        self,
-        groups: List[str] = [],
-    ) -> None:
-        super().__init__(groups=groups, columnwise=True)
+    def __init__(self, groups: List[str] = []) -> None: super().__init__(groups=groups, columnwise=True)
 
     def fit_transform_element(self, df):
         n_missing = df.isna().sum().sum()
@@ -395,7 +393,7 @@ class ImputerResiduals(Imputer):
     def __init__(
         self,
         groups: List[str] = [],
-        period: int = None,
+        period: int = 0,
         model_tsa: Optional[str] = "additive",
         extrapolate_trend: Optional[Union[int, str]] = "freq",
         method_interpolation: Optional[str] = "linear",
@@ -591,12 +589,14 @@ class ImputerRegressor(Imputer):
         groups: List[str] = [],
         estimator: Optional[BaseEstimator] = None,
         handler_nan: str = "column",
+        stop: Optional[BaseEstimator] = None,
         # col_imp: List[str] = [],
         **hyperparams,
     ):
         super().__init__(groups=groups, hyperparams=hyperparams)
         self.columnwise = False
         self.estimator = estimator
+        self.stop = stop
         self.handler_nan = handler_nan
         # self.col_imp = col_imp
 
@@ -623,15 +623,13 @@ class ImputerRegressor(Imputer):
                 if isinstance(value, dict):
                     value = value[col]
                 hyperparams[hyperparam] = value
-
+                 
             # model = copy.deepcopy(self.estimator)
             # for hyperparam, value in hyperparams.items():
             #     setattr(model, hyperparam, value)
 
             # Early Stopped for Keras
-            es = tf.keras.callbacks.EarlyStopping(
-                monitor="loss", patience=5, verbose=0, mode="min"
-            )
+            es = EarlyStopping(monitor="loss", patience=5, verbose=0, mode="min")
 
             # Define the Train and Test set
             X = df.drop(columns=col, errors="ignore")
@@ -657,7 +655,7 @@ class ImputerRegressor(Imputer):
             if X.empty:
                 y_imputed = pd.Series(y.mean(), index=y.index)
             else:
-                if isinstance(type(self.estimator), type(tf.keras.Sequential())):
+                if isinstance(type(self.estimator), type(Sequential())):
                     self.estimator.fit(
                         X[(~is_na) & is_valid],
                         y[(~is_na) & is_valid],
