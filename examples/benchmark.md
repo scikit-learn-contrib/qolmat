@@ -6,7 +6,7 @@ jupyter:
       extension: .md
       format_name: markdown
       format_version: '1.3'
-      jupytext_version: 1.14.4
+      jupytext_version: 1.14.5
   kernelspec:
     display_name: env_qolmat
     language: python
@@ -55,9 +55,8 @@ from qolmat.utils import data, utils, plot
 
 ```
 
-<!-- #region tags=[] -->
 ### **I. Load data**
-<!-- #endregion -->
+
 
 The dataset `Beijing` is the Beijing Multi-Site Air-Quality Data Set. It consists in hourly air pollutants data from 12 chinese nationally-controlled air-quality monitoring sites and is available at https://archive.ics.uci.edu/ml/machine-learning-databases/00501/.
 This dataset only contains numerical vairables.
@@ -73,7 +72,7 @@ cols_to_impute = ["TEMP", "PRES"]
 
 The dataset `Artificial` is designed to have a sum of a periodical signal, a white noise and some outliers.
 
-```python tags=[]
+```python
 df_data.isna().sum()
 ```
 
@@ -85,12 +84,12 @@ df_data.isna().sum()
 Let's take a look at variables to impute. We only consider a station, Aotizhongxin.
 Time series display seasonalities (roughly 12 months).
 
-```python tags=[]
+```python
 n_stations = len(df_data.groupby("station").size())
 n_cols = len(cols_to_impute)
 ```
 
-```python tags=[]
+```python
 fig = plt.figure(figsize=(10 * n_stations, 3 * n_cols))
 for i_station, (station, df) in enumerate(df_data.groupby("station")):
     df_station = df_data.loc[station]
@@ -175,7 +174,7 @@ dict_imputers = {
     # "nocb": imputer_nocb,
     # "knn": imputer_knn,
     "iterative": impute_regressor,
-    "regressor": imputer_iterative,
+    #"regressor": imputer_iterative,
     "mlp": imputer_mlp,
 }
 n_imputers = len(dict_imputers)
@@ -202,7 +201,7 @@ Concretely, the comparator takes as input a dataframe to impute, a proportion of
 
 Note these metrics compute reconstruction errors; it tells nothing about the distances between the "true" and "imputed" distributions.
 
-```python jupyter={"outputs_hidden": true} tags=[]
+```python
 generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, subset = cols_to_impute, groups=["station"], ratio_masked=ratio_masked)
 
 comparison = comparator.Comparator(
@@ -216,7 +215,7 @@ results = comparison.compare(df_data)
 results
 ```
 
-```python tags=[]
+```python
 fig = plt.figure(figsize=(24, 4))
 plot.multibar(results.loc["mae"], decimals=1)
 plt.ylabel("mae")
@@ -232,11 +231,11 @@ We now run just one time each algorithm on the initial corrupted dataframe and c
 df_plot = df_data
 ```
 
-```python jupyter={"outputs_hidden": true} tags=[]
+```python jupyter={"outputs_hidden": true}
 dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_imputers.items()}
 ```
 
-```python tags=[]
+```python
 station = df_plot.index.get_level_values("station")[0]
 df_station = df_plot.loc[station]
 dfs_imputed_station = {name: df_plot.loc[station] for name, df_plot in dfs_imputed.items()}
@@ -245,7 +244,7 @@ dfs_imputed_station = {name: df_plot.loc[station] for name, df_plot in dfs_imput
 Let's look at the imputations.
 When the data is missing at random, imputation is easier. Missing block are more challenging.
 
-```python tags=[]
+```python
 for col in cols_to_impute:
     fig, ax = plt.subplots(figsize=(10, 3))
     values_orig = df_station[col]

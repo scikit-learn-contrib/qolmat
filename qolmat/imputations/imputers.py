@@ -208,7 +208,8 @@ class ImputerShuffle(Imputer):
     >>> imputor.fit_transform(df)
     """
 
-    def __init__(self, groups: List[str] = []) -> None: super().__init__(groups=groups, columnwise=True)
+    def __init__(self, groups: List[str] = []) -> None:
+        super().__init__(groups=groups, columnwise=True)
 
     def fit_transform_element(self, df):
         n_missing = df.isna().sum().sum()
@@ -623,7 +624,7 @@ class ImputerRegressor(Imputer):
                 if isinstance(value, dict):
                     value = value[col]
                 hyperparams[hyperparam] = value
-                 
+
             # model = copy.deepcopy(self.estimator)
             # for hyperparam, value in hyperparams.items():
             #     setattr(model, hyperparam, value)

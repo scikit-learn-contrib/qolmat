@@ -8,7 +8,7 @@ dependencies:
       - ipykernel=5.1.4
       - jupyter=1.0.0
       - jupyterlab=1.2.6
-      - jupytext=1.14.4      
+      - jupytext=1.14.4
       - matplotlib=3.6.2
       - mypy=0.910
       - numpy=1.24.1
@@ -25,7 +25,7 @@ dependencies:
       - twine=3.7.1
       - wheel=0.37.0
       - pip
-      - pip:       
+      - pip:
               - plotly==5.11.0
               - pre-commit==2.21.0
               - -e .
