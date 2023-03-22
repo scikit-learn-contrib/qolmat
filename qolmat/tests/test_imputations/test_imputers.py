@@ -75,6 +75,23 @@ def test_ImputerLOCF_fit_transform(df: pd.DataFrame) -> None:
 def test_ImputerNOCB_fit_transform(df: pd.DataFrame) -> None:
     imputer = imputers.ImputerNOCB()
     result = imputer.fit_transform(df)
-    print(result)
-    expected = pd.DataFrame({"col1": [0, 2, 2, 3, 2], "col2": [-1, 0.5, 0.5, 1.5, 1.5]})
+    expected = pd.DataFrame({"col1": [0, 2, 2, 3, 3], "col2": [-1, 0.5, 0.5, 1.5, 1.5]})
     np.testing.assert_allclose(result, expected)
+
+
+@pytest.mark.parametrize(
+    "imputer",
+    [
+        imputers.ImputerMean(),
+        imputers.ImputerMedian(),
+        imputers.ImputerMode(),
+        imputers.ImputerShuffle(),
+        imputers.ImputerLOCF(),
+        imputers.ImputerNOCB(),
+    ],
+)
+@pytest.mark.parametrize(
+    "df", [pd.DataFrame({"col1": [np.nan, np.nan, np.nan], "col2": [1, 2, 3]})]
+)
+def test_Imputer_fit_transform_on_nan_column(df: pd.DataFrame, imputer: imputers.Imputer) -> None:
+    np.testing.assert_raises(ValueError, imputer.fit_transform, df)

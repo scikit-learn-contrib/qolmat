@@ -14,6 +14,7 @@ import pandas as pd
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer, KNNImputer
 from sklearn.impute._base import _BaseImputer
+from sklearn import utils as sku
 from statsmodels.tsa import seasonal as tsa_seasonal
 
 from qolmat.benchmark import utils
@@ -29,6 +30,7 @@ class Imputer(_BaseImputer):
         columnwise: bool = False,
         shrink: bool = False,
         hyperparams: Dict = {},
+        random_state: Union[None, int, np.random.RandomState] = None,
     ):
         self.hyperparams_user = hyperparams
         self.hyperparams_optim: Dict = {}
@@ -36,6 +38,7 @@ class Imputer(_BaseImputer):
         self.groups = groups
         self.columnwise = columnwise
         self.shrink = shrink
+        self.random_state = random_state
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -53,6 +56,11 @@ class Imputer(_BaseImputer):
         """
         if not isinstance(df, pd.DataFrame):
             raise ValueError("Input has to be a pandas.DataFrame.")
+        for column in df:
+            if df[column].isnull().all():
+                raise ValueError("Input contains a column full of NaN")
+
+        self.rng = sku.check_random_state(self.random_state)
 
         hyperparams = self.hyperparams_user.copy()
         hyperparams.update(self.hyperparams_optim)
@@ -86,7 +94,7 @@ class Imputer(_BaseImputer):
         return df_imputed
 
     def fit_transform_fallback(self, df: pd.DataFrame) -> pd.DataFrame:
-        return df.fillna("median")
+        return df.fillna(df.median())
 
     def impute_element(self, df: pd.DataFrame) -> pd.DataFrame:
         if not isinstance(df, pd.DataFrame):
@@ -229,13 +237,7 @@ class ImputerShuffle(Imputer):
     """
 
     def __init__(self, groups: List[str] = [], random_state: int = None) -> None:
-        super().__init__(groups=groups, columnwise=True)
-        self.random_state = random_state
-
-    def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        if isinstance(self.random_state, int):
-            np.random.seed(self.random_state)
-        return super().fit_transform(df)
+        super().__init__(groups=groups, columnwise=True, random_state=random_state)
 
     def fit_transform_element(self, df):
         n_missing = df.isna().sum().sum()
@@ -244,7 +246,7 @@ class ImputerShuffle(Imputer):
         name = df.columns[0]
         values = df[name]
         values_notna = values.dropna()
-        samples = np.random.choice(values_notna, n_missing, replace=True)
+        samples = self.rng.choice(values_notna, n_missing, replace=True)
         values[values.isna()] = samples
         df_imputed = values.to_frame()
         return df_imputed
@@ -282,7 +284,7 @@ class ImputerLOCF(Imputer):
         """
         df_out = df.copy()
         for col in df:
-            df_out[col] = pd.Series.shift(df[col], 1).ffill().bfill()
+            df_out[col] = df[col].ffill().bfill()
         return df_out
 
 
@@ -313,7 +315,7 @@ class ImputerNOCB(Imputer):
         """
         df_out = df.copy()
         for col in df:
-            df_out[col] = pd.Series.shift(df[col], -1).bfill().ffill()
+            df_out[col] = df[col].bfill().ffill()
         return df_out
 
 
@@ -695,9 +697,10 @@ class ImputerStochasticRegressor(Imputer):
         self,
         groups: List[str] = [],
         estimator: Optional[BaseEstimator] = None,
+        random_state: int = None,
         **hyperparams,
     ) -> None:
-        super().__init__(groups=groups, hyperparams=hyperparams)
+        super().__init__(groups=groups, hyperparams=hyperparams, random_state=random_state)
         self.estimator = estimator
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.Series:
@@ -728,7 +731,7 @@ class ImputerStochasticRegressor(Imputer):
             self.estimator.fit(X[~is_na], y[~is_na])
             y_pred = self.estimator.predict(X)
             std_error = (y_pred[~is_na] - y[~is_na]).std()
-            random_pred = np.random.normal(size=len(y), loc=y_pred, scale=std_error)
+            random_pred = self.rng.normal(size=len(y), loc=y_pred, scale=std_error)
             df_imp.loc[is_na, col] = random_pred[is_na]
 
         return df_imp
@@ -796,16 +799,22 @@ class ImputerEM(Imputer):
         groups: List[str] = [],
         method: Optional[str] = "multinormal",
         columnwise: bool = False,
+        random_state: Union[None, int, np.random.RandomState] = None,
         **hyperparams,
     ):
-        super().__init__(groups=groups, columnwise=columnwise, hyperparams=hyperparams)
+        super().__init__(
+            groups=groups,
+            columnwise=columnwise,
+            hyperparams=hyperparams,
+            random_state=random_state,
+        )
         self.method = method
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         if self.method == "multinormal":
-            model = em_sampler.MultiNormalEM(**self.hyperparams_element)
+            model = em_sampler.MultiNormalEM(random_state=self.rng, **self.hyperparams_element)
         elif self.method == "VAR1":
-            model = em_sampler.VAR1EM(**self.hyperparams_element)
+            model = em_sampler.VAR1EM(random_state=self.rng, **self.hyperparams_element)
         else:
             raise ValueError("Strategy '{strategy}' is not handled by ImputeEM!")
         X = df.values

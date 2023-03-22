@@ -28,6 +28,16 @@ class Comparator:
         10.
     """
 
+    dict_metrics = {
+        "mse": utils.mean_squared_error,
+        "rmse": utils.root_mean_squared_error,
+        "mae": utils.mean_absolute_error,
+        "wmape": utils.weighted_mean_absolute_percentage_error,
+        "wasser": utils.wasser_distance,
+        "KL": utils.kl_divergence,
+        "frechet": utils.frechet_distance,
+    }
+
     def __init__(
         self,
         dict_models: Dict[str, any],
@@ -47,7 +57,7 @@ class Comparator:
         df_origin: pd.DataFrame,
         df_imputed: pd.DataFrame,
         df_mask: pd.DataFrame,
-        metrics: Dict = {},
+        metrics: List = ["mae", "wmape", "kl"],
         on_mask=True,
     ) -> pd.DataFrame:
         """Functions evaluating the reconstruction's quality
@@ -65,32 +75,15 @@ class Comparator:
             dictionay of results obtained via different metrics
         """
 
-        if not on_mask:
-            df_mask = df_mask.replace(False, True)
+        # TODO comment comparer la distribution initiale et la distribution générée, pas la même taille,
+        # ne fonctionne pas avec les métriques actuelles
+
         dict_errors = {}
-        if metrics == {}:
-            dict_errors["rmse"] = utils.root_mean_squared_error(
-                df_origin[df_mask],
-                df_imputed[df_mask],
+        for name_metric in metrics:
+            dict_errors[name_metric] = Comparator.dict_metrics[name_metric](
+                df_origin[df_mask], df_imputed[df_mask]
             )
-            dict_errors["mae"] = utils.mean_absolute_error(
-                df_origin[df_mask],
-                df_imputed[df_mask],
-            )
-            dict_errors["wmape"] = utils.weighted_mean_absolute_percentage_error(
-                df_origin[df_mask],
-                df_imputed[df_mask],
-            )
-            dict_errors["kl"] = utils.kl_divergence(
-                df_origin[df_mask],
-                df_imputed[df_mask],
-            )
-        else:
-            for name, imp in metrics.items():
-                dict_errors[name] = imp(
-                    df_origin[df_mask],
-                    df_imputed[df_mask],
-                )
+
         errors = pd.concat(dict_errors.values(), keys=dict_errors.keys())
         return errors
 
@@ -99,7 +92,7 @@ class Comparator:
         imputer: any,
         df: pd.DataFrame,
         list_spaces: List[Dict] = {},
-        metrics: Dict = {},
+        metrics: List = ["mae", "wmape", "kl"],
         on_mask=True,
     ) -> pd.Series:
         """Evaluate the errors in the cross-validation
@@ -145,7 +138,13 @@ class Comparator:
 
         return errors_mean
 
-    def compare(self, df: pd.DataFrame, verbose: bool = True, metrics: Dict = {}, on_mask=True):
+    def compare(
+        self,
+        df: pd.DataFrame,
+        verbose: bool = True,
+        metrics: List = ["mae", "wmape", "kl"],
+        on_mask=True,
+    ):
         """Function to compare different imputation methods on dataframe df
 
         Parameters
@@ -162,7 +161,6 @@ class Comparator:
         dict_errors = {}
 
         for name, imputer in self.dict_imputers.items():
-            print(f"Tested model: {type(imputer).__name__}")
 
             search_params = self.search_params.get(name, {})
 
@@ -172,6 +170,7 @@ class Comparator:
                 dict_errors[name] = self.evaluate_errors_sample(
                     imputer, df, list_spaces, metrics, on_mask
                 )
+                print(f"Tested model: {type(imputer).__name__}")
             except Exception as excp:
                 print("Error while testing ", type(imputer).__name__)
                 raise excp
