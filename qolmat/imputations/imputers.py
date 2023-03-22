@@ -590,14 +590,12 @@ class ImputerRegressor(Imputer):
         groups: List[str] = [],
         estimator: Optional[BaseEstimator] = None,
         handler_nan: str = "column",
-        stop: Optional[BaseEstimator] = None,
         # col_imp: List[str] = [],
         **hyperparams,
     ):
         super().__init__(groups=groups, hyperparams=hyperparams)
         self.columnwise = False
         self.estimator = estimator
-        self.stop = stop
         self.handler_nan = handler_nan
         # self.col_imp = col_imp
 
@@ -629,9 +627,6 @@ class ImputerRegressor(Imputer):
             # for hyperparam, value in hyperparams.items():
             #     setattr(model, hyperparam, value)
 
-            # Early Stopped for Keras
-            es = EarlyStopping(monitor="loss", patience=5, verbose=0, mode="min")
-
             # Define the Train and Test set
             X = df.drop(columns=col, errors="ignore")
             y = df[col]
@@ -656,17 +651,8 @@ class ImputerRegressor(Imputer):
             if X.empty:
                 y_imputed = pd.Series(y.mean(), index=y.index)
             else:
-                if isinstance(type(self.estimator), type(Sequential())):
-                    self.estimator.fit(
-                        X[(~is_na) & is_valid],
-                        y[(~is_na) & is_valid],
-                        epochs=100,
-                        callbacks=[es],
-                        verbose=0,
-                    )
-                else:
-                    self.estimator.fit(X[(~is_na) & is_valid], y[(~is_na) & is_valid])
-                y_imputed = self.estimator.predict(X[is_na & is_valid])
+                self.estimator.fit(X[(~is_na) & is_valid], y[(~is_na) & is_valid])
+            y_imputed = self.estimator.predict(X[is_na & is_valid])
 
             # Adds the imputed values
             df_imputed.loc[~is_na, col] = y[~is_na]
@@ -830,3 +816,117 @@ class ImputerEM(Imputer):
     #     X_transformed = self.model.transform(X)
     #     df_transformed = pd.DataFrame(X_transformed, columns=df.columns, index=df.index)
     #     return df_transformed
+
+
+class ImputerMLP(Imputer):
+    """
+    This class implements a MLP imputer in the multivariate case.
+    It imputes each Series with missing value within a DataFrame using the complete ones.
+
+    Parameters
+    ----------
+    model :
+        MLP model
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> from qolmat.imputations.models import ImputeRegressor
+    >>> from tensorflow.keras import ExtraTreesRegressor
+    >>> estimator = tf.keras.Sequential([
+    >>>                                tf.keras.layers.Dense(128, activation='relu'),
+    >>>                                tf.keras.layers.Dense(64, activation='relu'),
+    >>>                                tf.keras.layers.Dense(1)
+    >>>                                ])
+    >>> estimator.compile(optimizer='adam',
+    >>>                 loss='mse',
+    >>>                 metrics=['mae'])
+    >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
+    >>>                       [np.nan, np.nan, 2, 3],
+    >>>                       [1, 2, 2, 5], [2, 2, 2, 2]],
+    >>>                       columns=["var1", "var2", "var3", "var4"])
+    >>> estimator.fit_transform(df)
+    """
+
+    def __init__(
+        self,
+        groups: List[str] = [],
+        estimator: Optional[BaseEstimator] = None,
+        handler_nan: str = "column",
+        **hyperparams,
+    ):
+        super().__init__(groups=groups, hyperparams=hyperparams)
+        self.columnwise = False
+        self.estimator = estimator
+        self.handler_nan = handler_nan
+
+    def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Fit/transform using a (specified) MLP model
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            dataframe to impute
+
+        Returns
+        -------
+        pd.DataFrame
+            imputed dataframe
+        """
+        df_imputed = df.apply(pd.DataFrame.median, result_type="broadcast", axis=0)
+        cols_with_nans = df.columns[df.isna().any()]
+
+        for col in cols_with_nans:
+            hyperparams = {}
+            for hyperparam, value in self.hyperparams_element.items():
+                if isinstance(value, dict):
+                    value = value[col]
+                hyperparams[hyperparam] = value
+
+            # model = copy.deepcopy(self.estimator)
+            # for hyperparam, value in hyperparams.items():
+            #     setattr(model, hyperparam, value)
+
+            # Early Stopped
+            es = EarlyStopping(monitor="loss", patience=5, verbose=0, mode="min")
+
+            # Define the Train and Test set
+            X = df.drop(columns=col, errors="ignore")
+            y = df[col]
+
+            # Selects only the valid values in the Train Set according to the chosen method
+            is_valid = pd.Series(True, index=df.index)
+            if self.handler_nan == "fit":
+                pass
+            elif self.handler_nan == "row":
+                is_valid = ~X.isna().any(axis=1)
+            elif self.handler_nan == "column":
+                X = X.dropna(how="any", axis=1)
+            else:
+                raise ValueError(
+                    f"Value '{self.handler_nan}' is not correct for argument `handler_nan'"
+                )
+
+            # Selects only non-NaN values for the Test Set
+            is_na = y.isna()
+
+            # Train the model according to an ML or DL method and after predict the imputation
+            if X.empty:
+                y_imputed = pd.Series(y.mean(), index=y.index)
+            else:
+                self.estimator.fit(
+                    X[(~is_na) & is_valid],
+                    y[(~is_na) & is_valid],
+                    epochs=100,
+                    callbacks=[es],
+                    verbose=0,
+                )
+            y_imputed = self.estimator.predict(X[is_na & is_valid])
+
+            # Adds the imputed values
+            df_imputed.loc[~is_na, col] = y[~is_na]
+            df_imputed.loc[is_na & is_valid, col] = y_imputed
+
+        return df_imputed
