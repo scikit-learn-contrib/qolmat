@@ -7,6 +7,7 @@ import scipy.sparse as sparse
 from scipy.optimize import Bounds, lsq_linear
 from sklearn.preprocessing import StandardScaler
 from skopt.space import Categorical, Dimension, Integer, Real
+from dcor import energy_distance
 
 BOUNDS = Bounds(1, np.inf, keep_feasible=True)
 EPS = np.finfo(float).eps
@@ -424,3 +425,23 @@ def impute_entropy_day(df, target, ts_agg, agg_time, zero_soil=0.0):
     df_res = df.merge(df_day[["datetime", "impute"]], on="datetime", how="left")
 
     return df_res
+
+def energy_dist(
+    df1: pd.DataFrame,
+    df2: pd.DataFrame,
+) -> pd.Series:
+    """Energy distance between two dataframes.
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        True dataframe
+    df2 : pd.DataFrame
+        Predicted dataframe
+
+
+    Returns
+    -------
+    pd.Series
+    """
+    return energy_distance(df1,df2)

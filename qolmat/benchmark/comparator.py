@@ -79,6 +79,11 @@ class Comparator:
             df_imputed[df_mask],
         )
 
+        dict_errors["energy"] = utils.kl_divergence(
+            df_origin[df_mask],
+            df_imputed[df_mask],
+        )
+
         errors = pd.concat(dict_errors.values(), keys=dict_errors.keys())
         return errors
 
