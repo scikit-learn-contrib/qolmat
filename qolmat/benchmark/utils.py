@@ -426,6 +426,7 @@ def impute_entropy_day(df, target, ts_agg, agg_time, zero_soil=0.0):
 
     return df_res
 
+
 def energy_dist(
     df1: pd.DataFrame,
     df2: pd.DataFrame,
@@ -444,4 +445,4 @@ def energy_dist(
     -------
     pd.Series
     """
-    return energy_distance(df1,df2)
+    return energy_distance(df1, df2)
