@@ -1,29 +1,39 @@
-import abc
-import copy
-import sys
-from typing import Any, Dict, List, Optional, Union
-
-import sklearn.neighbors._base
-from sklearn.base import BaseEstimator
-
-sys.modules["sklearn.neighbors.base"] = sklearn.neighbors._base
-
+from typing import Dict, List, Optional, Union
+import warnings
 
 import numpy as np
 import pandas as pd
+
 from sklearn.experimental import enable_iterative_imputer
+from sklearn.base import BaseEstimator
+
 from sklearn.impute import IterativeImputer, KNNImputer
 from sklearn.impute._base import _BaseImputer
 from sklearn import utils as sku
 from statsmodels.tsa import seasonal as tsa_seasonal
 
-from qolmat.benchmark import utils
 from qolmat.imputations import em_sampler
 from qolmat.imputations.rpca.rpca_noisy import RPCANoisy
 from qolmat.imputations.rpca.rpca_pcp import RPCAPCP
 
 
 class Imputer(_BaseImputer):
+    """Base class for all imputers.
+
+    Parameters
+    ----------
+    groups : List[str], optional
+        List of column names to group by, by default []
+    columnwise : bool, optional
+        If True, the imputer will be computed for each column, else it will be computed on the whole dataframe, by default False
+    shrink : bool, optional
+        TODO, by default False
+    hyperparams : Dict, optional
+        TODO, by default {}
+    random_state : Union[None, int, np.random.RandomState], optional
+        Controls the randomness of the fit_transform, by default None
+    """
+
     def __init__(
         self,
         groups: List[str] = [],
@@ -42,17 +52,17 @@ class Imputer(_BaseImputer):
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Fit/transform to impute with RPCA methods
+        Fit to data, then transform it.
 
         Parameters
         ----------
         df : pd.DataFrame
-            dataframe to impute
+            Dataframe to impute.
 
         Returns
         -------
         pd.DataFrame
-            imputed dataframe
+            Imputed dataframe.
         """
         if not isinstance(df, pd.DataFrame):
             raise ValueError("Input has to be a pandas.DataFrame.")
@@ -94,9 +104,38 @@ class Imputer(_BaseImputer):
         return df_imputed
 
     def fit_transform_fallback(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Impute df by the median of each column if it still contains missing values.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe with missing values.
+
+        Returns
+        -------
+        pd.DataFrame
+            Dataframe df imputed by the median of each column.
+        """
         return df.fillna(df.median())
 
     def impute_element(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Impute df using fit_transform_element
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe or column to impute
+
+        Returns
+        -------
+        pd.DataFrame
+            Imputed dataframe or column
+
+        Raises
+        ------
+        ValueError
+            Input has to be a pandas.DataFrame.
+        """
         if not isinstance(df, pd.DataFrame):
             raise ValueError("Input has to be a pandas.DataFrame.")
         df = df.copy()
@@ -120,51 +159,52 @@ class Imputer(_BaseImputer):
 
 
 class ImputerOracle(Imputer):
+    """Perfect imputer, requires to know real values
+
+    Used to evaluate imputation metrics.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Dataframe containing real values.
+    groups : List[str], optional
+        List of column names to group by, by default []
+    """
+
     def __init__(
         self,
         df: pd.DataFrame,
-        groups: List[str] = [],
     ) -> None:
-        super().__init__(groups=groups, columnwise=True, shrink=True)
+        super().__init__(shrink=True)  # TODO shrink ?
         self.df = df
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Fit/transform to impute with RPCA methods
+        """Impute df with corresponding known values
 
         Parameters
         ----------
         df : pd.DataFrame
-            unused dataframe, this argument is here for convenience purposes
-
+            dataframe to impute
         Returns
         -------
         pd.DataFrame
             dataframe imputed with premasked values
         """
-        return self.df
+        if not isinstance(df, pd.DataFrame):
+            raise ValueError("Input has to be a pandas.DataFrame.")
+        if df.shape != self.df.shape:
+            warnings.warn(
+                "Dataframe argument has a different shape than this imputer's reference dataframe."
+            )
+        return df.fillna(self.df)
 
 
 class ImputerMean(Imputer):
-    """
-    This class implements the implementation by the mean of each column
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import pandas as pd
-    >>> from qolmat.imputations.models import ImputeByMean
-    >>> imputor = ImputeByMean()
-    >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
-    >>>                        [np.nan, np.nan, np.nan, np.nan],
-    >>>                        [1, 2, 2, 5], [2, 2, 2, 2]],
-    >>>                         columns=["var1", "var2", "var3", "var4"])
-    >>> imputor.fit_transform(df)
-    """
-
     def __init__(
         self,
         groups: List[str] = [],
     ) -> None:
+
         super().__init__(groups=groups, columnwise=True, shrink=True)
         self.fit_transform_element = pd.DataFrame.mean
 
@@ -236,7 +276,11 @@ class ImputerShuffle(Imputer):
     >>> imputor.fit_transform(df)
     """
 
-    def __init__(self, groups: List[str] = [], random_state: int = None) -> None:
+    def __init__(
+        self,
+        groups: List[str] = [],
+        random_state: Union[None, int, np.random.RandomState] = None,
+    ) -> None:
         super().__init__(groups=groups, columnwise=True, random_state=random_state)
 
     def fit_transform_element(self, df):
@@ -697,7 +741,7 @@ class ImputerStochasticRegressor(Imputer):
         self,
         groups: List[str] = [],
         estimator: Optional[BaseEstimator] = None,
-        random_state: int = None,
+        random_state: Union[None, int, np.random.RandomState] = None,
         **hyperparams,
     ) -> None:
         super().__init__(groups=groups, hyperparams=hyperparams, random_state=random_state)

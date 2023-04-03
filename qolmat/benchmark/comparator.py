@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -23,12 +23,12 @@ class Comparator:
     search_params: Optional[Dict[str, Dict[str, Union[str, float, int]]]] = {}
         dictionary of search space for each implementation method. By default, the value is set to
         {}.
-    n_calls_opt: Optional[int] = 10
+    n_calls_opt: int = 10
         number of calls of the optimization algorithm
         10.
     """
 
-    dict_metrics = {
+    dict_metrics: Dict[str, Any] = {
         "mse": utils.mean_squared_error,
         "rmse": utils.root_mean_squared_error,
         "mae": utils.mean_absolute_error,
@@ -40,11 +40,11 @@ class Comparator:
 
     def __init__(
         self,
-        dict_models: Dict[str, any],
+        dict_models: Dict[str, Any],
         selected_columns: List[str],
         generator_holes: _HoleGenerator,
         search_params: Optional[Dict[str, Dict[str, Union[float, int, str]]]] = {},
-        n_calls_opt: Optional[int] = 10,
+        n_calls_opt: int = 10,
     ):
         self.dict_imputers = dict_models
         self.selected_columns = selected_columns
@@ -89,9 +89,9 @@ class Comparator:
 
     def evaluate_errors_sample(
         self,
-        imputer: any,
+        imputer: Any,
         df: pd.DataFrame,
-        list_spaces: List[Dict] = {},
+        list_spaces: List[Dict] = [],
         metrics: List = ["mae", "wmape", "kl"],
         on_mask=True,
     ) -> pd.Series:

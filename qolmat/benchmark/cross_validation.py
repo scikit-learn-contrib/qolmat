@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -40,7 +40,7 @@ class CrossValidation:
 
     def __init__(
         self,
-        imputer: any,
+        imputer: Any,
         list_spaces: List[Dimension],
         hole_generator: _HoleGenerator,
         n_calls: int = 10,
@@ -89,7 +89,9 @@ class CrossValidation:
         else:
             raise ValueError("loss_norm has to be 0 or 1 (int)")
 
-    def deflat_hyperparams(self, hyperparams_flat: Dict[str, Union[float, int, str]]) -> Dict:
+    def deflat_hyperparams(
+        self, hyperparams_flat: Dict[str, Union[float, int, str]]
+    ) -> Dict[str, Union[float, int, str]]:
         """
         Set the hyperparameters to the model
 
