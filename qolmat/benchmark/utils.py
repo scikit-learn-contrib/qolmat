@@ -424,7 +424,10 @@ def get_correlation_f_oneway_matrix(
 
 
 def mean_difference_correlation_matrix(
-    df1: pd.DataFrame, df2: pd.DataFrame, method: Literal["pearson"], use_p_value: bool = True
+    df1: pd.DataFrame,
+    df2: pd.DataFrame,
+    method: Literal["pearson", "chi2", "f_oneway"],
+    use_p_value: bool = True,
 ) -> pd.Series:
     """_summary_
 
@@ -447,57 +450,46 @@ def mean_difference_correlation_matrix(
 
     if df1.shape != df2.shape:
         raise Exception("inputs have to be of same dimensions.")
-    match method:
-        case "pearson":
-            if len(numerical_cols) != 0:
-                corr_df1 = get_correlation_pearson_matrix(
-                    df1[numerical_cols], use_p_value=use_p_value
-                )
-                corr_df2 = get_correlation_pearson_matrix(
-                    df2[numerical_cols], use_p_value=use_p_value
-                )
+    if method == "pearson":
+        if len(numerical_cols) != 0:
+            corr_df1 = get_correlation_pearson_matrix(df1[numerical_cols], use_p_value=use_p_value)
+            corr_df2 = get_correlation_pearson_matrix(df2[numerical_cols], use_p_value=use_p_value)
 
-                return pd.Series(
-                    np.mean(np.abs(corr_df1 - corr_df2), axis=1), index=numerical_cols
-                )
-            else:
-                raise Exception("No numerical feature is found.")
+            return pd.Series(np.mean(np.abs(corr_df1 - corr_df2), axis=1), index=numerical_cols)
+        else:
+            raise Exception("No numerical feature is found.")
 
-        case "chi2":
-            if len(categorical_cols) != 0:
-                corr_df1 = get_correlation_chi2_matrix(
-                    df1[categorical_cols], use_p_value=use_p_value
-                )
-                corr_df2 = get_correlation_chi2_matrix(
-                    df2[categorical_cols], use_p_value=use_p_value
-                )
+    elif method == "chi2":
+        if len(categorical_cols) != 0:
+            corr_df1 = get_correlation_chi2_matrix(df1[categorical_cols], use_p_value=use_p_value)
+            corr_df2 = get_correlation_chi2_matrix(df2[categorical_cols], use_p_value=use_p_value)
 
-                return pd.Series(
-                    np.mean(np.abs(corr_df1 - corr_df2), axis=1), index=categorical_cols
-                )
-            else:
-                raise Exception("No categorical feature is found.")
+            return pd.Series(np.mean(np.abs(corr_df1 - corr_df2), axis=1), index=categorical_cols)
+        else:
+            raise Exception("No categorical feature is found.")
 
-        case "f_oneway":
-            if len(numerical_cols) != 0 and len(categorical_cols) != 0:
-                corr_df1 = get_correlation_f_oneway_matrix(
-                    df1, categorical_cols, numerical_cols, use_p_value=use_p_value
-                )
-                corr_df2 = get_correlation_f_oneway_matrix(
-                    df2, categorical_cols, numerical_cols, use_p_value=use_p_value
-                )
+    elif method == "f_oneway":
+        if len(numerical_cols) != 0 and len(categorical_cols) != 0:
+            corr_df1 = get_correlation_f_oneway_matrix(
+                df1, categorical_cols, numerical_cols, use_p_value=use_p_value
+            )
+            corr_df2 = get_correlation_f_oneway_matrix(
+                df2, categorical_cols, numerical_cols, use_p_value=use_p_value
+            )
 
-                corr_diff = np.abs(corr_df1 - corr_df2)
+            corr_diff = np.abs(corr_df1 - corr_df2)
 
-                corr_diff_dict = {}
-                for c, v in zip(categorical_cols, np.mean(corr_diff, axis=1)):
-                    corr_diff_dict[c] = v
-                for c, v in zip(numerical_cols, np.mean(corr_diff, axis=0)):
-                    corr_diff_dict[c] = v
+            corr_diff_dict = {}
+            for c, v in zip(categorical_cols, np.mean(corr_diff, axis=1)):
+                corr_diff_dict[c] = v
+            for c, v in zip(numerical_cols, np.mean(corr_diff, axis=0)):
+                corr_diff_dict[c] = v
 
-                return pd.Series(corr_diff_dict)
-            else:
-                raise Exception("No numerical/categorical feature is found.")
+            return pd.Series(corr_diff_dict)
+        else:
+            raise Exception("No numerical/categorical feature is found.")
+    else:
+        raise Exception("Method is not found. Our methods are [pearson, chi2, f_oneway].")
 
 
 def coverage_ratio(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.Series:
