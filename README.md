@@ -1,12 +1,15 @@
-Qolmat
+**************************************
+Welcome to Qolmat’s documentation!
 =
+**************************************
 
 The Qolmat package is created for the implementation and comparison of imputation methods. It can be divided into two main parts:
 
 1. Impute missing values via multiple algorithms;
 2. Compare the imputation methods in a supervised manner.
 
-### **Imputation methods**
+
+### **1 - Imputation methods**
 
 For univariate time series:
 
@@ -26,7 +29,7 @@ For multivariate time series:
 * ```ImputeRPCA``` : Imputes values via a RPCA method.
 * ```ImputeEM``` : Imputation of missing values using a multivariate Gaussian model through EM optimization and using a projected (Ornstein-Uhlenbeck) process.
 
-### **Comparator**
+### **2 - Comparator**
 
 The ```Comparator``` class implements a way to compare multiple imputation methods.
 It is based on the standard approach to select some observations, set their status to missing, and compare
@@ -48,6 +51,16 @@ On each sample, different imputation models are tested and reconstruction errors
 <img src="docs/images/comparator.png" alt="comparator" width="60%"/>
 </p>
 
+
+
+🔗 Requirements
+===============
+
+Python 3.8+
+
+🛠 Installation
+================
+
 ### **Installation for conda user**
 
 ```
@@ -55,9 +68,18 @@ cconda env create -f environment.dev.yml
 conda activate env_qolmat_dev
 ```
 
-### Install pre-commit
+### **Install pre-commit**
 
 Once the environment is installed, pre-commit is installed, but need to be activated using the following command:
 ```
 pre-commit install
 ```
+
+📝 Contributing
+===============
+
+This work is under development. And a lot of changes will still be made.
+
+🔍  Further reading
+===================
+
