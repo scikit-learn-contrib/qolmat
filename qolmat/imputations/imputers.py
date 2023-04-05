@@ -327,7 +327,7 @@ class ImputerInterpolation(Imputer):
         self,
         groups: List[str] = [],
         method: str = "linear",
-        order: int = None,
+        order: Optional[int] = None,
         col_time: Optional[str] = None,
     ) -> None:
         super().__init__(groups=groups, columnwise=True)
