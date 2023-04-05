@@ -446,8 +446,8 @@ def energy_dist(
     pd.Series
     """
 
-    l_energy = [] 
+    l_energy = []
     for col in df1.columns:
         l_energy.append(energy_distance(df1[col].dropna(), df2[col].dropna()))
-    df = pd.Series(data= l_energy, index=df1.columns)
+    df = pd.Series(data=l_energy, index=df1.columns)
     return df
