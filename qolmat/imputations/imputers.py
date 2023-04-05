@@ -200,30 +200,65 @@ class ImputerOracle(Imputer):
 
 
 class ImputerMean(Imputer):
-    def __init__(
-        self,
-        groups: List[str] = [],
-    ) -> None:
+    """Impute by the mean of the variable.
 
-        super().__init__(groups=groups, columnwise=True, shrink=True)
-        self.fit_transform_element = pd.DataFrame.mean
-
-
-class ImputerMedian(Imputer):
-    """
-    This class implements the implementation by the median of each column
+    Parameters
+    ----------
+    groups : List[str], optional
+        List of column names to group by, by default []
 
     Examples
     --------
     >>> import numpy as np
     >>> import pandas as pd
-    >>> from qolmat.imputations.models import ImputeByMedian
-    >>> imputor = ImputeByMedian()
+    >>> from qolmat.imputations import imputers
+    >>> imputer = imputers.ImputerMean()
     >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
-    >>>                         [np.nan, np.nan, np.nan, np.nan],
-    >>>                         [1, 2, 2, 5], [2, 2, 2, 2]],
-    >>>                         columns=["var1", "var2", "var3", "var4"])
-    >>> imputor.fit_transform(df)
+    ...                         [np.nan, np.nan, np.nan, np.nan],
+    ...                         [1, 2, 2, 5],
+    ...                         [2, 2, 2, 2]],
+    ...                         columns=["var1", "var2", "var3", "var4"])
+    >>> imputer.fit_transform(df)
+           var1      var2      var3      var4
+    0  1.000000  1.000000  1.000000  1.000000
+    1  1.333333  1.666667  1.666667  2.666667
+    2  1.000000  2.000000  2.000000  5.000000
+    3  2.000000  2.000000  2.000000  2.000000
+    """
+
+    def __init__(
+        self,
+        groups: List[str] = [],
+    ) -> None:
+        super().__init__(groups=groups, columnwise=True, shrink=True)
+        self.fit_transform_element = pd.DataFrame.mean
+
+
+class ImputerMedian(Imputer):
+    """Impute by the median of the variable.
+
+    Parameters
+    ----------
+    groups : List[str], optional
+        List of column names to group by, by default []
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> from qolmat.imputations import imputers
+    >>> imputer = imputers.ImputerMedian()
+    >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
+    ...                         [np.nan, np.nan, np.nan, np.nan],
+    ...                         [1, 2, 2, 5],
+    ...                         [2, 2, 2, 2]],
+    ...                         columns=["var1", "var2", "var3", "var4"])
+    >>> imputer.fit_transform(df)
+       var1  var2  var3  var4
+    0   1.0   1.0   1.0   1.0
+    1   1.0   2.0   2.0   2.0
+    2   1.0   2.0   2.0   5.0
+    3   2.0   2.0   2.0   2.0
     """
 
     def __init__(
@@ -235,20 +270,30 @@ class ImputerMedian(Imputer):
 
 
 class ImputerMode(Imputer):
-    """
-    This class implements the implementation by the mode of each column
+    """Impute by the mode of the variable.
+
+    Parameters
+    ----------
+    groups : List[str], optional
+        List of column names to group by, by default []
 
     Examples
     --------
     >>> import numpy as np
     >>> import pandas as pd
-    >>> from qolmat.imputations.models import ImputeByMode
-    >>> imputor = ImputeByMode()
+    >>> from qolmat.imputations import imputers
+    >>> imputer = imputers.ImputerMode()
     >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
-    >>>                        [np.nan, np.nan, np.nan, np.nan],
-    >>>                        [1, 2, 2, 5], [2, 2, 2, 2]],
-    >>>                        columns=["var1", "var2", "var3", "var4"])
-    >>> imputor.fit_transform(df)
+    ...                         [np.nan, np.nan, np.nan, np.nan],
+    ...                         [1, 2, 2, 5],
+    ...                         [2, 2, 2, 2]],
+    ...                         columns=["var1", "var2", "var3", "var4"])
+    >>> imputer.fit_transform(df)
+       var1  var2  var3  var4
+    0   1.0   1.0   1.0   1.0
+    1   1.0   2.0   2.0   1.0
+    2   1.0   2.0   2.0   5.0
+    3   2.0   2.0   2.0   2.0
     """
 
     def __init__(
@@ -260,20 +305,32 @@ class ImputerMode(Imputer):
 
 
 class ImputerShuffle(Imputer):
-    """
-    This class implements the imputation by a random value (from the observed ones) of each column
+    """Impute by a random available value of the variable.
+
+    Parameters
+    ----------
+    groups : List[str], optional
+        List of column names to group by, by default []
+    random_state : Union[None, int, np.random.RandomState], optional
+        Determine the randomness of the imputer, by default None
 
     Examples
     --------
     >>> import numpy as np
     >>> import pandas as pd
-    >>> from qolmat.imputations.models import ImputeRandom
-    >>> imputor = ImputeRandom()
+    >>> from qolmat.imputations import imputers
+    >>> imputer = imputers.ImputerShuffle(random_state=42)
     >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
-    >>>                        [np.nan, np.nan, np.nan, np.nan],
-    >>>                        [1, 2, 2, 5], [2, 2, 2, 2]],
-    >>>                        columns=["var1", "var2", "var3", "var4"])
-    >>> imputor.fit_transform(df)
+    ...                         [np.nan, np.nan, np.nan, np.nan],
+    ...                         [1, 2, 2, 5],
+    ...                         [2, 2, 2, 2]],
+    ...                         columns=["var1", "var2", "var3", "var4"])
+    >>> imputer.fit_transform(df)
+       var1  var2  var3  var4
+    0   1.0   1.0   1.0   1.0
+    1   2.0   1.0   2.0   2.0
+    2   1.0   2.0   2.0   5.0
+    3   2.0   2.0   2.0   2.0
     """
 
     def __init__(
@@ -297,22 +354,30 @@ class ImputerShuffle(Imputer):
 
 
 class ImputerLOCF(Imputer):
-    """
-    This class implements a forward imputation, column wise
+    """Impute by a the last available value of the variable.
+
+    Parameters
+    ----------
+    groups : List[str], optional
+        List of column names to group by, by default []
 
     Examples
     --------
     >>> import numpy as np
     >>> import pandas as pd
-    >>> from qolmat.imputations.models import ImputeLOCF
-    >>> imputor = ImputeLOCF()
-    >>> df = pd.DataFrame(data=[[np.nan, np.nan, np.nan, np.nan],
-    >>>                        [1, 1, 1, 1],
-    >>>                        [np.nan, np.nan, np.nan, np.nan],
-    >>>                        [1, 2, 2, 5],
-    >>>                        [2, 2, 2, 2]],
-    >>>                         columns=["var1", "var2", "var3", "var4"])
-    >>> imputor.fit_transform(df)
+    >>> from qolmat.imputations import imputers
+    >>> imputer = imputers.ImputerLOCF()
+    >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
+    ...                         [np.nan, np.nan, np.nan, np.nan],
+    ...                         [1, 2, 2, 5],
+    ...                         [2, 2, 2, 2]],
+    ...                         columns=["var1", "var2", "var3", "var4"])
+    >>> imputer.fit_transform(df)
+       var1  var2  var3  var4
+    0   1.0   1.0   1.0   1.0
+    1   1.0   1.0   1.0   1.0
+    2   1.0   2.0   2.0   5.0
+    3   2.0   2.0   2.0   2.0
     """
 
     def __init__(
@@ -333,20 +398,30 @@ class ImputerLOCF(Imputer):
 
 
 class ImputerNOCB(Imputer):
-    """
-    This class implements a backawrd imputation, column wise
+    """Impute by the next available value of the variable.
+
+    Parameters
+    ----------
+    groups : List[str], optional
+        List of column names to group by, by default []
 
     Examples
     --------
     >>> import numpy as np
     >>> import pandas as pd
-    >>> from qolmat.imputations.models import ImputeNOCB
-    >>> imputor = ImputeNOCB()
+    >>> from qolmat.imputations import imputers
+    >>> imputer = imputers.ImputerNOCB()
     >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
-    >>>                        [np.nan, np.nan, np.nan, np.nan],
-    >>>                        [1, 2, 2, 5], [2, 2, 2, 2]],
-    >>>                        columns=["var1", "var2", "var3", "var4"])
-    >>> imputor.fit_transform(df)
+    ...                         [np.nan, np.nan, np.nan, np.nan],
+    ...                         [1, 2, 2, 5],
+    ...                         [2, 2, 2, 2]],
+    ...                         columns=["var1", "var2", "var3", "var4"])
+    >>> imputer.fit_transform(df)
+       var1  var2  var3  var4
+    0   1.0   1.0   1.0   1.0
+    1   1.0   2.0   2.0   5.0
+    2   1.0   2.0   2.0   5.0
+    3   2.0   2.0   2.0   2.0
     """
 
     def __init__(self, groups: List[str] = []) -> None:
@@ -355,7 +430,7 @@ class ImputerNOCB(Imputer):
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Fit/transform by imputing missing values by carrying the next observation backward.
-        If the last observation is missing, it is imputed by the median of the series
+        If the last observation is missing, it is imputed by a LOCF.
         """
         df_out = df.copy()
         for col in df:

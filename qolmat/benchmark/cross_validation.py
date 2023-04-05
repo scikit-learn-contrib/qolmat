@@ -91,7 +91,7 @@ class CrossValidation:
 
     def deflat_hyperparams(
         self, hyperparams_flat: Dict[str, Union[float, int, str]]
-    ) -> Dict[str, Union[float, int, str]]:
+    ) -> Dict[str, Union[float, int, str, Dict[str, Union[float, int, str]]]]:
         """
         Set the hyperparameters to the model
 
@@ -100,7 +100,7 @@ class CrossValidation:
         hyperparams_flat : Dict[str, Union[int, float, str]]
             dictionary containing the hyperparameters and their value
         """
-        hyperparams = {}
+        hyperparams: Dict[str, Union[float, int, str, Dict[str, Union[float, int, str]]]] = {}
         for name_dimension, hyperparam in hyperparams_flat.items():
             if "/" not in name_dimension:
                 hyperparams[name_dimension] = hyperparam
@@ -109,7 +109,8 @@ class CrossValidation:
                 if name_hyperparam in hyperparams:
                     hyperparams[name_hyperparam][col] = hyperparam
                 else:
-                    hyperparams[name_hyperparam] = {col: hyperparam}
+                    new_dict: Dict[str, Union[float, int, str]] = {col: hyperparam}
+                    hyperparams[name_hyperparam] = new_dict
         return hyperparams
 
     def objective(self, X):
