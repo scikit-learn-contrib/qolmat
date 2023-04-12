@@ -36,7 +36,7 @@ It is based on the standard approach to select some observations, set their stat
 their imputation with their true values.
 
 More specifically, from the initial dataframe with missing value, we generate additional missing values (N samples/times).
-MIssing values can be generated following three mechanisms: MCAR, MAR and MNAR.
+Missing values can be generated following three mechanisms: MCAR, MAR and MNAR.
 
 * In the MCAR setting, each value is masked according to the realisation of a Bernoulli random variable with a fixed parameter.
 * In the MAR setting, for each experiment, a fixed subset of variables that cannot have missing values is sampled. Then, the remaining variables have missing values according to a logistic model with random weights, which takes the non-missing variables as inputs. A bias term is fitted using line search to attain the desired proportion of missing values.
