@@ -13,21 +13,23 @@ The Qolmat package is created for the implementation and comparison of imputatio
 
 For univariate time series:
 
-* ```ImputeByMean```/```ImputeByMedian```/```ImputeByMode``` : Replaces missing entries with the mean, median or mode of each column. It uses ```pd.DataFrame.fillna()```.
-* ```RandomImpute``` : Replaces missing entries with the random value of each column.
-* ```ImputeLOCF```/```ImputeNOCB``` : Replaces missing entries by carrying the last observation forward/ next observation backward, for each columns.
-* ```ImputeByInterpolation```: Replaces missing using some interpolation strategies
+* ```ImputerMean```/```ImputerMedian```/```ImputerMode``` : Replaces missing entries with the mean, median or mode of each column. It uses ```pd.DataFrame.fillna()```.
+* ```ImputerSuffle``` : Replaces missing entries with the random value of each column.
+* ```ImputerLOCF```/```ImputerNOCB``` : Replaces missing entries by carrying the last observation forward/ next observation backward, for each columns.
+* ```ImputerInterpolation```: Replaces missing using some interpolation strategies
 supported by ```pd.Series.interpolate````.
-* ```ImputeRPCA``` : Imputes values via a RPCA method.
+* ```ImputerResiduals```: Imputes values by a residuals methods. The series are de-seasonalised, residuals are imputed, then residuals are re-seasonalised.
+* ```ImputerRPCA``` : Imputes values via a RPCA method.
 
 For multivariate time series:
 
-* ```ImputeKNN``` : Replaces missing entries with the k-nearest neighbors. It uses the ```sklearn.impute.KNNImputer```.
-* ```ImputeIterative``` : Imputes each Series within a DataFrame multiple times using an iteration of fits and transformations to reach a stable state of imputation each time.It uses ```sklearn.impute.IterativeImputer```
-* ```ImputeRegressor```:  It imputes each Series with missing value within a DataFrame using a regression model whose features are based on the complete ones only.
-* ```ImputeStochasticRegressor```:  It imputes each Series with missing value within a DataFrame using a stochastic regression model whose features are based on the complete ones only.
+* ```ImputerKNN``` : Replaces missing entries with the k-nearest neighbors. It uses the ```sklearn.impute.KNNImputer```.
+* ```ImputerIterative``` : Imputes each Series within a DataFrame multiple times using an iteration of fits and transformations to reach a stable state of imputation each time.It uses ```sklearn.impute.IterativeImputer```
+* ```ImputerMICE``` : Imputes each Series within a DataFrame multiple times using an iteration of fits and transformations to reach a stable state of imputation each time. It uses ```sklearn.impute.IterativeImputer```.
+* ```ImputerRegressor```:  It imputes each Series with missing value within a DataFrame using a regression model whose features are based on the complete ones only.
+* ```ImputerStochasticRegressor```:  It imputes each Series with missing value within a DataFrame using a stochastic regression model whose features are based on the complete ones only.
 * ```ImputeRPCA``` : Imputes values via a RPCA method.
-* ```ImputeEM``` : Imputation of missing values using a multivariate Gaussian model through EM optimization and using a projected (Ornstein-Uhlenbeck) process.
+* ```ImputerEM``` : Imputation of missing values using a multivariate Gaussian model through EM optimization and using a projected (Ornstein-Uhlenbeck) process.
 
 ### **2 - Comparator**
 
@@ -39,7 +41,6 @@ More specifically, from the initial dataframe with missing value, we generate ad
 MIssing values can be generated following three mechanisms: MCAR, MAR and MNAR.
 
 * In the MCAR setting, each value is masked according to the realisation of a Bernoulli random variable with a fixed parameter.
-* In the MAR setting, for each experiment, a fixed subset of variables that cannot have missing values is sampled. Then, the remaining variables have missing values according to a logistic model with random weights, which takes the non-missing variables as inputs. A bias term is fitted using line search to attain the desired proportion of missing values.
 * Finally, two different mechanisms are implemented in the MNAR setting.
 
     * The first is identical to the previously described MAR mechanism, but the inputs of the logistic model are then masked by a MCAR mechanism. Hence, the logistic model’s outcome now depends on potentially missing values.
