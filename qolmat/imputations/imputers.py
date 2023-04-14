@@ -501,7 +501,7 @@ class ImputerInterpolation(Imputer):
 class ImputerResiduals(Imputer):
     """
     This class implements an imputation method based on a STL decomposition.
-    The series are de-seasonalised, de-trended, residuals are imputed, then residuals are 
+    The series are de-seasonalised, de-trended, residuals are imputed, then residuals are
     re-seasonalised and re-trended.
 
     Parameters
@@ -755,7 +755,7 @@ class ImputerRegressor(Imputer):
             df_imputed.loc[is_na, col] = y_imputed
 
         return df_imputed
-    
+
 
 class ImputerRPCA(Imputer):
     """
@@ -771,7 +771,7 @@ class ImputerRPCA(Imputer):
     method : str
         Name of the RPCA method:
             "PCP" for basic RPCA, bad at imputing
-            "noisy" for noisy RPCA, with possible regularisations, wihch is recommended since it is 
+            "noisy" for noisy RPCA, with possible regularisations, wihch is recommended since it is
             more stable
     columnwise : bool
         For the RPCA method to be applied columnwise (with reshaping of each column into an array)
@@ -829,6 +829,7 @@ class ImputerEM(Imputer):
         Controls the randomness of the fit_transform, by default None
 
     """
+
     def __init__(
         self,
         groups: List[str] = [],
