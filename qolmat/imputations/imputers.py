@@ -1,15 +1,13 @@
-from typing import Dict, List, Optional, Union
 import warnings
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
-
-from sklearn.experimental import enable_iterative_imputer
+from sklearn import utils as sku
 from sklearn.base import BaseEstimator
-
+from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer, KNNImputer
 from sklearn.impute._base import _BaseImputer
-from sklearn import utils as sku
 from statsmodels.tsa import seasonal as tsa_seasonal
 
 from qolmat.imputations import em_sampler
@@ -27,9 +25,13 @@ class Imputer(_BaseImputer):
     columnwise : bool, optional
         If True, the imputer will be computed for each column, else it will be computed on the whole dataframe, by default False
     shrink : bool, optional
-        TODO, by default False
+        Indicates if the elementwise imputation method returns a single value, by default False
     hyperparams : Dict, optional
-        TODO, by default {}
+        Hyperparameters to be passed to the imputer, for example in the case when the imputer requires a regression model.
+        If a dictionary of values is provided, each value is a global hyperparameter.
+        If a nested dictionary of dictionaries is provided and `columnwise` is True, it should be indexed by the dataset column names.
+        This allows to provide different hyperparameters for each column.
+        By default {}
     random_state : Union[None, int, np.random.RandomState], optional
         Controls the randomness of the fit_transform, by default None
     """
@@ -52,7 +54,8 @@ class Imputer(_BaseImputer):
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Fit to data, then transform it.
+        Returns a dataframe with same shape as `df`, unchanged values, where all nans are replaced by non-nan values.
+        Depending on the imputer parameters, the dataframe can be imputed with columnwise and/or groupwise methods.
 
         Parameters
         ----------
@@ -82,7 +85,6 @@ class Imputer(_BaseImputer):
             self.ngroups = df.groupby(self.groups).ngroup().rename("_ngroup")
 
         if self.columnwise:
-            # imputed = pd.DataFrame(index=df.index, columns=df.columns)
             df_imputed = df.copy()
 
             for col in cols_with_nans:
@@ -104,7 +106,9 @@ class Imputer(_BaseImputer):
         return df_imputed
 
     def fit_transform_fallback(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Impute df by the median of each column if it still contains missing values.
+        """
+        Impute `df` by the median of each column if it still contains missing values.
+        This can introduce data leakage if unchecked.
 
         Parameters
         ----------
@@ -119,7 +123,9 @@ class Imputer(_BaseImputer):
         return df.fillna(df.median())
 
     def impute_element(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Impute df using fit_transform_element
+        """
+        Impute `df` by applying the specialized method `fit_transform_element` on each group, if groups have been given.
+        If the method leaves nan, `fit_transform_fallback` is called in order to return a dataframe without nan.
 
         Parameters
         ----------
@@ -159,9 +165,10 @@ class Imputer(_BaseImputer):
 
 
 class ImputerOracle(Imputer):
-    """Perfect imputer, requires to know real values
+    """
+    Perfect imputer, requires to know real values.
 
-    Used to evaluate imputation metrics.
+    Used as a reference to evaluate imputation metrics.
 
     Parameters
     ----------
@@ -175,7 +182,7 @@ class ImputerOracle(Imputer):
         self,
         df: pd.DataFrame,
     ) -> None:
-        super().__init__(shrink=True)  # TODO shrink ?
+        super().__init__(shrink=True)
         self.df = df
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -200,7 +207,7 @@ class ImputerOracle(Imputer):
 
 
 class ImputerMean(Imputer):
-    """Impute by the mean of the variable.
+    """Impute by the mean of the column.
 
     Parameters
     ----------
@@ -235,7 +242,7 @@ class ImputerMean(Imputer):
 
 
 class ImputerMedian(Imputer):
-    """Impute by the median of the variable.
+    """Impute by the median of the column.
 
     Parameters
     ----------
@@ -270,7 +277,7 @@ class ImputerMedian(Imputer):
 
 
 class ImputerMode(Imputer):
-    """Impute by the mode of the variable.
+    """Impute by the mode of the column, which is the most represented value.
 
     Parameters
     ----------
@@ -305,7 +312,7 @@ class ImputerMode(Imputer):
 
 
 class ImputerShuffle(Imputer):
-    """Impute by a random available value of the variable.
+    """Impute using random samples from the considered column.
 
     Parameters
     ----------
@@ -354,7 +361,9 @@ class ImputerShuffle(Imputer):
 
 
 class ImputerLOCF(Imputer):
-    """Impute by a the last available value of the variable.
+    """Impute by the last available value of the column. Relevent for time series.
+
+    If the first observations are missing, it is imputed by a NOCB
 
     Parameters
     ----------
@@ -387,10 +396,6 @@ class ImputerLOCF(Imputer):
         super().__init__(groups=groups, columnwise=True)
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Fit/transform by imputing missing values by carrying the last observation forward.
-        If the first observation is missing, it is imputed by a NOCB
-        """
         df_out = df.copy()
         for col in df:
             df_out[col] = df[col].ffill().bfill()
@@ -398,7 +403,8 @@ class ImputerLOCF(Imputer):
 
 
 class ImputerNOCB(Imputer):
-    """Impute by the next available value of the variable.
+    """Impute by the next available value of the column. Relevent for time series.
+    If the last observation is missing, it is imputed by a LOCF.
 
     Parameters
     ----------
@@ -428,10 +434,6 @@ class ImputerNOCB(Imputer):
         super().__init__(groups=groups, columnwise=True)
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Fit/transform by imputing missing values by carrying the next observation backward.
-        If the last observation is missing, it is imputed by a LOCF.
-        """
         df_out = df.copy()
         for col in df:
             df_out[col] = df[col].bfill().ffill()
@@ -440,7 +442,7 @@ class ImputerNOCB(Imputer):
 
 class ImputerInterpolation(Imputer):
     """
-    This class implements a way to impute using some interpolation strategies
+    This class implements a way to impute time series using some interpolation strategies
     suppoted by pd.Series.interpolate, such as "linear", "slinear", "quadratic", ...
     By default, linear interpolation.
     As for pd.Series.interpolate, if "method" is "spline" or "polynomial",
@@ -448,12 +450,17 @@ class ImputerInterpolation(Imputer):
 
     Parameters
     ----------
+    groups : List[str], optional
+        List of column names to group by, by default []
     method : Optional[str] = "linear"
         name of the method for interpolation: "linear", "cubic", "spline", "slinear", ...
         see pd.Series.interpolate for more example.
         By default, the value is set to "linear".
     order : Optional[int]
         order for the spline interpolation
+    col_time : Optional[str]
+        Name of the column representing the time index to use for the interpolation. If None, the
+        index is used assuming it is one-dimensional.
 
     Examples
     --------
@@ -493,16 +500,19 @@ class ImputerInterpolation(Imputer):
 
 class ImputerResiduals(Imputer):
     """
-    This class implements an imputation on residuals.
-    The series are de-seasonalised, residuals are imputed, then residuals are re-seasonalised.
+    This class implements an imputation method based on a STL decomposition.
+    The series are de-seasonalised, de-trended, residuals are imputed, then residuals are 
+    re-seasonalised and re-trended.
 
     Parameters
     ----------
+    groups : List[str], optional
+        List of column names to group by, by default []
     period : int
         Period of the series. Must be used if x is not a pandas object or if
         the index of x does not have  a frequency. Overrides default
         periodicity of x if x is a pandas object with a timeseries index.
-    model : Optional[str]
+    model_tsa : Optional[str]
         Type of seasonal component "additive" or "multiplicative". Abbreviations are accepted.
         By default, the value is set to "additive"
     extrapolate_trend : int or 'freq', optional
@@ -512,7 +522,7 @@ class ImputerResiduals(Imputer):
         If set to 'freq', use `freq` closest points. Setting this parameter
         results in no NaN values in trend or resid components.
     method_interpolation : str
-        methof for the residuals interpolation
+        method for the residuals interpolation
 
     Examples
     --------
@@ -550,13 +560,6 @@ class ImputerResiduals(Imputer):
         self.method_interpolation = method_interpolation
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Fit/transform missing values on residuals.
-        """
-        if len(df.columns) != 1:
-            raise AssertionError(
-                "Function ImputerResiduals.fit_transform_element expects a dataframe df with one column"
-            )
         name = df.columns[0]
         df = df[name]
         if df.isna().all():
@@ -579,12 +582,24 @@ class ImputerResiduals(Imputer):
 
 class ImputerKNN(Imputer):
     """
-    This class implements an imputation by the k-nearest neighbors, column wise
+    This class implements an imputation by the k-nearest neighbors.
 
     Parameters
     ----------
-    k : int
-        number of nearest neighbors
+    groups : List[str], optional
+        List of column names to group by, by default []
+    n_neighbors : int, default=5
+        Number of neighbors to use by default for `kneighbors` queries.
+    weights : {'uniform', 'distance'}, callable or None, default='uniform'
+        Weight function used in prediction.  Possible values:
+        - 'uniform' : uniform weights.  All points in each neighborhood
+          are weighted equally.
+        - 'distance' : weight points by the inverse of their distance.
+          in this case, closer neighbors of a query point will have a
+          greater influence than neighbors which are further away.
+        - [callable] : a user-defined function which accepts an
+          array of distances, and returns an array of the same shape
+          containing the weights.
 
     Examples
     --------
@@ -611,21 +626,6 @@ class ImputerKNN(Imputer):
         self.weights = weights
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Fit/transform by imputing missing values with the KNN method.
-
-        Parameters
-        ----------
-        signal : pd.DataFrame
-            DataFrame to impute
-
-        Returns
-        -------
-        pd.DataFrame
-            imputed DataFrame
-        """
-        if not isinstance(df, pd.DataFrame):
-            raise ValueError("Input has to be a pandas.DataFrame.")
 
         imputer = KNNImputer(
             n_neighbors=self.n_neighbors,
@@ -645,14 +645,10 @@ class ImputerMICE(Imputer):
 
     Parameters
     ----------
+    groups : List[str], optional
+        List of column names to group by, by default []
     estimator : Optional[] = LinearRegression()
-        estimator for imputing a column based on the other
-    sample_posterior : Optional[bool] = False
-        By default, the value is set to False
-    max_iter : Optional[int] = 100
-        By default, the value is set to 100
-    missing_values : Optional[float] = np.nan
-        By default, the value is set to np.nan
+        Estimator for imputing a column based on the others
 
     Examples
     --------
@@ -680,21 +676,6 @@ class ImputerMICE(Imputer):
         self.estimator = estimator
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Fit/transform using an iterative imputer and a specific estimator
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            dataframe to impute
-
-        Returns
-        -------
-        pd.DataFrame
-            imputed dataframe
-        """
-        if not isinstance(df, pd.DataFrame):
-            raise ValueError("Input has to be a pandas.DataFrame.")
 
         iterative_imputer = IterativeImputer(estimator=self.estimator, **self.hyperparams_element)
         res = iterative_imputer.fit_transform(df.values)
@@ -708,12 +689,17 @@ class ImputerMICE(Imputer):
 class ImputerRegressor(Imputer):
     """
     This class implements a regression imputer in the multivariate case.
-    It imputes each Series with missing value within a DataFrame using the complete ones.
+    It imputes each column using a single fit-predict for a given estimator, based on the colunms
+    which have no missing values.
 
     Parameters
     ----------
-    model :
-        regression model
+    groups : List[str], optional
+        List of column names to group by, by default []
+    estimator : BaseEstimator, optional
+        Estimator for imputing a column based on the others
+    fit_on_nan : bool, optional
+        TODO : merge with GSA
 
     Examples
     --------
@@ -742,19 +728,6 @@ class ImputerRegressor(Imputer):
         self.fit_on_nan = fit_on_nan
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Fit/transform using a (specified) regression model
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            dataframe to impute
-
-        Returns
-        -------
-        pd.DataFrame
-            imputed dataframe
-        """
 
         df_imputed = df.copy()
 
@@ -767,10 +740,6 @@ class ImputerRegressor(Imputer):
                 if isinstance(value, dict):
                     value = value[col]
                 hyperparams[hyperparam] = value
-
-            # model = copy.deepcopy(self.estimator)
-            # for hyperparam, value in hyperparams.items():
-            #     setattr(model, hyperparam, value)
 
             if self.fit_on_nan:
                 X = df.drop(columns=col)
@@ -786,88 +755,26 @@ class ImputerRegressor(Imputer):
             df_imputed.loc[is_na, col] = y_imputed
 
         return df_imputed
-
-
-class ImputerStochasticRegressor(Imputer):
-    """
-    This class implements a stochastic regression imputer in the multivariate case.
-    It imputes each Series with missing value within a DataFrame using the complete ones.
-
-    Parameters
-    ----------
-    model :
-        regression model
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import pandas as pd
-    >>> from qolmat.imputations.models import ImputeStochasticRegressor
-    >>> from sklearn.ensemble import ExtraTreesRegressor
-    >>> imputer = ImputeStochasticRegressor(estimator=ExtraTreesRegressor)
-    >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
-    >>>                        [np.nan, np.nan, 2, 3],
-    >>>                        [1, 2, 2, 5], [2, 2, 2, 2]],
-    >>>                        columns=["var1", "var2", "var3", "var4"])
-    >>> imputer.fit_transform(df)
-    """
-
-    def __init__(
-        self,
-        groups: List[str] = [],
-        estimator: Optional[BaseEstimator] = None,
-        random_state: Union[None, int, np.random.RandomState] = None,
-        **hyperparams,
-    ) -> None:
-        super().__init__(groups=groups, hyperparams=hyperparams, random_state=random_state)
-        self.estimator = estimator
-
-    def fit_transform_element(self, df: pd.DataFrame) -> pd.Series:
-        """
-        Fit/transform using a (specified) regression model + stochastic
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            dataframe to impute
-
-        Returns
-        -------
-        pd.DataFrame
-            imputed dataframe
-        """
-        df_imp = df.copy()
-        cols_with_nans = df.columns[df.isna().any()]
-        cols_without_nans = df.columns[df.notna().all()]
-
-        if len(cols_without_nans) == 0:
-            raise Exception("There must be at least one column without missing values.")
-
-        for col in cols_with_nans:
-            X = df[cols_without_nans]
-            y = df[col]
-            is_na = y.isna()
-            self.estimator.fit(X[~is_na], y[~is_na])
-            y_pred = self.estimator.predict(X)
-            std_error = (y_pred[~is_na] - y[~is_na]).std()
-            random_pred = self.rng.normal(size=len(y), loc=y_pred, scale=std_error)
-            df_imp.loc[is_na, col] = random_pred[is_na]
-
-        return df_imp
-
+    
 
 class ImputerRPCA(Imputer):
     """
-    This class implements the RPCA imputation
+    This class implements the Robust Principal Component Analysis imputation.
+
+    The imputation minimizes a loss function combining a low-rank criterium on the dataframe and a
+    L1 penalization on the residuals.
 
     Parameters
     ----------
+    groups : List[str], optional
+        List of column names to group by, by default []
     method : str
-        name of the RPCA method:
+        Name of the RPCA method:
             "PCP" for basic RPCA, bad at imputing
-            "noisy" for noisy RPCA, with possible regularisations
+            "noisy" for noisy RPCA, with possible regularisations, wihch is recommended since it is 
+            more stable
     columnwise : bool
-        for RPCA method to be applied columnwise (with reshaping of each column into an array)
+        For the RPCA method to be applied columnwise (with reshaping of each column into an array)
         or to be applied directly on the dataframe. By default, the value is set to False.
     """
 
@@ -883,19 +790,6 @@ class ImputerRPCA(Imputer):
         self.method = method
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Fit/transform to impute with RPCA methods
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            dataframe to impute
-
-        Returns
-        -------
-        pd.DataFrame
-            imputed dataframe
-        """
         if not isinstance(df, pd.DataFrame):
             raise ValueError("Input has to be a pandas.DataFrame.")
 
@@ -913,6 +807,28 @@ class ImputerRPCA(Imputer):
 
 
 class ImputerEM(Imputer):
+    """
+    This class implements an imputation method based on joint modelling and an inference using a
+    Expectation-Minimization algorithm.
+
+    Parameters
+    ----------
+    groups : List[str], optional
+        List of column names to group by, by default []
+    method : {'multinormal', 'VAR1'}, default='multinormal'
+        Method defining the hypothesis made on the data distribution. Possible values:
+        - 'multinormal' : the data points a independent and uniformly distributed following a
+        multinormal distribution
+        - 'VAR1' : the data is a time series modeled by a VAR(1) process
+    columnwise : bool
+        If False, correlations between variables will be used, which is advised.
+        If True, each column is imputed independently. For the multinormal case each
+        value will be imputed by the mean up to a noise with fixed noise, for the VAR1 case the
+        imputation will be a noisy temporal interpolation.
+    random_state : Union[None, int, np.random.RandomState], optional
+        Controls the randomness of the fit_transform, by default None
+
+    """
     def __init__(
         self,
         groups: List[str] = [],

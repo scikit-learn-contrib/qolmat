@@ -142,7 +142,7 @@ class Comparator:
         self,
         df: pd.DataFrame,
         verbose: bool = True,
-        metrics: List = ["mae", "wmape", "kl"],
+        metrics: List = ["mae", "wmape", "KL"],
         on_mask=True,
     ):
         """Function to compare different imputation methods on dataframe df
