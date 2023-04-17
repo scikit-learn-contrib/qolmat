@@ -1,6 +1,7 @@
 from tensorflow.keras.callbacks import EarlyStopping
 
-class Hyperparam_dl():
+
+class Hyperparam_dl:
     """
     This class implements a MLP imputer in the multivariate case.
     It imputes each Series with missing value within a DataFrame using the complete ones.
@@ -32,14 +33,10 @@ class Hyperparam_dl():
     """
 
     def __init__(
-            self,
-            epoch: int = 100,
-            verbose: int = 0,
-            monitor: str = "loss",
-            patience: int = 5
+        self, epoch: int = 100, verbose: int = 0, monitor: str = "loss", patience: int = 5
     ):
-        
+
         es = EarlyStopping(monitor=monitor, patience=patience, verbose=verbose, mode="min")
-        self.epochs=epoch
-        self.callbacks=[es]
-        self.verbose=0
+        self.epochs = epoch
+        self.callbacks = [es]
+        self.verbose = 0
