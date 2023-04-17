@@ -48,7 +48,7 @@ MIssing values can be generated following three mechanisms: MCAR, MAR and MNAR.
 On each sample, different imputation models are tested and reconstruction errors are computed on these artificially missing entries. Then the errors of each imputation model are averaged and we eventually obtained a unique error score per model. This procedure allows the comparison of different models on the same dataset.
 
 
-.. figure:: docs/images/comparator.png
+.. image:: images/comparator.png
     :align: center
 
 

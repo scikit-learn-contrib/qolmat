@@ -13,7 +13,6 @@ from statsmodels.tsa import seasonal as tsa_seasonal
 from qolmat.imputations import em_sampler
 from qolmat.imputations.rpca.rpca_noisy import RPCANoisy
 from qolmat.imputations.rpca.rpca_pcp import RPCAPCP
-from qolmat.imputations.params_imputer_dl import Hyperparam_dl
 
 
 class Imputer(_BaseImputer):
@@ -725,7 +724,6 @@ class ImputerRegressor(Imputer):
         groups: List[str] = [],
         estimator: Optional[BaseEstimator] = None,
         handler_nan: str = "column",
-        dl: bool = False,
         # col_imp: List[str] = [],
         **hyperparams,
     ):
@@ -733,7 +731,9 @@ class ImputerRegressor(Imputer):
         self.columnwise = False
         self.estimator = estimator
         self.handler_nan = handler_nan
-        self.dl = dl
+
+    def get_params_fit(self) -> Dict:
+        return {}
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -784,17 +784,8 @@ class ImputerRegressor(Imputer):
             if X.empty:
                 y_imputed = pd.Series(y.mean(), index=y.index)
             else:
-                if self.dl:
-                    hp = Hyperparam_dl()
-                    self.estimator.fit(
-                        X[(~is_na) & is_valid],
-                        y[(~is_na) & is_valid],
-                        callbacks=hp.callbacks,
-                        epochs=hp.epochs,
-                        verbose=hp.verbose,
-                    )
-                else:
-                    self.estimator.fit(X[(~is_na) & is_valid], y[(~is_na) & is_valid])
+                hp = self.get_params_fit()
+                self.estimator.fit(X[(~is_na) & is_valid], y[(~is_na) & is_valid], **hp)
                 y_imputed = self.estimator.predict(X[is_na & is_valid])
 
             # Adds the imputed values
