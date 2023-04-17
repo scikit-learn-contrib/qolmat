@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -23,18 +23,29 @@ class Comparator:
     search_params: Optional[Dict[str, Dict[str, Union[str, float, int]]]] = {}
         dictionary of search space for each implementation method. By default, the value is set to
         {}.
-    n_calls_opt: Optional[int] = 10
+    n_calls_opt: int = 10
         number of calls of the optimization algorithm
         10.
     """
 
+    dict_metrics: Dict[str, Any] = {
+        "mse": utils.mean_squared_error,
+        "rmse": utils.root_mean_squared_error,
+        "mae": utils.mean_absolute_error,
+        "wmape": utils.weighted_mean_absolute_percentage_error,
+        "wasser": utils.wasser_distance,
+        "KL": utils.kl_divergence,
+        "frechet": utils.frechet_distance,
+        "energy": utils.energy_distance,
+    }
+
     def __init__(
         self,
-        dict_models: Dict[str, any],
+        dict_models: Dict[str, Any],
         selected_columns: List[str],
         generator_holes: _HoleGenerator,
         search_params: Optional[Dict[str, Dict[str, Union[float, int, str]]]] = {},
-        n_calls_opt: Optional[int] = 10,
+        n_calls_opt: int = 10,
     ):
         self.dict_imputers = dict_models
         self.selected_columns = selected_columns
@@ -43,7 +54,12 @@ class Comparator:
         self.n_calls_opt = n_calls_opt
 
     def get_errors(
-        self, df_origin: pd.DataFrame, df_imputed: pd.DataFrame, df_mask: pd.DataFrame
+        self,
+        df_origin: pd.DataFrame,
+        df_imputed: pd.DataFrame,
+        df_mask: pd.DataFrame,
+        metrics: List = ["mae", "wmape", "kl"],
+        on_mask=True,
     ) -> pd.DataFrame:
         """Functions evaluating the reconstruction's quality
 
@@ -60,24 +76,14 @@ class Comparator:
             dictionay of results obtained via different metrics
         """
 
-        dict_errors = {}
-        dict_errors["rmse"] = utils.root_mean_squared_error(
-            df_origin[df_mask],
-            df_imputed[df_mask],
-        )
-        dict_errors["mae"] = utils.mean_absolute_error(
-            df_origin[df_mask],
-            df_imputed[df_mask],
-        )
-        dict_errors["wmape"] = utils.weighted_mean_absolute_percentage_error(
-            df_origin[df_mask],
-            df_imputed[df_mask],
-        )
+        # TODO comment comparer la distribution initiale et la distribution générée, pas la même taille,
+        # ne fonctionne pas avec les métriques actuelles
 
-        dict_errors["kl"] = utils.kl_divergence(
-            df_origin[df_mask],
-            df_imputed[df_mask],
-        )
+        dict_errors = {}
+        for name_metric in metrics:
+            dict_errors[name_metric] = Comparator.dict_metrics[name_metric](
+                df_origin[df_mask], df_imputed[df_mask]
+            )
 
         dict_errors["energy"] = utils.energy_dist(
             df_origin[df_mask],
@@ -88,7 +94,12 @@ class Comparator:
         return errors
 
     def evaluate_errors_sample(
-        self, imputer: any, df: pd.DataFrame, list_spaces: List[Dict] = {}
+        self,
+        imputer: Any,
+        df: pd.DataFrame,
+        list_spaces: List[Dict] = [],
+        metrics: List = ["mae", "wmape", "kl"],
+        on_mask=True,
     ) -> pd.Series:
         """Evaluate the errors in the cross-validation
 
@@ -106,6 +117,7 @@ class Comparator:
         pd.DataFrame
             DataFrame with the errors for each metric (in column) and at each fold (in index)
         """
+
         list_errors = []
         df_origin = df[self.selected_columns].copy()
         for df_mask in self.generator_holes.split(df_origin):
@@ -123,14 +135,22 @@ class Comparator:
                 df_imputed = imputer.fit_transform(df_corrupted)
 
             subset = self.generator_holes.subset
-            errors = self.get_errors(df_origin[subset], df_imputed[subset], df_mask[subset])
+            errors = self.get_errors(
+                df_origin[subset], df_imputed[subset], df_mask[subset], metrics, on_mask
+            )
             list_errors.append(errors)
         df_errors = pd.DataFrame(list_errors)
         errors_mean = df_errors.mean(axis=0)
 
         return errors_mean
 
-    def compare(self, df: pd.DataFrame, verbose: bool = True):
+    def compare(
+        self,
+        df: pd.DataFrame,
+        verbose: bool = True,
+        metrics: List = ["mae", "wmape", "KL"],
+        on_mask=True,
+    ):
         """Function to compare different imputation methods on dataframe df
 
         Parameters
@@ -147,14 +167,16 @@ class Comparator:
         dict_errors = {}
 
         for name, imputer in self.dict_imputers.items():
-            print(f"Tested model: {type(imputer).__name__}")
 
             search_params = self.search_params.get(name, {})
 
             list_spaces = utils.get_search_space(search_params)
 
             try:
-                dict_errors[name] = self.evaluate_errors_sample(imputer, df, list_spaces)
+                dict_errors[name] = self.evaluate_errors_sample(
+                    imputer, df, list_spaces, metrics, on_mask
+                )
+                print(f"Tested model: {type(imputer).__name__}")
             except Exception as excp:
                 print("Error while testing ", type(imputer).__name__)
                 raise excp
