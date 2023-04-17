@@ -23,13 +23,16 @@ class Imputer(_BaseImputer):
     groups : List[str], optional
         List of column names to group by, by default []
     columnwise : bool, optional
-        If True, the imputer will be computed for each column, else it will be computed on the whole dataframe, by default False
+        If True, the imputer will be computed for each column, else it will be computed on the
+        whole dataframe, by default False
     shrink : bool, optional
         Indicates if the elementwise imputation method returns a single value, by default False
     hyperparams : Dict, optional
-        Hyperparameters to be passed to the imputer, for example in the case when the imputer requires a regression model.
+        Hyperparameters to be passed to the imputer, for example in the case when the imputer
+        requires a regression model.
         If a dictionary of values is provided, each value is a global hyperparameter.
-        If a nested dictionary of dictionaries is provided and `columnwise` is True, it should be indexed by the dataset column names.
+        If a nested dictionary of dictionaries is provided and `columnwise` is True, it should be
+        indexed by the dataset column names.
         This allows to provide different hyperparameters for each column.
         By default {}
     random_state : Union[None, int, np.random.RandomState], optional
@@ -54,8 +57,10 @@ class Imputer(_BaseImputer):
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Returns a dataframe with same shape as `df`, unchanged values, where all nans are replaced by non-nan values.
-        Depending on the imputer parameters, the dataframe can be imputed with columnwise and/or groupwise methods.
+        Returns a dataframe with same shape as `df`, unchanged values, where all nans are replaced
+        by non-nan values.
+        Depending on the imputer parameters, the dataframe can be imputed with columnwise and/or
+        groupwise methods.
 
         Parameters
         ----------
@@ -124,8 +129,9 @@ class Imputer(_BaseImputer):
 
     def impute_element(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Impute `df` by applying the specialized method `fit_transform_element` on each group, if groups have been given.
-        If the method leaves nan, `fit_transform_fallback` is called in order to return a dataframe without nan.
+        Impute `df` by applying the specialized method `fit_transform_element` on each group, if
+        groups have been given. If the method leaves nan, `fit_transform_fallback` is called in
+        order to return a dataframe without nan.
 
         Parameters
         ----------
@@ -142,6 +148,8 @@ class Imputer(_BaseImputer):
         ValueError
             Input has to be a pandas.DataFrame.
         """
+        # Impute `df` by applying the specialized method `fit_transform_element` on each group, if
+        # groups have been given.
         if not isinstance(df, pd.DataFrame):
             raise ValueError("Input has to be a pandas.DataFrame.")
         df = df.copy()
@@ -636,7 +644,6 @@ class ImputerKNN(Imputer):
         self.weights = weights
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
-
         imputer = KNNImputer(
             n_neighbors=self.n_neighbors,
             weights=self.weights,
@@ -700,7 +707,6 @@ class ImputerMICE(Imputer):
         self.estimator = estimator
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
-
         iterative_imputer = IterativeImputer(estimator=self.estimator, **self.hyperparams_element)
         res = iterative_imputer.fit_transform(df.values)
         imputed = pd.DataFrame(columns=df.columns)
@@ -758,7 +764,6 @@ class ImputerRegressor(Imputer):
         self.fit_on_nan = fit_on_nan
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
-
         df_imputed = df.copy()
 
         cols_with_nans = df.columns[df.isna().any()]

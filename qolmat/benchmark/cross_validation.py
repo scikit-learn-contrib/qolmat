@@ -100,7 +100,7 @@ class CrossValidation:
         hyperparams_flat : Dict[str, Union[int, float, str]]
             dictionary containing the hyperparameters and their value
         """
-        hyperparams: Dict[str, Union[float, int, str, Dict[str, Union[float, int, str]]]] = {}
+        hyperparams: Dict[str, Any] = {}
         for name_dimension, hyperparam in hyperparams_flat.items():
             if "/" not in name_dimension:
                 hyperparams[name_dimension] = hyperparam

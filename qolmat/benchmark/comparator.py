@@ -75,8 +75,8 @@ class Comparator:
             dictionay of results obtained via different metrics
         """
 
-        # TODO comment comparer la distribution initiale et la distribution générée, pas la même taille,
-        # ne fonctionne pas avec les métriques actuelles
+        # TODO comment comparer la distribution initiale et la distribution générée, pas la même
+        # taille, ne fonctionne pas avec les métriques actuelles
 
         dict_errors = {}
         for name_metric in metrics:
@@ -161,7 +161,6 @@ class Comparator:
         dict_errors = {}
 
         for name, imputer in self.dict_imputers.items():
-
             search_params = self.search_params.get(name, {})
 
             list_spaces = utils.get_search_space(search_params)

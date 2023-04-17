@@ -1,9 +1,9 @@
 import os
-from urllib import request
 import zipfile
 from datetime import datetime
 from math import pi
 from typing import List, Optional
+from urllib import request
 
 import numpy as np
 import pandas as pd
@@ -109,8 +109,8 @@ def preprocess_data(df: pd.DataFrame):
 
 def add_holes(df: pd.DataFrame, ratio_masked: float, mean_size: int):
     """
-    Creates holes in a dataset with no missing value, starting from `df`. Only used in the documentation to design
-    examples.
+    Creates holes in a dataset with no missing value, starting from `df`. Only used in the
+    documentation to design examples.
 
     Parameters
     ----------
