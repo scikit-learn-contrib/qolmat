@@ -1,5 +1,20 @@
+.. -*- mode: rst -*-
 
-###################################################
+|ReadTheDocs|_ |PythonVersion|_ |PyPi|_ |Conda|_
+
+.. |ReadTheDocs| image:: https://readthedocs.org/projects/qolmat/badge
+.. _ReadTheDocs: https://qolmat.readthedocs.io/en/latest
+
+.. |PythonVersion| image:: https://img.shields.io/pypi/pyversions/qolmat
+.. _PythonVersion: https://pypi.org/project/mapie/
+
+.. |PyPi| image:: https://img.shields.io/pypi/v/qolmat
+.. _PyPi: https://pypi.org/project/qolmat/
+
+.. |Conda| image:: https://img.shields.io/conda/vn/conda-forge/qolmat
+.. _Conda: https://anaconda.org/conda-forge/qolmat
+
+
 Welcome to Qolmat’s documentation!
 ###################################################
 
@@ -27,7 +42,6 @@ For multivariate time series:
 * **ImputerIterative** : Imputes each Series within a DataFrame multiple times using an iteration of fits and transformations to reach a stable state of imputation each time.It uses ``sklearn.impute.IterativeImputer``
 * **ImputerMICE** : Imputes each Series within a DataFrame multiple times using an iteration of fits and transformations to reach a stable state of imputation each time. It uses ``sklearn.impute.IterativeImputer``.
 * **ImputerRegressor**: It imputes each Series with missing value within a DataFrame using a regression model whose features are based on the complete ones only.
-* **ImputerStochasticRegressor**: It imputes each Series with missing value within a DataFrame using a stochastic regression model whose features are based on the complete ones only.
 * **ImputeRPCA**: Imputes values via a RPCA method.
 * **ImputerEM**: Imputation of missing values using a multivariate Gaussian model through EM optimization and using a projected (Ornstein-Uhlenbeck) process.
 
@@ -40,7 +54,7 @@ It is based on the standard approach to select some observations, set their stat
 their imputation with their true values.
 
 More specifically, from the initial dataframe with missing value, we generate additional missing values (N samples/times).
-MIssing values can be generated following three mechanisms: MCAR, MAR and MNAR.
+Missing values can be generated following the MCAR mechanism.
 
 * In the MCAR setting, each value is masked according to the realisation of a Bernoulli random variable with a fixed parameter.
 
