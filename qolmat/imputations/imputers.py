@@ -14,9 +14,6 @@ from qolmat.imputations import em_sampler
 from qolmat.imputations.rpca.rpca_noisy import RPCANoisy
 from qolmat.imputations.rpca.rpca_pcp import RPCAPCP
 
-# TODO Review all documentation of the file, view how the syntax works, were to put dots at the end
-# of the sentences, what to put just next to the """ and what to put a line after. Fix the randomness of ImputerMICE.
-
 
 class Imputer(_BaseImputer):
     """Base class for all imputers.
@@ -662,6 +659,7 @@ class ImputerMICE(Imputer):
         List of column names to group by, by default []
     estimator : Optional[] = LinearRegression()
         Estimator for imputing a column based on the others
+    TODO random state, keep it or change it
 
     Examples
     --------
