@@ -78,8 +78,6 @@ def weighted_mean_absolute_percentage_error(
 
     Parameters
     ----------
-    Parameters
-    ----------
     df1 : pd.DataFrame
         True dataframe
     df2 : pd.DataFrame
@@ -102,7 +100,9 @@ def wasser_distance(
     Parameters
     ----------
     df1 : pd.DataFrame
+        True dataframe
     df2 : pd.DataFrame
+        Predicted dataframe
 
     Returns
     -------

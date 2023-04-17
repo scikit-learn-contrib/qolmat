@@ -16,6 +16,9 @@ from qolmat.imputations import em_sampler
 from qolmat.imputations.rpca.rpca_noisy import RPCANoisy
 from qolmat.imputations.rpca.rpca_pcp import RPCAPCP
 
+# TODO Review all documentation of the file, view how the syntax works, were to put dots at the end
+# of the sentences, what to put just next to the """ and what to put a line after. Fix the randomness of ImputerMICE.
+
 
 class Imputer(_BaseImputer):
     """Base class for all imputers.
@@ -175,7 +178,7 @@ class ImputerOracle(Imputer):
         self,
         df: pd.DataFrame,
     ) -> None:
-        super().__init__(shrink=True)  # TODO shrink ?
+        super().__init__()
         self.df = df
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -192,10 +195,6 @@ class ImputerOracle(Imputer):
         """
         if not isinstance(df, pd.DataFrame):
             raise ValueError("Input has to be a pandas.DataFrame.")
-        if df.shape != self.df.shape:
-            warnings.warn(
-                "Dataframe argument has a different shape than this imputer's reference dataframe."
-            )
         return df.fillna(self.df)
 
 
@@ -340,7 +339,19 @@ class ImputerShuffle(Imputer):
     ) -> None:
         super().__init__(groups=groups, columnwise=True, random_state=random_state)
 
-    def fit_transform_element(self, df):
+    def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Replace missing values by known values of the same column
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe to impute
+
+        Returns
+        -------
+        pd.DataFrame
+            Imputed dataframe
+        """
         n_missing = df.isna().sum().sum()
         if df.isna().all().all():
             return df
@@ -390,6 +401,16 @@ class ImputerLOCF(Imputer):
         """
         Fit/transform by imputing missing values by carrying the last observation forward.
         If the first observation is missing, it is imputed by a NOCB
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe to impute
+
+        Returns
+        -------
+        pd.DataFrame
+            Imputed dataframe
         """
         df_out = df.copy()
         for col in df:
@@ -431,6 +452,16 @@ class ImputerNOCB(Imputer):
         """
         Fit/transform by imputing missing values by carrying the next observation backward.
         If the last observation is missing, it is imputed by a LOCF.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe to impute
+
+        Returns
+        -------
+        pd.DataFrame
+            Imputed dataframe
         """
         df_out = df.copy()
         for col in df:
@@ -441,30 +472,40 @@ class ImputerNOCB(Imputer):
 class ImputerInterpolation(Imputer):
     """
     This class implements a way to impute using some interpolation strategies
-    suppoted by pd.Series.interpolate, such as "linear", "slinear", "quadratic", ...
+    supported by pd.Series.interpolate, such as "linear", "slinear", "quadratic", ...
     By default, linear interpolation.
     As for pd.Series.interpolate, if "method" is "spline" or "polynomial",
     an "order" has to be passed.
 
     Parameters
     ----------
-    method : Optional[str] = "linear"
-        name of the method for interpolation: "linear", "cubic", "spline", "slinear", ...
-        see pd.Series.interpolate for more example.
-        By default, the value is set to "linear".
-    order : Optional[int]
-        order for the spline interpolation
+    groups : List[str], optional
+        List of column names to group by, by default []
+    method : str, optional
+        Name of the method for interpolation: "linear", "cubic", "spline", "slinear", ...
+        see pd.Series.interpolate for more example, by default "linear"
+    order : int, optional
+        order for the spline interpolation, by default 1
+    col_time : Optional[str], optional
+        TODO, by default None
 
     Examples
     --------
     >>> import numpy as np
-    >>> from qolmat.imputations.models import ImputeByInterpolation
-    >>> imputor = ImputeByInterpolation(method="spline", order=2)
+    >>> import pandas as pd
+    >>> from qolmat.imputations import imputers
+    >>> imputer = imputers.ImputerInterpolation(method="spline", order=2)
     >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
-    >>>                        [np.nan, np.nan, np.nan, np.nan],
-    >>>                        [1, 2, 2, 5], [2, 2, 2, 2]],
-    >>>                        columns=["var1", "var2", "var3", "var4"])
-    >>> imputor.fit_transform(df)
+    ...                        [np.nan, np.nan, np.nan, np.nan],
+    ...                        [1, 2, 2, 5],
+    ...                        [2, 2, 2, 2]],
+    ...                        columns=["var1", "var2", "var3", "var4"])
+    >>> imputer.fit_transform(df)
+           var1      var2      var3      var4
+    0  1.000000  1.000000  1.000000  1.000000
+    1  0.666667  1.666667  1.666667  4.666667
+    2  1.000000  2.000000  2.000000  5.000000
+    3  2.000000  2.000000  2.000000  2.000000
     """
 
     def __init__(
@@ -480,6 +521,18 @@ class ImputerInterpolation(Imputer):
         self.col_time = col_time
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
+        """TODO
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe to impute
+
+        Returns
+        -------
+        pd.DataFrame
+            Imputed dataframe
+        """
         index = df.index
         if self.col_time is None:
             df = df.reset_index(drop=True)
@@ -498,24 +551,26 @@ class ImputerResiduals(Imputer):
 
     Parameters
     ----------
-    period : int
+    groups : List[str], optional
+        List of column names to group by, by default []
+    period : Optional[int], optional
         Period of the series. Must be used if x is not a pandas object or if
         the index of x does not have  a frequency. Overrides default
-        periodicity of x if x is a pandas object with a timeseries index.
-    model : Optional[str]
-        Type of seasonal component "additive" or "multiplicative". Abbreviations are accepted.
-        By default, the value is set to "additive"
-    extrapolate_trend : int or 'freq', optional
+        periodicity of x if x is a pandas object with a timeseries index, by default None
+    model_tsa : Optional[str], optional
+        Type of seasonal component "additive" or "multiplicative". Abbreviations are accepted, by default "additive"
+    extrapolate_trend : Optional[Union[int, str]], optional
         If set to > 0, the trend resulting from the convolution is
         linear least-squares extrapolated on both ends (or the single one
         if two_sided is False) considering this many (+1) closest points.
         If set to 'freq', use `freq` closest points. Setting this parameter
-        results in no NaN values in trend or resid components.
-    method_interpolation : str
-        methof for the residuals interpolation
+        results in no NaN values in trend or resid components, by default "freq"
+    method_interpolation : Optional[str], optional
+        Method for the residuals interpolation, by default "linear"
 
     Examples
     --------
+    TODO review/remake this exemple
     >>> import numpy as np
     >>> import pandas as pd
     >>> from qolmat.imputations.models import ImputeOnResiduals
@@ -552,6 +607,16 @@ class ImputerResiduals(Imputer):
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Fit/transform missing values on residuals.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe to impute
+
+        Returns
+        -------
+        pd.DataFrame
+            Imputed dataframe
         """
         if len(df.columns) != 1:
             raise AssertionError(
@@ -583,20 +648,30 @@ class ImputerKNN(Imputer):
 
     Parameters
     ----------
-    k : int
-        number of nearest neighbors
+    groups : List[str], optional
+        List of column names to group by, by default []
+    n_neighbors : int, optional
+        number of nearest neighbors, by default 5
+    weights : str, optional
+        TODO, by default "distance"
 
     Examples
     --------
     >>> import numpy as np
     >>> import pandas as pd
-    >>> from qolmat.imputations.models import ImputeKNN
-    >>> imputor = ImputeKNN(k=2)
+    >>> from qolmat.imputations import imputers
+    >>> imputer = imputers.ImputerKNN(n_neighbors=2)
     >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
-    >>>                        [np.nan, np.nan, np.nan, np.nan],
-    >>>                        [1, 2, 2, 5], [2, 2, 2, 2]],
-    >>>                        columns=["var1", "var2", "var3", "var4"])
-    >>> imputor.fit_transform(df)
+    ...                        [np.nan, np.nan, np.nan, np.nan],
+    ...                        [1, 2, 2, 5],
+    ...                        [2, 2, 2, 2]],
+    ...                        columns=["var1", "var2", "var3", "var4"])
+    >>> imputer.fit_transform(df)
+           var1      var2      var3      var4
+    0  1.000000  1.000000  1.000000  1.000000
+    1  1.333333  1.666667  1.666667  2.666667
+    2  1.000000  2.000000  2.000000  5.000000
+    3  2.000000  2.000000  2.000000  2.000000
     """
 
     def __init__(
@@ -645,38 +720,49 @@ class ImputerMICE(Imputer):
 
     Parameters
     ----------
-    estimator : Optional[] = LinearRegression()
-        estimator for imputing a column based on the other
-    sample_posterior : Optional[bool] = False
-        By default, the value is set to False
-    max_iter : Optional[int] = 100
-        By default, the value is set to 100
-    missing_values : Optional[float] = np.nan
-        By default, the value is set to np.nan
+    groups : List[str], optional
+        List of column names to group by, by default []
+    estimator : Optional[BaseEstimator], optional
+        estimator for imputing a column based on the other, by default None
+    random_state : Union[None, int, np.random.RandomState], optional
+        Determine the randomness of the imputer, by default None
 
     Examples
     --------
     >>> import numpy as np
     >>> import pandas as pd
-    >>> from qolmat.imputations.models import ImputeMICE
+    >>> from qolmat.imputations import imputers
     >>> from sklearn.ensemble import ExtraTreesRegressor
-    >>> imputor = ImputeMICE(estimator=ExtraTreesRegressor(),
-    >>>                           sample_posterior=False,
-    >>>                           max_iter=100, missing_values=np.nan)
+    >>> imputer = imputers.ImputerMICE(estimator=ExtraTreesRegressor(),
+    ...                                random_state=42,
+    ...                                sample_posterior=False,
+    ...                                max_iter=100, missing_values=np.nan)
     >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
-    >>>                        [np.nan, np.nan, np.nan, np.nan],
-    >>>                        [1, 2, 2, 5], [2, 2, 2, 2]],
-    >>>                         columns=["var1", "var2", "var3", "var4"])
-    >>> imputor.fit_transform(df)
+    ...                        [np.nan, np.nan, np.nan, np.nan],
+    ...                        [1, 2, 2, 5],
+    ...                        [2, 2, 2, 2]],
+    ...                        columns=["var1", "var2", "var3", "var4"])
+    >>> imputer.fit_transform(df)
+       var1  var2  var3  var4
+    0   1.0   1.0   1.0   1.0
+    1   1.0   2.0   2.0   5.0
+    2   1.0   2.0   2.0   5.0
+    3   2.0   2.0   2.0   2.0
     """
 
     def __init__(
         self,
         groups: List[str] = [],
         estimator: Optional[BaseEstimator] = None,
+        random_state: Union[None, int, np.random.RandomState] = None,
         **hyperparams,
     ) -> None:
-        super().__init__(groups=groups, columnwise=False, hyperparams=hyperparams)
+        super().__init__(
+            groups=groups,
+            columnwise=False,
+            hyperparams=hyperparams,
+            random_state=random_state,
+        )
         self.estimator = estimator
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -686,17 +772,19 @@ class ImputerMICE(Imputer):
         Parameters
         ----------
         df : pd.DataFrame
-            dataframe to impute
+            Dataframe to impute
 
         Returns
         -------
         pd.DataFrame
-            imputed dataframe
+            Imputed dataframe
         """
         if not isinstance(df, pd.DataFrame):
             raise ValueError("Input has to be a pandas.DataFrame.")
 
-        iterative_imputer = IterativeImputer(estimator=self.estimator, **self.hyperparams_element)
+        iterative_imputer = IterativeImputer(
+            estimator=self.estimator, random_state=self.rng, **self.hyperparams_element
+        )
         res = iterative_imputer.fit_transform(df.values)
         imputed = pd.DataFrame(columns=df.columns)
         for ind, col in enumerate(imputed.columns):
@@ -712,21 +800,31 @@ class ImputerRegressor(Imputer):
 
     Parameters
     ----------
-    model :
-        regression model
+    groups : List[str], optional
+        List of column names to group by, by default []
+    estimator : Optional[BaseEstimator], optional
+        TODO, by default None
+    fit_on_nan : bool, optional
+        TODO, by default False
 
     Examples
     --------
     >>> import numpy as np
     >>> import pandas as pd
-    >>> from qolmat.imputations.models import ImputeRegressor
+    >>> from qolmat.imputations import imputers
     >>> from sklearn.ensemble import ExtraTreesRegressor
-    >>> imputor = ImputeRegressor(model=ExtraTreesRegressor())
+    >>> imputer = imputers.ImputerRegressor(model=ExtraTreesRegressor())
     >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
-    >>>                       [np.nan, np.nan, 2, 3],
-    >>>                       [1, 2, 2, 5], [2, 2, 2, 2]],
-    >>>                       columns=["var1", "var2", "var3", "var4"])
-    >>> imputor.fit_transform(df)
+    ...                        [np.nan, np.nan, np.nan, np.nan],
+    ...                        [1, 2, 2, 5],
+    ...                        [2, 2, 2, 2]],
+    ...                        columns=["var1", "var2", "var3", "var4"])
+    >>> imputer.fit_transform(df)
+           var1      var2      var3      var4
+    0  1.000000  1.000000  1.000000  1.000000
+    1  1.333333  1.666667  1.666667  2.666667
+    2  1.000000  2.000000  2.000000  5.000000
+    3  2.000000  2.000000  2.000000  2.000000
     """
 
     def __init__(
@@ -748,12 +846,12 @@ class ImputerRegressor(Imputer):
         Parameters
         ----------
         df : pd.DataFrame
-            dataframe to impute
+            Dataframe to impute
 
         Returns
         -------
         pd.DataFrame
-            imputed dataframe
+            Imputed dataframe
         """
 
         df_imputed = df.copy()
@@ -795,20 +893,25 @@ class ImputerStochasticRegressor(Imputer):
 
     Parameters
     ----------
-    model :
-        regression model
+    groups : List[str], optional
+        List of column names to group by, by default []
+    estimator : Optional[BaseEstimator], optional
+        TODO, by default None
+    random_state : Union[None, int, np.random.RandomState], optional
+        Determine the randomness of the imputer, by default None
 
     Examples
     --------
     >>> import numpy as np
     >>> import pandas as pd
-    >>> from qolmat.imputations.models import ImputeStochasticRegressor
+    >>> from qolmat.imputations import imputers
     >>> from sklearn.ensemble import ExtraTreesRegressor
-    >>> imputer = ImputeStochasticRegressor(estimator=ExtraTreesRegressor)
+    >>> imputer = imputers.ImputerStochasticRegressor(model=ExtraTreesRegressor())
     >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
-    >>>                        [np.nan, np.nan, 2, 3],
-    >>>                        [1, 2, 2, 5], [2, 2, 2, 2]],
-    >>>                        columns=["var1", "var2", "var3", "var4"])
+    ...                        [np.nan, np.nan, np.nan, 2],
+    ...                        [1, 2, 2, 5],
+    ...                        [2, 2, 2, 2]],
+    ...                        columns=["var1", "var2", "var3", "var4"])
     >>> imputer.fit_transform(df)
     """
 
@@ -829,12 +932,12 @@ class ImputerStochasticRegressor(Imputer):
         Parameters
         ----------
         df : pd.DataFrame
-            dataframe to impute
+            Dataframe to impute
 
         Returns
         -------
         pd.DataFrame
-            imputed dataframe
+            Imputed dataframe
         """
         df_imp = df.copy()
         cols_with_nans = df.columns[df.isna().any()]
@@ -862,13 +965,16 @@ class ImputerRPCA(Imputer):
 
     Parameters
     ----------
-    method : str
-        name of the RPCA method:
+    groups : List[str], optional
+        List of column names to group by, by default []
+    method : str, optional
+        Name of the RPCA method:
             "PCP" for basic RPCA, bad at imputing
             "noisy" for noisy RPCA, with possible regularisations
-    columnwise : bool
-        for RPCA method to be applied columnwise (with reshaping of each column into an array)
-        or to be applied directly on the dataframe. By default, the value is set to False.
+        by default "noisy"
+    columnwise : bool, optional
+        For RPCA method to be applied columnwise (with reshaping of each column into an array)
+        or to be applied directly on the dataframe, by default False
     """
 
     def __init__(
@@ -889,12 +995,12 @@ class ImputerRPCA(Imputer):
         Parameters
         ----------
         df : pd.DataFrame
-            dataframe to impute
+            Dataframe to impute
 
         Returns
         -------
         pd.DataFrame
-            imputed dataframe
+            Imputed dataframe
         """
         if not isinstance(df, pd.DataFrame):
             raise ValueError("Input has to be a pandas.DataFrame.")
@@ -913,6 +1019,20 @@ class ImputerRPCA(Imputer):
 
 
 class ImputerEM(Imputer):
+    """TODO
+
+    Parameters
+    ----------
+    groups : List[str], optional
+        List of column names to group by, by default []
+    method : Optional[str], optional
+        TODO, by default "multinormal"
+    columnwise : bool, optional
+        TODO, by default False
+    random_state : Union[None, int, np.random.RandomState], optional
+        Determine the randomness of the imputer, by default None
+    """
+
     def __init__(
         self,
         groups: List[str] = [],
@@ -930,6 +1050,18 @@ class ImputerEM(Imputer):
         self.method = method
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
+        """TODO
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe to impute
+
+        Returns
+        -------
+        pd.DataFrame
+            Imputed dataframe
+        """
         if self.method == "multinormal":
             model = em_sampler.MultiNormalEM(random_state=self.rng, **self.hyperparams_element)
         elif self.method == "VAR1":
