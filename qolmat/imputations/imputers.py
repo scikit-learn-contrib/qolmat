@@ -943,7 +943,7 @@ class ImputerStochasticRegressor(Imputer):
         cols_with_nans = df.columns[df.isna().any()]
         cols_without_nans = df.columns[df.notna().all()]
 
-        if len(cols_without_nans) == 0:
+        if len(cols_without_nans) != 0:
             raise Exception("There must be at least one column without missing values.")
 
         for col in cols_with_nans:

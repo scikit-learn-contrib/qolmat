@@ -2,6 +2,8 @@ import pytest
 import pandas as pd
 import numpy as np
 
+from sklearn.ensemble import ExtraTreesRegressor
+
 from qolmat.imputations import imputers
 
 
@@ -140,3 +142,28 @@ def test_ImputerKNN_fit_transform(df: pd.DataFrame) -> None:
         }
     )
     np.testing.assert_allclose(result, expected)
+
+
+# TODO Imputer MICE, randomness not controled
+
+
+@pytest.mark.parametrize("df", [df_incomplete])
+def test_ImputerRegressor_fit_transform(df: pd.DataFrame) -> None:
+    imputer = imputers.ImputerRegressor(model=ExtraTreesRegressor())
+    result = imputer.fit_transform(df)
+    expected = pd.DataFrame(
+        {
+            "col1": [0, 1.6666666666666667, 2, 3, 1.6666666666666667],
+            "col2": [-1, 0.3333333333333333, 0.5, 0.3333333333333333, 1.5],
+        }
+    )
+    print(result["col1"][1])
+    print(result["col1"][4])
+    print(result["col2"][1])
+    print(result["col2"][3])
+    np.testing.assert_allclose(result, expected)
+
+
+# TODO Imputer Stachastic Regressor, the imputer doesn't work
+
+# TODO Imputeur EM
