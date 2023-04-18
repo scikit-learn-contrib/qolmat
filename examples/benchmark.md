@@ -6,11 +6,11 @@ jupyter:
       extension: .md
       format_name: markdown
       format_version: '1.3'
-      jupytext_version: 1.14.4
+      jupytext_version: 1.14.5
   kernelspec:
     display_name: env_qolmat_dev
     language: python
-    name: env_qolmat_dev
+    name: python3
 ---
 
 **This notebook aims to present the Qolmat repo through an example of a multivariate time series.
@@ -55,9 +55,8 @@ from qolmat.utils import data, utils, plot
 
 ```
 
-<!-- #region tags=[] -->
 ### **I. Load data**
-<!-- #endregion -->
+
 
 The dataset `Beijing` is the Beijing Multi-Site Air-Quality Data Set. It consists in hourly air pollutants data from 12 chinese nationally-controlled air-quality monitoring sites and is available at https://archive.ics.uci.edu/ml/machine-learning-databases/00501/.
 This dataset only contains numerical vairables.
@@ -73,7 +72,7 @@ cols_to_impute = ["TEMP", "PRES"]
 
 The dataset `Artificial` is designed to have a sum of a periodical signal, a white noise and some outliers.
 
-```python tags=[]
+```python
 df_data
 ```
 
@@ -85,12 +84,12 @@ df_data
 Let's take a look at variables to impute. We only consider a station, Aotizhongxin.
 Time series display seasonalities (roughly 12 months).
 
-```python tags=[]
+```python
 n_stations = len(df_data.groupby("station").size())
 n_cols = len(cols_to_impute)
 ```
 
-```python tags=[]
+```python
 fig = plt.figure(figsize=(10 * n_stations, 3 * n_cols))
 for i_station, (station, df) in enumerate(df_data.groupby("station")):
     df_station = df_data.loc[station]
@@ -141,7 +140,6 @@ imputer_tsmle = imputers.ImputerEM(groups=["station"], method="VAR1", strategy="
 imputer_knn = imputers.ImputerKNN(groups=["station"], k=10)
 imputer_iterative = imputers.ImputerMICE(groups=["station"], estimator=LinearRegression(), sample_posterior=False, max_iter=100, missing_values=np.nan)
 impute_regressor = imputers.ImputerRegressor(groups=["station"], estimator=LinearRegression())
-impute_stochastic_regressor = imputers.ImputerStochasticRegressor(groups=["station"], estimator=LinearRegression())
 
 dict_imputers = {
     "mean": imputer_mean,
@@ -159,8 +157,8 @@ dict_imputers = {
     # "locf": imputer_locf,
     # "nocb": imputer_nocb,
     # "knn": imputer_knn,
-    "iterative": impute_regressor,
-    "regressor": imputer_iterative,
+    "regressor": impute_regressor,
+    "iterative": imputer_iterative,
 }
 n_imputers = len(dict_imputers)
 
@@ -186,7 +184,7 @@ Concretely, the comparator takes as input a dataframe to impute, a proportion of
 
 Note these metrics compute reconstruction errors; it tells nothing about the distances between the "true" and "imputed" distributions.
 
-```python tags=[]
+```python
 generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], ratio_masked=ratio_masked)
 
 comparison = comparator.Comparator(
@@ -284,6 +282,120 @@ for i_col, col in enumerate(df_plot):
 plt.savefig("figures/imputations_benchmark.png")
 plt.show()
 
+```
+
+## (Optional) Neuronal Network Model
+
+
+In this section, we present an MLP model of data imputation using Keras, which can be installed using a "pip install tensorflow".
+
+```python
+from qolmat.imputations import imputers_keras
+import tensorflow as tf
+```
+
+We will train the MLP model on a time series, so we encode the temporality.
+
+```python
+time = np.concatenate([np.cos(2*np.pi*np.arange(60,366)/365), np.cos(2*np.pi*np.arange(1,366)/365), np.cos(2*np.pi*np.arange(1,366)/365), np.cos(2*np.pi*np.arange(1,367)/366),np.cos(2*np.pi*np.arange(1,60)/365)  ])
+for i_station, (station, df) in enumerate(df_data.groupby("station")):
+    df_data.loc[station, "Time"] = time
+    # df_data.loc[station, "Time"] = np.array(df_data.loc[station].index.dayofyear)
+```
+
+To illustrate with an example the use of an MLP imputor, we will set up a network with 3 layers of neurons by adding it to the previous dictionary dict_imputer.
+
+```python
+estimator = tf.keras.models.Sequential([
+    tf.keras.layers.Dense(256, activation='relu'),
+    tf.keras.layers.Dense(128, activation='relu'),
+    tf.keras.layers.Dense(64, activation='relu'),
+    tf.keras.layers.Dense(1)])
+estimator.compile(optimizer='adam', loss='mse', metrics=['mae'])
+dict_imputers["MLP"] = imputer_mlp = imputers_keras.ImputerRegressorKeras(groups=["station"], estimator=estimator, handler_nan = "column")
+```
+
+We can re-run the imputation model benchmark as before.
+
+```python
+generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, subset = cols_to_impute, groups=["station"], ratio_masked=ratio_masked)
+
+comparison = comparator.Comparator(
+    dict_imputers,
+    df_data.columns,
+    generator_holes = generator_holes,
+    n_calls_opt=10,
+    search_params=search_params,
+)
+results = comparison.compare(df_data)
+results
+```
+
+```python
+fig = plt.figure(figsize=(24, 4))
+plot.multibar(results.loc["mae"], decimals=1)
+plt.ylabel("mae")
+plt.show()
+```
+
+```python
+df_plot = df_data
+dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_imputers.items()}
+station = df_plot.index.get_level_values("station")[0]
+df_station = df_plot.loc[station]
+dfs_imputed_station = {name: df_plot.loc[station] for name, df_plot in dfs_imputed.items()}
+```
+
+```python
+for col in cols_to_impute:
+    fig, ax = plt.subplots(figsize=(10, 3))
+    values_orig = df_station[col]
+
+    plt.plot(values_orig, ".", color='black', label="original")
+
+    for ind, (name, model) in enumerate(list(dict_imputers.items())):
+        values_imp = dfs_imputed_station[name][col].copy()
+        values_imp[values_orig.notna()] = np.nan
+        plt.plot(values_imp, ".", color=tab10(ind), label=name, alpha=1)
+    plt.ylabel(col, fontsize=16)
+    plt.legend(loc=[1, 0], fontsize=18)
+    loc = plticker.MultipleLocator(base=2*365)
+    ax.xaxis.set_major_locator(loc)
+    ax.tick_params(axis='both', which='major', labelsize=17)
+    plt.show()
+```
+
+```python
+n_columns = len(df_plot.columns)
+n_imputers = len(dict_imputers)
+
+fig = plt.figure(figsize=(8 * n_imputers, 6 * n_columns))
+i_plot = 1
+for i_col, col in enumerate(df_plot):
+    for name_imputer, df_imp in dfs_imputed_station.items():
+
+        fig.add_subplot(n_columns, n_imputers, i_plot)
+        values_orig = df_station[col]
+
+        plt.plot(values_orig, ".", color='black', label="original")
+
+        values_imp = df_imp[col].copy()
+        values_imp[values_orig.notna()] = np.nan
+        plt.plot(values_imp, ".", color=tab10(0), label=name_imputer, alpha=1)
+        plt.ylabel(col, fontsize=16)
+        if i_plot % n_columns == 1:
+            plt.legend(loc=[1, 0], fontsize=18)
+        plt.xticks(rotation=15)
+        if i_col == 0:
+            plt.title(name_imputer)
+        if i_col != n_columns - 1:
+            plt.xticks([], [])
+        loc = plticker.MultipleLocator(base=2*365)
+        ax.xaxis.set_major_locator(loc)
+        ax.tick_params(axis='both', which='major')
+        i_plot += 1
+plt.savefig("figures/imputations_benchmark.png")
+plt.show()
 ```
 
 ## Covariance
