@@ -1,5 +1,5 @@
 import os
-import urllib
+from urllib import request
 import zipfile
 from datetime import datetime
 from math import pi
@@ -35,7 +35,7 @@ def get_data(name_data="Beijing", datapath: str = "data/", download: Optional[bo
         if not os.path.exists(path_zip + ".zip"):
             if not os.path.exists(datapath):
                 os.mkdir(datapath)
-            urllib.request.urlretrieve(urllink + zipname + ".zip", path_zip + ".zip")
+            request.urlretrieve(urllink + zipname + ".zip", path_zip + ".zip")
 
         with zipfile.ZipFile(path_zip + ".zip", "r") as zip_ref:
             zip_ref.extractall(path_zip)
@@ -47,7 +47,6 @@ def get_data(name_data="Beijing", datapath: str = "data/", download: Optional[bo
         df = pd.concat(list_df)
         return df
     elif name_data == "Artificial":
-
         city = "Wonderland"
         n_samples = 1000
         p1 = 100

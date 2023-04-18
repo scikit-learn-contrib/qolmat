@@ -1,7 +1,5 @@
-from __future__ import annotations
-
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Union
 from warnings import WarningMessage
 
 import numpy as np
@@ -10,6 +8,7 @@ import scipy
 from numpy.typing import NDArray
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import StandardScaler
+from sklearn import utils as sku
 
 logger = logging.getLogger(__name__)
 
@@ -124,13 +123,12 @@ class EM(BaseEstimator, TransformerMixin):
         max_iter_em: int = 200,
         n_iter_ou: int = 50,
         ampli: float = 1,
-        random_state: int = 123,
+        random_state: Union[None, int, np.random.RandomState] = None,
         dt: float = 2e-2,
         tolerance: float = 1e-4,
         stagnation_threshold: float = 5e-3,
         stagnation_loglik: float = 2,
     ):
-
         if strategy not in ["mle", "ou"]:
             raise Exception("strategy has to be 'mle' or 'ou'")
 
@@ -138,8 +136,7 @@ class EM(BaseEstimator, TransformerMixin):
         self.max_iter_em = max_iter_em
         self.n_iter_ou = n_iter_ou
         self.ampli = ampli
-        self.random_state = random_state
-        self.rng = np.random.default_rng(self.random_state)
+        self.rng = sku.check_random_state(random_state)
         self.cov = np.array([[]])
         self.dt = dt
         self.convergence_threshold = tolerance
@@ -222,7 +219,6 @@ class EM(BaseEstimator, TransformerMixin):
         self.fit_distribution(X_sample_last)
 
         for iter_em in range(self.max_iter_em):
-
             X_sample_last = self._sample_ou(X_sample_last, mask_na)
 
             if self._check_convergence():
@@ -317,13 +313,12 @@ class MultiNormalEM(EM):
         max_iter_em: int = 200,
         n_iter_ou: int = 50,
         ampli: float = 1,
-        random_state: int = 123,
+        random_state: Union[None, int, np.random.RandomState] = None,
         dt: float = 2e-2,
         tolerance: float = 1e-4,
         stagnation_threshold: float = 5e-3,
         stagnation_loglik: float = 1e1,
     ) -> None:
-
         super().__init__(
             strategy,
             max_iter_em,
@@ -528,13 +523,12 @@ class VAR1EM(EM):
         max_iter_em: int = 200,
         n_iter_ou: int = 50,
         ampli: float = 1,
-        random_state: int = 123,
+        random_state: Union[None, int, np.random.RandomState] = None,
         dt: float = 2e-2,
         tolerance: float = 1e-4,
         stagnation_threshold: float = 5e-3,
         stagnation_loglik: float = 1e1,
     ) -> None:
-
         super().__init__(
             strategy,
             max_iter_em,

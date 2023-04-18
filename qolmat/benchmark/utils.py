@@ -298,9 +298,9 @@ def frechet_distance(
     frechet_dist = ssdiff + np.trace(sigma_true + sigma_pred - 2.0 * covmean)
 
     if normalized:
-        return frechet_dist / df_true.shape[0]
+        return pd.Series(np.repeat(frechet_dist / df_true.shape[0], len(df1.columns)))
     else:
-        return frechet_dist
+        return pd.Series(np.repeat(frechet_dist, len(df1.columns)))
 
 
 def kolmogorov_smirnov_test(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.Series:

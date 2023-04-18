@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import functools
 import logging
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Callable
 
 import numpy as np
 import pandas as pd
@@ -19,7 +19,7 @@ def compute_transition_counts_matrix(states: pd.Series):
     return df_counts
 
 
-def compute_transition_matrix(states: pd.Series, ngroups: List = None):
+def compute_transition_matrix(states: pd.Series, ngroups: Optional[List] = None):
     if ngroups is None:
         df_counts = compute_transition_counts_matrix(states)
     else:
@@ -30,7 +30,7 @@ def compute_transition_matrix(states: pd.Series, ngroups: List = None):
     return df_transition
 
 
-def get_sizes_max(values_isna: pd.Series) -> int:
+def get_sizes_max(values_isna: pd.Series) -> pd.Series[int]:
     ids_hole = (values_isna.diff() != 0).cumsum()
     sizes_max = values_isna.groupby(ids_hole, group_keys=True).apply(
         lambda x: (~x) * np.arange(len(x))
@@ -60,11 +60,14 @@ class _HoleGenerator:
         Column names used to group the data
     """
 
+    generate_mask: Callable
+    ngroups: Optional[List]
+
     def __init__(
         self,
         n_splits: int,
         subset: Optional[List[str]] = None,
-        ratio_masked: Optional[float] = 0.05,
+        ratio_masked: float = 0.05,
         random_state: Optional[int] = 42,
         groups: Optional[List[str]] = [],
     ) -> None:
@@ -153,7 +156,7 @@ class UniformHoleGenerator(_HoleGenerator):
         self,
         n_splits: int,
         subset: Optional[List[str]] = None,
-        ratio_masked: Optional[float] = 0.05,
+        ratio_masked: float = 0.05,
         random_state: Optional[int] = 42,
     ):
         super().__init__(
@@ -191,7 +194,8 @@ class UniformHoleGenerator(_HoleGenerator):
 
 
 class _SamplerHoleGenerator(_HoleGenerator):
-    """This abstract class implements a generic way to generate holes in a dataframe by sampling 1D hole size distributions.
+    """This abstract class implements a generic way to generate holes in a dataframe by sampling 1D
+     hole size distributions.
 
     Parameters
     ----------
@@ -207,11 +211,13 @@ class _SamplerHoleGenerator(_HoleGenerator):
         Column names used to group the data
     """
 
+    sample_sizes: Callable
+
     def __init__(
         self,
         n_splits: int,
         subset: Optional[List[str]] = None,
-        ratio_masked: Optional[float] = 0.05,
+        ratio_masked: float = 0.05,
         random_state: Optional[int] = 42,
         groups: Optional[List[str]] = [],
     ):
@@ -260,7 +266,7 @@ class _SamplerHoleGenerator(_HoleGenerator):
         """
         mask = pd.DataFrame(False, columns=X.columns, index=X.index)
         n_masked_col = round(self.ratio_masked * len(X))
-        list_failed = []
+        list_failed: List = []
         for column in self.subset:
             states = X[column].isna()
 
@@ -313,7 +319,7 @@ class GeometricHoleGenerator(_SamplerHoleGenerator):
         self,
         n_splits: int,
         subset: Optional[List[str]] = None,
-        ratio_masked: Optional[float] = 0.05,
+        ratio_masked: float = 0.05,
         random_state: Optional[int] = 42,
         groups: Optional[List[str]] = [],
     ):
@@ -382,8 +388,8 @@ class EmpiricalHoleGenerator(_SamplerHoleGenerator):
     def __init__(
         self,
         n_splits: int,
-        subset: Optional[str] = None,
-        ratio_masked: Optional[float] = 0.05,
+        subset: Optional[List[str]] = None,
+        ratio_masked: float = 0.05,
         random_state: Optional[int] = 42,
         groups: Optional[List[str]] = [],
     ):
@@ -431,6 +437,7 @@ class EmpiricalHoleGenerator(_SamplerHoleGenerator):
                 )
                 distributions_holes = distributions_holes.groupby(by="_size_hole").sum()
                 self.dict_distributions_holes[column] = distributions_holes
+        return self
 
     def sample_sizes(self, column, n_masked):
         """Create missing data in an arraylike object based on the holes size distribution.
@@ -478,7 +485,7 @@ class MultiMarkovHoleGenerator(_HoleGenerator):
         self,
         n_splits: int,
         subset: Optional[List[str]] = None,
-        ratio_masked: Optional[float] = 0.05,
+        ratio_masked: float = 0.05,
         random_state: Optional[int] = 42,
         groups: Optional[List[str]] = [],
     ):
@@ -517,7 +524,7 @@ class MultiMarkovHoleGenerator(_HoleGenerator):
 
         return self
 
-    def generate_multi_realisation(self, n_masked: int) -> List[List[Tuple[bool]]]:
+    def generate_multi_realisation(self, n_masked: int) -> List[List[Tuple[bool, ...]]]:
         """Generate a sequence of states "states" of size "size" from a transition matrix "df_transition"
 
         Parameters
@@ -627,7 +634,7 @@ class GroupedHoleGenerator(_HoleGenerator):
         self,
         n_splits: int,
         subset: Optional[List[str]] = None,
-        ratio_masked: Optional[float] = 0.05,
+        ratio_masked: float = 0.05,
         random_state: Optional[int] = 42,
         groups: List[str] = [],
     ):

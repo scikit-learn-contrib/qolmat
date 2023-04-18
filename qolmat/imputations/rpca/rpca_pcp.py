@@ -35,7 +35,6 @@ class RPCAPCP(RPCA):
         max_iter: int = int(1e4),
         tol: float = 1e-6,
     ) -> None:
-
         super().__init__(
             period=period,
             max_iter=max_iter,
