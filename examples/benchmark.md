@@ -139,9 +139,8 @@ imputer_tsmle = imputers.ImputerEM(groups=["station"], method="VAR1", strategy="
 
 
 imputer_knn = imputers.ImputerKNN(groups=["station"], k=10)
-imputer_iterative = imputers.ImputerMICE(groups=["station"], estimator=LinearRegression(), sample_posterior=False, max_iter=100, missing_values=np.nan)
-impute_regressor = imputers.ImputerRegressor(groups=["station"], estimator=LinearRegression())
-impute_stochastic_regressor = imputers.ImputerStochasticRegressor(groups=["station"], estimator=LinearRegression())
+imputer_mice = imputers.ImputerMICE(groups=["station"], estimator=LinearRegression(), sample_posterior=False, max_iter=100, missing_values=np.nan)
+imputer_regressor = imputers.ImputerRegressor(groups=["station"], estimator=LinearRegression())
 
 dict_imputers = {
     "mean": imputer_mean,
@@ -159,8 +158,8 @@ dict_imputers = {
     # "locf": imputer_locf,
     # "nocb": imputer_nocb,
     # "knn": imputer_knn,
-    "iterative": impute_regressor,
-    "regressor": imputer_iterative,
+    "iterative": imputer_regressor,
+    "regressor": imputer_mice,
 }
 n_imputers = len(dict_imputers)
 
@@ -172,6 +171,12 @@ search_params = {
 }
 
 ratio_masked = 0.1
+```
+
+```python
+# only valid with keras installed
+from qolmat.imputers_keras import ImputerRegressorKeras
+imputer_mlp =
 ```
 
 In order to compare the methods, we $i)$ artificially create missing data (for missing data mechanisms, see the docs); $ii)$ then impute it using the different methods chosen and $iii)$ calculate the reconstruction error. These three steps are repeated a number of times equal to `n_splits`. For each method, we calculate the average error and compare the final errors.

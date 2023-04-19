@@ -40,6 +40,7 @@ INSTALL_REQUIRES = [
     "scipy",
     "statsmodels",
     "pandas",
+    "dcor",
 ]
 EXTRAS_REQUIRE = {
     "tests": ["flake8", "mypy", "pandas", "pytest", "pytest-cov", "typed-ast"],
