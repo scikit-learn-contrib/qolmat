@@ -51,6 +51,9 @@ EXTRAS_REQUIRE = {
         "sphinx_rtd_theme",
         "typing_extensions",
     ],
+    "tensorflow": [
+        "tensorflow==2.10.0",
+    ],
 }
 
 CLASSIFIERS = [

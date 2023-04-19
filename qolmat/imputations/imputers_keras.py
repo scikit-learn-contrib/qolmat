@@ -1,7 +1,14 @@
 from typing import Dict, List, Optional
-from qolmat.imputations.imputers import ImputerRegressor
+
 from sklearn.base import BaseEstimator
-from tensorflow.keras.callbacks import EarlyStopping
+
+from qolmat.imputations.imputers import ImputerRegressor
+from qolmat.utils.exceptions import KerasExtraNotInstalled
+
+try:
+    from tensorflow.keras.callbacks import EarlyStopping
+except ModuleNotFoundError:
+    raise KerasExtraNotInstalled
 
 
 class ImputerRegressorKeras(ImputerRegressor):
