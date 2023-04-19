@@ -132,9 +132,9 @@ imputer_residuals = imputers.ImputerResiduals(groups=["station"], period=7, mode
 imputer_rpca = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=365, max_iter=200, tau=2, lam=.3)
 imputer_rpca_opti = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=365, max_iter=100)
 
-imputer_ou = imputers.ImputerEM(groups=["station"], method="multinormal", max_iter_em=34, n_iter_ou=15, strategy="ou")
-imputer_tsou = imputers.ImputerEM(groups=["station"], method="VAR1", strategy="ou", max_iter_em=34, n_iter_ou=15)
-imputer_tsmle = imputers.ImputerEM(groups=["station"], method="VAR1", strategy="mle", max_iter_em=34, n_iter_ou=15)
+imputer_ou = imputers.ImputerEM(groups=["station"], method="multinormal", strategy="ou", max_iter_em=34, n_iter_ou=15, dt=1e-3)
+imputer_tsou = imputers.ImputerEM(groups=["station"], method="VAR1", strategy="ou", max_iter_em=34, n_iter_ou=15, dt=1e-3)
+imputer_tsmle = imputers.ImputerEM(groups=["station"], method="VAR1", strategy="mle", max_iter_em=34, n_iter_ou=15, dt=1e-3)
 
 
 imputer_knn = imputers.ImputerKNN(groups=["station"], k=10)
@@ -199,9 +199,14 @@ results
 ```
 
 ```python
-fig = plt.figure(figsize=(24, 4))
+fig = plt.figure(figsize=(24, 8))
+fig.add_subplot(2, 1, 1)
 plot.multibar(results.loc["mae"], decimals=1)
 plt.ylabel("mae")
+
+fig.add_subplot(2, 1, 2)
+plot.multibar(results.loc["energy"], decimals=1)
+plt.ylabel("energy")
 plt.show()
 ```
 
