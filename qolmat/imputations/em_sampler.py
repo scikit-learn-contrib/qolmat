@@ -6,9 +6,9 @@ import numpy as np
 import pandas as pd
 import scipy
 from numpy.typing import NDArray
+from sklearn import utils as sku
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import StandardScaler
-from sklearn import utils as sku
 
 logger = logging.getLogger(__name__)
 
