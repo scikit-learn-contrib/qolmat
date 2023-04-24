@@ -11,16 +11,6 @@ from skopt.space import Categorical, Dimension, Integer, Real
 BOUNDS = Bounds(1, np.inf, keep_feasible=True)
 EPS = np.finfo(float).eps
 
-# def has_given_attribute(tested_model, name_param):
-#     has_attribute = hasattr(tested_model, name_param) and (getattr(tested_model, name_param) is not None)
-
-#     if ((name_param[0] == "(") and (name_param[-1] == ")") and ("," in name_param)):
-#         name_param_col = eval(name_param)[1]
-#         has_attribute = (has_attribute
-#         or (hasattr(tested_model, name_param_col) and (getattr(tested_model, name_param_col) is not None))
-#         )
-#     return has_attribute
-
 
 def get_dimension(dict_bounds: Dict, name_dimension: str) -> Dimension:
     if dict_bounds["type"] == "Integer":
