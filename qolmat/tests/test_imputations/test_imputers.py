@@ -2,6 +2,7 @@ import pytest
 import pandas as pd
 import numpy as np
 
+from typing import Any
 from sklearn.ensemble import ExtraTreesRegressor
 
 from qolmat.imputations import imputers
@@ -23,6 +24,13 @@ df_timeseries = pd.DataFrame(
     )
 )
 
+df_groups = pd.DataFrame(
+    {
+        "col1": [1, 1, 0, 1],
+        "col2": [1, np.nan, 0, 3],
+    }
+)
+
 
 @pytest.mark.parametrize(
     "imputer",
@@ -40,6 +48,26 @@ df_timeseries = pd.DataFrame(
 )
 def test_Imputer_fit_transform_on_nan_column(df: pd.DataFrame, imputer: imputers.Imputer) -> None:
     np.testing.assert_raises(ValueError, imputer.fit_transform, df)
+
+
+@pytest.mark.parametrize("df", ["string", [1, 2, 3]])
+def test_fit_transform_not_on_pandas(df: Any) -> None:
+    imputer = imputers.ImputerMean()
+    np.testing.assert_raises(ValueError, imputer.fit_transform, df)
+
+
+@pytest.mark.parametrize("df", [df_groups])
+def test_fit_transform_on_grouped(df: pd.DataFrame) -> None:
+    imputer = imputers.ImputerMean(groups=["col1"])
+    result = imputer.fit_transform(df)
+    expected = pd.DataFrame(
+        {
+            "col1": [1, 1, 0, 1],
+            "col2": [1, 2, 0, 3],
+        }
+    )
+    print(result)
+    np.testing.assert_allclose(result, expected)
 
 
 @pytest.mark.parametrize("df", [df_incomplete])
@@ -157,13 +185,33 @@ def test_ImputerRegressor_fit_transform(df: pd.DataFrame) -> None:
             "col2": [-1, 0.3333333333333333, 0.5, 0.3333333333333333, 1.5],
         }
     )
-    print(result["col1"][1])
-    print(result["col1"][4])
-    print(result["col2"][1])
-    print(result["col2"][3])
     np.testing.assert_allclose(result, expected)
 
 
-# TODO Imputer Stachastic Regressor, the imputer doesn't work
+@pytest.mark.parametrize("df", [df_timeseries])
+def test_ImputerRPCA_fit_transform(df: pd.DataFrame) -> None:
+    imputer = imputers.ImputerRPCA(columnwise=True, period=1, max_iter=100)
+    result = imputer.fit_transform(df)
+    expected = pd.DataFrame(
+        {
+            "col1": [i for i in range(20)],
+            "col2": [0, 5.496290833663846, 2, 5.496290833663846, 2] + [i for i in range(5, 20)],
+        }
+    )
+    np.testing.assert_allclose(result, expected)
+
 
 # TODO Imputeur EM
+
+
+@pytest.mark.parametrize("df", [df_timeseries])
+def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
+    imputer = imputers.ImputerEM(random_state=42)
+    result = imputer.fit_transform(df)
+    expected = pd.DataFrame(
+        {
+            "col1": [i for i in range(20)],
+            "col2": [0, 5.496290833663846, 2, 5.496290833663846, 2] + [i for i in range(5, 20)],
+        }
+    )
+    np.testing.assert_allclose(result, expected)

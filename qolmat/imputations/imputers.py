@@ -74,6 +74,8 @@ class Imputer(_BaseImputer):
                 raise ValueError("Input contains a column full of NaN")
 
         self.rng = sku.check_random_state(self.random_state)
+        if hasattr(self, "estimator") and hasattr(self.estimator, "random_state"):
+            self.estimator.random_state = self.rng
 
         hyperparams = self.hyperparams_user.copy()
         hyperparams.update(self.hyperparams_optim)
@@ -700,8 +702,9 @@ class ImputerMICE(Imputer):
         self.estimator = estimator
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
-
-        iterative_imputer = IterativeImputer(estimator=self.estimator, **self.hyperparams_element)
+        iterative_imputer = IterativeImputer(
+            estimator=self.estimator, random_state=self.rng, **self.hyperparams_element
+        )
         res = iterative_imputer.fit_transform(df.values)
         imputed = pd.DataFrame(columns=df.columns)
         for ind, col in enumerate(imputed.columns):
@@ -857,7 +860,6 @@ class ImputerEM(Imputer):
         imputation will be a noisy temporal interpolation.
     random_state : Union[None, int, np.random.RandomState], optional
         Controls the randomness of the fit_transform, by default None
-
     """
 
     def __init__(
