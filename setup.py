@@ -40,6 +40,7 @@ INSTALL_REQUIRES = [
     "scipy",
     "statsmodels",
     "pandas",
+    "dcor",
 ]
 EXTRAS_REQUIRE = {
     "tests": ["flake8", "mypy", "pandas", "pytest", "pytest-cov", "typed-ast"],
@@ -49,6 +50,9 @@ EXTRAS_REQUIRE = {
         "sphinx-gallery",
         "sphinx_rtd_theme",
         "typing_extensions",
+    ],
+    "tensorflow": [
+        "tensorflow==2.10.0",
     ],
 }
 

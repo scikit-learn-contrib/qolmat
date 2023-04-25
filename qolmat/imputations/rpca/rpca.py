@@ -17,7 +17,7 @@ class RPCA(BaseEstimator, TransformerMixin):
     ----------
     n_rows: Optional[int]
         Number of rows of the array if the array is
-        1D and reshaped into a 2D array, by default ``None`.
+        1D and reshaped into a 2D array, by default `None`.
     max_iter: int
         maximum number of iterations of the
         alternating direction method of multipliers,
@@ -25,7 +25,7 @@ class RPCA(BaseEstimator, TransformerMixin):
     tol: float
         Tolerance for stopping criteria, by default 1e-6
     verbose: bool
-        default ``False``
+        default `False`
     """
 
     def __init__(
