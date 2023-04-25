@@ -30,6 +30,14 @@ rhajou@quantmetry.com,
 fdakhli@quantmetry.com
 """
 
+URL = "https://github.com/Quantmetry/qolmat"
+DOWNLOAD_URL = "https://pypi.org/project/qolmat/#files"
+PROJECT_URLS = {
+    "Bug Tracker": "https://github.com/Quantmetry/qolmat",
+    "Documentation": "https://qolmat.readthedocs.io/en/latest/",
+    "Source Code": "https://github.com/Quantmetry/qolmat",
+}
+
 PYTHON_REQUIRES = ">=3.8"
 PACKAGES = find_packages()
 INSTALL_REQUIRES = [
@@ -79,6 +87,9 @@ setup(
     description=DESCRIPTION,
     long_description=LONG_DESCRIPTION,
     long_description_content_type=LONG_DESCRIPTION_CONTENT_TYPE,
+    url=URL,
+    download_url=DOWNLOAD_URL,
+    project_urls=PROJECT_URLS,
     author=AUTHORS,
     author_email=AUTHORS_EMAIL,
     packages=PACKAGES,
