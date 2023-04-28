@@ -7,6 +7,7 @@ from collections import Counter
 import scipy
 from sklearn import metrics as skm
 from sklearn.preprocessing import StandardScaler
+from dcor import energy_distance
 
 EPS = np.finfo(float).eps
 
@@ -458,7 +459,29 @@ def sum_pairwise_distances(df1: pd.DataFrame, df2: pd.DataFrame, metric: str = "
     return np.sum(distances)
 
 
-def sum_manhattan_distances(df1: pd.DataFrame, df2: pd.DataFrame = None):
+def _sum_distance_col(col: pd.Series, col_size: int):
+    """_summary_
+
+    Parameters
+    ----------
+    col : pd.Series
+        _description_
+    col_size : int
+        _description_
+
+    Returns
+    -------
+    _type_
+        _description_
+    """
+    col = col.sort_values(ascending=True)
+    sums_partial = col.shift().fillna(0.0).cumsum()
+    differences_partial = col * np.arange(col_size) - sums_partial
+    res = differences_partial.sum()
+    return res
+
+
+def _sum_manhattan_distances(df1: pd.DataFrame):
     """Sum Manhattan distances. It is based on https://www.geeksforgeeks.org/sum-manhattan-distances-pairs-points/
 
     Parameters
@@ -466,26 +489,11 @@ def sum_manhattan_distances(df1: pd.DataFrame, df2: pd.DataFrame = None):
     df : pd.DataFrame
         _description_
     """
-
-    def _sum_distance_col(col: np.array, col_size: int):
-        col.sort()
-
-        res = 0.0
-        sum = 0.0
-        for i in range(col_size):
-            res += col[i] * i - sum
-            sum += col[i]
-        return res
-
-    if df2 is None:
-        cols = df1.columns.tolist()
-        size = len(df1)
-        sum = 0.0
-        for col in cols:
-            sum += _sum_distance_col(df1[col].to_numpy(), size)
-        return sum
-    else:
-        return np.sum(scipy.spatial.distance.cdist(df1, df2, metric="cityblock"))
+    cols = df1.columns.tolist()
+    sum = 0.0
+    for col in cols:
+        sum += _sum_distance_col(df1[col], len(df1))
+    return sum
 
 
 def sum_energy_distances(df1: pd.DataFrame, df2: pd.DataFrame):
@@ -504,12 +512,13 @@ def sum_energy_distances(df1: pd.DataFrame, df2: pd.DataFrame):
         _description_
     """
 
-    # df = pd.concat([df1, df2])
-    sum_distances_df1 = sum_manhattan_distances(
+    sum_distances_df1 = _sum_manhattan_distances(
         df1
     )  # sum of (len_df1 * (len_df1 - 1) / 2) distances for df1
-    sum_distances_df2 = sum_manhattan_distances(df2)
-    sum_distances_df1_df2 = sum_manhattan_distances(
-        df1, df2
+    sum_distances_df2 = _sum_manhattan_distances(df2)
+
+    df = pd.concat([df1, df2])
+    sum_distances_df1_df2 = _sum_manhattan_distances(
+        df
     )  # sum of (len_df1 * len_df2) distances between df1 and df2
-    return 2 * sum_distances_df1_df2 - 2 * sum_distances_df1 - 2 * sum_distances_df2
+    return 2 * sum_distances_df1_df2 - 4 * sum_distances_df1 - 4 * sum_distances_df2
