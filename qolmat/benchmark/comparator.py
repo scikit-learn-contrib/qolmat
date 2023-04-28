@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 
 from qolmat.benchmark import cross_validation, utils
+from qolmat.benchmark import metrics as mtr
 from qolmat.benchmark.missing_patterns import _HoleGenerator
 
 
@@ -29,14 +30,14 @@ class Comparator:
     """
 
     dict_metrics: Dict[str, Any] = {
-        "mse": utils.mean_squared_error,
-        "rmse": utils.root_mean_squared_error,
-        "mae": utils.mean_absolute_error,
-        "wmape": utils.weighted_mean_absolute_percentage_error,
-        "wasser": utils.wasser_distance,
-        "KL": utils.kl_divergence,
-        "frechet": utils.frechet_distance,
-        "energy": utils.energy_distance,
+        "mse": mtr.mean_squared_error,
+        "rmse": mtr.root_mean_squared_error,
+        "mae": mtr.mean_absolute_error,
+        "wmape": mtr.weighted_mean_absolute_percentage_error,
+        "wasser": mtr.wasser_distance,
+        "KL": mtr.kl_divergence,
+        "frechet": mtr.frechet_distance,
+        "energy": mtr.sum_energy_distances,
     }
 
     def __init__(
@@ -85,7 +86,7 @@ class Comparator:
                 df_origin[df_mask], df_imputed[df_mask]
             )
 
-        dict_errors["energy"] = utils.energy_dist(
+        dict_errors["energy"] = mtr.sum_energy_distances(
             df_origin[df_mask],
             df_imputed[df_mask],
         )

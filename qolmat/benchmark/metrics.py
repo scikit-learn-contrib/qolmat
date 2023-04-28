@@ -459,7 +459,7 @@ def sum_pairwise_distances(df1: pd.DataFrame, df2: pd.DataFrame, metric: str = "
     return np.sum(distances)
 
 
-def _sum_distance_col(col: pd.Series, col_size: int):
+def _sum_distance_col(col: pd.Series, col_size: int) -> pd.Series:
     """_summary_
 
     Parameters
@@ -481,7 +481,7 @@ def _sum_distance_col(col: pd.Series, col_size: int):
     return res
 
 
-def _sum_manhattan_distances(df1: pd.DataFrame):
+def _sum_manhattan_distances(df1: pd.DataFrame) -> float:
     """Sum Manhattan distances. It is based on https://www.geeksforgeeks.org/sum-manhattan-distances-pairs-points/
 
     Parameters
@@ -496,7 +496,7 @@ def _sum_manhattan_distances(df1: pd.DataFrame):
     return sum
 
 
-def sum_energy_distances(df1: pd.DataFrame, df2: pd.DataFrame):
+def sum_energy_distances(df1: pd.DataFrame, df2: pd.DataFrame) -> float:
     """Sum of energy distances between df1 and df2. It is based on https://dcor.readthedocs.io/en/latest/theory.html#
 
     Parameters
@@ -518,7 +518,5 @@ def sum_energy_distances(df1: pd.DataFrame, df2: pd.DataFrame):
     sum_distances_df2 = _sum_manhattan_distances(df2)
 
     df = pd.concat([df1, df2])
-    sum_distances_df1_df2 = _sum_manhattan_distances(
-        df
-    )  # sum of (len_df1 * len_df2) distances between df1 and df2
+    sum_distances_df1_df2 = _sum_manhattan_distances(df)
     return 2 * sum_distances_df1_df2 - 4 * sum_distances_df1 - 4 * sum_distances_df2
