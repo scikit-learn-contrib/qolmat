@@ -29,18 +29,16 @@ are several strategies for imputing missing data when training a Multi-Layer Per
     from qolmat.imputations import imputers_keras
     from qolmat.utils import data, utils, plot
 
-We present the dataset to be imputed. This dataset corresponds to weather data with many missing values. 
+We present the dataset to be imputed. This dataset corresponds to weather data with many missing values.
+We add a feature to take into account the seasonality of the dataset
 
 .. code-block:: python
 
     df = data.get_data("Beijing")
-    df_data = df.copy()
     cols_to_impute = ["TEMP", "PRES"]
-    cols_with_nan = ["PM2.5", "PM10", "SO2", "NO2", "CO", "O3"]
-    cols_without_nan = ["DEWP", "RAIN", "WSPM"]
-    df_data[cols_to_impute] = data.add_holes(pd.DataFrame(df_data[cols_to_impute]), ratio_masked=.2, mean_size=100)
-    df_data[cols_with_nan] = data.add_holes(pd.DataFrame(df_data[cols_with_nan]), ratio_masked=.01, mean_size=100)
-    np.sum(df_data.isna())
+    df_data = data.add_datetime_features(df)
+    df_data[cols_to_impute] = data.add_holes(pd.DataFrame(df_data[cols_to_impute]), ratio_masked=.2, mean_size=120)
+    df_data.isna().sum()
 
 In the dataset, we have few rows, so we will impute by a column method.
 We can observe the missing data for the temperature and pressure data.
@@ -64,15 +62,6 @@ We can observe the missing data for the temperature and pressure data.
                 plt.xticks([], [])
     plt.show()
 
-
-Since all columns have at least one missing value, we can encode the seasonality of the time series to add a column containing information.
-
-.. code-block:: python
-
-    time = np.concatenate([np.cos(2*np.pi*np.arange(60,366)/365), np.cos(2*np.pi*np.arange(1,366)/365), np.cos(2*np.pi*np.arange(1,366)/365), np.cos(2*np.pi*np.arange(1,367)/366),np.cos(2*np.pi*np.arange(1,60)/365)  ])
-    for i_station, (station, df) in enumerate(df_data.groupby("station")):
-        df_data.loc[station, "Time"] = time
-    df_data
 
 A benchmark on different imputor models is proposed for comparison with the MLP.
 

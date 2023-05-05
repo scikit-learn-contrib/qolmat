@@ -171,3 +171,32 @@ def get_data_corrupted(
     df = get_data(name_data)
     df = add_holes(df, mean_size=mean_size, ratio_masked=ratio_masked)
     return df
+
+
+def add_datetime_features(df: pd.DataFrame):
+    """
+    Create a seasonal data set with a cosine function
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        dataframe no missing values
+
+    Returns
+    -------
+    pd.DataFrame
+        dataframe with missing values
+    """
+
+    time = np.concatenate(
+        [
+            np.cos(2 * np.pi * np.arange(60, 366) / 365),
+            np.cos(2 * np.pi * np.arange(1, 366) / 365),
+            np.cos(2 * np.pi * np.arange(1, 366) / 365),
+            np.cos(2 * np.pi * np.arange(1, 367) / 366),
+            np.cos(2 * np.pi * np.arange(1, 60) / 365),
+        ]
+    )
+    for i_station, (station, dfs) in enumerate(df.groupby("station")):
+        df.loc[station, "Time"] = time
+    return df
