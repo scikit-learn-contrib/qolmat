@@ -7,10 +7,12 @@ from collections import Counter
 import scipy
 from sklearn import metrics as skm
 from sklearn.preprocessing import StandardScaler
-from dcor import energy_distance
 
 EPS = np.finfo(float).eps
 
+###########################
+# Column-wise metris      #
+###########################
 
 def mean_squared_error(
     df1: pd.DataFrame,
@@ -29,7 +31,7 @@ def mean_squared_error(
     -------
     pd.Series
     """
-    return skm.mean_squared_error(df1, df2)
+    return pd.Series(skm.mean_squared_error(df1, df2, multioutput='raw_values'), index= df1.columns.to_list())
 
 
 def root_mean_squared_error(
@@ -49,7 +51,7 @@ def root_mean_squared_error(
     -------
     pd.Series
     """
-    return skm.mean_squared_error(df1, df2, squared=False)
+    return pd.Series(skm.mean_squared_error(df1, df2, squared=False, multioutput='raw_values'), index=df1.columns.to_list())
 
 
 def mean_absolute_error(
@@ -69,7 +71,7 @@ def mean_absolute_error(
     -------
     pd.Series
     """
-    return skm.mean_absolute_error(df1, df2)
+    return pd.Series(skm.mean_absolute_error(df1, df2, multioutput='raw_values'), index=df1.columns.to_list())
 
 
 def weighted_mean_absolute_percentage_error(
@@ -91,8 +93,7 @@ def weighted_mean_absolute_percentage_error(
     -------
     Union[float, pd.Series]
     """
-    return (df1 - df2).abs().mean(axis=0) / df1.abs().mean(axis=0)
-
+    return pd.Series((df1 - df2).abs().sum() / df1.abs().sum(), index=df1.columns.to_list())
 
 def wasser_distance(
     df1: pd.DataFrame,
@@ -113,7 +114,6 @@ def wasser_distance(
     cols = df1.columns.tolist()
     wd = [scipy.stats.wasserstein_distance(df1[col].dropna(), df2[col].dropna()) for col in cols]
     return pd.Series(wd, index=cols)
-
 
 def kl_divergence(
     df1: pd.DataFrame,
@@ -163,67 +163,6 @@ def kl_divergence(
         kl = 0.5 * (quad_term + trace_term + det_term - n)
         return pd.Series(kl, index=cols)
 
-
-def frechet_distance(
-    df1: pd.DataFrame, df2: pd.DataFrame, normalized: Optional[bool] = False
-) -> float:
-    """Compute the Fréchet distance between two dataframes df1 and df2
-    frechet_distance = || mu_1 - mu_2 ||_2^2 + Tr(Sigma_1 + Sigma_2 - 2(Sigma_1 . Sigma_2)^(1/2))
-    if normalized, df1 and df_ are first scaled by a factor
-        (std(df1) + std(df2)) / 2
-    and then centered around
-        (mean(df1) + mean(df2)) / 2
-
-    Dowson, D. C., and BV666017 Landau. "The Fréchet distance between multivariate normal
-    distributions."
-    Journal of multivariate analysis 12.3 (1982): 450-455.
-
-    Parameters
-    ----------
-    df1 : pd.DataFrame
-        true dataframe
-    df2 : pd.DataFrame
-        predicted dataframe
-    normalized: Optional[bool]
-        if the data has to be normalised. By default, is set to False
-
-    Returns
-    -------
-    frechet_distance : float
-    """
-
-    if df1.shape != df2.shape:
-        raise Exception("inputs have to be of same dimensions.")
-
-    df_true = df1.copy()
-    df_pred = df2.copy()
-
-    if normalized:
-        std = (np.std(df_true) + np.std(df_pred) + EPS) / 2
-        mu = (np.nanmean(df_true, axis=0) + np.nanmean(df_pred, axis=0)) / 2
-        df_true = (df_true - mu) / std
-        df_pred = (df_pred - mu) / std
-
-    mu_true = np.nanmean(df_true, axis=0)
-    sigma_true = np.ma.cov(np.ma.masked_invalid(df_true), rowvar=False).data
-    mu_pred = np.nanmean(df_pred, axis=0)
-    sigma_pred = np.ma.cov(np.ma.masked_invalid(df_pred), rowvar=False).data
-
-    ssdiff = np.sum((mu_true - mu_pred) ** 2.0)
-    product = np.array(sigma_true @ sigma_pred)
-    if product.ndim < 2:
-        product = product.reshape(-1, 1)
-    covmean = scipy.linalg.sqrtm(product)
-    if np.iscomplexobj(covmean):
-        covmean = covmean.real
-    frechet_dist = ssdiff + np.trace(sigma_true + sigma_pred - 2.0 * covmean)
-
-    if normalized:
-        return pd.Series(np.repeat(frechet_dist / df_true.shape[0], len(df1.columns)))
-    else:
-        return pd.Series(np.repeat(frechet_dist, len(df1.columns)))
-
-
 def _get_numerical_features(df1: pd.DataFrame):
     cols_numerical = df1.select_dtypes(include=np.number).columns.tolist()
     if len(cols_numerical) == 0:
@@ -242,7 +181,7 @@ def _get_categorical_features(df1: pd.DataFrame):
 
 
 def kolmogorov_smirnov_test(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.Series:
-    """Kolmogorov Smirnov Test for numerical features
+    """Kolmogorov Smirnov Test for numerical features. Lower score means better performance.
 
     Parameters
     ----------
@@ -332,7 +271,9 @@ def mean_difference_correlation_matrix_numerical_features(
     cols_numerical = _get_numerical_features(df1)
     df_corr1 = _get_correlation_pearson_matrix(df1[cols_numerical], use_p_value=use_p_value)
     df_corr2 = _get_correlation_pearson_matrix(df2[cols_numerical], use_p_value=use_p_value)
-    return (df_corr1 - df_corr2).abs().mean()
+
+    diff_corr =  (df_corr1 - df_corr2).abs().mean(axis=1)
+    return pd.Series(diff_corr, index=cols_numerical)
 
 
 def _get_correlation_chi2_matrix(data: pd.DataFrame, use_p_value: bool = True) -> pd.DataFrame:
@@ -378,7 +319,8 @@ def mean_difference_correlation_matrix_categorical_features(
     df_corr1 = _get_correlation_chi2_matrix(df1[cols_categorical], use_p_value=use_p_value)
     df_corr2 = _get_correlation_chi2_matrix(df2[cols_categorical], use_p_value=use_p_value)
 
-    return (df_corr1 - df_corr2).abs().mean()
+    diff_corr =  (df_corr1 - df_corr2).abs().mean(axis=1)
+    return pd.Series(diff_corr, index=cols_categorical)
 
 
 def _get_correlation_f_oneway_matrix(
@@ -400,7 +342,6 @@ def _get_correlation_f_oneway_matrix(
             except ValueError:
                 matrix[idx_cat, idx_num] = 0.0
     return pd.DataFrame(matrix, index=cols_categorical, columns=cols_numerical)
-
 
 def mean_difference_correlation_matrix_categorical_vs_numerical_features(
     df1: pd.DataFrame,
@@ -427,37 +368,19 @@ def mean_difference_correlation_matrix_categorical_vs_numerical_features(
         raise Exception("inputs have to be of same dimensions.")
     cols_categorical = _get_categorical_features(df1)
     cols_numerical = _get_numerical_features(df1)
-    corr_df1 = _get_correlation_f_oneway_matrix(
+    df_corr1 = _get_correlation_f_oneway_matrix(
         df1, cols_categorical, cols_numerical, use_p_value=use_p_value
     )
-    corr_df2 = _get_correlation_f_oneway_matrix(
+    df_corr2 = _get_correlation_f_oneway_matrix(
         df2, cols_categorical, cols_numerical, use_p_value=use_p_value
     )
 
-    return (corr_df1 - corr_df2).abs().mean(axis=1)
+    diff_corr =  (df_corr1 - df_corr2).abs().mean(axis=1)
+    return pd.Series(diff_corr, index=cols_categorical)
 
-
-def sum_pairwise_distances(df1: pd.DataFrame, df2: pd.DataFrame, metric: str = "cityblock"):
-    """Sum of pairwise distances based on a predefined metric
-
-    Parameters
-    ----------
-    df1 : pd.DataFrame
-        true dataframe
-    df2 : pd.DataFrame
-        predicted dataframe
-    metric : str, optional
-        distance metric, by default 'cityblock'
-
-    Returns
-    -------
-    _type_
-        _description_
-    """
-    distances = scipy.spatial.distance.cdist(df1, df2, metric=metric)
-
-    return np.sum(distances)
-
+###########################
+# Row-wise metris         #
+###########################
 
 def _sum_distance_col(col: pd.Series, col_size: int) -> pd.Series:
     """_summary_
@@ -519,4 +442,90 @@ def sum_energy_distances(df1: pd.DataFrame, df2: pd.DataFrame) -> float:
 
     df = pd.concat([df1, df2])
     sum_distances_df1_df2 = _sum_manhattan_distances(df)
-    return 2 * sum_distances_df1_df2 - 4 * sum_distances_df1 - 4 * sum_distances_df2
+    sum_distance = 2 * sum_distances_df1_df2 - 4 * sum_distances_df1 - 4 * sum_distances_df2
+
+    return pd.Series(sum_distance, index=["All"])
+
+def sum_pairwise_distances(df1: pd.DataFrame, df2: pd.DataFrame, metric: str = "cityblock"):
+    """Sum of pairwise distances based on a predefined metric
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        true dataframe
+    df2 : pd.DataFrame
+        predicted dataframe
+    metric : str, optional
+        distance metric, by default 'cityblock'
+
+    Returns
+    -------
+    _type_
+        _description_
+    """
+    distances = np.sum(scipy.spatial.distance.cdist(df1, df2, metric=metric))
+
+    return pd.Series(distances, index=["All"])
+
+###########################
+# Dataframe-wise metris   #
+###########################
+
+def frechet_distance(
+    df1: pd.DataFrame, df2: pd.DataFrame, normalized: Optional[bool] = False
+) -> pd.Series:
+    """Compute the Fréchet distance between two dataframes df1 and df2
+    frechet_distance = || mu_1 - mu_2 ||_2^2 + Tr(Sigma_1 + Sigma_2 - 2(Sigma_1 . Sigma_2)^(1/2))
+    if normalized, df1 and df_ are first scaled by a factor
+        (std(df1) + std(df2)) / 2
+    and then centered around
+        (mean(df1) + mean(df2)) / 2
+
+    Dowson, D. C., and BV666017 Landau. "The Fréchet distance between multivariate normal
+    distributions."
+    Journal of multivariate analysis 12.3 (1982): 450-455.
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        true dataframe
+    df2 : pd.DataFrame
+        predicted dataframe
+    normalized: Optional[bool]
+        if the data has to be normalised. By default, is set to False
+
+    Returns
+    -------
+    frechet_distance : float
+    """
+
+    if df1.shape != df2.shape:
+        raise Exception("inputs have to be of same dimensions.")
+
+    df_true = df1.copy()
+    df_pred = df2.copy()
+
+    if normalized:
+        std = (np.std(df_true) + np.std(df_pred) + EPS) / 2
+        mu = (np.nanmean(df_true, axis=0) + np.nanmean(df_pred, axis=0)) / 2
+        df_true = (df_true - mu) / std
+        df_pred = (df_pred - mu) / std
+
+    mu_true = np.nanmean(df_true, axis=0)
+    sigma_true = np.ma.cov(np.ma.masked_invalid(df_true), rowvar=False).data
+    mu_pred = np.nanmean(df_pred, axis=0)
+    sigma_pred = np.ma.cov(np.ma.masked_invalid(df_pred), rowvar=False).data
+
+    ssdiff = np.sum((mu_true - mu_pred) ** 2.0)
+    product = np.array(sigma_true @ sigma_pred)
+    if product.ndim < 2:
+        product = product.reshape(-1, 1)
+    covmean = scipy.linalg.sqrtm(product)
+    if np.iscomplexobj(covmean):
+        covmean = covmean.real
+    frechet_dist = ssdiff + np.trace(sigma_true + sigma_pred - 2.0 * covmean)
+
+    if normalized:
+        return pd.Series((frechet_dist / df_true.shape[0]), index=["All"])
+    else:
+        return pd.Series(frechet_dist, index=["All"])

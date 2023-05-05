@@ -36,8 +36,11 @@ class Comparator:
         "wmape": mtr.weighted_mean_absolute_percentage_error,
         "wasser": mtr.wasser_distance,
         "KL": mtr.kl_divergence,
-        "frechet": mtr.frechet_distance,
+        "ks_test": mtr.kolmogorov_smirnov_test, 
+        "correlation_diff": mtr.mean_difference_correlation_matrix_numerical_features,
+        "pairwise_dist": mtr.sum_pairwise_distances, 
         "energy": mtr.sum_energy_distances,
+        "frechet": mtr.frechet_distance
     }
 
     def __init__(
@@ -83,13 +86,8 @@ class Comparator:
         dict_errors = {}
         for name_metric in metrics:
             dict_errors[name_metric] = Comparator.dict_metrics[name_metric](
-                df_origin[df_mask], df_imputed[df_mask]
+                df_origin, df_imputed
             )
-
-        dict_errors["energy"] = mtr.sum_energy_distances(
-            df_origin[df_mask],
-            df_imputed[df_mask],
-        )
 
         errors = pd.concat(dict_errors.values(), keys=dict_errors.keys())
         return errors
