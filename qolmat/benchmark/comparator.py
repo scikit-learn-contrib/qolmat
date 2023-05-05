@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Union
 import numpy as np
 import pandas as pd
 
-from qolmat.benchmark import cross_validation, utils
+from qolmat.benchmark import cross_validation, utils, metrics
 from qolmat.benchmark.missing_patterns import _HoleGenerator
 
 
@@ -29,13 +29,14 @@ class Comparator:
     """
 
     dict_metrics: Dict[str, Any] = {
-        "mse": utils.mean_squared_error,
-        "rmse": utils.root_mean_squared_error,
-        "mae": utils.mean_absolute_error,
-        "wmape": utils.weighted_mean_absolute_percentage_error,
-        "wasser": utils.wasser_distance,
-        "KL": utils.kl_divergence,
-        "frechet": utils.frechet_distance,
+        "mse": metrics.mean_squared_error,
+        "rmse": metrics.root_mean_squared_error,
+        "mae": metrics.mean_absolute_error,
+        "wmape": metrics.weighted_mean_absolute_percentage_error,
+        "wasser": metrics.wasser_distance,
+        "KL": metrics.kl_divergence,
+        "frechet": metrics.frechet_distance,
+        "energy": metrics.energy_dist,
     }
 
     def __init__(
@@ -74,16 +75,11 @@ class Comparator:
         dictionary
             dictionay of results obtained via different metrics
         """
-
-        # TODO comment comparer la distribution initiale et la distribution générée, pas la même
-        # taille, ne fonctionne pas avec les métriques actuelles
-
         dict_errors = {}
         for name_metric in metrics:
             dict_errors[name_metric] = Comparator.dict_metrics[name_metric](
-                df_origin[df_mask], df_imputed[df_mask]
+                df_origin, df_imputed, df_mask
             )
-
         errors = pd.concat(dict_errors.values(), keys=dict_errors.keys())
         return errors
 
@@ -111,7 +107,6 @@ class Comparator:
         pd.DataFrame
             DataFrame with the errors for each metric (in column) and at each fold (in index)
         """
-
         list_errors = []
         df_origin = df[self.selected_columns].copy()
         for df_mask in self.generator_holes.split(df_origin):
@@ -127,7 +122,6 @@ class Comparator:
                 df_imputed = cv.fit_transform(df_corrupted)
             else:
                 df_imputed = imputer.fit_transform(df_corrupted)
-
             subset = self.generator_holes.subset
             errors = self.get_errors(
                 df_origin[subset], df_imputed[subset], df_mask[subset], metrics, on_mask

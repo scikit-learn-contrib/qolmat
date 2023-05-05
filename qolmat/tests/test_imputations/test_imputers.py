@@ -172,7 +172,27 @@ def test_ImputerKNN_fit_transform(df: pd.DataFrame) -> None:
     np.testing.assert_allclose(result, expected)
 
 
-# TODO Imputer MICE, randomness not controled
+@pytest.mark.parametrize("df", [df_incomplete])
+def test_ImputerMICE_fit_transform(df: pd.DataFrame) -> None:
+    imputer = imputers.ImputerMICE(
+        estimator=ExtraTreesRegressor(),
+        random_state=42,
+        sample_posterior=False,
+        max_iter=100,
+        missing_values=np.nan,
+    )
+    result = imputer.fit_transform(df)
+    print(result["col1"][1])
+    print(result["col1"][4])
+    print(result["col2"][1])
+    print(result["col2"][3])
+    expected = pd.DataFrame(
+        {
+            "col1": [0, 3, 2, 3, 3],
+            "col2": [-1, 1.5, 0.5, 1.5, 1.5],
+        }
+    )
+    np.testing.assert_allclose(result, expected)
 
 
 @pytest.mark.parametrize("df", [df_incomplete])

@@ -156,6 +156,7 @@ class Imputer(_BaseImputer):
             raise ValueError("Input has to be a pandas.DataFrame.")
         df = df.copy()
         if self.groups:
+
             # groupby = utils.custom_groupby(df, self.groups)
             groupby = df.groupby(self.ngroups, group_keys=False)
             if self.shrink:
@@ -436,7 +437,10 @@ class ImputerNOCB(Imputer):
     3   2.0   2.0   2.0   2.0
     """
 
-    def __init__(self, groups: List[str] = []) -> None:
+    def __init__(
+        self,
+        groups: List[str] = [],
+    ) -> None:
         super().__init__(groups=groups, columnwise=True)
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -491,7 +495,7 @@ class ImputerInterpolation(Imputer):
         self,
         groups: List[str] = [],
         method: str = "linear",
-        order: int = 1,
+        order: Optional[int] = None,
         col_time: Optional[str] = None,
     ) -> None:
         super().__init__(groups=groups, columnwise=True)
@@ -562,7 +566,7 @@ class ImputerResiduals(Imputer):
     def __init__(
         self,
         groups: List[str] = [],
-        period: Optional[int] = None,
+        period: int = 0,
         model_tsa: Optional[str] = "additive",
         extrapolate_trend: Optional[Union[int, str]] = "freq",
         method_interpolation: Optional[str] = "linear",
@@ -668,7 +672,8 @@ class ImputerMICE(Imputer):
         List of column names to group by, by default []
     estimator : Optional[] = LinearRegression()
         Estimator for imputing a column based on the others
-    TODO random state, keep it or change it
+    random_state : Union[None, int, np.random.RandomState], optional
+        Determine the randomness of the imputer, by default None
 
     Examples
     --------
@@ -757,19 +762,35 @@ class ImputerRegressor(Imputer):
         self,
         groups: List[str] = [],
         estimator: Optional[BaseEstimator] = None,
-        fit_on_nan: bool = False,
+        handler_nan: str = "column",
+        # col_imp: List[str] = [],
         **hyperparams,
     ):
         super().__init__(groups=groups, hyperparams=hyperparams)
         self.columnwise = False
         self.estimator = estimator
-        self.fit_on_nan = fit_on_nan
+        self.handler_nan = handler_nan
+
+    def get_params_fit(self) -> Dict:
+        return {}
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
-        df_imputed = df.copy()
+        """
+        Fit/transform using a (specified) regression model
 
+        Parameters
+        ----------
+        df : pd.DataFrame
+            dataframe to impute
+
+        Returns
+        -------
+        pd.DataFrame
+            imputed dataframe
+        """
+
+        df_imputed = df.apply(pd.DataFrame.median, result_type="broadcast", axis=0)
         cols_with_nans = df.columns[df.isna().any()]
-        cols_without_nans = df.columns[df.notna().all()]
 
         for col in cols_with_nans:
             hyperparams = {}
@@ -778,18 +799,37 @@ class ImputerRegressor(Imputer):
                     value = value[col]
                 hyperparams[hyperparam] = value
 
-            if self.fit_on_nan:
-                X = df.drop(columns=col)
-            else:
-                X = df[cols_without_nans].drop(columns=col, errors="ignore")
+            # Define the Train and Test set
+            X = df.drop(columns=col, errors="ignore")
             y = df[col]
+
+            # Selects only the valid values in the Train Set according to the chosen method
+            is_valid = pd.Series(True, index=df.index)
+            if self.handler_nan == "fit":
+                pass
+            elif self.handler_nan == "row":
+                is_valid = ~X.isna().any(axis=1)
+            elif self.handler_nan == "column":
+                X = X.dropna(how="any", axis=1)
+            else:
+                raise ValueError(
+                    f"Value '{self.handler_nan}' is not correct for argument `handler_nan'"
+                )
+
+            # Selects only non-NaN values for the Test Set
             is_na = y.isna()
+
+            # Train the model according to an ML or DL method and after predict the imputation
             if X.empty:
                 y_imputed = pd.Series(y.mean(), index=y.index)
             else:
-                self.estimator.fit(X[~is_na], y[~is_na])
-                y_imputed = self.estimator.predict(X[is_na])
-            df_imputed.loc[is_na, col] = y_imputed
+                hp = self.get_params_fit()
+                self.estimator.fit(X[(~is_na) & is_valid], y[(~is_na) & is_valid], **hp)
+                y_imputed = self.estimator.predict(X[is_na & is_valid])
+
+            # Adds the imputed values
+            df_imputed.loc[~is_na, col] = y[~is_na]
+            df_imputed.loc[is_na & is_valid, col] = y_imputed
 
         return df_imputed
 
@@ -895,14 +935,3 @@ class ImputerEM(Imputer):
         X_transformed = model.transform(X)
         df_transformed = pd.DataFrame(X_transformed, columns=df.columns, index=df.index)
         return df_transformed
-
-    # def fit(self, df):
-    #     X = df.values
-    #     self.model.fit(X)
-    #     return self
-
-    # def transform(self, df):
-    #     X = df.values
-    #     X_transformed = self.model.transform(X)
-    #     df_transformed = pd.DataFrame(X_transformed, columns=df.columns, index=df.index)
-    #     return df_transformed

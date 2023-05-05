@@ -3,7 +3,7 @@ import codecs
 from setuptools import find_packages, setup
 
 DISTNAME = "qolmat"
-VERSION = "0.0.9"
+VERSION = "0.0.10"
 DESCRIPTION = "Tools to impute"
 LONG_DESCRIPTION_CONTENT_TYPE = "text/x-rst"
 with codecs.open("README.rst", encoding="utf-8-sig") as f:
@@ -40,6 +40,7 @@ INSTALL_REQUIRES = [
     "scipy",
     "statsmodels",
     "pandas",
+    "dcor",
 ]
 EXTRAS_REQUIRE = {
     "tests": ["flake8", "mypy", "pandas", "pytest", "pytest-cov", "typed-ast"],
@@ -49,6 +50,9 @@ EXTRAS_REQUIRE = {
         "sphinx-gallery",
         "sphinx_rtd_theme",
         "typing_extensions",
+    ],
+    "tensorflow": [
+        "tensorflow==2.10.0",
     ],
 }
 
