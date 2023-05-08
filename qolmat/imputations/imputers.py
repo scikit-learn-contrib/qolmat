@@ -897,3 +897,41 @@ class ImputerEM(Imputer):
         X_transformed = model.transform(X)
         df_transformed = pd.DataFrame(X_transformed, columns=df.columns, index=df.index)
         return df_transformed
+
+class ImputerGenerativeModel(Imputer):
+
+    def __init__(
+        self,
+        groups: List[str] = [],
+        model: Optional[BaseEstimator] = None,
+        handler_nan: str = "column",
+        col_imp: List[str] = [],
+        **hyperparams,
+    ):
+        super().__init__(groups=groups, hyperparams=hyperparams)
+        self.columnwise = False
+        self.model = model
+
+    def get_params_fit(self) -> Dict:
+        return {}
+
+    def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Fit/transform using a (specified) regression model
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            dataframe to impute
+
+        Returns
+        -------
+        pd.DataFrame
+            imputed dataframe
+        """
+
+        hp = self.get_params_fit()
+        self.model.fit(df, **hp)
+        df_imputed = self.model.predict(df)
+
+        return df_imputed

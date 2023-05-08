@@ -67,7 +67,8 @@ def mean_absolute_error(
     -------
     pd.Series
     """
-    return skm.mean_absolute_error(df1, df2)
+    return (df1 - df2).abs().mean(axis=0)
+    #return pd.Series(skm.mean_absolute_error(df1, df2, multioutput='raw_values'), index=df1.columns.to_list())
 
 
 def weighted_mean_absolute_percentage_error(
