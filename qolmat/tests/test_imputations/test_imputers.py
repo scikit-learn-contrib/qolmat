@@ -65,7 +65,6 @@ def test_fit_transform_on_grouped(df: pd.DataFrame) -> None:
             "col2": [1, 2, 0, 3],
         }
     )
-    print(result)
     np.testing.assert_allclose(result, expected)
 
 
@@ -181,10 +180,6 @@ def test_ImputerMICE_fit_transform(df: pd.DataFrame) -> None:
         missing_values=np.nan,
     )
     result = imputer.fit_transform(df)
-    print(result["col1"][1])
-    print(result["col1"][4])
-    print(result["col2"][1])
-    print(result["col2"][3])
     expected = pd.DataFrame(
         {
             "col1": [0, 3, 2, 3, 3],
@@ -226,7 +221,6 @@ def test_ImputerRPCA_fit_transform(df: pd.DataFrame) -> None:
 @pytest.mark.parametrize("df", [df_timeseries])
 def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
     imputer = imputers.ImputerEM(random_state=42)
-    print(df)
     result = imputer.fit_transform(df)
     expected = pd.DataFrame(
         {

@@ -594,7 +594,6 @@ class ImputerResiduals(Imputer):
         residuals[values.isna()] = np.nan
         residuals = residuals.interpolate(method=self.method_interpolation).ffill().bfill()
         df_result = pd.DataFrame({name: result.seasonal + result.trend + residuals})
-        print(df_result)
         return df_result
 
 
