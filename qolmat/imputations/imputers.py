@@ -908,7 +908,7 @@ class ImputerEM(Imputer):
     def __init__(
         self,
         groups: List[str] = [],
-        method: Optional[str] = "multinormal",
+        model: Optional[str] = "multinormal",
         columnwise: bool = False,
         random_state: Union[None, int, np.random.RandomState] = None,
         **hyperparams,
@@ -919,15 +919,15 @@ class ImputerEM(Imputer):
             hyperparams=hyperparams,
             random_state=random_state,
         )
-        self.method = method
+        self.model = model
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
-        if self.method == "multinormal":
+        if self.model == "multinormal":
             model = em_sampler.MultiNormalEM(random_state=self.rng, **self.hyperparams_element)
-        elif self.method == "VAR1":
+        elif self.model == "VAR1":
             model = em_sampler.VAR1EM(random_state=self.rng, **self.hyperparams_element)
         else:
-            raise ValueError("Strategy '{strategy}' is not handled by ImputeEM!")
+            raise ValueError("Model '{self.model}' is not handled by ImputeEM!")
         X = df.values.T
         model.fit(X)
 

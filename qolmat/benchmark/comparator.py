@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Union
 import numpy as np
 import pandas as pd
 
-from qolmat.benchmark import cross_validation, utils, metrics
+from qolmat.benchmark import cross_validation, metrics, utils
 from qolmat.benchmark.missing_patterns import _HoleGenerator
 
 
@@ -44,12 +44,14 @@ class Comparator:
         dict_models: Dict[str, Any],
         selected_columns: List[str],
         generator_holes: _HoleGenerator,
+        metrics: List = ["mae", "wmape", "KL"],
         search_params: Optional[Dict[str, Dict[str, Union[float, int, str]]]] = {},
         n_calls_opt: int = 10,
     ):
         self.dict_imputers = dict_models
         self.selected_columns = selected_columns
         self.generator_holes = generator_holes
+        self.metrics = metrics
         self.search_params = search_params
         self.n_calls_opt = n_calls_opt
 
@@ -58,8 +60,6 @@ class Comparator:
         df_origin: pd.DataFrame,
         df_imputed: pd.DataFrame,
         df_mask: pd.DataFrame,
-        metrics: List = ["mae", "wmape", "kl"],
-        on_mask=True,
     ) -> pd.DataFrame:
         """Functions evaluating the reconstruction's quality
 
@@ -76,7 +76,7 @@ class Comparator:
             dictionay of results obtained via different metrics
         """
         dict_errors = {}
-        for name_metric in metrics:
+        for name_metric in self.metrics:
             dict_errors[name_metric] = Comparator.dict_metrics[name_metric](
                 df_origin, df_imputed, df_mask
             )
@@ -88,8 +88,6 @@ class Comparator:
         imputer: Any,
         df: pd.DataFrame,
         list_spaces: List[Dict] = [],
-        metrics: List = ["mae", "wmape", "kl"],
-        on_mask=True,
     ) -> pd.Series:
         """Evaluate the errors in the cross-validation
 
@@ -123,9 +121,7 @@ class Comparator:
             else:
                 df_imputed = imputer.fit_transform(df_corrupted)
             subset = self.generator_holes.subset
-            errors = self.get_errors(
-                df_origin[subset], df_imputed[subset], df_mask[subset], metrics, on_mask
-            )
+            errors = self.get_errors(df_origin[subset], df_imputed[subset], df_mask[subset])
             list_errors.append(errors)
         df_errors = pd.DataFrame(list_errors)
         errors_mean = df_errors.mean(axis=0)
@@ -135,9 +131,6 @@ class Comparator:
     def compare(
         self,
         df: pd.DataFrame,
-        verbose: bool = True,
-        metrics: List = ["mae", "wmape", "KL"],
-        on_mask=True,
     ):
         """Function to compare different imputation methods on dataframe df
 
@@ -160,9 +153,7 @@ class Comparator:
             list_spaces = utils.get_search_space(search_params)
 
             try:
-                dict_errors[name] = self.evaluate_errors_sample(
-                    imputer, df, list_spaces, metrics, on_mask
-                )
+                dict_errors[name] = self.evaluate_errors_sample(imputer, df, list_spaces)
                 print(f"Tested model: {type(imputer).__name__}")
             except Exception as excp:
                 print("Error while testing ", type(imputer).__name__)

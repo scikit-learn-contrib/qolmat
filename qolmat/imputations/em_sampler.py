@@ -117,8 +117,8 @@ class EM(BaseEstimator, TransformerMixin):
 
     Parameters
     ----------
-    method : Literal["mle", "ou"]
-        Method for imputation, choose among "mle" or "ou".
+    method : Literal["mle", "sample"]
+        Method for imputation, choose among "mle" or "sample".
     max_iter_em : int, optional
         Maximum number of steps in the EM algorithm
     n_iter_ou : int, optional
@@ -154,7 +154,7 @@ class EM(BaseEstimator, TransformerMixin):
 
     def __init__(
         self,
-        method: Literal["mle", "ou"],
+        method: Literal["mle", "sample"],
         max_iter_em: int = 200,
         n_iter_ou: int = 50,
         ampli: float = 1,
@@ -164,8 +164,8 @@ class EM(BaseEstimator, TransformerMixin):
         stagnation_threshold: float = 5e-3,
         stagnation_loglik: float = 2,
     ):
-        if method not in ["mle", "ou"]:
-            raise ValueError("method must be 'mle' or 'ou'")
+        if method not in ["mle", "sample"]:
+            raise ValueError(f"`method` must be 'mle' or 'sample', provided value is '{method}'")
 
         self.method = method
         self.max_iter_em = max_iter_em
@@ -284,9 +284,9 @@ class EM(BaseEstimator, TransformerMixin):
             X = self.scaler.transform(X.T).T
             X = self._linear_interpolation(X)
 
-        if self.strategy == "mle":
-            X_transformed = self._maximize_likelihood(X, mask_na)
-        elif self.strategy == "ou":
+        if self.method == "mle":
+            X_transformed = self._maximize_likelihood(X, mask_na, self.dt)
+        elif self.method == "sample":
             X_transformed = self._sample_ou(X, mask_na)
 
         if np.all(np.isnan(X_transformed)):
@@ -304,7 +304,7 @@ class MultiNormalEM(EM):
 
     Parameters
     ----------
-    method : Literal["mle", "ou"]
+    method : Literal["mle", "sample"]
         Method for imputation, choose among "sample" or "mle".
     max_iter_em : int, optional
         Maximum number of steps in the EM algorithm
@@ -331,7 +331,7 @@ class MultiNormalEM(EM):
     >>> import numpy as np
     >>> import pandas as pd
     >>> from qolmat.imputations.em_sampler import ImputeEM
-    >>> imputor = ImputeEM(strategy="sample")
+    >>> imputor = ImputeEM(method="sample")
     >>> X = pd.DataFrame(data=[[1, 1, 1, 1],
     >>>                        [np.nan, np.nan, 3, 2],
     >>>                        [1, 2, 2, 1], [2, 2, 2, 2]],
@@ -341,7 +341,7 @@ class MultiNormalEM(EM):
 
     def __init__(
         self,
-        method: Literal["mle", "ou"],
+        method: Literal["mle", "sample"],
         max_iter_em: int = 200,
         n_iter_ou: int = 50,
         ampli: float = 1,
@@ -370,7 +370,7 @@ class MultiNormalEM(EM):
         self.cov = np.cov(X).reshape(len(X), -1)
         self.cov_inv = invert_robust(self.cov, epsilon=1e-2)
 
-    def _maximize_likelihood(self, X: NDArray, mask_na: NDArray) -> NDArray:
+    def _maximize_likelihood(self, X: NDArray, mask_na: NDArray, dt: float = np.nan) -> NDArray:
         """
         Get the argmax of a posterior distribution.
 
@@ -517,7 +517,7 @@ class VAR1EM(EM):
 
     Parameters
     ----------
-    method : Literal["mle", "ou"]
+    method : Literal["mle", "sample"]
         Method for imputation, choose among "sample" or "mle".
     max_iter_em : int, optional
         Maximum number of steps in the EM algorithm
@@ -544,7 +544,7 @@ class VAR1EM(EM):
     >>> import numpy as np
     >>> import pandas as pd
     >>> from qolmat.imputations.em_sampler import VAR1EM
-    >>> imputer = VAR1EM(method="ou")
+    >>> imputer = VAR1EM(method="sample")
     >>> X = pd.DataFrame(data=[[1, 1, 1, 1],
     >>>                        [np.nan, np.nan, 3, 2],
     >>>                        [1, 2, 2, 1], [2, 2, 2, 2]],
@@ -554,7 +554,7 @@ class VAR1EM(EM):
 
     def __init__(
         self,
-        method: Literal["mle", "ou"],
+        method: Literal["mle", "sample"],
         max_iter_em: int = 200,
         n_iter_ou: int = 50,
         ampli: float = 1,
@@ -616,7 +616,7 @@ class VAR1EM(EM):
         Z_fore = Xc_fore - self.A @ Xc
         return -self.omega_inv @ Z_back + self.A.T @ self.omega_inv @ Z_fore
 
-    def _maximize_likelihood(self, X: NDArray, dt=1e-2) -> NDArray:
+    def _maximize_likelihood(self, X: NDArray, mask_na: NDArray, dt=1e-2) -> NDArray:
         """
         Get the argmax of a posterior distribution.
 
@@ -632,7 +632,9 @@ class VAR1EM(EM):
         """
         Xc = X - self.B[:, None]
         for n_optim in range(1000):
-            Xc += dt * self.gradient_X_centered_loglik(Xc)
+            grad = self.gradient_X_centered_loglik(Xc)
+            grad[~mask_na] = 0
+            Xc += dt * grad
         return Xc + self.B[:, None]
 
     def _sample_ou(
