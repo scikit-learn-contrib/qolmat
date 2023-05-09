@@ -4,12 +4,11 @@ Useful drawing functions
 
 from __future__ import annotations
 
-from typing import Dict, List, Any, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.ticker as plticker
-
 import numpy as np
 import pandas as pd
 import scipy
@@ -263,10 +262,7 @@ def multibar(df, ax=None, orientation="vertical", colors=None, decimals=0):
         ax.bar_label(rect, padding=3, fmt=f"%.{decimals}f")
 
     # Add some text for labels, title and custom x-axis tick labels, etc.
-    plt.legend()
-
-    # ax.bar_label(rects1, padding=3)
-    # ax.bar_label(rects2, padding=3)
+    plt.legend(bbox_to_anchor=(1, 1))
 
     # plt.tight_layout()
 
