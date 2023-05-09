@@ -156,7 +156,6 @@ class Imputer(_BaseImputer):
             raise ValueError("Input has to be a pandas.DataFrame.")
         df = df.copy()
         if self.groups:
-
             # groupby = utils.custom_groupby(df, self.groups)
             groupby = df.groupby(self.ngroups, group_keys=False)
             if self.shrink:
@@ -565,8 +564,8 @@ class ImputerResiduals(Imputer):
 
     def __init__(
         self,
+        period: int,
         groups: List[str] = [],
-        period: int = 0,
         model_tsa: Optional[str] = "additive",
         extrapolate_trend: Optional[Union[int, str]] = "freq",
         method_interpolation: Optional[str] = "linear",
@@ -579,11 +578,12 @@ class ImputerResiduals(Imputer):
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         name = df.columns[0]
-        df = df[name]
-        if df.isna().all():
+        values = df[name]
+        if values.isna().all():
             return np.nan
         result = tsa_seasonal.seasonal_decompose(
-            df.interpolate().bfill().ffill(),
+            # df.interpolate().bfill().ffill(),
+            values.fillna(0),
             model=self.model_tsa,
             period=self.period,
             extrapolate_trend=self.extrapolate_trend,
@@ -591,10 +591,10 @@ class ImputerResiduals(Imputer):
 
         residuals = result.resid
 
-        residuals[df.isna()] = np.nan
+        residuals[values.isna()] = np.nan
         residuals = residuals.interpolate(method=self.method_interpolation).ffill().bfill()
         df_result = pd.DataFrame({name: result.seasonal + result.trend + residuals})
-
+        print(df_result)
         return df_result
 
 
@@ -929,7 +929,7 @@ class ImputerEM(Imputer):
             model = em_sampler.VAR1EM(random_state=self.rng, **self.hyperparams_element)
         else:
             raise ValueError("Strategy '{strategy}' is not handled by ImputeEM!")
-        X = df.values
+        X = df.values.T
         model.fit(X)
 
         X_transformed = model.transform(X)

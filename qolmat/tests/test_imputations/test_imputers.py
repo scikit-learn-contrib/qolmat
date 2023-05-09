@@ -1,12 +1,11 @@
-import pytest
-import pandas as pd
-import numpy as np
-
 from typing import Any
+
+import numpy as np
+import pandas as pd
+import pytest
 from sklearn.ensemble import ExtraTreesRegressor
 
 from qolmat.imputations import imputers
-
 
 df_complete = pd.DataFrame({"col1": [0, 1, 2, 3, 4], "col2": [-1, 0, 0.5, 1, 1.5]})
 
@@ -147,16 +146,16 @@ def test_ImputerInterpolation_fit_transform(df: pd.DataFrame) -> None:
 
 @pytest.mark.parametrize("df", [df_timeseries])
 def test_ImputerResiduals_fit_transform(df: pd.DataFrame) -> None:
-    imputer = imputers.ImputerResiduals()
+    imputer = imputers.ImputerResiduals(7)
     result = imputer.fit_transform(df)
     expected = pd.DataFrame(
         {
             "col1": [i for i in range(20)],
-            "col2": [0, 0.9523809523809514, 2, 2.0612244897959204, 2] + [i for i in range(5, 20)],
+            "col2": [0, 0.619048, 2, 1.435374, 2] + [i for i in range(5, 20)],
         },
         index=pd.date_range("2023-04-17", periods=20, freq="D"),
     )
-    np.testing.assert_allclose(result, expected)
+    np.testing.assert_allclose(result, expected, rtol=1e-6)
 
 
 @pytest.mark.parametrize("df", [df_incomplete])
@@ -227,11 +226,12 @@ def test_ImputerRPCA_fit_transform(df: pd.DataFrame) -> None:
 @pytest.mark.parametrize("df", [df_timeseries])
 def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
     imputer = imputers.ImputerEM(random_state=42)
+    print(df)
     result = imputer.fit_transform(df)
     expected = pd.DataFrame(
         {
             "col1": [i for i in range(20)],
-            "col2": [0, 5.496290833663846, 2, 5.496290833663846, 2] + [i for i in range(5, 20)],
+            "col2": [0, 0.78065142, 2, 2.80303879, 2] + [i for i in range(5, 20)],
         }
     )
     np.testing.assert_allclose(result, expected)
