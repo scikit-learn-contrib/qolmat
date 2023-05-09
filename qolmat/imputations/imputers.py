@@ -23,13 +23,16 @@ class Imputer(_BaseImputer):
     groups : List[str], optional
         List of column names to group by, by default []
     columnwise : bool, optional
-        If True, the imputer will be computed for each column, else it will be computed on the whole dataframe, by default False
+        If True, the imputer will be computed for each column, else it will be computed on the
+        whole dataframe, by default False
     shrink : bool, optional
         Indicates if the elementwise imputation method returns a single value, by default False
     hyperparams : Dict, optional
-        Hyperparameters to be passed to the imputer, for example in the case when the imputer requires a regression model.
+        Hyperparameters to be passed to the imputer, for example in the case when the imputer
+        requires a regression model.
         If a dictionary of values is provided, each value is a global hyperparameter.
-        If a nested dictionary of dictionaries is provided and `columnwise` is True, it should be indexed by the dataset column names.
+        If a nested dictionary of dictionaries is provided and `columnwise` is True, it should be
+        indexed by the dataset column names.
         This allows to provide different hyperparameters for each column.
         By default {}
     random_state : Union[None, int, np.random.RandomState], optional
@@ -54,8 +57,10 @@ class Imputer(_BaseImputer):
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Returns a dataframe with same shape as `df`, unchanged values, where all nans are replaced by non-nan values.
-        Depending on the imputer parameters, the dataframe can be imputed with columnwise and/or groupwise methods.
+        Returns a dataframe with same shape as `df`, unchanged values, where all nans are replaced
+        by non-nan values.
+        Depending on the imputer parameters, the dataframe can be imputed with columnwise and/or
+        groupwise methods.
 
         Parameters
         ----------
@@ -74,6 +79,8 @@ class Imputer(_BaseImputer):
                 raise ValueError("Input contains a column full of NaN")
 
         self.rng = sku.check_random_state(self.random_state)
+        if hasattr(self, "estimator") and hasattr(self.estimator, "random_state"):
+            self.estimator.random_state = self.rng
 
         hyperparams = self.hyperparams_user.copy()
         hyperparams.update(self.hyperparams_optim)
@@ -124,8 +131,9 @@ class Imputer(_BaseImputer):
 
     def impute_element(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Impute `df` by applying the specialized method `fit_transform_element` on each group, if groups have been given.
-        If the method leaves nan, `fit_transform_fallback` is called in order to return a dataframe without nan.
+        Impute `df` by applying the specialized method `fit_transform_element` on each group, if
+        groups have been given. If the method leaves nan, `fit_transform_fallback` is called in
+        order to return a dataframe without nan.
 
         Parameters
         ----------
@@ -142,11 +150,12 @@ class Imputer(_BaseImputer):
         ValueError
             Input has to be a pandas.DataFrame.
         """
+        # Impute `df` by applying the specialized method `fit_transform_element` on each group, if
+        # groups have been given.
         if not isinstance(df, pd.DataFrame):
             raise ValueError("Input has to be a pandas.DataFrame.")
         df = df.copy()
         if self.groups:
-
             # groupby = utils.custom_groupby(df, self.groups)
             groupby = df.groupby(self.ngroups, group_keys=False)
             if self.shrink:
@@ -183,7 +192,7 @@ class ImputerOracle(Imputer):
         self,
         df: pd.DataFrame,
     ) -> None:
-        super().__init__(shrink=True)
+        super().__init__()
         self.df = df
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -200,10 +209,6 @@ class ImputerOracle(Imputer):
         """
         if not isinstance(df, pd.DataFrame):
             raise ValueError("Input has to be a pandas.DataFrame.")
-        if df.shape != self.df.shape:
-            warnings.warn(
-                "Dataframe argument has a different shape than this imputer's reference dataframe."
-            )
         return df.fillna(self.df)
 
 
@@ -348,7 +353,7 @@ class ImputerShuffle(Imputer):
     ) -> None:
         super().__init__(groups=groups, columnwise=True, random_state=random_state)
 
-    def fit_transform_element(self, df):
+    def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         n_missing = df.isna().sum().sum()
         if df.isna().all().all():
             return df
@@ -469,13 +474,20 @@ class ImputerInterpolation(Imputer):
     Examples
     --------
     >>> import numpy as np
-    >>> from qolmat.imputations.models import ImputeByInterpolation
-    >>> imputor = ImputeByInterpolation(method="spline", order=2)
+    >>> import pandas as pd
+    >>> from qolmat.imputations import imputers
+    >>> imputer = imputers.ImputerInterpolation(method="spline", order=2)
     >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
-    >>>                        [np.nan, np.nan, np.nan, np.nan],
-    >>>                        [1, 2, 2, 5], [2, 2, 2, 2]],
-    >>>                        columns=["var1", "var2", "var3", "var4"])
-    >>> imputor.fit_transform(df)
+    ...                        [np.nan, np.nan, np.nan, np.nan],
+    ...                        [1, 2, 2, 5],
+    ...                        [2, 2, 2, 2]],
+    ...                        columns=["var1", "var2", "var3", "var4"])
+    >>> imputer.fit_transform(df)
+           var1      var2      var3      var4
+    0  1.000000  1.000000  1.000000  1.000000
+    1  0.666667  1.666667  1.666667  4.666667
+    2  1.000000  2.000000  2.000000  5.000000
+    3  2.000000  2.000000  2.000000  2.000000
     """
 
     def __init__(
@@ -530,6 +542,7 @@ class ImputerResiduals(Imputer):
 
     Examples
     --------
+    TODO review/remake this exemple
     >>> import numpy as np
     >>> import pandas as pd
     >>> from qolmat.imputations.models import ImputeOnResiduals
@@ -551,8 +564,8 @@ class ImputerResiduals(Imputer):
 
     def __init__(
         self,
+        period: int,
         groups: List[str] = [],
-        period: int = 0,
         model_tsa: Optional[str] = "additive",
         extrapolate_trend: Optional[Union[int, str]] = "freq",
         method_interpolation: Optional[str] = "linear",
@@ -565,11 +578,12 @@ class ImputerResiduals(Imputer):
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         name = df.columns[0]
-        df = df[name]
-        if df.isna().all():
+        values = df[name]
+        if values.isna().all():
             return np.nan
         result = tsa_seasonal.seasonal_decompose(
-            df.interpolate().bfill().ffill(),
+            # df.interpolate().bfill().ffill(),
+            values.fillna(0),
             model=self.model_tsa,
             period=self.period,
             extrapolate_trend=self.extrapolate_trend,
@@ -577,10 +591,9 @@ class ImputerResiduals(Imputer):
 
         residuals = result.resid
 
-        residuals[df.isna()] = np.nan
+        residuals[values.isna()] = np.nan
         residuals = residuals.interpolate(method=self.method_interpolation).ffill().bfill()
         df_result = pd.DataFrame({name: result.seasonal + result.trend + residuals})
-
         return df_result
 
 
@@ -609,13 +622,19 @@ class ImputerKNN(Imputer):
     --------
     >>> import numpy as np
     >>> import pandas as pd
-    >>> from qolmat.imputations.models import ImputeKNN
-    >>> imputor = ImputeKNN(k=2)
+    >>> from qolmat.imputations import imputers
+    >>> imputer = imputers.ImputerKNN(n_neighbors=2)
     >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
-    >>>                        [np.nan, np.nan, np.nan, np.nan],
-    >>>                        [1, 2, 2, 5], [2, 2, 2, 2]],
-    >>>                        columns=["var1", "var2", "var3", "var4"])
-    >>> imputor.fit_transform(df)
+    ...                        [np.nan, np.nan, np.nan, np.nan],
+    ...                        [1, 2, 2, 5],
+    ...                        [2, 2, 2, 2]],
+    ...                        columns=["var1", "var2", "var3", "var4"])
+    >>> imputer.fit_transform(df)
+           var1      var2      var3      var4
+    0  1.000000  1.000000  1.000000  1.000000
+    1  1.333333  1.666667  1.666667  2.666667
+    2  1.000000  2.000000  2.000000  5.000000
+    3  2.000000  2.000000  2.000000  2.000000
     """
 
     def __init__(
@@ -630,7 +649,6 @@ class ImputerKNN(Imputer):
         self.weights = weights
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
-
         imputer = KNNImputer(
             n_neighbors=self.n_neighbors,
             weights=self.weights,
@@ -653,34 +671,48 @@ class ImputerMICE(Imputer):
         List of column names to group by, by default []
     estimator : Optional[] = LinearRegression()
         Estimator for imputing a column based on the others
+    random_state : Union[None, int, np.random.RandomState], optional
+        Determine the randomness of the imputer, by default None
 
     Examples
     --------
     >>> import numpy as np
     >>> import pandas as pd
-    >>> from qolmat.imputations.models import ImputeMICE
+    >>> from qolmat.imputations import imputers
     >>> from sklearn.ensemble import ExtraTreesRegressor
-    >>> imputor = ImputeMICE(estimator=ExtraTreesRegressor(),
-    >>>                           sample_posterior=False,
-    >>>                           max_iter=100, missing_values=np.nan)
+    >>> imputer = imputers.ImputerMICE(estimator=ExtraTreesRegressor(),
+    ...                                random_state=42,
+    ...                                sample_posterior=False,
+    ...                                max_iter=100, missing_values=np.nan)
     >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
-    >>>                        [np.nan, np.nan, np.nan, np.nan],
-    >>>                        [1, 2, 2, 5], [2, 2, 2, 2]],
-    >>>                         columns=["var1", "var2", "var3", "var4"])
-    >>> imputor.fit_transform(df)
+    ...                        [np.nan, np.nan, np.nan, np.nan],
+    ...                        [1, 2, 2, 5],
+    ...                        [2, 2, 2, 2]],
+    ...                        columns=["var1", "var2", "var3", "var4"])
+    >>> imputer.fit_transform(df)
+       var1  var2  var3  var4
+    0   1.0   1.0   1.0   1.0
+    1   1.0   2.0   2.0   5.0
+    2   1.0   2.0   2.0   5.0
+    3   2.0   2.0   2.0   2.0
     """
 
     def __init__(
         self,
         groups: List[str] = [],
         estimator: Optional[BaseEstimator] = None,
+        random_state: Union[None, int, np.random.RandomState] = None,
         **hyperparams,
     ) -> None:
-        super().__init__(groups=groups, columnwise=False, hyperparams=hyperparams)
+        super().__init__(
+            groups=groups,
+            columnwise=False,
+            hyperparams=hyperparams,
+            random_state=random_state,
+        )
         self.estimator = estimator
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
-
         iterative_imputer = IterativeImputer(estimator=self.estimator, **self.hyperparams_element)
         res = iterative_imputer.fit_transform(df.values)
         imputed = pd.DataFrame(columns=df.columns)
@@ -709,14 +741,20 @@ class ImputerRegressor(Imputer):
     --------
     >>> import numpy as np
     >>> import pandas as pd
-    >>> from qolmat.imputations.models import ImputeRegressor
+    >>> from qolmat.imputations import imputers
     >>> from sklearn.ensemble import ExtraTreesRegressor
-    >>> imputor = ImputeRegressor(model=ExtraTreesRegressor())
+    >>> imputer = imputers.ImputerRegressor(model=ExtraTreesRegressor())
     >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
-    >>>                       [np.nan, np.nan, 2, 3],
-    >>>                       [1, 2, 2, 5], [2, 2, 2, 2]],
-    >>>                       columns=["var1", "var2", "var3", "var4"])
-    >>> imputor.fit_transform(df)
+    ...                        [np.nan, np.nan, np.nan, np.nan],
+    ...                        [1, 2, 2, 5],
+    ...                        [2, 2, 2, 2]],
+    ...                        columns=["var1", "var2", "var3", "var4"])
+    >>> imputer.fit_transform(df)
+           var1      var2      var3      var4
+    0  1.000000  1.000000  1.000000  1.000000
+    1  1.333333  1.666667  1.666667  2.666667
+    2  1.000000  2.000000  2.000000  5.000000
+    3  2.000000  2.000000  2.000000  2.000000
     """
 
     def __init__(
@@ -865,13 +903,12 @@ class ImputerEM(Imputer):
         imputation will be a noisy temporal interpolation.
     random_state : Union[None, int, np.random.RandomState], optional
         Controls the randomness of the fit_transform, by default None
-
     """
 
     def __init__(
         self,
         groups: List[str] = [],
-        method: Optional[str] = "multinormal",
+        model: Optional[str] = "multinormal",
         columnwise: bool = False,
         random_state: Union[None, int, np.random.RandomState] = None,
         **hyperparams,
@@ -882,16 +919,16 @@ class ImputerEM(Imputer):
             hyperparams=hyperparams,
             random_state=random_state,
         )
-        self.method = method
+        self.model = model
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
-        if self.method == "multinormal":
+        if self.model == "multinormal":
             model = em_sampler.MultiNormalEM(random_state=self.rng, **self.hyperparams_element)
-        elif self.method == "VAR1":
+        elif self.model == "VAR1":
             model = em_sampler.VAR1EM(random_state=self.rng, **self.hyperparams_element)
         else:
-            raise ValueError("Strategy '{strategy}' is not handled by ImputeEM!")
-        X = df.values
+            raise ValueError("Model '{self.model}' is not handled by ImputeEM!")
+        X = df.values.T
         model.fit(X)
 
         X_transformed = model.transform(X)
