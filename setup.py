@@ -41,10 +41,10 @@ PROJECT_URLS = {
 PYTHON_REQUIRES = ">=3.8"
 PACKAGES = find_packages()
 INSTALL_REQUIRES = [
-    "scikit-learn",
-    "numpy>=1.21",
+    "scikit-learn=1.2.2",
+    "numpy=1.24.1",
     "packaging",
-    "scikit-optimize",
+    "scikit-optimize=0.9.0",
     "scipy",
     "statsmodels",
     "pandas",
