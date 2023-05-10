@@ -36,9 +36,9 @@ class Comparator:
         "wmape": mtr.weighted_mean_absolute_percentage_error,
         "wasser": mtr.wasser_distance,
         "KL": mtr.kl_divergence,
-        "ks_test": mtr.kolmogorov_smirnov_test, 
+        "ks_test": mtr.kolmogorov_smirnov_test,
         "correlation_diff": mtr.mean_difference_correlation_matrix_numerical_features,
-        "pairwise_dist": mtr.sum_pairwise_distances, 
+        "pairwise_dist": mtr.sum_pairwise_distances,
         "energy": mtr.sum_energy_distances,
         "frechet": mtr.frechet_distance,
     }
@@ -85,9 +85,7 @@ class Comparator:
 
         dict_errors = {}
         for name_metric in metrics:
-            dict_errors[name_metric] = Comparator.dict_metrics[name_metric](
-                df_origin, df_imputed
-            )
+            dict_errors[name_metric] = Comparator.dict_metrics[name_metric](df_origin, df_imputed)
 
         errors = pd.concat(dict_errors.values(), keys=dict_errors.keys())
         return errors
@@ -194,9 +192,9 @@ class ComparatorBasedPattern(Comparator):
         "wmape": mtr.weighted_mean_absolute_percentage_error,
         "wasser": mtr.wasser_distance,
         "KL": mtr.kl_divergence,
-        "ks_test": mtr.kolmogorov_smirnov_test, 
+        "ks_test": mtr.kolmogorov_smirnov_test,
         "correlation_diff": mtr.mean_difference_correlation_matrix_numerical_features,
-        "pairwise_dist": mtr.sum_pairwise_distances, 
+        "pairwise_dist": mtr.sum_pairwise_distances,
         "energy": mtr.sum_energy_distances,
         "frechet": mtr.frechet_distance,
     }
@@ -270,7 +268,7 @@ class ComparatorBasedPattern(Comparator):
                 else:
                     df_imputed = imputer.fit_transform(df_corrupted)
 
-                subset = self.generator_holes.subset # columns selected
+                subset = self.generator_holes.subset  # columns selected
                 subset = [col for col in subset if col in cols_pattern]
                 errors = self.get_errors(
                     df_pattern[subset], df_imputed[subset], df_mask[subset], metrics, on_mask
@@ -279,31 +277,32 @@ class ComparatorBasedPattern(Comparator):
 
         df_errors = pd.DataFrame(list_errors)
         # Weighted errors
-        errors_mean = df_errors.apply(lambda x: (x * np.array(weights)).sum()/np.sum(weights), axis=0)
+        errors_mean = df_errors.apply(
+            lambda x: (x * np.array(weights)).sum() / np.sum(weights), axis=0
+        )
         return errors_mean.sort_index()
-    
-    def get_df_based_pattern(self, df: pd.DataFrame) -> List[pd.DataFrame]:
 
+    def get_df_based_pattern(self, df: pd.DataFrame) -> List[pd.DataFrame]:
         def get_pattern(row):
             list_col_pattern = [col for col in row.index.to_list() if row[col] == True]
             if len(list_col_pattern) == 0:
-                return '_EMPTY_'
+                return "_EMPTY_"
             elif len(list_col_pattern) == row.index.size:
-                return '_ALLNAN_'
+                return "_ALLNAN_"
             else:
-                return '_'.join(list_col_pattern)
-            
-        df_isna = df.isna().apply(lambda x: get_pattern(x), axis=1).to_frame(name='pattern')
-        df_isna_pattern = df_isna['pattern'].value_counts()
+                return "_".join(list_col_pattern)
+
+        df_isna = df.isna().apply(lambda x: get_pattern(x), axis=1).to_frame(name="pattern")
+        df_isna_pattern = df_isna["pattern"].value_counts()
 
         patterns = df_isna_pattern.index.to_list()
-        patterns.remove('_ALLNAN_')
-        patterns.remove('_EMPTY_')
+        patterns.remove("_ALLNAN_")
+        patterns.remove("_EMPTY_")
 
         dfs = []
         for idx_pattern in range(min(len(patterns), self.num_patterns)):
-            patterns_selected = ['_EMPTY_'] + [patterns[idx_pattern]]
-            df_pattern = df.loc[df_isna[df_isna['pattern'].isin(patterns_selected)].index]
+            patterns_selected = ["_EMPTY_"] + [patterns[idx_pattern]]
+            df_pattern = df.loc[df_isna[df_isna["pattern"].isin(patterns_selected)].index]
             dfs.append(df_pattern)
 
         return dfs

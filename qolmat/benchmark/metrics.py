@@ -14,6 +14,7 @@ EPS = np.finfo(float).eps
 # Column-wise metris      #
 ###########################
 
+
 def mean_squared_error(
     df1: pd.DataFrame,
     df2: pd.DataFrame,
@@ -31,7 +32,9 @@ def mean_squared_error(
     -------
     pd.Series
     """
-    return pd.Series(skm.mean_squared_error(df1, df2, multioutput='raw_values'), index= df1.columns.to_list())
+    return pd.Series(
+        skm.mean_squared_error(df1, df2, multioutput="raw_values"), index=df1.columns.to_list()
+    )
 
 
 def root_mean_squared_error(
@@ -51,7 +54,10 @@ def root_mean_squared_error(
     -------
     pd.Series
     """
-    return pd.Series(skm.mean_squared_error(df1, df2, squared=False, multioutput='raw_values'), index=df1.columns.to_list())
+    return pd.Series(
+        skm.mean_squared_error(df1, df2, squared=False, multioutput="raw_values"),
+        index=df1.columns.to_list(),
+    )
 
 
 def mean_absolute_error(
@@ -71,7 +77,9 @@ def mean_absolute_error(
     -------
     pd.Series
     """
-    return pd.Series(skm.mean_absolute_error(df1, df2, multioutput='raw_values'), index=df1.columns.to_list())
+    return pd.Series(
+        skm.mean_absolute_error(df1, df2, multioutput="raw_values"), index=df1.columns.to_list()
+    )
 
 
 def weighted_mean_absolute_percentage_error(
@@ -95,6 +103,7 @@ def weighted_mean_absolute_percentage_error(
     """
     return pd.Series((df1 - df2).abs().sum() / df1.abs().sum(), index=df1.columns.to_list())
 
+
 def wasser_distance(
     df1: pd.DataFrame,
     df2: pd.DataFrame,
@@ -114,6 +123,7 @@ def wasser_distance(
     cols = df1.columns.tolist()
     wd = [scipy.stats.wasserstein_distance(df1[col].dropna(), df2[col].dropna()) for col in cols]
     return pd.Series(wd, index=cols)
+
 
 def kl_divergence(
     df1: pd.DataFrame,
@@ -162,6 +172,7 @@ def kl_divergence(
         det_term = np.log(np.linalg.det(sigma_pred) / np.linalg.det(sigma_true))
         kl = 0.5 * (quad_term + trace_term + det_term - n)
         return pd.Series(kl, index=cols)
+
 
 def _get_numerical_features(df1: pd.DataFrame):
     cols_numerical = df1.select_dtypes(include=np.number).columns.tolist()
@@ -272,7 +283,7 @@ def mean_difference_correlation_matrix_numerical_features(
     df_corr1 = _get_correlation_pearson_matrix(df1[cols_numerical], use_p_value=use_p_value)
     df_corr2 = _get_correlation_pearson_matrix(df2[cols_numerical], use_p_value=use_p_value)
 
-    diff_corr =  (df_corr1 - df_corr2).abs().mean(axis=1)
+    diff_corr = (df_corr1 - df_corr2).abs().mean(axis=1)
     return pd.Series(diff_corr, index=cols_numerical)
 
 
@@ -319,7 +330,7 @@ def mean_difference_correlation_matrix_categorical_features(
     df_corr1 = _get_correlation_chi2_matrix(df1[cols_categorical], use_p_value=use_p_value)
     df_corr2 = _get_correlation_chi2_matrix(df2[cols_categorical], use_p_value=use_p_value)
 
-    diff_corr =  (df_corr1 - df_corr2).abs().mean(axis=1)
+    diff_corr = (df_corr1 - df_corr2).abs().mean(axis=1)
     return pd.Series(diff_corr, index=cols_categorical)
 
 
@@ -342,6 +353,7 @@ def _get_correlation_f_oneway_matrix(
             except ValueError:
                 matrix[idx_cat, idx_num] = 0.0
     return pd.DataFrame(matrix, index=cols_categorical, columns=cols_numerical)
+
 
 def mean_difference_correlation_matrix_categorical_vs_numerical_features(
     df1: pd.DataFrame,
@@ -375,12 +387,14 @@ def mean_difference_correlation_matrix_categorical_vs_numerical_features(
         df2, cols_categorical, cols_numerical, use_p_value=use_p_value
     )
 
-    diff_corr =  (df_corr1 - df_corr2).abs().mean(axis=1)
+    diff_corr = (df_corr1 - df_corr2).abs().mean(axis=1)
     return pd.Series(diff_corr, index=cols_categorical)
+
 
 ###########################
 # Row-wise metris         #
 ###########################
+
 
 def _sum_distance_col(col: pd.Series, col_size: int) -> pd.Series:
     """_summary_
@@ -402,6 +416,7 @@ def _sum_distance_col(col: pd.Series, col_size: int) -> pd.Series:
     differences_partial = col * np.arange(col_size) - sums_partial
     res = differences_partial.sum()
     return res
+
 
 def _sum_manhattan_distances(df1: pd.DataFrame) -> float:
     """Sum Manhattan distances. It is based on https://www.geeksforgeeks.org/sum-manhattan-distances-pairs-points/
@@ -435,8 +450,8 @@ def sum_energy_distances(df1: pd.DataFrame, df2: pd.DataFrame) -> float:
     """
 
     # Replace real nan in dataframe
-    df1.fillna(0.)
-    df2.fillna(0.)
+    df1.fillna(0.0)
+    df2.fillna(0.0)
 
     sum_distances_df1 = _sum_manhattan_distances(
         df1
@@ -448,6 +463,7 @@ def sum_energy_distances(df1: pd.DataFrame, df2: pd.DataFrame) -> float:
     sum_distance = 2 * sum_distances_df1_df2 - 4 * sum_distances_df1 - 4 * sum_distances_df2
 
     return pd.Series(sum_distance, index=["All"])
+
 
 def sum_pairwise_distances(df1: pd.DataFrame, df2: pd.DataFrame, metric: str = "cityblock"):
     """Sum of pairwise distances based on a predefined metric
@@ -470,9 +486,11 @@ def sum_pairwise_distances(df1: pd.DataFrame, df2: pd.DataFrame, metric: str = "
 
     return pd.Series(distances, index=["All"])
 
+
 ###########################
 # Dataframe-wise metris   #
 ###########################
+
 
 def frechet_distance(
     df1: pd.DataFrame, df2: pd.DataFrame, normalized: Optional[bool] = False
