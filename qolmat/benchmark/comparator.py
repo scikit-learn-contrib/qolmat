@@ -168,13 +168,12 @@ class Comparator:
 
 
 class ComparatorBasedPattern(Comparator):
-
     def __init__(
         self,
         dict_models: Dict[str, Any],
         selected_columns: List[str],
         generator_holes: _HoleGenerator,
-         metrics: List = ["mae", "wmape", "KL"],
+        metrics: List = ["mae", "wmape", "KL"],
         search_params: Optional[Dict[str, Dict[str, Union[float, int, str]]]] = {},
         n_calls_opt: int = 10,
         num_patterns: int = 5,

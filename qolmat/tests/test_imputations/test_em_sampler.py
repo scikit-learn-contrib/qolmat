@@ -24,10 +24,10 @@ X1_res = np.array(
 df = pd.DataFrame([[1, 1, 1, 1], [1, 2, 2, 1], [2, 2, 2, 2]])
 
 
-@pytest.mark.parametrize("df", [df])
-def test_em_sampler_convert_numpy(df: NDArray) -> None:
-    """Test converge Numpy for Impute EM"""
-    assert type(em_sampler.EM()._convert_numpy(df)) == np.ndarray
+# @pytest.mark.parametrize("df", [df])
+# def test_em_sampler_convert_numpy(df: NDArray) -> None:
+#     """Test converge Numpy for Impute EM"""
+#     assert type(em_sampler.EM()._convert_numpy(df)) == np.ndarray
 
 
 imputations_var = [

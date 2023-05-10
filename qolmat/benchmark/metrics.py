@@ -133,6 +133,7 @@ def kl_divergence_1D(df1: pd.Series, df2: pd.Series) -> np.number:
     q = np.histogram(df2, bins=bins, density=True)[0]
     return scipy.stats.entropy(p + EPS, q + EPS)
 
+
 def kl_divergence_columnwise(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
 ) -> pd.Series:
@@ -230,7 +231,8 @@ def kolmogorov_smirnov_test(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.Series:
 
 
 def total_variance_distance(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.Series:
-    """Total variance distance for categorical features, based on TVComplement in https://github.com/sdv-dev/SDMetrics
+    """Total variance distance for categorical features
+    It is based on TVComplement in https://github.com/sdv-dev/SDMetrics
 
     Parameters
     ----------
@@ -436,7 +438,8 @@ def _sum_distance_col(col: pd.Series, col_size: int) -> pd.Series:
 
 
 def _sum_manhattan_distances(df1: pd.DataFrame) -> float:
-    """Sum Manhattan distances. It is based on https://www.geeksforgeeks.org/sum-manhattan-distances-pairs-points/
+    """Sum Manhattan distances.
+    It is based on https://www.geeksforgeeks.org/sum-manhattan-distances-pairs-points/
 
     Parameters
     ----------
@@ -451,7 +454,8 @@ def _sum_manhattan_distances(df1: pd.DataFrame) -> float:
 
 
 def sum_energy_distances(df1: pd.DataFrame, df2: pd.DataFrame) -> float:
-    """Sum of energy distances between df1 and df2. It is based on https://dcor.readthedocs.io/en/latest/theory.html#
+    """Sum of energy distances between df1 and df2.
+    It is based on https://dcor.readthedocs.io/en/latest/theory.html#
 
     Parameters
     ----------
@@ -507,6 +511,7 @@ def sum_pairwise_distances(df1: pd.DataFrame, df2: pd.DataFrame, metric: str = "
 ###########################
 # Dataframe-wise metris   #
 ###########################
+
 
 def frechet_distance(
     df1: pd.DataFrame,
