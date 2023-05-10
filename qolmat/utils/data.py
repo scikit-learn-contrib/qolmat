@@ -173,9 +173,29 @@ def get_data_corrupted(
     return df
 
 
+def add_station_features(df: pd.DataFrame):
+    """
+    Create a station feature in the dataset
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        dataframe no missing values
+
+    Returns
+    -------
+    pd.DataFrame
+        dataframe with missing values
+    """
+    stations = df.index.get_level_values("station")
+    for station in stations.unique():
+        df[f"station={station}"] = 1 * (stations == station)
+    return df
+
+
 def add_datetime_features(df: pd.DataFrame):
     """
-    Create a seasonal data set with a cosine function
+    Create a seasonal feature in the dataset with a cosine function
 
     Parameters
     ----------
