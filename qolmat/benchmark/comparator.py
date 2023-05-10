@@ -278,6 +278,7 @@ class ComparatorBasedPattern(Comparator):
                 list_errors.append(errors)
 
         df_errors = pd.DataFrame(list_errors)
+        # Weighted errors
         errors_mean = df_errors.apply(lambda x: (x * np.array(weights)).sum()/np.sum(weights), axis=0)
         return errors_mean.sort_index()
     
