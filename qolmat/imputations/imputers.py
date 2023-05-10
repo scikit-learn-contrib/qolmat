@@ -904,8 +904,6 @@ class ImputerGenerativeModel(Imputer):
         self,
         groups: List[str] = [],
         model: Optional[BaseEstimator] = None,
-        handler_nan: str = "column",
-        col_imp: List[str] = [],
         **hyperparams,
     ):
         super().__init__(groups=groups, hyperparams=hyperparams)
@@ -917,7 +915,7 @@ class ImputerGenerativeModel(Imputer):
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Fit/transform using a (specified) regression model
+        Fit/transform using a generative model
 
         Parameters
         ----------

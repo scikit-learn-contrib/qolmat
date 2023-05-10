@@ -34,14 +34,13 @@ class ImputerGenerativeModelPytorch(ImputerGenerativeModel):
     def __init__(
         self,
         groups: List[str] = [],
-        estimator: Optional[BaseEstimator] = None,
-        handler_nan: str = "column",
+        model: Optional[BaseEstimator] = None,
         epochs: int = 100,
         batch_size: int = 100,
         **hyperparams,
     ):
         super().__init__(
-            groups=groups, estimator=estimator, handler_nan=handler_nan, **hyperparams
+            groups=groups, model=model, **hyperparams
         )
         self.epochs = epochs
         self.batch_size = batch_size
