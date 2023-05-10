@@ -36,7 +36,7 @@ class Comparator:
         "wasser": utils.wasser_distance,
         "KL": utils.kl_divergence,
         "frechet": utils.frechet_distance,
-        "energy": utils.energy_distance,
+        # "energy": utils.energy_distance,
     }
 
     def __init__(
@@ -85,10 +85,10 @@ class Comparator:
                 df_origin[df_mask], df_imputed[df_mask]
             )
 
-        dict_errors["energy"] = utils.energy_dist(
-            df_origin[df_mask],
-            df_imputed[df_mask],
-        )
+        # dict_errors["energy"] = utils.energy_dist(
+        #     df_origin[df_mask],
+        #     df_imputed[df_mask],
+        # )
 
         errors = pd.concat(dict_errors.values(), keys=dict_errors.keys())
         return errors
