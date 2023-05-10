@@ -1,10 +1,9 @@
-from typing import Optional, Union, Literal, List
+from typing import Callable, Dict, Optional, Union, List
 
-import pandas as pd
 import numpy as np
-from collections import Counter
-
+import pandas as pd
 import scipy
+
 from sklearn import metrics as skm
 from sklearn.preprocessing import StandardScaler
 
@@ -15,10 +14,18 @@ EPS = np.finfo(float).eps
 ###########################
 
 
-def mean_squared_error(
-    df1: pd.DataFrame,
-    df2: pd.DataFrame,
+def columnwise_metric(
+    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame, metric: Callable, **kwargs
 ) -> pd.Series:
+    values = {}
+    for col in df1.columns:
+        df1_col = df1.loc[df_mask[col], col]
+        df2_col = df2.loc[df_mask[col], col]
+        values[col] = metric(df1_col, df2_col, **kwargs)
+    return pd.Series(values)
+
+
+def mean_squared_error(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.Series:
     """Mean squared error between two dataframes.
 
     Parameters
@@ -27,19 +34,18 @@ def mean_squared_error(
         True dataframe
     df2 : pd.DataFrame
         Predicted dataframe
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
 
     Returns
     -------
     pd.Series
     """
-    return pd.Series(
-        skm.mean_squared_error(df1, df2, multioutput="raw_values"), index=df1.columns.to_list()
-    )
+    return columnwise_metric(df1, df2, df_mask, skm.mean_squared_error)
 
 
 def root_mean_squared_error(
-    df1: pd.DataFrame,
-    df2: pd.DataFrame,
+    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
 ) -> pd.Series:
     """Root mean squared error between two dataframes.
 
@@ -49,21 +55,17 @@ def root_mean_squared_error(
         True dataframe
     df2 : pd.DataFrame
         Predicted dataframe
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
 
     Returns
     -------
     pd.Series
     """
-    return pd.Series(
-        skm.mean_squared_error(df1, df2, squared=False, multioutput="raw_values"),
-        index=df1.columns.to_list(),
-    )
+    return columnwise_metric(df1, df2, df_mask, skm.mean_squared_error, squared=False)
 
 
-def mean_absolute_error(
-    df1: pd.DataFrame,
-    df2: pd.DataFrame,
-) -> pd.Series:
+def mean_absolute_error(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.Series:
     """Mean absolute error between two dataframes.
 
     Parameters
@@ -72,65 +74,91 @@ def mean_absolute_error(
         True dataframe
     df2 : pd.DataFrame
         Predicted dataframe
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
 
     Returns
     -------
     pd.Series
     """
-    return pd.Series(
-        skm.mean_absolute_error(df1, df2, multioutput="raw_values"), index=df1.columns.to_list()
-    )
+    return columnwise_metric(df1, df2, df_mask, skm.mean_absolute_error)
 
 
 def weighted_mean_absolute_percentage_error(
-    df1: pd.DataFrame,
-    df2: pd.DataFrame,
+    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
 ) -> pd.Series:
     """Weighted mean absolute percentage error between two dataframes.
 
-    Parameters
-    ----------
     Parameters
     ----------
     df1 : pd.DataFrame
         True dataframe
     df2 : pd.DataFrame
         Predicted dataframe
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
 
     Returns
     -------
     Union[float, pd.Series]
     """
-    return pd.Series((df1 - df2).abs().sum() / df1.abs().sum(), index=df1.columns.to_list())
+    return columnwise_metric(df1, df2, df_mask, skm.mean_absolute_percentage_error)
 
 
-def wasser_distance(
-    df1: pd.DataFrame,
-    df2: pd.DataFrame,
-) -> pd.Series:
+def wasser_distance(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.Series:
     """Wasserstein distances between columns of 2 dataframes.
     Wasserstein distance can only be computed columnwise
 
     Parameters
     ----------
     df1 : pd.DataFrame
+        True dataframe
     df2 : pd.DataFrame
+        Predicted dataframe
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
 
     Returns
     -------
     wasserstein distances : pd.Series
     """
-    cols = df1.columns.tolist()
-    wd = [scipy.stats.wasserstein_distance(df1[col].dropna(), df2[col].dropna()) for col in cols]
-    return pd.Series(wd, index=cols)
+    return columnwise_metric(df1, df2, df_mask, scipy.stats.wasserstein_distance)
 
 
-def kl_divergence(
-    df1: pd.DataFrame,
-    df2: pd.DataFrame,
-    columnwise_evaluation: Optional[bool] = True,
-) -> Union[float, pd.Series]:
-    """Kullback-Leibler divergence between distributions
+def kl_divergence_1D(df1: pd.Series, df2: pd.Series) -> np.number:
+    min_val = min(df1.min(), df2.min())
+    max_val = max(df1.max(), df2.max())
+    bins = np.linspace(min_val, max_val, 20)
+    p = np.histogram(df1, bins=bins, density=True)[0]
+    q = np.histogram(df2, bins=bins, density=True)[0]
+    return scipy.stats.entropy(p + EPS, q + EPS)
+
+def kl_divergence_columnwise(
+    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
+) -> pd.Series:
+    """TODO documentation
+    Kullback-Leibler divergence between distributions
+    If multivariate normal distributions:
+    https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+    df2 : pd.DataFrame
+    columnwise_evaluation: Optional[bool]
+        if the evalutation is computed column-wise. By default, is set to False
+
+    Returns
+    -------
+    Kullback-Leibler divergence : Union[float, pd.Series]
+    """
+
+    return columnwise_metric(df1, df2, df_mask, kl_divergence_1D)
+
+
+def kl_divergence(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.Series:
+    """TODO Documentation
+    Kullback-Leibler divergence between distributions
     If multivariate normal distributions:
     https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence
 
@@ -146,32 +174,21 @@ def kl_divergence(
     Kullback-Leibler divergence : Union[float, pd.Series]
     """
     cols = df1.columns.tolist()
-    if columnwise_evaluation or df1.shape[1] == 1:
-        list_kl = []
-        for col in cols:
-            min_val = min(df1[col].min(), df2[col].min())
-            max_val = min(df1[col].max(), df2[col].max())
-            bins = np.linspace(min_val, max_val, 20)
-            p = np.histogram(df1[col].dropna(), bins=bins, density=True)[0]
-            q = np.histogram(df2[col].dropna(), bins=bins, density=True)[0]
-            list_kl.append(scipy.stats.entropy(p + EPS, q + EPS))
-        return pd.Series(list_kl, index=cols)
-    else:
-        df_1 = StandardScaler().fit_transform(df1)
-        df_2 = StandardScaler().fit_transform(df2)
+    df_1 = StandardScaler().fit_transform(df1[df_mask.any(axis=1)])
+    df_2 = StandardScaler().fit_transform(df2[df_mask.any(axis=1)])
 
-        n = df_1.shape[0]
-        mu_true = np.nanmean(df_1, axis=0)
-        sigma_true = np.ma.cov(np.ma.masked_invalid(df_1), rowvar=False).data
-        mu_pred = np.nanmean(df_2, axis=0)
-        sigma_pred = np.ma.cov(np.ma.masked_invalid(df_2), rowvar=False).data
-        diff = mu_true - mu_pred
-        inv_sigma_pred = np.linalg.inv(sigma_pred)
-        quad_term = diff.T @ inv_sigma_pred @ diff
-        trace_term = np.trace(inv_sigma_pred @ sigma_true)
-        det_term = np.log(np.linalg.det(sigma_pred) / np.linalg.det(sigma_true))
-        kl = 0.5 * (quad_term + trace_term + det_term - n)
-        return pd.Series(kl, index=cols)
+    n = df_1.shape[0]
+    mu_true = np.nanmean(df_1, axis=0)
+    sigma_true = np.ma.cov(np.ma.masked_invalid(df_1), rowvar=False).data
+    mu_pred = np.nanmean(df_2, axis=0)
+    sigma_pred = np.ma.cov(np.ma.masked_invalid(df_2), rowvar=False).data
+    diff = mu_true - mu_pred
+    inv_sigma_pred = np.linalg.inv(sigma_pred)
+    quad_term = diff.T @ inv_sigma_pred @ diff
+    trace_term = np.trace(inv_sigma_pred @ sigma_true)
+    det_term = np.log(np.linalg.det(sigma_pred) / np.linalg.det(sigma_true))
+    kl = 0.5 * (quad_term + trace_term + det_term - n)
+    return pd.Series(kl, index=cols)
 
 
 def _get_numerical_features(df1: pd.DataFrame):
@@ -491,10 +508,12 @@ def sum_pairwise_distances(df1: pd.DataFrame, df2: pd.DataFrame, metric: str = "
 # Dataframe-wise metris   #
 ###########################
 
-
 def frechet_distance(
-    df1: pd.DataFrame, df2: pd.DataFrame, normalized: Optional[bool] = False
-) -> pd.Series:
+    df1: pd.DataFrame,
+    df2: pd.DataFrame,
+    df_mask: pd.DataFrame,
+    normalized: Optional[bool] = False,
+) -> float:
     """Compute the Fréchet distance between two dataframes df1 and df2
     frechet_distance = || mu_1 - mu_2 ||_2^2 + Tr(Sigma_1 + Sigma_2 - 2(Sigma_1 . Sigma_2)^(1/2))
     if normalized, df1 and df_ are first scaled by a factor
@@ -523,8 +542,8 @@ def frechet_distance(
     if df1.shape != df2.shape:
         raise Exception("inputs have to be of same dimensions.")
 
-    df_true = df1.copy()
-    df_pred = df2.copy()
+    df_true = df1[df_mask.any(axis=1)]
+    df_pred = df2[df_mask.any(axis=1)]
 
     if normalized:
         std = (np.std(df_true) + np.std(df_pred) + EPS) / 2
@@ -549,4 +568,4 @@ def frechet_distance(
     if normalized:
         return pd.Series((frechet_dist / df_true.shape[0]), index=["All"])
     else:
-        return pd.Series(frechet_dist, index=["All"])
+        return pd.Series(np.repeat(frechet_dist, len(df1.columns)))

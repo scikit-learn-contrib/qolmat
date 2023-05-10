@@ -4,8 +4,7 @@ from typing import Any, Dict, List, Optional, Union
 import numpy as np
 import pandas as pd
 
-from qolmat.benchmark import cross_validation, utils
-from qolmat.benchmark import metrics as mtr
+from qolmat.benchmark import cross_validation, metrics, utils
 from qolmat.benchmark.missing_patterns import _HoleGenerator
 
 
@@ -30,17 +29,17 @@ class Comparator:
     """
 
     dict_metrics: Dict[str, Any] = {
-        "mse": mtr.mean_squared_error,
-        "rmse": mtr.root_mean_squared_error,
-        "mae": mtr.mean_absolute_error,
-        "wmape": mtr.weighted_mean_absolute_percentage_error,
-        "wasser": mtr.wasser_distance,
-        "KL": mtr.kl_divergence,
-        "ks_test": mtr.kolmogorov_smirnov_test,
-        "correlation_diff": mtr.mean_difference_correlation_matrix_numerical_features,
-        "pairwise_dist": mtr.sum_pairwise_distances,
-        "energy": mtr.sum_energy_distances,
-        "frechet": mtr.frechet_distance,
+        "mse": metrics.mean_squared_error,
+        "rmse": metrics.root_mean_squared_error,
+        "mae": metrics.mean_absolute_error,
+        "wmape": metrics.weighted_mean_absolute_percentage_error,
+        "wasser": metrics.wasser_distance,
+        "KL": metrics.kl_divergence_columnwise,
+        "ks_test": metrics.kolmogorov_smirnov_test,
+        "correlation_diff": metrics.mean_difference_correlation_matrix_numerical_features,
+        "pairwise_dist": metrics.sum_pairwise_distances,
+        "energy": metrics.sum_energy_distances,
+        "frechet": metrics.frechet_distance,
     }
 
     def __init__(
@@ -48,12 +47,14 @@ class Comparator:
         dict_models: Dict[str, Any],
         selected_columns: List[str],
         generator_holes: _HoleGenerator,
+        metrics: List = ["mae", "wmape", "KL"],
         search_params: Optional[Dict[str, Dict[str, Union[float, int, str]]]] = {},
         n_calls_opt: int = 10,
     ):
         self.dict_imputers = dict_models
         self.selected_columns = selected_columns
         self.generator_holes = generator_holes
+        self.metrics = metrics
         self.search_params = search_params
         self.n_calls_opt = n_calls_opt
 
@@ -62,8 +63,6 @@ class Comparator:
         df_origin: pd.DataFrame,
         df_imputed: pd.DataFrame,
         df_mask: pd.DataFrame,
-        metrics: List = ["mae", "wmape", "kl"],
-        on_mask=True,
     ) -> pd.DataFrame:
         """Functions evaluating the reconstruction's quality
 
@@ -79,14 +78,11 @@ class Comparator:
         dictionary
             dictionay of results obtained via different metrics
         """
-
-        # TODO comment comparer la distribution initiale et la distribution générée, pas la même taille,
-        # ne fonctionne pas avec les métriques actuelles
-
         dict_errors = {}
-        for name_metric in metrics:
-            dict_errors[name_metric] = Comparator.dict_metrics[name_metric](df_origin, df_imputed)
-
+        for name_metric in self.metrics:
+            dict_errors[name_metric] = Comparator.dict_metrics[name_metric](
+                df_origin, df_imputed, df_mask
+            )
         errors = pd.concat(dict_errors.values(), keys=dict_errors.keys())
         return errors
 
@@ -95,8 +91,6 @@ class Comparator:
         imputer: Any,
         df: pd.DataFrame,
         list_spaces: List[Dict] = [],
-        metrics: List = ["mae", "wmape", "kl"],
-        on_mask=True,
     ) -> pd.Series:
         """Evaluate the errors in the cross-validation
 
@@ -114,7 +108,6 @@ class Comparator:
         pd.DataFrame
             DataFrame with the errors for each metric (in column) and at each fold (in index)
         """
-
         list_errors = []
         df_origin = df[self.selected_columns].copy()
         for df_mask in self.generator_holes.split(df_origin):
@@ -130,11 +123,8 @@ class Comparator:
                 df_imputed = cv.fit_transform(df_corrupted)
             else:
                 df_imputed = imputer.fit_transform(df_corrupted)
-
             subset = self.generator_holes.subset
-            errors = self.get_errors(
-                df_origin[subset], df_imputed[subset], df_mask[subset], metrics, on_mask
-            )
+            errors = self.get_errors(df_origin[subset], df_imputed[subset], df_mask[subset])
             list_errors.append(errors)
         df_errors = pd.DataFrame(list_errors)
         errors_mean = df_errors.mean(axis=0)
@@ -144,9 +134,6 @@ class Comparator:
     def compare(
         self,
         df: pd.DataFrame,
-        verbose: bool = True,
-        metrics: List = ["mae", "wmape", "KL"],
-        on_mask=True,
     ):
         """Function to compare different imputation methods on dataframe df
 
@@ -164,15 +151,12 @@ class Comparator:
         dict_errors = {}
 
         for name, imputer in self.dict_imputers.items():
-
             search_params = self.search_params.get(name, {})
 
             list_spaces = utils.get_search_space(search_params)
 
             try:
-                dict_errors[name] = self.evaluate_errors_sample(
-                    imputer, df, list_spaces, metrics, on_mask
-                )
+                dict_errors[name] = self.evaluate_errors_sample(imputer, df, list_spaces)
                 print(f"Tested model: {type(imputer).__name__}")
             except Exception as excp:
                 print("Error while testing ", type(imputer).__name__)
@@ -185,25 +169,12 @@ class Comparator:
 
 class ComparatorBasedPattern(Comparator):
 
-    dict_metrics: Dict[str, Any] = {
-        "mse": mtr.mean_squared_error,
-        "rmse": mtr.root_mean_squared_error,
-        "mae": mtr.mean_absolute_error,
-        "wmape": mtr.weighted_mean_absolute_percentage_error,
-        "wasser": mtr.wasser_distance,
-        "KL": mtr.kl_divergence,
-        "ks_test": mtr.kolmogorov_smirnov_test,
-        "correlation_diff": mtr.mean_difference_correlation_matrix_numerical_features,
-        "pairwise_dist": mtr.sum_pairwise_distances,
-        "energy": mtr.sum_energy_distances,
-        "frechet": mtr.frechet_distance,
-    }
-
     def __init__(
         self,
         dict_models: Dict[str, Any],
         selected_columns: List[str],
         generator_holes: _HoleGenerator,
+         metrics: List = ["mae", "wmape", "KL"],
         search_params: Optional[Dict[str, Dict[str, Union[float, int, str]]]] = {},
         n_calls_opt: int = 10,
         num_patterns: int = 5,
@@ -212,6 +183,7 @@ class ComparatorBasedPattern(Comparator):
             dict_models=dict_models,
             selected_columns=selected_columns,
             generator_holes=generator_holes,
+            metrics=metrics,
             search_params=search_params,
             n_calls_opt=n_calls_opt,
         )
@@ -223,8 +195,6 @@ class ComparatorBasedPattern(Comparator):
         imputer: Any,
         df: pd.DataFrame,
         list_spaces: List[Dict] = [],
-        metrics: List = ["mae", "wmape", "KL"],
-        on_mask=True,
     ) -> pd.Series:
         """Evaluate the errors in the cross-validation
 
@@ -270,9 +240,7 @@ class ComparatorBasedPattern(Comparator):
 
                 subset = self.generator_holes.subset  # columns selected
                 subset = [col for col in subset if col in cols_pattern]
-                errors = self.get_errors(
-                    df_pattern[subset], df_imputed[subset], df_mask[subset], metrics, on_mask
-                )
+                errors = self.get_errors(df_pattern[subset], df_imputed[subset], df_mask[subset])
                 list_errors.append(errors)
 
         df_errors = pd.DataFrame(list_errors)
