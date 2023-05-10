@@ -403,7 +403,6 @@ def _sum_distance_col(col: pd.Series, col_size: int) -> pd.Series:
     res = differences_partial.sum()
     return res
 
-
 def _sum_manhattan_distances(df1: pd.DataFrame) -> float:
     """Sum Manhattan distances. It is based on https://www.geeksforgeeks.org/sum-manhattan-distances-pairs-points/
 
@@ -434,6 +433,10 @@ def sum_energy_distances(df1: pd.DataFrame, df2: pd.DataFrame) -> float:
     _type_
         _description_
     """
+
+    # Replace real nan in dataframe
+    df1.fillna(0.)
+    df2.fillna(0.)
 
     sum_distances_df1 = _sum_manhattan_distances(
         df1
