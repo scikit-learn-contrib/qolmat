@@ -4,28 +4,31 @@ channels:
     - defaults
 dependencies:
     - bump2version=1.0.1
-    - ipykernel=6.22.0
+    - dcor=0.6
+    - ipykernel=5.1.4
     - jupyter=1.0.0
-    - jupyterlab=3.6.3
-    - jupytext=1.14.5
-    - pip=23.1.2
-    - sphinx=6.2.1
-    - sphinx-gallery=0.13.0
-    - sphinx_rtd_theme=1.2.0
+    - jupyterlab=1.2.6
+    - jupytext=1.14.4
+    - numpy=1.21
+    - packaging=23.1
+    - pandas=2.0.1
+    - pip=23.0.1
+    - scipy=1.10.1
+    - scikit-learn=1.2.2
+    - scikit-optimize=0.9
+    - sphinx=2.4.0
+    - sphinx-gallery=0.10.1
+    - sphinx_rtd_theme=1.0.0
     - statsmodels=0.14.0
-    - twine=4.0.2
-    - wheel=0.40.0
+    - twine=3.7.1
+    - wheel=0.37.1
     - pip:
-        - flake8==6.0.0
-        - matplotlib==3.6.2
-        - mypy==1.1.1
-        - numpy==1.24.1
-        - numpydoc==1.5.0
-        - pandas==1.5.2
-        - pre-commit==2.21.0
-        - matplotlib==3.6.2
-        - pytest==7.3.1
-        - pytest-cov==4.0.0
-        - scikit-learn==1.2.2
-        - scikit-optimize==0.9.0
-        - -e .
+          - flake8==6.0.0
+          - jupytext==1.14.4
+          - matplotlib==3.6.2
+          - mypy==1.1.1
+          - numpydoc==1.5.0
+          - pre-commit==2.21.0
+          - pytest==7.2.0
+          - pytest-cov==4.0.0
+          - -e .
