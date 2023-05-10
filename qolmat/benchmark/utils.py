@@ -7,6 +7,7 @@ import scipy.sparse as sparse
 from scipy.optimize import Bounds, lsq_linear
 from sklearn.preprocessing import StandardScaler
 from skopt.space import Categorical, Dimension, Integer, Real
+
 # from dcor import energy_distance
 
 BOUNDS = Bounds(1, np.inf, keep_feasible=True)

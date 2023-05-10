@@ -30,6 +30,7 @@ class ImputerRegressorPytorch(ImputerRegressor):
     def get_params_fit(self) -> Dict:
         return {"epochs": self.epochs, "batch_size": self.batch_size}
 
+
 class ImputerGenerativeModelPytorch(ImputerGenerativeModel):
     def __init__(
         self,
@@ -39,9 +40,7 @@ class ImputerGenerativeModelPytorch(ImputerGenerativeModel):
         batch_size: int = 100,
         **hyperparams,
     ):
-        super().__init__(
-            groups=groups, model=model, **hyperparams
-        )
+        super().__init__(groups=groups, model=model, **hyperparams)
         self.epochs = epochs
         self.batch_size = batch_size
 

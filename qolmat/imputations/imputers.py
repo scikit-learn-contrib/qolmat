@@ -898,8 +898,8 @@ class ImputerEM(Imputer):
         df_transformed = pd.DataFrame(X_transformed, columns=df.columns, index=df.index)
         return df_transformed
 
-class ImputerGenerativeModel(Imputer):
 
+class ImputerGenerativeModel(Imputer):
     def __init__(
         self,
         groups: List[str] = [],

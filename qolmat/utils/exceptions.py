@@ -5,6 +5,7 @@ class KerasExtraNotInstalled(Exception):
         pip install qolmat[keras]"""
         )
 
+
 class PytorchNotInstalled(Exception):
     def __init__(self):
         super().__init__(

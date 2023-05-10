@@ -38,7 +38,7 @@ dict_metrics = {
 
 def plot_errors(df_original, dfs_imputed, dict_metrics):
     dict_errors_df = {}
-    for ind, (name, df_imputed) in enumerate(list(dfs_imputed.items())): 
+    for ind, (name, df_imputed) in enumerate(list(dfs_imputed.items())):
         dict_errors_mtr = {}
         for name_metric in dict_metrics:
             dict_errors_mtr[name_metric] = dict_metrics[name_metric](df_original, df_imputed)
@@ -143,7 +143,7 @@ class feedforward_regressor:
             torch.nn.Linear(256, 1),
         ).to(self.device)
         self.loss_func = torch.nn.MSELoss()
-        self.optimiser = torch.optim.Adam(self.estimator.parameters(), lr = 0.0001) 
+        self.optimiser = torch.optim.Adam(self.estimator.parameters(), lr = 0.0001)
 
     def fit(self, x, y, epochs=10, batch_size=100):
         x = x.fillna(x.mean())
@@ -169,7 +169,7 @@ class feedforward_regressor:
                 loss_epoch += loss.item()
             # if epoch%20==0:
             #     print(f"Epoch {epoch}, Loss = {loss_epoch/dataset_size}")
-    
+
     def predict(self, x):
         self.estimator.eval()
         x = x.fillna(x.mean())
@@ -200,7 +200,7 @@ dict_imputers["MLP_fit_ts"] = imputers_pytorch.ImputerRegressorPytorch(groups=["
 dfs_imputed["MLP_fit_ts"] = dict_imputers["MLP_fit_ts"].fit_transform(df_data_MLP)
 ```
 
-### ImputerGenerativeModel: Denoising Diffusion Probabilistic Models - DDPM 
+### ImputerGenerativeModel: Denoising Diffusion Probabilistic Models - DDPM
 
 ```python
 from qolmat.imputations import imputers_pytorch
@@ -239,8 +239,8 @@ class TabDDPM:
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         self.eps_model = AutoEncoder(input_size).to(self.device)
         self.loss_func = torch.nn.SmoothL1Loss()
-        self.optimiser = torch.optim.Adam(self.eps_model.parameters(), lr = 0.0001) 
-        
+        self.optimiser = torch.optim.Adam(self.eps_model.parameters(), lr = 0.0001)
+
         self.noise_steps = noise_steps
         self.beta_start = beta_start
         self.beta_end = beta_end
@@ -267,7 +267,7 @@ class TabDDPM:
         sqrt_one_minus_alpha_hat = self.sqrt_one_minus_alpha_hat[t].view(-1, 1)
         epsilon = torch.randn_like(x, device=self.device)
         return sqrt_alpha_hat * x + sqrt_one_minus_alpha_hat * epsilon, epsilon
-    
+
     def fit(self, x, epochs=10, batch_size=100):
         x = x.fillna(x.mean())
         self.normalizer_x = preprocessing.MinMaxScaler()
@@ -291,7 +291,7 @@ class TabDDPM:
                 loss_epoch += loss.item()
             # if epoch%20==0:
             #     print(f"Epoch {epoch}, Loss = {loss_epoch/size_dataset}")
-    
+
     def predict(self, x):
         self.eps_model.eval()
         n_samples = len(x)
@@ -317,7 +317,7 @@ class TabDDPM:
         outputs = pd.DataFrame(outputs_real, columns=x.columns, index=x.index)
         x = x.fillna(outputs)
         return x
-    
+
 class TabDDPMMask(TabDDPM):
     def __init__(self, input_size, noise_steps, beta_start: float = 1e-4, beta_end: float = 0.02):
         super(TabDDPMMask, self).__init__(input_size, noise_steps, beta_start, beta_end)
@@ -341,7 +341,7 @@ class TabDDPMMask(TabDDPM):
             for id_batch, (x_batch, mask_x_batch) in enumerate(dataloader):
                 x_batch = x_batch.to(self.device)
                 mask_x_batch = mask_x_batch.to(self.device).bool().float()
-                
+
                 self.optimiser.zero_grad()
                 t = torch.randint(low=1, high=self.noise_steps, size=(x_batch.size(dim=0), 1), device=self.device)
                 x_batch_t, noise = self.q_sample(x=x_batch, t=t)
@@ -353,7 +353,7 @@ class TabDDPMMask(TabDDPM):
             # if epoch%20==0:
             #     print(f"Epoch {epoch}, Loss = {loss_epoch/size_dataset}")
 
-    
+
 ```
 
 ```python
