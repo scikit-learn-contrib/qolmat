@@ -1,18 +1,27 @@
 .. -*- mode: rst -*-
 
-|ReadTheDocs|_ |PythonVersion|_ |PyPi|_ |Conda|_
+|GitHubActions|_ |ReadTheDocs|_ |License|_ |PythonVersion|_ |PyPi|_ |Release|_ |Commits|_
+
+.. |GitHubActions| image:: https://github.com/Quantmetry/qolmat/actions/workflows/test.yml/badge.svg
+.. _GitHubActions: https://github.com/Quantmetry/qolmat/actions
 
 .. |ReadTheDocs| image:: https://readthedocs.org/projects/qolmat/badge
 .. _ReadTheDocs: https://qolmat.readthedocs.io/en/latest
 
+.. |License| image:: https://img.shields.io/github/license/Quantmetry/qolmat
+.. _License: https://github.com/Quantmetry/qolmat/blob/dev_MLP/LICENSE
+
 .. |PythonVersion| image:: https://img.shields.io/pypi/pyversions/qolmat
-.. _PythonVersion: https://pypi.org/project/mapie/
+.. _PythonVersion: https://pypi.org/project/qolmat/
 
 .. |PyPi| image:: https://img.shields.io/pypi/v/qolmat
 .. _PyPi: https://pypi.org/project/qolmat/
 
-.. |Conda| image:: https://img.shields.io/conda/vn/conda-forge/qolmat
-.. _Conda: https://anaconda.org/conda-forge/qolmat
+.. |Release| image:: https://img.shields.io/github/v/release/Quantmetry/qolmat
+.. _Release: https://github.com/Quantmetry/qolmat
+
+.. |Commits| image:: https://img.shields.io/github/commits-since/Quantmetry/qolmat/latest/main
+.. _Commits: https://github.com/Quantmetry/qolmat/commits/master
 
 
 Welcome to Qolmat’s documentation!
@@ -62,7 +71,7 @@ Missing values can be generated following the MCAR mechanism.
 On each sample, different imputation models are tested and reconstruction errors are computed on these artificially missing entries. Then the errors of each imputation model are averaged and we eventually obtained a unique error score per model. This procedure allows the comparison of different models on the same dataset.
 
 
-.. image:: images/comparator.png
+.. image:: docs/images/comparator.png
     :align: center
 
 
