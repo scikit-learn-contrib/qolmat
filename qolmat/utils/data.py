@@ -2,7 +2,7 @@ import os
 import zipfile
 from datetime import datetime
 from math import pi
-from typing import List, Optional
+from typing import List, Optional, Union
 from urllib import request
 
 import numpy as np
@@ -107,7 +107,12 @@ def preprocess_data(df: pd.DataFrame):
     return df
 
 
-def add_holes(df: pd.DataFrame, ratio_masked: float, mean_size: int):
+def add_holes(
+    df: pd.DataFrame,
+    ratio_masked: float,
+    mean_size: int,
+    random_state: Union[None, int, np.random.RandomState] = None,
+):
     """
     Creates holes in a dataset with no missing value, starting from `df`. Only used in the
     documentation to design examples.
@@ -125,6 +130,8 @@ def add_holes(df: pd.DataFrame, ratio_masked: float, mean_size: int):
 
     groups: list of strings
         List of the column names used as groups
+    random_state: Union[None, int, np.random.RandomState] = None
+        Determine the randomness
 
     Returns
     -------
@@ -133,7 +140,7 @@ def add_holes(df: pd.DataFrame, ratio_masked: float, mean_size: int):
     """
     groups = df.index.names.difference(["datetime", "date", "index"])
     generator = missing_patterns.GeometricHoleGenerator(
-        1, ratio_masked=ratio_masked, subset=df.columns, groups=groups
+        1, ratio_masked=ratio_masked, subset=df.columns, groups=groups, random_state=random_state
     )
 
     generator.dict_probas_out = {column: 1 / mean_size for column in df.columns}

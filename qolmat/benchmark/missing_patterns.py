@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import functools
 import logging
-from typing import List, Optional, Tuple, Callable
+from typing import List, Optional, Tuple, Callable, Union
 
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import GroupShuffleSplit
+from sklearn import utils as sku
 from sklearn.utils import resample
 
 logger = logging.getLogger(__name__)
@@ -268,6 +269,7 @@ class _SamplerHoleGenerator(_HoleGenerator):
         mask = pd.DataFrame(False, columns=X.columns, index=X.index)
         n_masked_col = round(self.ratio_masked * len(X))
         list_failed: List = []
+        self.rng = sku.check_random_state(self.random_state)
         for column in self.subset:
             states = X[column].isna()
 
@@ -279,7 +281,7 @@ class _SamplerHoleGenerator(_HoleGenerator):
             sizes_sampled += self.generate_hole_sizes(column, n_masked_col, sort=False)
             for sample in sizes_sampled:
                 sample = min(min(sample, sizes_max.max()), n_masked_left)
-                i_hole = np.random.choice(np.where(sample <= sizes_max)[0])
+                i_hole = self.rng.choice(np.where(sample <= sizes_max)[0])
 
                 assert (~mask[column].iloc[i_hole - sample : i_hole]).all()
                 mask[column].iloc[i_hole - sample : i_hole] = True
@@ -310,7 +312,7 @@ class GeometricHoleGenerator(_SamplerHoleGenerator):
         Names of the columns for which holes must be created, by default None
     ratio_masked : Optional[float], optional
         Ratio of masked values ​​to add, by default 0.05.
-    random_state : Optional[int], optional
+    random_state : Union[None, int, np.random.RandomState], optional
         The seed used by the random number generator, by default 42.
     groups: Optional[List[str]]
         Column names used to group the data
@@ -321,7 +323,7 @@ class GeometricHoleGenerator(_SamplerHoleGenerator):
         n_splits: int,
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
-        random_state: Optional[int] = 42,
+        random_state: Union[None, int, np.random.RandomState] = None,
         groups: Optional[List[str]] = [],
     ):
         super().__init__(
