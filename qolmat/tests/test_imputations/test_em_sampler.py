@@ -27,7 +27,7 @@ df = pd.DataFrame([[1, 1, 1, 1], [1, 2, 2, 1], [2, 2, 2, 2]])
 @pytest.mark.parametrize("df", [df])
 def test_em_sampler_convert_numpy(df: NDArray) -> None:
     """Test converge Numpy for Impute EM"""
-    assert type(em_sampler.EM("sample")._convert_numpy(df)) == np.ndarray
+    assert type(em_sampler.EM(method="sample")._convert_numpy(df)) == np.ndarray
 
 
 imputations_var = [

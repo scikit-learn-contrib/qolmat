@@ -154,7 +154,7 @@ class EM(BaseEstimator, TransformerMixin):
 
     def __init__(
         self,
-        method: Literal["mle", "sample"],
+        method: Literal["mle", "sample"] = "sample",
         max_iter_em: int = 200,
         n_iter_ou: int = 50,
         ampli: float = 1,
@@ -343,7 +343,7 @@ class MultiNormalEM(EM):
 
     def __init__(
         self,
-        method: Literal["mle", "sample"],
+        method: Literal["mle", "sample"] = "sample",
         max_iter_em: int = 200,
         n_iter_ou: int = 50,
         ampli: float = 1,
@@ -557,7 +557,7 @@ class VAR1EM(EM):
 
     def __init__(
         self,
-        method: Literal["mle", "sample"],
+        method: Literal["mle", "sample"] = "sample",
         max_iter_em: int = 200,
         n_iter_ou: int = 50,
         ampli: float = 1,
