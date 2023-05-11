@@ -1,0 +1,15 @@
+name: env_qolmat_ci
+channels:
+    - conda-forge
+    - defaults
+dependencies:
+    - pip=23.0.1
+    - pip:
+          - codecov
+          - flake8==6.0.0
+          - matplotlib==3.6.2
+          - mypy==1.1.1
+          - numpydoc==1.5.0
+          - pytest==7.2.0
+          - pytest-cov==4.0.0
+          - -e .

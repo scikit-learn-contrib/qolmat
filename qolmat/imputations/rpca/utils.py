@@ -277,6 +277,8 @@ def toeplitz_matrix(T: int, dimension: int, model: str) -> NDArray:
         return H[:-T, :]
     elif model == "column":
         return H[:, T:]
+    else:
+        raise ValueError("Parameter `model`should be 'row' of 'column'")
 
 
 def construct_graph(
