@@ -170,6 +170,8 @@ class EM(BaseEstimator, TransformerMixin):
                 indices[mask_isna], indices[~mask_isna], values[~mask_isna]
             )
             X_interpolated[i_row, mask_isna] = values_interpolated
+        print(X)
+        print(X_interpolated)
         return X_interpolated
 
     def _convert_numpy(self, X: NDArray) -> NDArray:

@@ -1,21 +1,21 @@
-import pytest
-import pandas as pd
-import numpy as np
-
-from numpy.typing import NDArray
 from typing import List
+
+import numpy as np
+import pandas as pd
+import pytest
+from numpy.typing import NDArray
 
 from qolmat.imputations import em_sampler
 
 # from __future__ import annotations
 
-X1 = np.array([[1, 1, 1, 1], [np.nan, np.nan, 3, 2], [1, 2, 2, 1], [2, 2, 2, 2]])
+X1 = np.array([[1, 1, 1, 1], [np.nan, np.nan, 4, 2], [1, 3, np.nan, 1], [2, 2, 2, 2]])
 
 X1_res = np.array(
     [
         [1.0, 1.0, 1.0, 1.0],
-        [2.0, 2.0, 3.0, 2.0],
-        [1.0, 2.0, 2.0, 1.0],
+        [4.0, 4.0, 4.0, 2.0],
+        [1.0, 3.0, 2.0, 1.0],
         [2.0, 2.0, 2.0, 2.0],
     ]
 )
@@ -79,45 +79,3 @@ n_iter_var = 11
 #        em_sampler.MultiNormalEM()._check_convergence(imputations, mu, cov, n_iter)
 #        == True
 #    )
-
-
-X = np.array([[1, 2, 4, 5], [6, 7, 8, 9]])
-X_shifted_ystd = np.array(
-    [
-        [1.0, 2.0, 4.0, 5.0, np.nan, np.nan, np.nan, np.nan],
-        [6.0, 7.0, 8.0, 9.0, 1.0, 2.0, 4.0, 5.0],
-    ]
-)
-X_shifted_tmrw = np.array(
-    [
-        [1.0, 2.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
-        [6.0, 7.0, 8.0, 9.0, np.nan, np.nan, np.nan, np.nan],
-    ]
-)
-
-
-# @pytest.mark.parametrize("X", [X])
-# def test_em_sampler_add_shift(X: NDArray) -> None:
-#    """Test add shift for Impute EM"""
-#
-#    X_yest_calculated = em_sampler.EM()._add_shift(X, True, False)
-#    X_tmrw_calculated = em_sampler.EM()._add_shift(X, False, True)
-#    np.testing.assert_array_equal(X_yest_calculated, X_shifted_ystd)
-#    np.testing.assert_array_equal(X_tmrw_calculated, X_shifted_tmrw)
-
-
-X1 = np.array([[1, 1, 1, 1], [np.nan, np.nan, 3, 2], [1, 2, 2, 1], [2, 2, 2, 2]])
-X1_res = np.array(
-    [
-        [1.0, 1.0, 1.0, 1.0],
-        [2.0, 2.0, 3.0, 2.0],
-        [1.0, 2.0, 2.0, 1.0],
-        [2.0, 2.0, 2.0, 2.0],
-    ]
-)
-
-
-# @pytest.mark.parametrize("X",[X])
-# def test_emr_sampler_em_mle(X:NDArray) -> None:
-#    print("*********************")
-#    print(em_sampler.ImputeEM()._em_mle(X))
