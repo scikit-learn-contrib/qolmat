@@ -230,7 +230,8 @@ class _SamplerHoleGenerator(_HoleGenerator):
         )
 
     def generate_hole_sizes(self, column: str, n_masked: int, sort: bool = True) -> List[int]:
-        """Generate a sequence of states "states" of size "size" from a transition matrix "df_transition"
+        """Generate a sequence of states "states" of size "size" from
+        a transition matrix "df_transition"
 
         Parameters
         ----------
@@ -525,7 +526,8 @@ class MultiMarkovHoleGenerator(_HoleGenerator):
         return self
 
     def generate_multi_realisation(self, n_masked: int) -> List[List[Tuple[bool, ...]]]:
-        """Generate a sequence of states "states" of size "size" from a transition matrix "df_transition"
+        """Generate a sequence of states "states" of size "size"
+        from a transition matrix "df_transition"
 
         Parameters
         ----------
