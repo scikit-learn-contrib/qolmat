@@ -111,7 +111,7 @@ class _HoleGenerator:
             mask
         """
 
-        # self.fit(X)
+        self.fit(X)
         list_masks = []
         for _ in range(self.n_splits):
             if self.ngroups is None:
