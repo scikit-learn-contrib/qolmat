@@ -13,7 +13,7 @@ from sklearn.preprocessing import StandardScaler
 logger = logging.getLogger(__name__)
 
 
-def _gradient_conjugue(A: NDArray, X: NDArray, mask_na: NDArray) -> NDArray:
+def _gradient_conjugue(A: NDArray, X: NDArray, mask: NDArray) -> NDArray:
     """
     Minimize Tr(X.T AX) by imputing missing values.
     To this aim, we compute in parallel a gradient algorithm for each data.
@@ -24,7 +24,7 @@ def _gradient_conjugue(A: NDArray, X: NDArray, mask_na: NDArray) -> NDArray:
         Matrix defining the quadratic optimization problem
     X : NDArray
         Array containing the values to optimize
-    mask_na : NDArray
+    mask : NDArray
         Boolean array indicating if a value of X is a variable of the optimization
 
     Returns
@@ -32,20 +32,20 @@ def _gradient_conjugue(A: NDArray, X: NDArray, mask_na: NDArray) -> NDArray:
     NDArray
         Minimized array.
     """
-    cols_imputed = mask_na.any(axis=0)
+    cols_imputed = mask.any(axis=0)
     X_temp = X[:, cols_imputed].copy()
-    mask_na = mask_na[:, cols_imputed].copy()
-    n_iter = mask_na.sum(axis=0).max()
-    X_temp[mask_na] = 0
+    mask = mask[:, cols_imputed].copy()
+    n_iter = mask.sum(axis=0).max()
+    X_temp[mask] = 0
     b = -A @ X_temp
-    b[~mask_na] = 0
+    b[~mask] = 0
     xn, pn, rn = np.zeros(X_temp.shape), b, b  # Initialisation
     for n in range(n_iter + 2):
         # if np.max(np.sum(rn**2)) < tol : # Condition de sortie " usuelle "
         #     X_temp[mask_isna] = xn[mask_isna]
         #     return X_temp.transpose()
         Apn = A @ pn
-        Apn[~mask_na] = 0
+        Apn[~mask] = 0
         alphan = np.sum(rn**2, axis=0) / np.sum(pn * Apn, axis=0)
         alphan[np.isnan(alphan)] = 0  # we stop updating if convergence is reached for this date
         xn, rnp1 = xn + alphan * pn, rn - alphan * Apn
@@ -53,7 +53,7 @@ def _gradient_conjugue(A: NDArray, X: NDArray, mask_na: NDArray) -> NDArray:
         betan[np.isnan(betan)] = 0  # we stop updating if convergence is reached for this date
         pn, rn = rnp1 + betan * pn, rnp1
 
-    X_temp[mask_na] = xn[mask_na]
+    X_temp[mask] = xn[mask]
     X_final = X.copy()
     X_final[:, cols_imputed] = X_temp
 
@@ -96,10 +96,6 @@ def invert_robust(M, epsilon=1e-2):
     """
     Meps = M - epsilon * (M - np.diag(M.diagonal()))
     if scipy.linalg.eigh(M)[0].min() < 0:
-        print("---------------- FAILURE -------------")
-        print(M.shape)
-        print(M)
-        print(scipy.linalg.eigh(M)[0].min())
         raise WarningMessage(
             f"Negative eigenvalue, some variables may be constant or colinear, "
             f"min value of {scipy.linalg.eigh(M)[0].min():.3g} found."
@@ -206,26 +202,6 @@ class EM(BaseEstimator, TransformerMixin):
             )
             X_interpolated[i_row, mask_isna] = values_interpolated
         return X_interpolated
-
-    def _convert_numpy(self, X: NDArray) -> NDArray:
-        """
-        Convert X pd.DataFrame to an array for internal calculations.
-
-        Parameters
-        ----------
-        X : NDArray
-            Input Array.
-
-        Returns
-        -------
-        NDArray
-            Return Array.
-        """
-        if not isinstance(X, np.ndarray):
-            if (not isinstance(X, pd.DataFrame)) & (not isinstance(X, list)):
-                raise ValueError("Input array is not a list, NDArray, nor pd.DataFrame.")
-            X = X.to_numpy()
-        return X
 
     def _check_convergence(self) -> bool:
         return False
