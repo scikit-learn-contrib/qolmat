@@ -9,13 +9,13 @@ from qolmat.imputations import em_sampler
 
 # from __future__ import annotations
 
-X1 = np.array([[1, 1, 1, 1], [np.nan, np.nan, 3, 2], [1, 2, 2, 1], [2, 2, 2, 2]])
+X1 = np.array([[1, 1, 1, 1], [np.nan, np.nan, 4, 2], [1, 3, np.nan, 1], [2, 2, 2, 2]])
 
 X1_res = np.array(
     [
         [1.0, 1.0, 1.0, 1.0],
-        [2.0, 2.0, 3.0, 2.0],
-        [1.0, 2.0, 2.0, 1.0],
+        [4.0, 4.0, 4.0, 2.0],
+        [1.0, 3.0, 2.0, 1.0],
         [2.0, 2.0, 2.0, 2.0],
     ]
 )
@@ -27,7 +27,7 @@ df = pd.DataFrame([[1, 1, 1, 1], [1, 2, 2, 1], [2, 2, 2, 2]])
 @pytest.mark.parametrize("df", [df])
 def test_em_sampler_convert_numpy(df: NDArray) -> None:
     """Test converge Numpy for Impute EM"""
-    assert type(em_sampler.EM()._convert_numpy(df)) == np.ndarray
+    assert type(em_sampler.EM(method="sample")._convert_numpy(df)) == np.ndarray
 
 
 imputations_var = [
