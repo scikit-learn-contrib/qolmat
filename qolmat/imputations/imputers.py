@@ -790,7 +790,10 @@ class ImputerRegressor(Imputer):
 
             # Adds the imputed values
             df_imputed.loc[~is_na, col] = y[~is_na]
-            df_imputed.loc[is_na & is_valid, col] = y_imputed
+            y_reshaped = y_imputed.reshape(
+                len(y_imputed),
+            )
+            df_imputed.loc[is_na & is_valid, col] = y_reshaped
 
         return df_imputed
 
