@@ -3,7 +3,7 @@ Modular utility functions for RPCA
 """
 
 import warnings
-from typing import Any, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd

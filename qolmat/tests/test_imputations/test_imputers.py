@@ -228,5 +228,4 @@ def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
             "col2": [0, 1.914706, 2, 2.480963, 2] + [i for i in range(5, 20)],
         }
     )
-    print(result)
     np.testing.assert_allclose(result, expected, rtol=1e-6)
