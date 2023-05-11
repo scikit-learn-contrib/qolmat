@@ -427,7 +427,8 @@ class MultiNormalEM(EM):
         return X
 
     def _check_convergence(self) -> bool:
-        """Check if the EM algorithm has converged. Three criteria:
+        """
+        Check if the EM algorithm has converged. Three criteria:
         1) if the differences between the estimates of the parameters (mean and covariance) is
         less than a threshold (min_diff_reached - convergence_threshold).
         2) if the difference of the consecutive differences of the estimates is less than a
