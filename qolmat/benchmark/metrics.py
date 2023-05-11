@@ -1,4 +1,4 @@
-from typing import Callable, Dict, Optional, Union, List
+from typing import Callable, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -10,7 +10,7 @@ from sklearn.preprocessing import StandardScaler
 EPS = np.finfo(float).eps
 
 ###########################
-# Column-wise metris      #
+# Column-wise metrics     #
 ###########################
 
 
@@ -192,7 +192,23 @@ def kl_divergence(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -
     return pd.Series(kl, index=cols)
 
 
-def _get_numerical_features(df1: pd.DataFrame):
+def _get_numerical_features(df1: pd.DataFrame) -> List[str]:
+    """Get numerical features from dataframe
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+
+    Returns
+    -------
+    List[str]
+        List of numerical features
+
+    Raises
+    ------
+    Exception
+        No numerical feature is found
+    """
     cols_numerical = df1.select_dtypes(include=np.number).columns.tolist()
     if len(cols_numerical) == 0:
         raise Exception("No numerical feature is found.")
@@ -200,7 +216,24 @@ def _get_numerical_features(df1: pd.DataFrame):
         return cols_numerical
 
 
-def _get_categorical_features(df1: pd.DataFrame):
+def _get_categorical_features(df1: pd.DataFrame) -> List[str]:
+    """Get categorical features from dataframe
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+
+    Returns
+    -------
+    List[str]
+        List of categorical features
+
+    Raises
+    ------
+    Exception
+        No categorical feature is found
+    """
+
     cols_numerical = df1.select_dtypes(include=np.number).columns.tolist()
     cols_categorical = [col for col in df1.columns.to_list() if col not in cols_numerical]
     if len(cols_categorical) == 0:
@@ -209,8 +242,30 @@ def _get_categorical_features(df1: pd.DataFrame):
         return cols_categorical
 
 
-def kolmogorov_smirnov_test(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.Series:
-    """Kolmogorov Smirnov Test for numerical features. Lower score means better performance.
+def _kolmogorov_smirnov_test(df1: pd.Series, df2: pd.Series) -> float:
+    """Compute KS test statistic of the two-sample Kolmogorov-Smirnov test for goodness of fit.
+    See more in https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.ks_2samp.html.
+
+    Parameters
+    ----------
+    df1 : pd.Series
+        true series
+    df2 : pd.Series
+        predicted series
+
+    Returns
+    -------
+    float
+        KS test statistic
+    """
+    return scipy.stats.ks_2samp(df1, df2)[0]
+
+
+def kolmogorov_smirnov_test(
+    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
+) -> pd.Series:
+    """Kolmogorov Smirnov Test for numerical features.
+    Lower score means better performance.
 
     Parameters
     ----------
@@ -218,19 +273,48 @@ def kolmogorov_smirnov_test(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.Series:
         true dataframe
     df2 : pd.DataFrame
         predicted dataframe
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
 
     Returns
     -------
-    float
+    pd.Series
         KS test statistic
     """
     cols_numerical = _get_numerical_features(df1)
-    ks_test_statistic = [scipy.stats.ks_2samp(df1[col], df2[col])[0] for col in cols_numerical]
+    return columnwise_metric(
+        df1[cols_numerical], df2[cols_numerical], df_mask[cols_numerical], _kolmogorov_smirnov_test
+    )
 
-    return pd.Series(ks_test_statistic, index=cols_numerical)
+
+def _total_variance_distance(df1: pd.Series, df2: pd.Series) -> float:
+    """Compute Total Variance Distance for a categorical feature
+    It is based on TVComplement in https://github.com/sdv-dev/SDMetrics
+
+    Parameters
+    ----------
+    df1 : pd.Series
+        true series
+    df2 : pd.Series
+        predicted series
+
+    Returns
+    -------
+    _type_
+        _description_
+    """
+    list_categories = list(set(df1.unique()).union(set(df2.unique())))
+    freqs1 = df1.value_counts() / len(df1)
+    freqs1 = freqs1.reindex(list_categories, fill_value=0.0)
+    freqs2 = df2.value_counts() / len(df2)
+    freqs2 = freqs2.reindex(list_categories, fill_value=0.0)
+
+    return (freqs1 - freqs2).abs().sum()
 
 
-def total_variance_distance(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.Series:
+def total_variance_distance(
+    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
+) -> pd.Series:
     """Total variance distance for categorical features
     It is based on TVComplement in https://github.com/sdv-dev/SDMetrics
 
@@ -240,47 +324,62 @@ def total_variance_distance(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.Series:
         true dataframe
     df2 : pd.DataFrame
         predicted dataframe
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
 
     Returns
     -------
     pd.Series
         Total variance distance
     """
-
     cols_categorical = _get_categorical_features(df1)
-    total_variance_distance = {}
-    for col in cols_categorical:
-        list_categories = list(set(df1[col].unique() + df2[col].unique()))
-        freqs1 = df1.groupby(col).count() / len(df1)
-        freqs1 = freqs1.reindex(list_categories, fill_value=0)
-        freqs2 = df2.groupby(col).count() / len(df2)
-        freqs2 = freqs2.reindex(list_categories, fill_value=0)
-        total_variance_distance[col] = (freqs1 - freqs2).abs().sum()
-
-    return pd.Series(total_variance_distance)
+    return columnwise_metric(
+        df1[cols_categorical],
+        df2[cols_categorical],
+        df_mask[cols_categorical],
+        _total_variance_distance,
+    )
 
 
-def _get_correlation_pearson_matrix(data: pd.DataFrame, use_p_value: bool = True) -> pd.DataFrame:
-    cols = data.columns.tolist()
-    matrix = np.zeros((len(data.columns), len(data.columns)))
+def _get_correlation_pearson_matrix(df: pd.DataFrame, use_p_value: bool = True) -> pd.DataFrame:
+    """Get matrix of correlation values for numerical features
+    based on Pearson correlation coefficient or p-value for testing non-correlation.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        dataframe
+    use_p_value : bool, optional
+        use the p-value instead of the correlation coefficient, by default True
+
+    Returns
+    -------
+    pd.DataFrame
+        Correlation matrix
+    """
+    cols = df.columns.tolist()
+    matrix = np.zeros((len(df.columns), len(df.columns)))
     for idx_1, col_1 in enumerate(cols):
         for idx_2, col_2 in enumerate(cols):
             res = scipy.stats.mstats.pearsonr(
-                data[col_1].array.reshape(-1, 1), data[col_2].array.reshape(-1, 1)
+                df[col_1].array.reshape(-1, 1), df[col_2].array.reshape(-1, 1)
             )
             if use_p_value:
                 matrix[idx_1, idx_2] = res[1]
             else:
                 matrix[idx_1, idx_2] = res[0]
+
     return pd.DataFrame(matrix, index=cols, columns=cols)
 
 
 def mean_difference_correlation_matrix_numerical_features(
     df1: pd.DataFrame,
     df2: pd.DataFrame,
+    df_mask: pd.DataFrame,
     use_p_value: bool = True,
 ) -> pd.Series:
-    """_summary_
+    """Mean absolute of differences between the correlation matrices of df1 and df2.
+    based on Pearson correlation coefficient or p-value for testing non-correlation.
 
     Parameters
     ----------
@@ -288,16 +387,22 @@ def mean_difference_correlation_matrix_numerical_features(
         true dataframe
     df2 : pd.DataFrame
         predicted dataframe
-    method : _type_
-        _description_
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
+    use_p_value : bool, optional
+        use the p-value instead of the correlation coefficient, by default True
 
     Returns
     -------
-    float
-        Mean absolute differences between correlation matrix of df1 and df2
+    pd.Series
+        Mean absolute of differences for each feature
     """
-    if df1.shape != df2.shape:
-        raise Exception("inputs have to be of same dimensions.")
+    df1 = df1[df_mask].dropna(axis=0)
+    df2 = df2[df_mask].dropna(axis=0)
+
+    if len(df1.columns) != len(df2.columns):
+        raise Exception("inputs have to have the same number of columns.")
+
     cols_numerical = _get_numerical_features(df1)
     df_corr1 = _get_correlation_pearson_matrix(df1[cols_numerical], use_p_value=use_p_value)
     df_corr2 = _get_correlation_pearson_matrix(df2[cols_numerical], use_p_value=use_p_value)
@@ -307,6 +412,21 @@ def mean_difference_correlation_matrix_numerical_features(
 
 
 def _get_correlation_chi2_matrix(data: pd.DataFrame, use_p_value: bool = True) -> pd.DataFrame:
+    """Get matrix of correlation values for categorical features
+    based on Chi-square test of independence of variables (the test statistic or the p-value).
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        dataframe
+    use_p_value : bool, optional
+        use the p-value of the test instead of the test statistic, by default True
+
+    Returns
+    -------
+    pd.DataFrame
+        Correlation matrix
+    """
     cols = data.columns.tolist()
     matrix = np.zeros((len(data.columns), len(data.columns)))
     for idx_1, col_1 in enumerate(cols):
@@ -325,9 +445,11 @@ def _get_correlation_chi2_matrix(data: pd.DataFrame, use_p_value: bool = True) -
 def mean_difference_correlation_matrix_categorical_features(
     df1: pd.DataFrame,
     df2: pd.DataFrame,
+    df_mask: pd.DataFrame,
     use_p_value: bool = True,
 ) -> pd.Series:
-    """_summary_
+    """Mean absolute of differences between the correlation matrix of df1 and df2
+    based on Chi-square test of independence of variables (the test statistic or the p-value)
 
     Parameters
     ----------
@@ -335,16 +457,22 @@ def mean_difference_correlation_matrix_categorical_features(
         true dataframe
     df2 : pd.DataFrame
         predicted dataframe
-    method : _type_
-        _description_
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
+    use_p_value : bool, optional
+        use the p-value of the test instead of the test statistic, by default True
 
     Returns
     -------
-    float
-        Mean absolute differences between correlation matrix of df1 and df2
+    pd.Series
+        Mean absolute of differences for each feature
     """
-    if df1.shape != df2.shape:
-        raise Exception("inputs have to be of same dimensions.")
+    df1 = df1[df_mask].dropna(axis=0)
+    df2 = df2[df_mask].dropna(axis=0)
+
+    if len(df1.columns) != len(df2.columns):
+        raise Exception("inputs have to have the same number of columns.")
+
     cols_categorical = _get_categorical_features(df1)
     df_corr1 = _get_correlation_chi2_matrix(df1[cols_categorical], use_p_value=use_p_value)
     df_corr2 = _get_correlation_chi2_matrix(df2[cols_categorical], use_p_value=use_p_value)
@@ -354,15 +482,34 @@ def mean_difference_correlation_matrix_categorical_features(
 
 
 def _get_correlation_f_oneway_matrix(
-    data: pd.DataFrame,
+    df: pd.DataFrame,
     cols_categorical: List[str],
     cols_numerical: List[str],
     use_p_value: bool = True,
 ) -> pd.DataFrame:
+    """Get matrix of correlation values between categorical and numerical features
+    based on the one-way ANOVA.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        dataframe
+    cols_categorical : List[str]
+        list categorical columns
+    cols_numerical : List[str]
+        list numerical columns
+    use_p_value : bool, optional
+        use the p-value of the test instead of the test statistic, by default True
+
+    Returns
+    -------
+    pd.DataFrame
+        Correlation matrix
+    """
     matrix = np.zeros((len(cols_categorical), len(cols_numerical)))
     for idx_cat, col_cat in enumerate(cols_categorical):
         for idx_num, col_num in enumerate(cols_numerical):
-            category_group_lists = data.groupby(col_cat)[col_num].apply(list)
+            category_group_lists = df.groupby(col_cat)[col_num].apply(list)
             try:
                 res = scipy.stats.f_oneway(*category_group_lists)
                 if use_p_value:
@@ -377,9 +524,11 @@ def _get_correlation_f_oneway_matrix(
 def mean_difference_correlation_matrix_categorical_vs_numerical_features(
     df1: pd.DataFrame,
     df2: pd.DataFrame,
+    df_mask: pd.DataFrame,
     use_p_value: bool = True,
 ) -> pd.Series:
-    """_summary_
+    """Mean absolute of differences between the correlation matrix of df1 and df2
+    based on the one-way ANOVA.
 
     Parameters
     ----------
@@ -387,16 +536,22 @@ def mean_difference_correlation_matrix_categorical_vs_numerical_features(
         true dataframe
     df2 : pd.DataFrame
         predicted dataframe
-    method : _type_
-        _description_
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
+    use_p_value : bool, optional
+        use the p-value of the test instead of the test statistic, by default True
 
     Returns
     -------
-    float
-        Mean absolute differences between correlation matrix of df1 and df2
+    pd.Series
+        Mean absolute of differences for each feature
     """
-    if df1.shape != df2.shape:
-        raise Exception("inputs have to be of same dimensions.")
+    df1 = df1[df_mask].dropna(axis=0)
+    df2 = df2[df_mask].dropna(axis=0)
+
+    if len(df1.columns) != len(df2.columns):
+        raise Exception("inputs have to have the same number of columns.")
+
     cols_categorical = _get_categorical_features(df1)
     cols_numerical = _get_numerical_features(df1)
     df_corr1 = _get_correlation_f_oneway_matrix(
@@ -405,7 +560,6 @@ def mean_difference_correlation_matrix_categorical_vs_numerical_features(
     df_corr2 = _get_correlation_f_oneway_matrix(
         df2, cols_categorical, cols_numerical, use_p_value=use_p_value
     )
-
     diff_corr = (df_corr1 - df_corr2).abs().mean(axis=1)
     return pd.Series(diff_corr, index=cols_categorical)
 
@@ -415,21 +569,7 @@ def mean_difference_correlation_matrix_categorical_vs_numerical_features(
 ###########################
 
 
-def _sum_distance_col(col: pd.Series, col_size: int) -> pd.Series:
-    """_summary_
-
-    Parameters
-    ----------
-    col : pd.Series
-        _description_
-    col_size : int
-        _description_
-
-    Returns
-    -------
-    _type_
-        _description_
-    """
+def _sum_distance_col(col: pd.Series, col_size: int) -> float:
     col = col.sort_values(ascending=True)
     sums_partial = col.shift().fillna(0.0).cumsum()
     differences_partial = col * np.arange(col_size) - sums_partial
@@ -453,7 +593,7 @@ def _sum_manhattan_distances(df1: pd.DataFrame) -> float:
     return sum
 
 
-def sum_energy_distances(df1: pd.DataFrame, df2: pd.DataFrame) -> float:
+def sum_energy_distances(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.Series:
     """Sum of energy distances between df1 and df2.
     It is based on https://dcor.readthedocs.io/en/latest/theory.html#
 
@@ -470,9 +610,9 @@ def sum_energy_distances(df1: pd.DataFrame, df2: pd.DataFrame) -> float:
         _description_
     """
 
-    # Replace real nan in dataframe
-    df1.fillna(0.0)
-    df2.fillna(0.0)
+    # Replace nan in dataframe
+    df1 = df1[df_mask].fillna(0.0)
+    df2 = df2[df_mask].fillna(0.0)
 
     sum_distances_df1 = _sum_manhattan_distances(
         df1
@@ -486,7 +626,9 @@ def sum_energy_distances(df1: pd.DataFrame, df2: pd.DataFrame) -> float:
     return pd.Series(sum_distance, index=["All"])
 
 
-def sum_pairwise_distances(df1: pd.DataFrame, df2: pd.DataFrame, metric: str = "cityblock"):
+def sum_pairwise_distances(
+    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame, metric: str = "cityblock"
+) -> pd.Series:
     """Sum of pairwise distances based on a predefined metric
 
     Parameters
@@ -503,7 +645,11 @@ def sum_pairwise_distances(df1: pd.DataFrame, df2: pd.DataFrame, metric: str = "
     _type_
         _description_
     """
-    distances = np.sum(scipy.spatial.distance.cdist(df1, df2, metric=metric))
+    distances = np.sum(
+        scipy.spatial.distance.cdist(
+            df1[df_mask].fillna(0.0), df2[df_mask].fillna(0.0), metric=metric
+        )
+    )
 
     return pd.Series(distances, index=["All"])
 
