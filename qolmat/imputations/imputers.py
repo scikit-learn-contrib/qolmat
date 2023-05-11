@@ -762,10 +762,10 @@ class ImputerRegressor(Imputer):
         groups: List[str] = [],
         estimator: Optional[BaseEstimator] = None,
         handler_nan: str = "column",
-        # col_imp: List[str] = [],
+        random_state: Union[None, int, np.random.RandomState] = None,
         **hyperparams,
     ):
-        super().__init__(groups=groups, hyperparams=hyperparams)
+        super().__init__(groups=groups, hyperparams=hyperparams, random_state=random_state)
         self.columnwise = False
         self.estimator = estimator
         self.handler_nan = handler_nan
@@ -828,9 +828,10 @@ class ImputerRegressor(Imputer):
 
             # Adds the imputed values
             df_imputed.loc[~is_na, col] = y[~is_na]
-            y_reshaped = y_imputed.reshape(
-                len(y_imputed),
-            )
+            if isinstance(y_imputed, pd.Series):
+                y_reshaped = y_imputed
+            else:
+                y_reshaped = y_imputed.flatten()
             df_imputed.loc[is_na & is_valid, col] = y_reshaped
 
         return df_imputed
