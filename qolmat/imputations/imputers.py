@@ -927,7 +927,7 @@ class ImputerEM(Imputer):
         elif self.model == "VAR1":
             model = em_sampler.VAR1EM(random_state=self.rng, **self.hyperparams_element)
         else:
-            raise ValueError("Model '{self.model}' is not handled by ImputeEM!")
+            raise ValueError(f"Model '{self.model}' is not handled by ImputeEM!")
         X = df.values.T
         model.fit(X)
 

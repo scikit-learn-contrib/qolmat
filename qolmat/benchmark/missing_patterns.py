@@ -69,7 +69,7 @@ class _HoleGenerator:
         n_splits: int,
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
-        random_state: Optional[int] = 42,
+        random_state: Union[None, int, np.random.RandomState] = None,
         groups: Optional[List[str]] = [],
     ) -> None:
         self.n_splits = n_splits
@@ -158,7 +158,7 @@ class UniformHoleGenerator(_HoleGenerator):
         n_splits: int,
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
-        random_state: Optional[int] = 42,
+        random_state: Union[None, int, np.random.RandomState] = None,
     ):
         super().__init__(
             n_splits=n_splits,
@@ -178,6 +178,7 @@ class UniformHoleGenerator(_HoleGenerator):
             Initial dataframe with a missing pattern to be imitated.
         """
 
+        self.rng = sku.check_random_state(self.random_state)
         df_mask = pd.DataFrame(False, index=X.index, columns=X.columns)
         n_masked_col = round(self.ratio_masked * len(X))
 
@@ -219,7 +220,7 @@ class _SamplerHoleGenerator(_HoleGenerator):
         n_splits: int,
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
-        random_state: Optional[int] = 42,
+        random_state: Union[None, int, np.random.RandomState] = None,
         groups: Optional[List[str]] = [],
     ):
         super().__init__(
@@ -365,7 +366,7 @@ class GeometricHoleGenerator(_SamplerHoleGenerator):
         proba_out = self.dict_probas_out[column]
         mean_size = 1 / proba_out
         n_holes = 2 * round(n_masked / mean_size)
-        sizes_sampled = pd.Series(np.random.geometric(p=proba_out, size=n_holes))
+        sizes_sampled = pd.Series(self.rng.geometric(p=proba_out, size=n_holes))
         return sizes_sampled
 
 
@@ -393,7 +394,7 @@ class EmpiricalHoleGenerator(_SamplerHoleGenerator):
         n_splits: int,
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
-        random_state: Optional[int] = 42,
+        random_state: Union[None, int, np.random.RandomState] = None,
         groups: Optional[List[str]] = [],
     ):
         super().__init__(
@@ -461,7 +462,7 @@ class EmpiricalHoleGenerator(_SamplerHoleGenerator):
         mean_size = (distribution_holes.values * distribution_holes.index.values).sum()
 
         n_samples = 2 * round(n_masked / mean_size)
-        sizes_sampled = np.random.choice(distribution_holes.index, n_samples, p=distribution_holes)
+        sizes_sampled = self.rng.choice(distribution_holes.index, n_samples, p=distribution_holes)
         return sizes_sampled
 
 
@@ -489,7 +490,7 @@ class MultiMarkovHoleGenerator(_HoleGenerator):
         n_splits: int,
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
-        random_state: Optional[int] = 42,
+        random_state: Union[None, int, np.random.RandomState] = None,
         groups: Optional[List[str]] = [],
     ):
         super().__init__(
@@ -580,6 +581,7 @@ class MultiMarkovHoleGenerator(_HoleGenerator):
             mask
         """
 
+        self.rng = sku.check_random_state(self.random_state)
         X_subset = X[self.subset]
         mask = pd.DataFrame(False, columns=X_subset.columns, index=X_subset.index)
 
@@ -595,7 +597,7 @@ class MultiMarkovHoleGenerator(_HoleGenerator):
             n_masked = sum([sum(row) for row in realisation])
             size_hole = min(size_hole, sizes_max.max())
             realisation = realisation[:size_hole]
-            i_hole = np.random.choice(np.where(size_hole <= sizes_max)[0])
+            i_hole = self.rng.choice(np.where(size_hole <= sizes_max)[0])
             assert (~mask.iloc[i_hole - size_hole : i_hole]).all().all()
             mask.iloc[i_hole - size_hole : i_hole] = mask.iloc[i_hole - size_hole : i_hole].where(
                 ~np.array(realisation), other=True
@@ -639,7 +641,7 @@ class GroupedHoleGenerator(_HoleGenerator):
         n_splits: int,
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
-        random_state: Optional[int] = 42,
+        random_state: Union[None, int, np.random.RandomState] = None,
         groups: List[str] = [],
     ):
         super().__init__(
