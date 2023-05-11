@@ -154,7 +154,7 @@ class EM(BaseEstimator, TransformerMixin):
 
     def __init__(
         self,
-        method: Literal["mle", "sample"],
+        method: Literal["mle", "sample"] = "sample",
         max_iter_em: int = 200,
         n_iter_ou: int = 50,
         ampli: float = 1,
@@ -341,7 +341,7 @@ class MultiNormalEM(EM):
 
     def __init__(
         self,
-        method: Literal["mle", "sample"],
+        method: Literal["mle", "sample"] = "sample",
         max_iter_em: int = 200,
         n_iter_ou: int = 50,
         ampli: float = 1,
@@ -457,7 +457,8 @@ class MultiNormalEM(EM):
         return X
 
     def _check_convergence(self) -> bool:
-        """Check if the EM algorithm has converged. Three criteria:
+        """
+        Check if the EM algorithm has converged. Three criteria:
         1) if the differences between the estimates of the parameters (mean and covariance) is
         less than a threshold (min_diff_reached - convergence_threshold).
         2) if the difference of the consecutive differences of the estimates is less than a
@@ -554,7 +555,7 @@ class VAR1EM(EM):
 
     def __init__(
         self,
-        method: Literal["mle", "sample"],
+        method: Literal["mle", "sample"] = "sample",
         max_iter_em: int = 200,
         n_iter_ou: int = 50,
         ampli: float = 1,

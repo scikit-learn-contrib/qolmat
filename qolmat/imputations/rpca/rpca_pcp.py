@@ -66,12 +66,12 @@ class RPCAPCP(RPCA):
 
         D_norm = np.linalg.norm(D, "fro")
 
-        A = np.full_like(D, 0)
-        Y = np.full_like(D, 0)
+        A: NDArray = np.full_like(D, 0)
+        Y: NDArray = np.full_like(D, 0)
 
-        errors = np.full((self.max_iter,), fill_value=np.nan)
+        errors: NDArray = np.full((self.max_iter,), fill_value=np.nan)
 
-        M = proj_D - A
+        M: NDArray = proj_D - A
         for iteration in range(self.max_iter):
             M = utils.svd_thresholding(proj_D - A + Y / mu, 1 / mu)
             A = utils.soft_thresholding(proj_D - M + Y / mu, lam / mu)

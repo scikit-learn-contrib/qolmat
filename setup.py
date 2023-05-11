@@ -46,9 +46,9 @@ INSTALL_REQUIRES = [
     "packaging",
     "scikit-optimize",
     "scipy",
-    "statsmodels",
-    "pandas",
-    "dcor",
+    "statsmodels>=0.14",
+    "pandas>=2.0",
+    "dcor>=0.6",
 ]
 EXTRAS_REQUIRE = {
     "tests": ["flake8", "mypy", "pandas", "pytest", "pytest-cov", "typed-ast"],
