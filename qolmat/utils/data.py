@@ -189,7 +189,7 @@ def add_station_features(df: pd.DataFrame):
     """
     stations = df.index.get_level_values("station")
     for station in stations.unique():
-        df[f"station={station}"] = 1 * (stations == station)
+        df[f"station={station}"] = (stations == station).astype(float)
     return df
 
 
@@ -208,15 +208,9 @@ def add_datetime_features(df: pd.DataFrame):
         dataframe with missing values
     """
 
-    time = np.concatenate(
-        [
-            np.cos(2 * np.pi * np.arange(60, 366) / 365),
-            np.cos(2 * np.pi * np.arange(1, 366) / 365),
-            np.cos(2 * np.pi * np.arange(1, 366) / 365),
-            np.cos(2 * np.pi * np.arange(1, 367) / 366),
-            np.cos(2 * np.pi * np.arange(1, 60) / 365),
-        ]
+    time = df.index.get_level.values("datetime")
+    days_in_year = time.dt.year.apply(
+        lambda x: 366 if ((x % 4 == 0) and (x % 100 != 0)) or (x % 400 == 0) else 365
     )
-    for i_station, (station, dfs) in enumerate(df.groupby("station")):
-        df.loc[station, "Time"] = time
+    df["time_cos"] = np.cos(2 * np.pi * time.dt.dayofyear / days_in_year)
     return df
