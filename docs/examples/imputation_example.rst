@@ -53,7 +53,7 @@ Some methods take arguments. For instance, if we want to impute by the mean, we 
 * Here, in the :class:`ImputerMean` , we specify :class:`groups=["datetime.dt.month", "datetime.dt.dayofweek"]`, which means  the method will first use a groupby operation (via :class:`pd.DataFrame.groupby`) and then impute missing values with the mean of their corresponding group. 
 * For the :class:`ImputeInterpolation`, the method can be anything supported by :class:`pd.Series.interpolate`; hence for :class:`spline` and :class:`polynomial`, we have to provide an :class:`order`. 
 * For the :class:`ImputerRPCA`, we first need to specify the :class:`method`, i.e. :class:`PCP`, :class:`Temporal` or :class:`Online`. It is also mandatory to mention if we deal with multivariate or not. Finally, there is a set of hyperparameters that can be specify.  See the doc "Focus on RPCA" for more information. 
-* For the :class:`ImputerEM`, we can specify the maximum number of iterations or the strategy used, i.e. "sample" or "argmax" (By default, "sample"). See the doc "Focus on EM Sampler" for more information. 
+* For the :class:`ImputerEM`, we can specify the maximum number of iterations or the model used, i.e. "sample" or "mle" (By default, "sample"). See the doc "Focus on EM Sampler" for more information. 
 * For the :class:`ImputerIterative`, we can specify the regression model to use, with its own hyperparameters. 
 * For the :class:`ImputerRegressor`, we can specify the regression model to use, with its own hyperparameters as well as the name of the columns to impute. 
 

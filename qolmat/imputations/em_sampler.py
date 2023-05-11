@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Union
+from typing import Dict, List, Literal, Union
 from warnings import WarningMessage
 
 import numpy as np
@@ -13,7 +13,7 @@ from sklearn.preprocessing import StandardScaler
 logger = logging.getLogger(__name__)
 
 
-def _gradient_conjugue(A: NDArray, X: NDArray) -> NDArray:
+def _gradient_conjugue(A: NDArray, X: NDArray, mask_na: NDArray) -> NDArray:
     """
     Minimize Tr(X.T AX) by imputing missing values.
     To this aim, we compute in parallel a gradient algorithm for each data.
@@ -21,29 +21,31 @@ def _gradient_conjugue(A: NDArray, X: NDArray) -> NDArray:
     Parameters
     ----------
     A : NDArray
-        A array
+        Matrix defining the quadratic optimization problem
     X : NDArray
-        X array
+        Array containing the values to optimize
+    mask_na : NDArray
+        Boolean array indicating if a value of X is a variable of the optimization
 
     Returns
     -------
     NDArray
         Minimized array.
     """
-    index_imputed = np.isnan(X).any(axis=0)
-    X_temp = X[:, index_imputed].copy()
-    n_iter = np.isnan(X_temp).sum(axis=0).max()
-    mask = np.isnan(X_temp)
-    X_temp[mask] = 0
+    cols_imputed = mask_na.any(axis=0)
+    X_temp = X[:, cols_imputed].copy()
+    mask_na = mask_na[:, cols_imputed].copy()
+    n_iter = mask_na.sum(axis=0).max()
+    X_temp[mask_na] = 0
     b = -A @ X_temp
-    b[~mask] = 0
+    b[~mask_na] = 0
     xn, pn, rn = np.zeros(X_temp.shape), b, b  # Initialisation
     for n in range(n_iter + 2):
         # if np.max(np.sum(rn**2)) < tol : # Condition de sortie " usuelle "
-        #     X_temp[mask] = xn[mask]
+        #     X_temp[mask_isna] = xn[mask_isna]
         #     return X_temp.transpose()
         Apn = A @ pn
-        Apn[~mask] = 0
+        Apn[~mask_na] = 0
         alphan = np.sum(rn**2, axis=0) / np.sum(pn * Apn, axis=0)
         alphan[np.isnan(alphan)] = 0  # we stop updating if convergence is reached for this date
         xn, rnp1 = xn + alphan * pn, rn - alphan * Apn
@@ -51,15 +53,47 @@ def _gradient_conjugue(A: NDArray, X: NDArray) -> NDArray:
         betan[np.isnan(betan)] = 0  # we stop updating if convergence is reached for this date
         pn, rn = rnp1 + betan * pn, rnp1
 
-    X_temp[mask] = xn[mask]
+    X_temp[mask_na] = xn[mask_na]
     X_final = X.copy()
-    X_final[:, index_imputed] = X_temp
+    X_final[:, cols_imputed] = X_temp
 
     return X_final
 
 
 def invert_robust(M, epsilon=1e-2):
-    # In case of inversibility problem, one can add a penalty term
+    """
+    Compute the inverse of a matrix `M`, with robustness checks.
+
+    In case of singularity or near-singularity of the input matrix, this function applies
+    a penalty term to the diagonal elements of `M` to make it more invertible. If the matrix
+    still fails to meet certain quality criteria, an error is raised.
+
+    Parameters
+    ----------
+    M : array_like
+        The matrix to invert. Should be square.
+    epsilon : float, optional
+        The penalty parameter to add to the diagonal elements of `M`. Default is 1e-2.
+
+    Returns
+    -------
+    invM : ndarray
+        The inverse of `M` after applying the penalty term.
+
+    Raises
+    ------
+    WarningMessage
+        If `M` has negative eigenvalues, indicating that some variables may be constant
+        or collinear, or if `M` has extremely large eigenvalues, indicating that the imputation
+        may be inflated.
+
+    Examples
+    --------
+    >>> M = np.array([[1, 2], [3, 4]])
+    >>> invert_robust(M)
+    array([[-2,  1],
+           [ 1.5   , -0.5  ]])
+    """
     Meps = M - epsilon * (M - np.diag(M.diagonal()))
     if scipy.linalg.eigh(M)[0].min() < 0:
         print("---------------- FAILURE -------------")
@@ -78,13 +112,13 @@ def invert_robust(M, epsilon=1e-2):
 
 class EM(BaseEstimator, TransformerMixin):
     """
-    Imputation of missing values using a multivariate Gaussian model through EM optimization and
-    using a projected Ornstein-Uhlenbeck process.
+    Generic class for missing values imputation through EM optimization and
+    a projected Ornstein-Uhlenbeck process.
 
     Parameters
     ----------
-    method : str
-        Method for imputation, choose among "sample" or "mle".
+    method : Literal["mle", "sample"]
+        Method for imputation, choose among "mle" or "sample".
     max_iter_em : int, optional
         Maximum number of steps in the EM algorithm
     n_iter_ou : int, optional
@@ -95,8 +129,9 @@ class EM(BaseEstimator, TransformerMixin):
         or to maximise likelihood (0), by default 1.
     random_state : int, optional
         The seed of the pseudo random number generator to use, for reproductibility.
-    rng : Generator
-            Random number generator to be used, for reproducibility.
+    dt : float
+        Process integration time step, a large value increases the sample bias and can make
+        the algorithm unstable, but compensates for a smaller n_iter_ou. By default, 2e-2.
 
     Attributes
     ----------
@@ -109,7 +144,7 @@ class EM(BaseEstimator, TransformerMixin):
     >>> import numpy as np
     >>> import pandas as pd
     >>> from qolmat.imputations.em_sampler import ImputeEM
-    >>> imputor = ImputeEM(strategy="sample")
+    >>> imputor = ImputeEM(method="mle")
     >>> X = pd.DataFrame(data=[[1, 1, 1, 1],
     >>>                        [np.nan, np.nan, 3, 2],
     >>>                        [1, 2, 2, 1], [2, 2, 2, 2]],
@@ -119,7 +154,7 @@ class EM(BaseEstimator, TransformerMixin):
 
     def __init__(
         self,
-        strategy: str = "mle",
+        method: Literal["mle", "sample"],
         max_iter_em: int = 200,
         n_iter_ou: int = 50,
         ampli: float = 1,
@@ -129,10 +164,10 @@ class EM(BaseEstimator, TransformerMixin):
         stagnation_threshold: float = 5e-3,
         stagnation_loglik: float = 2,
     ):
-        if strategy not in ["mle", "ou"]:
-            raise Exception("strategy has to be 'mle' or 'ou'")
+        if method not in ["mle", "sample"]:
+            raise ValueError(f"`method` must be 'mle' or 'sample', provided value is '{method}'")
 
-        self.strategy = strategy
+        self.method = method
         self.max_iter_em = max_iter_em
         self.n_iter_ou = n_iter_ou
         self.ampli = ampli
@@ -211,8 +246,7 @@ class EM(BaseEstimator, TransformerMixin):
         if not isinstance(X, np.ndarray):
             raise AssertionError("Invalid type. X must be a NDArray.")
 
-        X = self.scaler.fit_transform(X)
-        X = X.T
+        X = self.scaler.fit_transform(X.T).T
 
         mask_na = np.isnan(X)
 
@@ -245,18 +279,16 @@ class EM(BaseEstimator, TransformerMixin):
         NDArray
             Final array after EM sampling.
         """
-
+        mask_na = np.isnan(X)
         if hash(X.tobytes()) == self.hash_fit:
             X = self.X_sample_last
         else:
-            X = self.scaler.transform(X)
-            X = X.T
+            X = self.scaler.transform(X.T).T
             X = self._linear_interpolation(X)
 
-        if self.strategy == "mle":
-            X_transformed = self._maximize_likelihood(X)
-        elif self.strategy == "ou":
-            mask_na = np.isnan(X)
+        if self.method == "mle":
+            X_transformed = self._maximize_likelihood(X, mask_na, self.dt)
+        elif self.method == "sample":
             X_transformed = self._sample_ou(X, mask_na)
 
         if np.all(np.isnan(X_transformed)):
@@ -274,7 +306,7 @@ class MultiNormalEM(EM):
 
     Parameters
     ----------
-    method : str
+    method : Literal["mle", "sample"]
         Method for imputation, choose among "sample" or "mle".
     max_iter_em : int, optional
         Maximum number of steps in the EM algorithm
@@ -301,7 +333,7 @@ class MultiNormalEM(EM):
     >>> import numpy as np
     >>> import pandas as pd
     >>> from qolmat.imputations.em_sampler import ImputeEM
-    >>> imputor = ImputeEM(strategy="sample")
+    >>> imputor = ImputeEM(method="sample")
     >>> X = pd.DataFrame(data=[[1, 1, 1, 1],
     >>>                        [np.nan, np.nan, 3, 2],
     >>>                        [1, 2, 2, 1], [2, 2, 2, 2]],
@@ -311,7 +343,7 @@ class MultiNormalEM(EM):
 
     def __init__(
         self,
-        strategy: str = "mle",
+        method: Literal["mle", "sample"],
         max_iter_em: int = 200,
         n_iter_ou: int = 50,
         ampli: float = 1,
@@ -319,10 +351,10 @@ class MultiNormalEM(EM):
         dt: float = 2e-2,
         tolerance: float = 1e-4,
         stagnation_threshold: float = 5e-3,
-        stagnation_loglik: float = 1e1,
+        stagnation_loglik: float = 2,
     ) -> None:
         super().__init__(
-            strategy,
+            method,
             max_iter_em,
             n_iter_ou,
             ampli,
@@ -340,7 +372,7 @@ class MultiNormalEM(EM):
         self.cov = np.cov(X).reshape(len(X), -1)
         self.cov_inv = invert_robust(self.cov, epsilon=1e-2)
 
-    def _maximize_likelihood(self, X: NDArray) -> NDArray:
+    def _maximize_likelihood(self, X: NDArray, mask_na: NDArray, dt: float = np.nan) -> NDArray:
         """
         Get the argmax of a posterior distribution.
 
@@ -355,7 +387,7 @@ class MultiNormalEM(EM):
             DataFrame with imputed values.
         """
         X_center = X - self.means[:, None]
-        X_imputed = _gradient_conjugue(self.cov_inv, X_center)
+        X_imputed = _gradient_conjugue(self.cov_inv, X_center, mask_na)
         X_imputed = self.means[:, None] + X_imputed
         return X_imputed
 
@@ -488,7 +520,7 @@ class VAR1EM(EM):
 
     Parameters
     ----------
-    method : str
+    method : Literal["mle", "sample"]
         Method for imputation, choose among "sample" or "mle".
     max_iter_em : int, optional
         Maximum number of steps in the EM algorithm
@@ -500,6 +532,9 @@ class VAR1EM(EM):
         or to maximise likelihood (0), by default 1.
     random_state : int, optional
         The seed of the pseudo random number generator to use, for reproductibility.
+    dt : float
+        Process integration time step, a large value increases the sample bias and can make
+        the algorithm unstable, but compensates for a smaller n_iter_ou. By default, 2e-2.
 
     Attributes
     ----------
@@ -511,18 +546,18 @@ class VAR1EM(EM):
     --------
     >>> import numpy as np
     >>> import pandas as pd
-    >>> from qolmat.imputations.em_sampler import ImputeEM
-    >>> imputor = ImputeEM(strategy="sample")
+    >>> from qolmat.imputations.em_sampler import VAR1EM
+    >>> imputer = VAR1EM(method="sample")
     >>> X = pd.DataFrame(data=[[1, 1, 1, 1],
     >>>                        [np.nan, np.nan, 3, 2],
     >>>                        [1, 2, 2, 1], [2, 2, 2, 2]],
     >>>                        columns=["var1", "var2", "var3", "var4"])
-    >>> imputor.fit_transform(X)
+    >>> imputer.fit_transform(X)
     """
 
     def __init__(
         self,
-        strategy: str = "mle",
+        method: Literal["mle", "sample"],
         max_iter_em: int = 200,
         n_iter_ou: int = 50,
         ampli: float = 1,
@@ -530,10 +565,10 @@ class VAR1EM(EM):
         dt: float = 2e-2,
         tolerance: float = 1e-4,
         stagnation_threshold: float = 5e-3,
-        stagnation_loglik: float = 1e1,
+        stagnation_loglik: float = 2,
     ) -> None:
         super().__init__(
-            strategy,
+            method,
             max_iter_em,
             n_iter_ou,
             ampli,
@@ -584,7 +619,7 @@ class VAR1EM(EM):
         Z_fore = Xc_fore - self.A @ Xc
         return -self.omega_inv @ Z_back + self.A.T @ self.omega_inv @ Z_fore
 
-    def _maximize_likelihood(self, X: NDArray, dt=1e-2) -> NDArray:
+    def _maximize_likelihood(self, X: NDArray, mask_na: NDArray, dt=1e-2) -> NDArray:
         """
         Get the argmax of a posterior distribution.
 
@@ -600,7 +635,9 @@ class VAR1EM(EM):
         """
         Xc = X - self.B[:, None]
         for n_optim in range(1000):
-            Xc += dt * self.gradient_X_centered_loglik(Xc)
+            grad = self.gradient_X_centered_loglik(Xc)
+            grad[~mask_na] = 0
+            Xc += dt * grad
         return Xc + self.B[:, None]
 
     def _sample_ou(

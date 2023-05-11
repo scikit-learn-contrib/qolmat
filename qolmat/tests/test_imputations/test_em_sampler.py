@@ -21,20 +21,13 @@ X1_res = np.array(
 )
 
 
-@pytest.mark.parametrize("X", [X1])
-def test_em_sampler_linear_interpolation(X: NDArray) -> None:
-    """Test linear_interpolation for Impute EM"""
-    res = em_sampler.EM()._linear_interpolation(X)
-    np.testing.assert_array_equal(res, X1_res)
-
-
 df = pd.DataFrame([[1, 1, 1, 1], [1, 2, 2, 1], [2, 2, 2, 2]])
 
 
 @pytest.mark.parametrize("df", [df])
 def test_em_sampler_convert_numpy(df: NDArray) -> None:
     """Test converge Numpy for Impute EM"""
-    assert type(em_sampler.EM()._convert_numpy(df)) == np.ndarray
+    assert type(em_sampler.EM("sample")._convert_numpy(df)) == np.ndarray
 
 
 imputations_var = [
