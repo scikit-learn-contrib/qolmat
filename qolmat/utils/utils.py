@@ -67,6 +67,21 @@ def progress_bar(iteration, total, prefix="", suffix="", decimals=1, length=100,
 
 
 def acf(values: pd.Series, lag_max: int = 30) -> pd.Series:
+    """
+    Robust computation of the autocorrelation function for a univariate time series.
+
+    Parameters
+    ----------
+    values : pd.Series
+        Values of the time series, can contain missing values
+    lag_max: int
+        Maximal number of lags, which is the number of estimated correlations
+
+    Returns
+    -------
+    pd.Series
+        Series of estimated autocorrelations, indexed by the corresponding lag
+    """
     acf = pd.Series(0, index=range(lag_max))
     for lag in range(lag_max):
         acf[lag] = values.corr(values.shift(lag))

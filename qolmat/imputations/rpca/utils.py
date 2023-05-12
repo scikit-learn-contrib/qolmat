@@ -194,7 +194,7 @@ def impute_nans(M: NDArray, method: str = "zeros") -> NDArray:
         result = np.where(np.isnan(M), 0, M)
     else:
         raise ValueError("'method' should be 'mean', 'median' or 'zeros'.")
-    return result
+    return np.array(result)
 
 
 def ortho_proj(
