@@ -125,71 +125,71 @@ def wasser_distance(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame)
     return columnwise_metric(df1, df2, df_mask, scipy.stats.wasserstein_distance)
 
 
-def kl_divergence_1D(df1: pd.Series, df2: pd.Series) -> np.number:
-    min_val = min(df1.min(), df2.min())
-    max_val = max(df1.max(), df2.max())
-    bins = np.linspace(min_val, max_val, 20)
-    p = np.histogram(df1, bins=bins, density=True)[0]
-    q = np.histogram(df2, bins=bins, density=True)[0]
-    return scipy.stats.entropy(p + EPS, q + EPS)
+# def kl_divergence_1D(df1: pd.Series, df2: pd.Series) -> np.number:
+#     min_val = min(df1.min(), df2.min())
+#     max_val = max(df1.max(), df2.max())
+#     bins = np.linspace(min_val, max_val, 20)
+#     p = np.histogram(df1, bins=bins, density=True)[0]
+#     q = np.histogram(df2, bins=bins, density=True)[0]
+#     return scipy.stats.entropy(p + EPS, q + EPS)
 
 
-def kl_divergence_columnwise(
-    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
-) -> pd.Series:
-    """TODO documentation
-    Kullback-Leibler divergence between distributions
-    If multivariate normal distributions:
-    https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence
+# def kl_divergence_columnwise(
+#     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
+# ) -> pd.Series:
+#     """TODO documentation
+#     Kullback-Leibler divergence between distributions
+#     If multivariate normal distributions:
+#     https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence
 
-    Parameters
-    ----------
-    df1 : pd.DataFrame
-    df2 : pd.DataFrame
-    columnwise_evaluation: Optional[bool]
-        if the evalutation is computed column-wise. By default, is set to False
+#     Parameters
+#     ----------
+#     df1 : pd.DataFrame
+#     df2 : pd.DataFrame
+#     columnwise_evaluation: Optional[bool]
+#         if the evalutation is computed column-wise. By default, is set to False
 
-    Returns
-    -------
-    Kullback-Leibler divergence : Union[float, pd.Series]
-    """
+#     Returns
+#     -------
+#     Kullback-Leibler divergence : Union[float, pd.Series]
+#     """
 
-    return columnwise_metric(df1, df2, df_mask, kl_divergence_1D)
+#     return columnwise_metric(df1, df2, df_mask, kl_divergence_1D)
 
 
-def kl_divergence(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.Series:
-    """TODO Documentation
-    Kullback-Leibler divergence between distributions
-    If multivariate normal distributions:
-    https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence
+# def kl_divergence(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.Series:
+#     """TODO Documentation
+#     Kullback-Leibler divergence between distributions
+#     If multivariate normal distributions:
+#     https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence
 
-    Parameters
-    ----------
-    df1 : pd.DataFrame
-    df2 : pd.DataFrame
-    columnwise_evaluation: Optional[bool]
-        if the evalutation is computed column-wise. By default, is set to False
+#     Parameters
+#     ----------
+#     df1 : pd.DataFrame
+#     df2 : pd.DataFrame
+#     columnwise_evaluation: Optional[bool]
+#         if the evalutation is computed column-wise. By default, is set to False
 
-    Returns
-    -------
-    Kullback-Leibler divergence : Union[float, pd.Series]
-    """
-    cols = df1.columns.tolist()
-    df_1 = StandardScaler().fit_transform(df1[df_mask.any(axis=1)])
-    df_2 = StandardScaler().fit_transform(df2[df_mask.any(axis=1)])
+#     Returns
+#     -------
+#     Kullback-Leibler divergence : Union[float, pd.Series]
+#     """
+#     cols = df1.columns.tolist()
+#     df_1 = StandardScaler().fit_transform(df1[df_mask.any(axis=1)])
+#     df_2 = StandardScaler().fit_transform(df2[df_mask.any(axis=1)])
 
-    n = df_1.shape[0]
-    mu_true = np.nanmean(df_1, axis=0)
-    sigma_true = np.ma.cov(np.ma.masked_invalid(df_1), rowvar=False).data
-    mu_pred = np.nanmean(df_2, axis=0)
-    sigma_pred = np.ma.cov(np.ma.masked_invalid(df_2), rowvar=False).data
-    diff = mu_true - mu_pred
-    inv_sigma_pred = np.linalg.inv(sigma_pred)
-    quad_term = diff.T @ inv_sigma_pred @ diff
-    trace_term = np.trace(inv_sigma_pred @ sigma_true)
-    det_term = np.log(np.linalg.det(sigma_pred) / np.linalg.det(sigma_true))
-    kl = 0.5 * (quad_term + trace_term + det_term - n)
-    return pd.Series(kl, index=cols)
+#     n = df_1.shape[0]
+#     mu_true = np.nanmean(df_1, axis=0)
+#     sigma_true = np.ma.cov(np.ma.masked_invalid(df_1), rowvar=False).data
+#     mu_pred = np.nanmean(df_2, axis=0)
+#     sigma_pred = np.ma.cov(np.ma.masked_invalid(df_2), rowvar=False).data
+#     diff = mu_true - mu_pred
+#     inv_sigma_pred = np.linalg.inv(sigma_pred)
+#     quad_term = diff.T @ inv_sigma_pred @ diff
+#     trace_term = np.trace(inv_sigma_pred @ sigma_true)
+#     det_term = np.log(np.linalg.det(sigma_pred) / np.linalg.det(sigma_true))
+#     kl = 0.5 * (quad_term + trace_term + det_term - n)
+#     return pd.Series(kl, index=cols)
 
 
 def _get_numerical_features(df1: pd.DataFrame) -> List[str]:
@@ -341,6 +341,11 @@ def total_variance_distance(
     )
 
 
+def _check_same_number_columns(df1: pd.DataFrame, df2: pd.DataFrame):
+    if len(df1.columns) != len(df2.columns):
+        raise Exception("inputs have to have the same number of columns.")
+
+
 def _get_correlation_pearson_matrix(df: pd.DataFrame, use_p_value: bool = True) -> pd.DataFrame:
     """Get matrix of correlation values for numerical features
     based on Pearson correlation coefficient or p-value for testing non-correlation.
@@ -400,8 +405,7 @@ def mean_difference_correlation_matrix_numerical_features(
     df1 = df1[df_mask].dropna(axis=0)
     df2 = df2[df_mask].dropna(axis=0)
 
-    if len(df1.columns) != len(df2.columns):
-        raise Exception("inputs have to have the same number of columns.")
+    _check_same_number_columns(df1, df2)
 
     cols_numerical = _get_numerical_features(df1)
     df_corr1 = _get_correlation_pearson_matrix(df1[cols_numerical], use_p_value=use_p_value)
@@ -470,8 +474,7 @@ def mean_difference_correlation_matrix_categorical_features(
     df1 = df1[df_mask].dropna(axis=0)
     df2 = df2[df_mask].dropna(axis=0)
 
-    if len(df1.columns) != len(df2.columns):
-        raise Exception("inputs have to have the same number of columns.")
+    _check_same_number_columns(df1, df2)
 
     cols_categorical = _get_categorical_features(df1)
     df_corr1 = _get_correlation_chi2_matrix(df1[cols_categorical], use_p_value=use_p_value)
@@ -510,14 +513,11 @@ def _get_correlation_f_oneway_matrix(
     for idx_cat, col_cat in enumerate(cols_categorical):
         for idx_num, col_num in enumerate(cols_numerical):
             category_group_lists = df.groupby(col_cat)[col_num].apply(list)
-            try:
-                res = scipy.stats.f_oneway(*category_group_lists)
-                if use_p_value:
-                    matrix[idx_cat, idx_num] = res[1]
-                else:
-                    matrix[idx_cat, idx_num] = res[0]
-            except ValueError:
-                matrix[idx_cat, idx_num] = 0.0
+            res = scipy.stats.f_oneway(*category_group_lists)
+            if use_p_value:
+                matrix[idx_cat, idx_num] = res[1]
+            else:
+                matrix[idx_cat, idx_num] = res[0]
     return pd.DataFrame(matrix, index=cols_categorical, columns=cols_numerical)
 
 
@@ -549,8 +549,7 @@ def mean_difference_correlation_matrix_categorical_vs_numerical_features(
     df1 = df1[df_mask].dropna(axis=0)
     df2 = df2[df_mask].dropna(axis=0)
 
-    if len(df1.columns) != len(df2.columns):
-        raise Exception("inputs have to have the same number of columns.")
+    _check_same_number_columns(df1, df2)
 
     cols_categorical = _get_categorical_features(df1)
     cols_numerical = _get_numerical_features(df1)
@@ -664,7 +663,7 @@ def frechet_distance(
     df2: pd.DataFrame,
     df_mask: pd.DataFrame,
     normalized: Optional[bool] = False,
-) -> float:
+) -> pd.Series:
     """Compute the Fréchet distance between two dataframes df1 and df2
     frechet_distance = || mu_1 - mu_2 ||_2^2 + Tr(Sigma_1 + Sigma_2 - 2(Sigma_1 . Sigma_2)^(1/2))
     if normalized, df1 and df_ are first scaled by a factor
