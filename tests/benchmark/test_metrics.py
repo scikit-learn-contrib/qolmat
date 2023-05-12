@@ -95,6 +95,38 @@ def test_wasser_distance(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataF
 @pytest.mark.parametrize("df1", [df_incomplete])
 @pytest.mark.parametrize("df2", [df_imputed])
 @pytest.mark.parametrize("df_mask", [df_mask])
+def test_kl_divergence_columnwise(
+    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
+) -> None:
+    assert metrics.kl_divergence_columnwise(df1, df1, df_mask).equals(
+        pd.Series([0.0, 0.0], index=["col1", "col2"])
+    )
+    assert (
+        metrics.kl_divergence_columnwise(df1, df2, df_mask)
+        .round(3)
+        .equals(pd.Series([18.945, 36.637], index=["col1", "col2"]))
+    )
+
+
+@pytest.mark.parametrize("df1", [df_incomplete])
+@pytest.mark.parametrize("df2", [df_imputed])
+@pytest.mark.parametrize("df_mask", [df_mask])
+def test_kl_divergence(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> None:
+    assert (
+        metrics.kl_divergence(df1, df1, df_mask)
+        .round(2)
+        .equals(pd.Series([-0.5, -0.5], index=["col1", "col2"]))
+    )
+    assert (
+        metrics.kl_divergence(df1, df2, df_mask)
+        .round(3)
+        .equals(pd.Series([0.263, 0.263], index=["col1", "col2"]))
+    )
+
+
+@pytest.mark.parametrize("df1", [df_incomplete])
+@pytest.mark.parametrize("df2", [df_imputed])
+@pytest.mark.parametrize("df_mask", [df_mask])
 def test_frechet_distance(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> None:
     assert (
         metrics.frechet_distance(df1, df1, df_mask)
