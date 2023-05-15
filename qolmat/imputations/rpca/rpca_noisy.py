@@ -4,8 +4,7 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 import scipy as scp
-from numpy.typing import ArrayLike, NDArray
-from sklearn.utils.extmath import randomized_svd
+from numpy.typing import NDArray
 
 from qolmat.imputations.rpca import utils
 from qolmat.imputations.rpca.rpca import RPCA
@@ -68,7 +67,9 @@ class RPCANoisy(RPCA):
         self.list_etas = list_etas
         self.norm = norm
 
-    def compute_L1(self, proj_D, omega, lam, tau, rank) -> Tuple:
+    def compute_L1(
+        self, proj_D: NDArray, Omega: NDArray, lam: float, tau: float, rank: int
+    ) -> Tuple:
         """
         compute RPCA with possible temporal regularisations, penalised with L1 norm
         """
@@ -116,12 +117,12 @@ class RPCANoisy(RPCA):
             ).T
 
             if np.any(np.isnan(proj_D)):
-                A_omega = utils.soft_thresholding(proj_D - X, lam)
-                # A_omega = utils.ortho_proj(A_omega, omega, inverse=False)
-                A_omega_C = proj_D - X
-                # A_omega_C = utils.ortho_proj(A_omega_C, omega, inverse=True)
-                # A = A_omega + A_omega_C
-                A = np.where(omega, A_omega, A_omega_C)
+                A_Omega = utils.soft_thresholding(proj_D - X, lam)
+                # A_Omega = utils.ortho_proj(A_Omega, Omega, inverse=False)
+                A_Omega_C = proj_D - X
+                # A_Omega_C = utils.ortho_proj(A_Omega_C, Omega, inverse=True)
+                # A = A_Omega + A_Omega_C
+                A = np.where(Omega, A_Omega, A_Omega_C)
             else:
                 A = utils.soft_thresholding(proj_D - X, lam)
 
@@ -165,7 +166,9 @@ class RPCANoisy(RPCA):
         V = Q
         return M, A, U, V, errors
 
-    def compute_L2(self, proj_D, Omega, lam, tau, rank) -> Tuple:
+    def compute_L2(
+        self, proj_D: NDArray, Omega: NDArray, lam: float, tau: float, rank: int
+    ) -> Tuple:
         """
         compute RPCA with possible temporal regularisations, penalised with L2 norm
         """
@@ -312,7 +315,7 @@ class RPCANoisy(RPCA):
         """
         X = X.copy().T
         D_init = self._prepare_data(X)
-        omega = ~np.isnan(D_init)
+        Omega = ~np.isnan(D_init)
         proj_D = utils.impute_nans(D_init, method="median")
 
         params_scale = self.get_params_scale(proj_D)
@@ -322,9 +325,9 @@ class RPCANoisy(RPCA):
         tau = params_scale["tau"] if self.tau is None else self.tau
 
         if self.norm == "L1":
-            M, A, U, V, errors = self.compute_L1(proj_D, omega, lam, tau, rank)
+            M, A, U, V, errors = self.compute_L1(proj_D, Omega, lam, tau, rank)
         elif self.norm == "L2":
-            M, A, U, V, errors = self.compute_L2(proj_D, omega, lam, tau, rank)
+            M, A, U, V, errors = self.compute_L2(proj_D, Omega, lam, tau, rank)
 
         if X.shape[0] == 1:
             M = M.reshape(1, -1)[:, : X.size]

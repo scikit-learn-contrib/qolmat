@@ -43,13 +43,7 @@ class RPCAPCP(RPCA):
         self.mu = mu
         self.lam = lam
 
-    # def get_params(self):
-    #     dict_params = super().get_params()
-    #     dict_params["mu"] = self.mu
-    #     dict_params["lam"] = self.lam
-    #     return dict_params
-
-    def get_params_scale(self, D):
+    def get_params_scale(self, D: NDArray):
         mu = D.size / (4.0 * utils.l1_norm(D))
         lam = 1 / np.sqrt(np.max(D.shape))
         dict_params = {"mu": mu, "lam": lam}
