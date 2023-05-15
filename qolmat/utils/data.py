@@ -178,3 +178,46 @@ def get_data_corrupted(
     df = get_data(name_data)
     df = add_holes(df, mean_size=mean_size, ratio_masked=ratio_masked)
     return df
+
+
+def add_station_features(df: pd.DataFrame):
+    """
+    Create a station feature in the dataset
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        dataframe no missing values
+
+    Returns
+    -------
+    pd.DataFrame
+        dataframe with missing values
+    """
+    stations = df.index.get_level_values("station")
+    for station in stations.unique():
+        df[f"station={station}"] = (stations == station).astype(float)
+    return df
+
+
+def add_datetime_features(df: pd.DataFrame):
+    """
+    Create a seasonal feature in the dataset with a cosine function
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        dataframe no missing values
+
+    Returns
+    -------
+    pd.DataFrame
+        dataframe with missing values
+    """
+
+    time = df.index.get_level.values("datetime")
+    days_in_year = time.dt.year.apply(
+        lambda x: 366 if ((x % 4 == 0) and (x % 100 != 0)) or (x % 400 == 0) else 365
+    )
+    df["time_cos"] = np.cos(2 * np.pi * time.dt.dayofyear / days_in_year)
+    return df
