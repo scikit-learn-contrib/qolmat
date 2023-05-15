@@ -329,7 +329,7 @@ dict_imputers["MLP"] = imputer_mlp = imputers_keras.ImputerRegressorKeras(estima
 
 We can re-run the imputation model benchmark as before.
 
-```python tags=[] jupyter={"outputs_hidden": true}
+```python tags=[]
 generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, subset = cols_to_impute, ratio_masked=ratio_masked)
 
 comparison = comparator.Comparator(
@@ -350,7 +350,7 @@ plt.ylabel("mae")
 plt.show()
 ```
 
-```python jupyter={"outputs_hidden": true}
+```python
 df_plot = df_data
 dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_imputers.items()}
 station = df_plot.index.get_level_values("station")[0]
