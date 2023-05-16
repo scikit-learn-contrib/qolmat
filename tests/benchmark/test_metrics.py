@@ -2,10 +2,10 @@
 # # Evaluation metrics #
 # ######################
 
-import pandas as pd
 import numpy as np
-import scipy
+import pandas as pd
 import pytest
+import scipy
 
 from qolmat.benchmark import metrics
 
@@ -71,25 +71,19 @@ def test_weighted_mean_absolute_percentage_error(
     assert metrics.weighted_mean_absolute_percentage_error(df1, df1, df_mask).equals(
         pd.Series([0.0, 0.0], index=["col1", "col2"])
     )
-    assert (
-        metrics.weighted_mean_absolute_percentage_error(df1, df2, df_mask)
-        .round(3)
-        .equals(pd.Series([0.083, 1.167], index=["col1", "col2"]))
-    )
+    result = metrics.weighted_mean_absolute_percentage_error(df1, df2, df_mask)
+    expected = pd.Series([0.083, 1.167], index=["col1", "col2"])
+    np.testing.assert_allclose(result, expected, atol=1e-3)
 
 
 @pytest.mark.parametrize("df1", [df_incomplete])
 @pytest.mark.parametrize("df2", [df_imputed])
 @pytest.mark.parametrize("df_mask", [df_mask])
-def test_wasser_distance(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> None:
-    assert metrics.wasser_distance(df1, df1, df_mask).equals(
-        pd.Series([0.0, 0.0], index=["col1", "col2"])
-    )
-    assert (
-        metrics.wasser_distance(df1, df2, df_mask)
-        .round(3)
-        .equals(pd.Series([0.250, 0.833], index=["col1", "col2"]))
-    )
+def test_wasserstein_distance(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> None:
+    dist = metrics.wasserstein_distance(df1, df1, df_mask, method="columnwise")
+    assert dist.equals(pd.Series([0.0, 0.0], index=["col1", "col2"]))
+    dist = metrics.wasserstein_distance(df1, df2, df_mask, method="columnwise")
+    assert dist.round(3).equals(pd.Series([0.250, 0.833], index=["col1", "col2"]))
 
 
 @pytest.mark.parametrize("df1", [df_incomplete])
@@ -98,14 +92,12 @@ def test_wasser_distance(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataF
 def test_kl_divergence_columnwise(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
 ) -> None:
-    assert metrics.kl_divergence_columnwise(df1, df1, df_mask).equals(
+    assert metrics.kl_divergence(df1, df1, df_mask, method="columnwise").equals(
         pd.Series([0.0, 0.0], index=["col1", "col2"])
     )
-    assert (
-        metrics.kl_divergence_columnwise(df1, df2, df_mask)
-        .round(3)
-        .equals(pd.Series([18.945, 36.637], index=["col1", "col2"]))
-    )
+    result = metrics.kl_divergence(df1, df2, df_mask, method="columnwise")
+    expected = pd.Series([18.945, 36.637], index=["col1", "col2"])
+    np.testing.assert_allclose(result, expected, atol=1e-3)
 
 
 @pytest.mark.parametrize("df1", [df_incomplete])
@@ -113,12 +105,12 @@ def test_kl_divergence_columnwise(
 @pytest.mark.parametrize("df_mask", [df_mask])
 def test_kl_divergence(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> None:
     assert (
-        metrics.kl_divergence(df1, df1, df_mask)
+        metrics.kl_divergence(df1, df1, df_mask, method="gaussian")
         .round(2)
         .equals(pd.Series([-0.5, -0.5], index=["col1", "col2"]))
     )
     assert (
-        metrics.kl_divergence(df1, df2, df_mask)
+        metrics.kl_divergence(df1, df2, df_mask, method="gaussian")
         .round(3)
         .equals(pd.Series([0.263, 0.263], index=["col1", "col2"]))
     )

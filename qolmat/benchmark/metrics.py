@@ -3,7 +3,6 @@ from typing import Callable, Dict, List, Optional, Union
 import numpy as np
 import pandas as pd
 import scipy
-
 from sklearn import metrics as skm
 from sklearn.preprocessing import StandardScaler
 
@@ -105,7 +104,9 @@ def weighted_mean_absolute_percentage_error(
     return columnwise_metric(df1, df2, df_mask, skm.mean_absolute_percentage_error)
 
 
-def wasser_distance(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.Series:
+def wasserstein_distance(
+    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame, method: str = "columnwise"
+) -> pd.Series:
     """Wasserstein distances between columns of 2 dataframes.
     Wasserstein distance can only be computed columnwise
 
@@ -122,7 +123,13 @@ def wasser_distance(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame)
     -------
     wasserstein distances : pd.Series
     """
-    return columnwise_metric(df1, df2, df_mask, scipy.stats.wasserstein_distance)
+    if method == "columnwise":
+        return columnwise_metric(df1, df2, df_mask, scipy.stats.wasserstein_distance)
+    else:
+        raise AssertionError(
+            f"The parameter of the function wasserstein_distance should be one of"
+            f"the following: [`columnwise`], not `{method}`!"
+        )
 
 
 def kl_divergence_1D(df1: pd.Series, df2: pd.Series) -> np.number:
@@ -134,30 +141,9 @@ def kl_divergence_1D(df1: pd.Series, df2: pd.Series) -> np.number:
     return scipy.stats.entropy(p + EPS, q + EPS)
 
 
-def kl_divergence_columnwise(
-    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
+def kl_divergence(
+    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame, method: str = "columnwise"
 ) -> pd.Series:
-    """TODO documentation
-    Kullback-Leibler divergence between distributions
-    If multivariate normal distributions:
-    https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence
-
-    Parameters
-    ----------
-    df1 : pd.DataFrame
-    df2 : pd.DataFrame
-    columnwise_evaluation: Optional[bool]
-        if the evalutation is computed column-wise. By default, is set to False
-
-    Returns
-    -------
-    Kullback-Leibler divergence : Union[float, pd.Series]
-    """
-
-    return columnwise_metric(df1, df2, df_mask, kl_divergence_1D)
-
-
-def kl_divergence(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.Series:
     """TODO Documentation
     Kullback-Leibler divergence between distributions
     If multivariate normal distributions:
@@ -174,22 +160,30 @@ def kl_divergence(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -
     -------
     Kullback-Leibler divergence : Union[float, pd.Series]
     """
-    cols = df1.columns.tolist()
-    df_1 = StandardScaler().fit_transform(df1[df_mask.any(axis=1)])
-    df_2 = StandardScaler().fit_transform(df2[df_mask.any(axis=1)])
+    if method == "columnwise":
+        return columnwise_metric(df1, df2, df_mask, kl_divergence_1D)
+    elif method == "gaussian":
+        cols = df1.columns.tolist()
+        df_1 = StandardScaler().fit_transform(df1[df_mask.any(axis=1)])
+        df_2 = StandardScaler().fit_transform(df2[df_mask.any(axis=1)])
 
-    n = df_1.shape[0]
-    mu_true = np.nanmean(df_1, axis=0)
-    sigma_true = np.ma.cov(np.ma.masked_invalid(df_1), rowvar=False).data
-    mu_pred = np.nanmean(df_2, axis=0)
-    sigma_pred = np.ma.cov(np.ma.masked_invalid(df_2), rowvar=False).data
-    diff = mu_true - mu_pred
-    inv_sigma_pred = np.linalg.inv(sigma_pred)
-    quad_term = diff.T @ inv_sigma_pred @ diff
-    trace_term = np.trace(inv_sigma_pred @ sigma_true)
-    det_term = np.log(np.linalg.det(sigma_pred) / np.linalg.det(sigma_true))
-    kl = 0.5 * (quad_term + trace_term + det_term - n)
-    return pd.Series(kl, index=cols)
+        n = df_1.shape[0]
+        mu_true = np.nanmean(df_1, axis=0)
+        sigma_true = np.ma.cov(np.ma.masked_invalid(df_1), rowvar=False).data
+        mu_pred = np.nanmean(df_2, axis=0)
+        sigma_pred = np.ma.cov(np.ma.masked_invalid(df_2), rowvar=False).data
+        diff = mu_true - mu_pred
+        inv_sigma_pred = np.linalg.inv(sigma_pred)
+        quad_term = diff.T @ inv_sigma_pred @ diff
+        trace_term = np.trace(inv_sigma_pred @ sigma_true)
+        det_term = np.log(np.linalg.det(sigma_pred) / np.linalg.det(sigma_true))
+        kl = 0.5 * (quad_term + trace_term + det_term - n)
+        return pd.Series(kl, index=cols)
+    else:
+        raise AssertionError(
+            f"The parameter of the function wasserstein_distance should be one of"
+            f"the following: [`columnwise`, `gaussian`], not `{method}`!"
+        )
 
 
 def _get_numerical_features(df1: pd.DataFrame) -> List[str]:
@@ -242,7 +236,7 @@ def _get_categorical_features(df1: pd.DataFrame) -> List[str]:
         return cols_categorical
 
 
-def _kolmogorov_smirnov_test(df1: pd.Series, df2: pd.Series) -> float:
+def kolmogorov_smirnov_test_1D(df1: pd.Series, df2: pd.Series) -> float:
     """Compute KS test statistic of the two-sample Kolmogorov-Smirnov test for goodness of fit.
     See more in https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.ks_2samp.html.
 
@@ -283,11 +277,14 @@ def kolmogorov_smirnov_test(
     """
     cols_numerical = _get_numerical_features(df1)
     return columnwise_metric(
-        df1[cols_numerical], df2[cols_numerical], df_mask[cols_numerical], _kolmogorov_smirnov_test
+        df1[cols_numerical],
+        df2[cols_numerical],
+        df_mask[cols_numerical],
+        kolmogorov_smirnov_test_1D,
     )
 
 
-def _total_variance_distance(df1: pd.Series, df2: pd.Series) -> float:
+def total_variance_distance_1D(df1: pd.Series, df2: pd.Series) -> float:
     """Compute Total Variance Distance for a categorical feature
     It is based on TVComplement in https://github.com/sdv-dev/SDMetrics
 
@@ -337,7 +334,7 @@ def total_variance_distance(
         df1[cols_categorical],
         df2[cols_categorical],
         df_mask[cols_categorical],
-        _total_variance_distance,
+        total_variance_distance_1D,
     )
 
 
@@ -564,20 +561,20 @@ def mean_difference_correlation_matrix_categorical_vs_numerical_features(
 
 
 ###########################
-# Row-wise metris         #
+# Row-wise metrics        #
 ###########################
 
 
-def _sum_distance_col(col: pd.Series, col_size: int) -> float:
-    col = col.sort_values(ascending=True)
-    sums_partial = col.shift().fillna(0.0).cumsum()
-    differences_partial = col * np.arange(col_size) - sums_partial
+def _sum_manhattan_distances_1D(values: pd.Series) -> float:
+    values = values.sort_values(ascending=True)
+    sums_partial = values.shift().fillna(0.0).cumsum()
+    differences_partial = values * np.arange(len(values)) - sums_partial
     res = differences_partial.sum()
     return res
 
 
 def _sum_manhattan_distances(df1: pd.DataFrame) -> float:
-    """Sum Manhattan distances.
+    """Sum Manhattan distances beetween all pairs of rows.
     It is based on https://www.geeksforgeeks.org/sum-manhattan-distances-pairs-points/
 
     Parameters
@@ -586,10 +583,8 @@ def _sum_manhattan_distances(df1: pd.DataFrame) -> float:
         _description_
     """
     cols = df1.columns.tolist()
-    sum = 0.0
-    for col in cols:
-        sum += _sum_distance_col(df1[col], len(df1))
-    return sum
+    result = sum([_sum_manhattan_distances_1D(df1[col]) for col in cols])
+    return result
 
 
 def sum_energy_distances(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.Series:
@@ -613,9 +608,8 @@ def sum_energy_distances(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataF
     df1 = df1[df_mask].fillna(0.0)
     df2 = df2[df_mask].fillna(0.0)
 
-    sum_distances_df1 = _sum_manhattan_distances(
-        df1
-    )  # sum of (len_df1 * (len_df1 - 1) / 2) distances for df1
+    # sum of (len_df1 * (len_df1 - 1) / 2) distances for df1
+    sum_distances_df1 = _sum_manhattan_distances(df1)
     sum_distances_df2 = _sum_manhattan_distances(df2)
 
     df = pd.concat([df1, df2])
@@ -654,7 +648,7 @@ def sum_pairwise_distances(
 
 
 ###########################
-# Dataframe-wise metris   #
+# Dataframe-wise metrics  #
 ###########################
 
 
