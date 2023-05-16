@@ -5,12 +5,13 @@ channels:
 dependencies:
     - pip=23.0.1
     - pip:
-          - codecov
+          - codecov==2.1.13
           - flake8==6.0.0
           - matplotlib==3.6.2
           - mypy==1.1.1
           - numpydoc==1.5.0
           - pytest==7.2.0
           - pytest-cov==4.0.0
-          - tensorflow
+          - pytest-mock==3.10.0
+          - tensorflow==2.12.0
           - -e .

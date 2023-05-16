@@ -1,4 +1,5 @@
 import logging
+import warnings
 from typing import Dict, List, Literal, Union
 from warnings import WarningMessage
 
@@ -95,13 +96,15 @@ def invert_robust(M, epsilon=1e-2):
            [ 1.5   , -0.5  ]])
     """
     Meps = M - epsilon * (M - np.diag(M.diagonal()))
+    print("matrice a inverser :")
+    print(Meps)
     if scipy.linalg.eigh(M)[0].min() < 0:
-        raise WarningMessage(
+        warnings.warn(
             f"Negative eigenvalue, some variables may be constant or colinear, "
             f"min value of {scipy.linalg.eigh(M)[0].min():.3g} found."
         )
     if np.abs(scipy.linalg.eigh(M)[0].min()) > 1e20:
-        raise WarningMessage("Large eigenvalues, imputation may be inflated.")
+        warnings.warn("Large eigenvalues, imputation may be inflated.")
 
     return scipy.linalg.inv(Meps)
 

@@ -78,6 +78,24 @@ def test__linear_interpolation(X: NDArray):
     )
 
 
+from unittest.mock import patch
+
+
+def test_fit_calls_sample_ou_correct_number_of_times(mocker):
+    X1 = np.array([[1, 1, 1, 2], [np.nan, np.nan, 4, 2], [1, 3, np.nan, 1]])
+    max_iter_em = 3
+    em = em_sampler.MultiNormalEM(max_iter_em=max_iter_em)
+    mocker.patch("qolmat.imputations.em_sampler.MultiNormalEM._sample_ou", return_value=X1)
+    mocker.patch(
+        "qolmat.imputations.em_sampler.MultiNormalEM._check_convergence", return_value=False
+    )
+    mocker.patch("qolmat.imputations.em_sampler.MultiNormalEM.fit_distribution")
+    em.fit(X1)
+    em_sampler.MultiNormalEM._sample_ou.call_count == max_iter_em
+    em_sampler.MultiNormalEM._check_convergence.call_count == max_iter_em
+    em_sampler.MultiNormalEM.fit_distribution.call_count == 1
+
+
 # imputations_var = [
 #     np.array([1, 2, 3, 3]),
 #     np.array([1, 2, 3, 3]),
