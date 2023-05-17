@@ -16,6 +16,24 @@ EPS = np.finfo(float).eps
 def columnwise_metric(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame, metric: Callable, **kwargs
 ) -> pd.Series:
+    """For each column, compute a metric score based on the true dataframe and the predicted dataframe
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        True dataframe
+    df2 : pd.DataFrame
+        Predicted dataframe
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
+    metric : Callable
+        metric function
+
+    Returns
+    -------
+    pd.Series
+        Series of scores for all columns
+    """
     values = {}
     for col in df1.columns:
         df1_col = df1.loc[df_mask[col], col]
@@ -99,7 +117,7 @@ def weighted_mean_absolute_percentage_error(
 
     Returns
     -------
-    Union[float, pd.Series]
+    pd.Series
     """
     return columnwise_metric(df1, df2, df_mask, skm.mean_absolute_percentage_error)
 
@@ -121,7 +139,8 @@ def wasserstein_distance(
 
     Returns
     -------
-    wasserstein distances : pd.Series
+    pd.Series
+        wasserstein distances
     """
     if method == "columnwise":
         return columnwise_metric(df1, df2, df_mask, scipy.stats.wasserstein_distance)
@@ -284,7 +303,7 @@ def kolmogorov_smirnov_test(
     )
 
 
-def total_variance_distance_1D(df1: pd.Series, df2: pd.Series) -> float:
+def _total_variance_distance_1D(df1: pd.Series, df2: pd.Series) -> float:
     """Compute Total Variance Distance for a categorical feature
     It is based on TVComplement in https://github.com/sdv-dev/SDMetrics
 
@@ -297,8 +316,8 @@ def total_variance_distance_1D(df1: pd.Series, df2: pd.Series) -> float:
 
     Returns
     -------
-    _type_
-        _description_
+    float
+        Total variance distance
     """
     list_categories = list(set(df1.unique()).union(set(df2.unique())))
     freqs1 = df1.value_counts() / len(df1)
@@ -334,7 +353,7 @@ def total_variance_distance(
         df1[cols_categorical],
         df2[cols_categorical],
         df_mask[cols_categorical],
-        total_variance_distance_1D,
+        _total_variance_distance_1D,
     )
 
 
@@ -566,6 +585,19 @@ def mean_difference_correlation_matrix_categorical_vs_numerical_features(
 
 
 def _sum_manhattan_distances_1D(values: pd.Series) -> float:
+    """Sum of Manhattan distances computed for one column
+    It is based on https://www.geeksforgeeks.org/sum-manhattan-distances-pairs-points/
+
+    Parameters
+    ----------
+    values : pd.Series
+        Values of a column
+
+    Returns
+    -------
+    float
+        Sum of Manhattan distances
+    """
     values = values.sort_values(ascending=True)
     sums_partial = values.shift().fillna(0.0).cumsum()
     differences_partial = values * np.arange(len(values)) - sums_partial
@@ -574,13 +606,17 @@ def _sum_manhattan_distances_1D(values: pd.Series) -> float:
 
 
 def _sum_manhattan_distances(df1: pd.DataFrame) -> float:
-    """Sum Manhattan distances beetween all pairs of rows.
+    """Sum Manhattan distances between all pairs of rows.
     It is based on https://www.geeksforgeeks.org/sum-manhattan-distances-pairs-points/
 
     Parameters
     ----------
-    df : pd.DataFrame
-        _description_
+    df1 : pd.DataFrame
+
+    Returns
+    -------
+    float
+        Sum of Manhattan distances for all pairs of rows.
     """
     cols = df1.columns.tolist()
     result = sum([_sum_manhattan_distances_1D(df1[col]) for col in cols])
@@ -596,12 +632,14 @@ def sum_energy_distances(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataF
     df1 : pd.DataFrame
         true dataframe
     df2 : pd.DataFrame
-        _description_
+        predicted dataframe
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
 
     Returns
     -------
-    _type_
-        _description_
+    pd.Series
+        Sum of energy distances between df1 and df2.
     """
 
     # Replace nan in dataframe
@@ -622,7 +660,9 @@ def sum_energy_distances(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataF
 def sum_pairwise_distances(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame, metric: str = "cityblock"
 ) -> pd.Series:
-    """Sum of pairwise distances based on a predefined metric
+    """Sum of pairwise distances based on a predefined metric.
+    Metrics are found in this link
+    https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.cdist.html
 
     Parameters
     ----------
@@ -635,8 +675,8 @@ def sum_pairwise_distances(
 
     Returns
     -------
-    _type_
-        _description_
+    pd.Series
+        Sum of pairwise distances based on a predefined metric
     """
     distances = np.sum(
         scipy.spatial.distance.cdist(
