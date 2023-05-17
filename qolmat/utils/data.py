@@ -142,6 +142,7 @@ def add_holes(df: pd.DataFrame, ratio_masked: float, mean_size: int):
         mask = generator.generate_mask(df)
     else:
         mask = df.groupby(groups, group_keys=False).apply(generator.generate_mask)
+
     X_with_nans = df.copy()
     X_with_nans[mask] = np.nan
     return X_with_nans
@@ -187,6 +188,7 @@ def add_station_features(df: pd.DataFrame):
     pd.DataFrame
         dataframe with missing values
     """
+    df = df.copy()
     stations = df.index.get_level_values("station")
     for station in stations.unique():
         df[f"station={station}"] = (stations == station).astype(float)
@@ -207,10 +209,11 @@ def add_datetime_features(df: pd.DataFrame):
     pd.DataFrame
         dataframe with missing values
     """
-
-    time = df.index.get_level.values("datetime")
+    df = df.copy()
+    time = df.index.get_level_values("datetime").to_series()
     days_in_year = time.dt.year.apply(
         lambda x: 366 if ((x % 4 == 0) and (x % 100 != 0)) or (x % 400 == 0) else 365
     )
-    df["time_cos"] = np.cos(2 * np.pi * time.dt.dayofyear / days_in_year)
+    time_cos = np.cos(2 * np.pi * time.dt.dayofyear / days_in_year)
+    df["time_cos"] = np.array(time_cos)
     return df
