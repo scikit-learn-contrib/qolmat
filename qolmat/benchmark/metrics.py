@@ -1,4 +1,4 @@
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -16,7 +16,8 @@ EPS = np.finfo(float).eps
 def columnwise_metric(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame, metric: Callable, **kwargs
 ) -> pd.Series:
-    """For each column, compute a metric score based on the true dataframe and the predicted dataframe
+    """For each column, compute a metric score based on the true dataframe
+    and the predicted dataframe
 
     Parameters
     ----------
