@@ -3,6 +3,7 @@ from typing import Callable, Dict, List, Optional, Union
 import numpy as np
 import pandas as pd
 import scipy
+import sklearn
 from sklearn import metrics as skm
 from sklearn.preprocessing import StandardScaler
 
@@ -20,6 +21,8 @@ def columnwise_metric(
     for col in df1.columns:
         df1_col = df1.loc[df_mask[col], col]
         df2_col = df2.loc[df_mask[col], col]
+        assert df1_col.notna().all()
+        assert df2_col.notna().all()
         values[col] = metric(df1_col, df2_col, **kwargs)
     return pd.Series(values)
 
@@ -163,22 +166,21 @@ def kl_divergence(
     if method == "columnwise":
         return columnwise_metric(df1, df2, df_mask, kl_divergence_1D)
     elif method == "gaussian":
-        cols = df1.columns.tolist()
-        df_1 = StandardScaler().fit_transform(df1[df_mask.any(axis=1)])
-        df_2 = StandardScaler().fit_transform(df2[df_mask.any(axis=1)])
+        n_variables = len(df1.columns)
+        cov1 = df1.cov()
+        cov2 = df2.cov()
+        mean1 = df1.mean()
+        mean2 = df2.mean()
+        L1, lower1 = scipy.linalg.cho_factor(cov1)
+        L2, lower2 = scipy.linalg.cho_factor(cov2)
+        M = scipy.linalg.solve(L2, L1)
+        y = scipy.linalg.solve(L2, mean2 - mean1)
+        norm_M = (M**2).sum().sum()
+        norm_y = (y**2).sum()
+        term_diag_L = 2 * np.sum(np.log(np.diagonal(L2) / np.diagonal(L1)))
+        print(norm_M, "-", n_variables, "+", norm_y, "+", term_diag_L)
+        return 0.5 * (norm_M - n_variables + norm_y + term_diag_L)
 
-        n = df_1.shape[0]
-        mu_true = np.nanmean(df_1, axis=0)
-        sigma_true = np.ma.cov(np.ma.masked_invalid(df_1), rowvar=False).data
-        mu_pred = np.nanmean(df_2, axis=0)
-        sigma_pred = np.ma.cov(np.ma.masked_invalid(df_2), rowvar=False).data
-        diff = mu_true - mu_pred
-        inv_sigma_pred = np.linalg.inv(sigma_pred)
-        quad_term = diff.T @ inv_sigma_pred @ diff
-        trace_term = np.trace(inv_sigma_pred @ sigma_true)
-        det_term = np.log(np.linalg.det(sigma_pred) / np.linalg.det(sigma_true))
-        kl = 0.5 * (quad_term + trace_term + det_term - n)
-        return pd.Series(kl, index=cols)
     else:
         raise AssertionError(
             f"The parameter of the function wasserstein_distance should be one of"

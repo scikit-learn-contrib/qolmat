@@ -45,9 +45,12 @@ class RPCA(BaseEstimator, TransformerMixin):
         n_rows_X, n_cols_X = X.shape
         if n_rows_X == 1:
             if self.n_rows is None:
-                raise ValueError("`n_rows`must be specified when imputing 1D data.")
-            D_init = utils.fold_signal(X, self.n_rows)
+                raise ValueError("`n_rows` must be specified when imputing 1D data.")
+            elif self.n_rows >= n_cols_X:
+                raise ValueError("`n_rows` must be smaller than the signals duration.")
+            return utils.fold_signal(X, self.n_rows)
         else:
-            D_init = X.copy()
-
-        return D_init
+            if self.n_rows is None:
+                return X.copy()
+            else:
+                raise ValueError("`n_rows` should not be specified when imputing 2D data.")

@@ -50,9 +50,9 @@ class RPCAPCP(RPCA):
         return dict_params
 
     def decompose_rpca(self, D: NDArray) -> Tuple[NDArray, NDArray]:
-        proj_D = utils.impute_nans(D, method="median")
+        D_proj = utils.impute_nans(D, method="median")
 
-        params_scale = self.get_params_scale(proj_D)
+        params_scale = self.get_params_scale(D_proj)
 
         mu = params_scale["mu"] if self.mu is None else self.mu
         lam = params_scale["lam"] if self.lam is None else self.lam
@@ -65,12 +65,12 @@ class RPCAPCP(RPCA):
 
         errors: NDArray = np.full((self.max_iter,), fill_value=np.nan)
 
-        M: NDArray = proj_D - A
+        M: NDArray = D_proj - A
         for iteration in range(self.max_iter):
-            M = utils.svd_thresholding(proj_D - A + Y / mu, 1 / mu)
-            A = utils.soft_thresholding(proj_D - M + Y / mu, lam / mu)
-            A[~Omega] = (proj_D - M)[~Omega]
-            Y += mu * (proj_D - M - A)
+            M = utils.svd_thresholding(D_proj - A + Y / mu, 1 / mu)
+            A = utils.soft_thresholding(D_proj - M + Y / mu, lam / mu)
+            A[~Omega] = (D_proj - M)[~Omega]
+            Y += mu * (D_proj - M - A)
 
             error = np.linalg.norm(D - M - A, "fro") / D_norm
             errors[iteration] = error

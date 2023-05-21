@@ -1,6 +1,7 @@
 import numpy as np
-from numpy.typing import NDArray
 import pytest
+from numpy.typing import NDArray
+
 from qolmat.imputations.rpca.rpca_noisy import RPCANoisy
 
 X_complete = np.array([[1, 2], [4, 4], [4, 3]])
@@ -15,9 +16,9 @@ rank = 1
 
 @pytest.mark.parametrize("X", [X_complete])
 @pytest.mark.parametrize("Omega", [Omega_1])
-def test_rpca_rpca_noisy_compute_L1(X: NDArray, Omega: NDArray):
+def test_rpca_noisy_decompose_rpca_L1(X: NDArray, Omega: NDArray):
     rpca_noisy = RPCANoisy(period=period, max_iter=max_iter, tau=tau, lam=lam)
-    M_result, A_result, U_result, V_result, errors_result = rpca_noisy.compute_L1(
+    M_result, A_result, U_result, V_result, errors_result = rpca_noisy.decompose_rpca_L1(
         X, Omega=Omega, lam=lam, tau=tau, rank=rank
     )
     M_expected, A_expected, U_expected, V_expected, errors_expected = (
@@ -36,9 +37,9 @@ def test_rpca_rpca_noisy_compute_L1(X: NDArray, Omega: NDArray):
 
 @pytest.mark.parametrize("X", [X_complete])
 @pytest.mark.parametrize("Omega", [Omega_1])
-def test_rpca_rpca_noisy_compute_L2(X: NDArray, Omega: NDArray):
+def test_rpca_noisy_decompose_rpca_L2(X: NDArray, Omega: NDArray):
     rpca_noisy = RPCANoisy(period=period, max_iter=max_iter, tau=tau, lam=lam)
-    M_result, A_result, U_result, V_result, errors_result = rpca_noisy.compute_L2(
+    M_result, A_result, U_result, V_result, errors_result = rpca_noisy.decompose_rpca_L2(
         X, Omega=Omega, lam=lam, tau=tau, rank=rank
     )
     M_expected, A_expected, U_expected, V_expected, errors_expected = (
@@ -62,9 +63,9 @@ def test_rpca_rpca_noisy_compute_L2(X: NDArray, Omega: NDArray):
 
 
 @pytest.mark.parametrize("X", [X_complete])
-def test_rpca_rpca_noisy_get_params_scale(X: NDArray):
+def test_rpca_noisy_get_params_scale(X: NDArray):
     rpca_noisy = RPCANoisy(period=period, max_iter=max_iter, tau=tau, lam=lam)
     result_dict = rpca_noisy.get_params_scale(X)
     result = list(result_dict.values())
-    params_expected = [2, 0.5773502691896258, 0.5773502691896258]
+    params_expected = [2, 1 / np.sqrt(3), 1 / np.sqrt(3)]
     np.testing.assert_allclose(result, params_expected, rtol=1e-5)
