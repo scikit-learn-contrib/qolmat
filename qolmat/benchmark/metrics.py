@@ -135,6 +135,23 @@ def wasserstein_distance(
         )
 
 
+def density_from_rf(df, estimator, df_est=None):
+    if df_est is None:
+        df_est = df.copy()
+    counts = pd.Series(0, index=df_est.index)
+    df_leafs = pd.DataFrame(estimator.apply(df))
+    df_leafs_est = pd.DataFrame(estimator.apply(df_est))
+    for i_tree in range(estimator.n_estimators):
+        leafs = df_leafs[i_tree].rename("id_leaf")
+        leafs_est = df_leafs_est[i_tree].rename("id_leaf")
+        counts_leafs = leafs.value_counts().rename("count")
+        df_merge = pd.merge(leafs_est.reset_index(), counts_leafs.reset_index(), on="id_leaf")
+        df_merge = df_merge.set_index("index")
+        counts += df_merge["count"]
+    counts /= counts.sum()
+    return counts
+
+
 def kl_divergence_1D(df1: pd.Series, df2: pd.Series) -> np.number:
     min_val = min(df1.min(), df2.min())
     max_val = max(df1.max(), df2.max())
@@ -180,7 +197,22 @@ def kl_divergence(
         term_diag_L = 2 * np.sum(np.log(np.diagonal(L2) / np.diagonal(L1)))
         print(norm_M, "-", n_variables, "+", norm_y, "+", term_diag_L)
         return 0.5 * (norm_M - n_variables + norm_y + term_diag_L)
-
+    elif method == "random_forest":
+        # df_1 = StandardScaler().fit_transform(df1[df_mask.any(axis=1)])
+        # df_2 = StandardScaler().fit_transform(df2[df_mask.any(axis=1)])
+        n_estimators = 1000
+        # estimator = sklearn.ensemble.RandomForestClassifier(
+        #     n_estimators=n_estimators, max_depth=10
+        # )
+        # X = pd.concat([df1, df2])
+        # y = pd.concat([pd.Series([False] * len(df1)), pd.Series([True] * len(df2))])
+        # estimator.fit(X, y)
+        estimator = sklearn.ensemble.RandomTreesEmbedding(n_estimators=n_estimators, max_depth=8)
+        estimator.fit(df1)
+        counts1 = density_from_rf(df1, estimator, df_est=df2)
+        counts2 = density_from_rf(df2, estimator, df_est=df2)
+        div_kl = np.mean(np.log(counts1 / counts2) * counts1 / counts2)
+        return div_kl
     else:
         raise AssertionError(
             f"The parameter of the function wasserstein_distance should be one of"
