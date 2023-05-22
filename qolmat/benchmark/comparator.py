@@ -49,8 +49,8 @@ class Comparator:
         dict_models: Dict[str, Any],
         selected_columns: List[str],
         generator_holes: _HoleGenerator,
-        metrics: List = ["mae", "wmape", "KL"],
-        search_params: Optional[Dict[str, Dict[str, Union[float, int, str]]]] = {},
+        metrics: List = ["mae", "wmape", "KL_columnwise"],
+        search_params: Optional[Dict] = {},
         n_calls_opt: int = 10,
     ):
         self.dict_imputers = dict_models
@@ -154,7 +154,6 @@ class Comparator:
 
         for name, imputer in self.dict_imputers.items():
             search_params = self.search_params.get(name, {})
-
             list_spaces = utils.get_search_space(search_params)
 
             try:
