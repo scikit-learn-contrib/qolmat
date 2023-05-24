@@ -1,6 +1,6 @@
-import pytest
-import pandas as pd
 import numpy as np
+import pandas as pd
+import pytest
 
 from qolmat.imputations import imputers_keras
 from qolmat.utils.exceptions import KerasExtraNotInstalled
@@ -25,7 +25,6 @@ df_incomplete = pd.DataFrame(
 
 @pytest.mark.parametrize("df", [df_incomplete])
 def test_ImputerRegressorKeras_fit_transform(df: pd.DataFrame) -> None:
-
     estimator = tf.keras.models.Sequential(
         [tf.keras.layers.Dense(2, activation="sigmoid"), tf.keras.layers.Dense(1)]
     )
@@ -54,4 +53,4 @@ def test_ImputerRegressorKeras_fit_transform(df: pd.DataFrame) -> None:
             "col5": [93.0, 75.0, 75, 12.0, 75],
         }
     )
-    np.testing.assert_allclose(result, expected, rtol=1e-5)
+    np.testing.assert_allclose(result, expected, atol=1e-5)
