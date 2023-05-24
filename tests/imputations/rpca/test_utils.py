@@ -1,139 +1,140 @@
-# import numpy as np
+import numpy as np
+from numpy.typing import NDArray
+import pytest
+from qolmat.imputations.rpca.utils import (
+    fold_signal,
+    approx_rank,
+    soft_thresholding,
+    svd_thresholding,
+    impute_nans,
+    l1_norm,
+    toeplitz_matrix,
+)
 
-# from qolmat.utils import utils
+X_incomplete = np.array(
+    [
+        [1, np.nan, 3, 2, np.nan],
+        [7, 2, np.nan, 1, 1],
+        [np.nan, 4, 3, np.nan, 5],
+        [np.nan, 4, 3, 5, 5],
+        [4, 4, 3, np.nan, 5],
+    ]
+)
+X_complete = np.array(
+    [[1, 5, 3, 2, 2], [7, 2, 3, 1, 1], [4, 4, 3, 5, 5], [4, 4, 3, 5, 5], [4, 4, 3, 5, 5]]
+)
 
+X_exp_mean = np.array(
+    [
+        [1.0, 3.5, 3.0, 2.0, 4.0],
+        [7.0, 2.0, 3.0, 1.0, 1.0],
+        [4.0, 4.0, 3.0, 2.66666667, 5.0],
+        [4.0, 4.0, 3.0, 5.0, 5.0],
+        [4.0, 4.0, 3.0, 2.66666667, 5.0],
+    ]
+)
+X_exp_median = np.array(
+    [
+        [1.0, 4.0, 3.0, 2.0, 5.0],
+        [7.0, 2.0, 3.0, 1.0, 1.0],
+        [4.0, 4.0, 3.0, 2.0, 5.0],
+        [4.0, 4.0, 3.0, 5.0, 5.0],
+        [4.0, 4.0, 3.0, 2.0, 5.0],
+    ]
+)
+X_exp_zeros = np.array(
+    [
+        [1.0, 0.0, 3.0, 2.0, 0.0],
+        [7.0, 2.0, 0.0, 1.0, 1.0],
+        [0.0, 4.0, 3.0, 0.0, 5.0],
+        [0.0, 4.0, 3.0, 5.0, 5.0],
+        [4.0, 4.0, 3.0, 0.0, 5.0],
+    ]
+)
 
-# def test_get_period() -> None:
-#     signal = [1, 2, 3, 4, 5] * 5
-#     period1 = utils.get_period(signal)
-#     signal = [1, 3, 4, 1, 3, 5] * 5
-#     period2 = utils.get_period(signal)
-#     assert period1 == 5, "test failed"
-#     assert period2 == 6, "test failed"
+X_exp_row = np.array(
+    [[1.0, 0.0, -1.0, 0.0, 0.0], [0.0, 1.0, 0.0, -1.0, 0.0], [0.0, 0.0, 1.0, 0.0, -1.0]]
+)
 
+X_exp_column = np.array(
+    [[-1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [1.0, 0.0, -1.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
+)
 
-# def test_signal_to_matrix() -> None:
-#     signal = [1, 2, 3, 4, 5] * 5
-#     mat1, nb_add_val1 = utils.signal_to_matrix(signal, 5)
-#     mat_rep1 = np.array(
-#         [
-#             [1, 2, 3, 4, 5],
-#             [1, 2, 3, 4, 5],
-#             [1, 2, 3, 4, 5],
-#             [1, 2, 3, 4, 5],
-#             [1, 2, 3, 4, 5],
-#         ]
-#     )
-#     mat2, nb_add_val2 = utils.signal_to_matrix(signal[:-3], 5)
-#     mat_rep2 = np.array(
-#         [
-#             [1, 2, 3, 4, 5],
-#             [1, 2, 3, 4, 5],
-#             [1, 2, 3, 4, 5],
-#             [1, 2, 3, 4, 5],
-#             [1, 2, np.nan, np.nan, np.nan],
-#         ]
-#     )
-#     assert (mat1.all(), nb_add_val1) == (mat_rep1.all(), 0), "test failed"
-#     assert (mat2.all(), nb_add_val2) == (mat_rep2.all(), 3), "test failed"
-
-
-# def test_impute_nans() -> None:
-#     mat1 = np.asarray([[1, 2], [4, np.nan], [np.nan, 5], [1, 2]])
-#     rep1 = utils.impute_nans(mat1, method="mean")
-#     rep2 = utils.impute_nans(mat1, method="median")
-#     val1 = np.asarray([[1, 2], [4, 3], [2, 5], [1, 2]])
-#     val2 = np.asarray([[1, 2], [4, 2], [1, 5], [1, 2]])
-#     assert rep1.all() == val1.all(), "test failed"
-#     assert rep2.all() == val2.all(), "test failed"
-
-
-# def test_ortho_proj() -> None:
-#     mat1 = np.asarray([[1, 2], [4, np.nan], [np.nan, 5], [1, 2]])
-#     mat2 = np.asarray([[1, 2], [4, 8], [2, 5], [1, 2]])
-#     omega = 1 - (mat1 != mat1)
-#     rep1 = utils.ortho_proj(mat2, omega)
-#     val1 = np.asarray([[1, 2], [4, 0], [0, 5], [1, 2]])
-#     rep2 = utils.ortho_proj(mat1, omega, inv=1)
-#     val2 = np.asarray([[0, 0], [0, 8], [2, 0], [0, 0]])
-#     assert rep1.all() == val1.all(), "test failed"
-#     assert rep2.all() == val2.all(), "test failed"
-
-
-# def test_toeplitz_matrix() -> None:
-#     T = 1
-#     dim = 5
-#     rep1 = utils.toeplitz_matrix(T, dim, model="row")
-#     val1 = np.array(
-#         [
-#             [1, -1, 0, 0, 0],
-#             [0, 1, -1, 0, 0],
-#             [0, 0, 1, -1, 0],
-#             [0, 0, 0, 1, -1],
-#         ]
-#     )
-#     rep2 = utils.toeplitz_matrix(T, dim, model="column")
-#     val2 = np.array(
-#         [
-#             [-1, 0, 0, 0],
-#             [1, -1, 0, 0],
-#             [0, 1, -1, 0],
-#             [0, 0, 1, -1],
-#             [0, 0, 0, 1],
-#         ]
-#     )
-#     T = 2
-#     rep3 = utils.toeplitz_matrix(T, dim, model="row")
-#     val3 = np.array([[1, 0, -1, 0, 0], [0, 1, 0, -1, 0], [0, 0, 1, 0, -1]])
-#     rep4 = utils.toeplitz_matrix(T, dim, model="column")
-#     val4 = np.array([[-1, 0, 0], [0, -1, 0], [1, 0, -1], [0, 1, 0], [0, 0, 1]])
-#     assert rep1.all() == val1.all(), "test failed"
-#     assert rep2.all() == val2.all(), "test failed"
-#     assert rep3.all() == val3.all(), "test failed"
-#     assert rep4.all() == val4.all(), "test failed"
+threshold = 0.95
+T = 2
+dimension = 5
 
 
-# def test_construct_graph() -> None:
-#     X = np.asarray([[0], [3], [1], [2], [5]])
-#     nb_nbg = 2
-#     rep = utils.construct_graph(X, n_neighbors=nb_nbg)
-#     val = np.asarray(
-#         [
-#             [0, 0, 0.3679, 0.1353, 0],
-#             [0, 0, 0.1353, 0.3679, 0],
-#             [0.3679, 0, 0, 0.3679, 0],
-#             [0, 0.3678, 0.3679, 0, 0],
-#             [0, 0.1353, 0, 0.0498, 0],
-#         ]
-#     )
-#     np.testing.assert_array_almost_equal(rep, val, decimal=4)
+@pytest.mark.parametrize("X", [X_incomplete])
+def test_rpca_utils_fold_signal(X: NDArray):
+    signal = X.reshape(1, -1)
+    result = fold_signal(X=signal, n_rows=3)
+    X_expected = np.array(
+        [
+            [1.0, np.nan, 3.0, 2.0, np.nan, 7.0, 2.0, np.nan, 1.0],
+            [1.0, np.nan, 4.0, 3.0, np.nan, 5.0, np.nan, 4.0, 3.0],
+            [5.0, 5.0, 4.0, 4.0, 3.0, np.nan, 5.0, np.nan, np.nan],
+        ]
+    )
+    np.testing.assert_allclose(result, X_expected)
 
 
-# def test_get_laplacian() -> None:
-#     G = np.arange(5) * np.arange(5)[:, np.newaxis]
-#     G = G[1:, 1:]
-#     rep = utils.get_laplacian(G)
-#     val = np.asarray(
-#         [
-#             [1, -0.1667, -0.2182, -0.2722],
-#             [-0.1667, 1, -0.3273, -0.4082],
-#             [-0.2182, -0.3273, 1, -0.5345],
-#             [-0.2722, -0.4082, -0.5345, 1],
-#         ]
-#     )
-#     np.testing.assert_array_almost_equal(rep, val, decimal=4)
+@pytest.mark.parametrize("X", [X_complete])
+def test_rpca_utils_approx_rank(X: NDArray):
+    result = approx_rank(M=X)
+    np.testing.assert_allclose(result, 3)
 
 
-# def test_get_anomaly() -> None:
-#     X = np.asarray([[5.5, 3, 5.5], [6, 20, 6], [7, 10, 7]])
-#     A = np.asarray([[4, 1, 1], [9, 2, 6], [6, 1, 3]])
-#     rep_ano1, rep_noise1 = utils.get_anomaly(A, X, e=1)
-#     rep_ano2, rep_noise2 = utils.get_anomaly(A, X, e=3)
-#     val_ano1 = np.asarray([[2, 0, 1], [1, 0, 1], [3, 0, 3]])
-#     val_noise1 = np.asarray([[0, 9, 0], [0, 2, 0], [0, 1, 0]])
-#     val_ano2 = np.asarray([[0, 0, 0], [0, 0, 0], [3, 0, 3]])
-#     val_noise2 = np.asarray([[2, 9, 1], [1, 2, 1], [0, 1, 0]])
-#     assert rep_ano1.all() == val_ano1.all(), "test failed"
-#     assert rep_ano2.all() == val_ano2.all(), "test failed"
-#     assert rep_noise1.all() == val_noise1.all(), "test failed"
-#     assert rep_noise2.all() == val_noise2.all(), "test failed"
+@pytest.mark.parametrize("X", [X_complete])
+@pytest.mark.parametrize("threshold", [threshold])
+def test_rpca_utils_soft_thresholding(X: NDArray, threshold: float):
+    result = soft_thresholding(X=X, threshold=threshold)
+    X_expected = np.array(
+        [
+            [0.05, 4.05, 2.05, 1.05, 1.05],
+            [6.05, 1.05, 2.05, 0.05, 0.05],
+            [3.05, 3.05, 2.05, 4.05, 4.05],
+            [3.05, 3.05, 2.05, 4.05, 4.05],
+            [3.05, 3.05, 2.05, 4.05, 4.05],
+        ]
+    )
+    np.testing.assert_allclose(result, X_expected)
+
+
+@pytest.mark.parametrize("X", [X_complete])
+@pytest.mark.parametrize("threshold", [threshold])
+def test_rpca_utils_svd_thresholding(X: NDArray, threshold: float):
+    result = svd_thresholding(X=X, threshold=threshold)
+    X_expected = np.array(
+        [
+            [1.22954596, 4.19288775, 2.58695225, 2.11783467, 2.11783467],
+            [6.14486781, 1.96110299, 2.72428711, 1.21646981, 1.21646981],
+            [3.84704901, 3.8901204, 2.92414337, 4.6397143, 4.6397143],
+            [3.84704901, 3.8901204, 2.92414337, 4.6397143, 4.6397143],
+            [3.84704901, 3.8901204, 2.92414337, 4.6397143, 4.6397143],
+        ]
+    )
+    np.testing.assert_allclose(result, X_expected, rtol=1e-5)
+
+
+@pytest.mark.parametrize("X", [X_incomplete])
+@pytest.mark.parametrize(
+    "method, X_expected", [("mean", X_exp_mean), ("median", X_exp_median), ("zeros", X_exp_zeros)]
+)
+def test_rpca_utils_impute_nans(X: NDArray, method: str, X_expected: NDArray):
+    result = impute_nans(M=X, method=method)
+    np.testing.assert_allclose(result, X_expected)
+
+
+@pytest.mark.parametrize("X", [X_incomplete])
+def test_rpca_utils_l1_norm(X: NDArray):
+    result = l1_norm(M=X_complete)
+    np.testing.assert_allclose(result, 90)
+
+
+@pytest.mark.parametrize("T", [T])
+@pytest.mark.parametrize("dimension", [dimension])
+@pytest.mark.parametrize("model, X_expected", [("row", X_exp_row), ("column", X_exp_column)])
+def test_rpca_utils_toeplitz_matrix(T: int, dimension: int, model: str, X_expected: NDArray):
+    result = toeplitz_matrix(T=T, dimension=dimension, model=model)
+    np.testing.assert_allclose(result, X_expected)

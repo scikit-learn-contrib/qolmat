@@ -3,6 +3,7 @@ from typing import Callable, Dict, List, Optional, Union
 import numpy as np
 import pandas as pd
 import scipy
+import sklearn
 from sklearn import metrics as skm
 from sklearn.preprocessing import StandardScaler
 
@@ -20,6 +21,8 @@ def columnwise_metric(
     for col in df1.columns:
         df1_col = df1.loc[df_mask[col], col]
         df2_col = df2.loc[df_mask[col], col]
+        assert df1_col.notna().all()
+        assert df2_col.notna().all()
         values[col] = metric(df1_col, df2_col, **kwargs)
     return pd.Series(values)
 
@@ -132,6 +135,23 @@ def wasserstein_distance(
         )
 
 
+def density_from_rf(df, estimator, df_est=None):
+    if df_est is None:
+        df_est = df.copy()
+    counts = pd.Series(0, index=df_est.index)
+    df_leafs = pd.DataFrame(estimator.apply(df))
+    df_leafs_est = pd.DataFrame(estimator.apply(df_est))
+    for i_tree in range(estimator.n_estimators):
+        leafs = df_leafs[i_tree].rename("id_leaf")
+        leafs_est = df_leafs_est[i_tree].rename("id_leaf")
+        counts_leafs = leafs.value_counts().rename("count")
+        df_merge = pd.merge(leafs_est.reset_index(), counts_leafs.reset_index(), on="id_leaf")
+        df_merge = df_merge.set_index("index")
+        counts += df_merge["count"]
+    counts /= counts.sum()
+    return counts
+
+
 def kl_divergence_1D(df1: pd.Series, df2: pd.Series) -> np.number:
     min_val = min(df1.min(), df2.min())
     max_val = max(df1.max(), df2.max())
@@ -163,22 +183,37 @@ def kl_divergence(
     if method == "columnwise":
         return columnwise_metric(df1, df2, df_mask, kl_divergence_1D)
     elif method == "gaussian":
-        cols = df1.columns.tolist()
-        df_1 = StandardScaler().fit_transform(df1[df_mask.any(axis=1)])
-        df_2 = StandardScaler().fit_transform(df2[df_mask.any(axis=1)])
-
-        n = df_1.shape[0]
-        mu_true = np.nanmean(df_1, axis=0)
-        sigma_true = np.ma.cov(np.ma.masked_invalid(df_1), rowvar=False).data
-        mu_pred = np.nanmean(df_2, axis=0)
-        sigma_pred = np.ma.cov(np.ma.masked_invalid(df_2), rowvar=False).data
-        diff = mu_true - mu_pred
-        inv_sigma_pred = np.linalg.inv(sigma_pred)
-        quad_term = diff.T @ inv_sigma_pred @ diff
-        trace_term = np.trace(inv_sigma_pred @ sigma_true)
-        det_term = np.log(np.linalg.det(sigma_pred) / np.linalg.det(sigma_true))
-        kl = 0.5 * (quad_term + trace_term + det_term - n)
-        return pd.Series(kl, index=cols)
+        n_variables = len(df1.columns)
+        cov1 = df1.cov()
+        cov2 = df2.cov()
+        mean1 = df1.mean()
+        mean2 = df2.mean()
+        L1, lower1 = scipy.linalg.cho_factor(cov1)
+        L2, lower2 = scipy.linalg.cho_factor(cov2)
+        M = scipy.linalg.solve(L2, L1)
+        y = scipy.linalg.solve(L2, mean2 - mean1)
+        norm_M = (M**2).sum().sum()
+        norm_y = (y**2).sum()
+        term_diag_L = 2 * np.sum(np.log(np.diagonal(L2) / np.diagonal(L1)))
+        print(norm_M, "-", n_variables, "+", norm_y, "+", term_diag_L)
+        div_kl = 0.5 * (norm_M - n_variables + norm_y + term_diag_L)
+        return pd.Series(div_kl, index=df1.columns)
+    elif method == "random_forest":
+        # df_1 = StandardScaler().fit_transform(df1[df_mask.any(axis=1)])
+        # df_2 = StandardScaler().fit_transform(df2[df_mask.any(axis=1)])
+        n_estimators = 1000
+        # estimator = sklearn.ensemble.RandomForestClassifier(
+        #     n_estimators=n_estimators, max_depth=10
+        # )
+        # X = pd.concat([df1, df2])
+        # y = pd.concat([pd.Series([False] * len(df1)), pd.Series([True] * len(df2))])
+        # estimator.fit(X, y)
+        estimator = sklearn.ensemble.RandomTreesEmbedding(n_estimators=n_estimators, max_depth=8)
+        estimator.fit(df1)
+        counts1 = density_from_rf(df1, estimator, df_est=df2)
+        counts2 = density_from_rf(df2, estimator, df_est=df2)
+        div_kl = np.mean(np.log(counts1 / counts2) * counts1 / counts2)
+        return pd.Series(div_kl, index=df1.columns)
     else:
         raise AssertionError(
             f"The parameter of the function wasserstein_distance should be one of"
@@ -305,7 +340,6 @@ def total_variance_distance_1D(df1: pd.Series, df2: pd.Series) -> float:
     freqs1 = freqs1.reindex(list_categories, fill_value=0.0)
     freqs2 = df2.value_counts() / len(df2)
     freqs2 = freqs2.reindex(list_categories, fill_value=0.0)
-
     return (freqs1 - freqs2).abs().sum()
 
 
