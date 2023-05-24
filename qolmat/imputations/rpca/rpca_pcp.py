@@ -79,10 +79,10 @@ class RPCAPCP(RPCA):
                 break
         return M, A
 
-    def fit_transform(
+    def decompose_rpca_signal(
         self,
         X: NDArray,
-    ) -> NDArray:
+    ) -> Tuple[NDArray, NDArray]:
         """
         Compute the RPCA decomposition of a matrix based on PCP method
 
@@ -96,23 +96,16 @@ class RPCAPCP(RPCA):
             Low-rank signal
         A: NDArray
             Anomalies
-        U: NDArray
-            Basis Unitary array
-        V: NDArray
-            Basis Unitary array
-
-        errors: NDArray
-            Array of iterative errors
         """
-        X = X.copy().T
         D = self._prepare_data(X)
         M, A = self.decompose_rpca(D)
 
         # U, _, V = np.linalg.svd(M, full_matrices=False, compute_uv=True)
 
-        if X.shape[0] == 1:
-            M = M.reshape(1, -1)[:, : X.size]
-            A = A.reshape(1, -1)[:, : X.size]
-        M = M.T
-        A = A.T
-        return M
+        # if X.shape[0] == 1:
+        # M = M.reshape(1, -1)[:, : X.size]
+        # M = M.reshape(X)
+        # A = A.reshape(1, -1)[:, : X.size]
+        M = M.reshape(X.shape)
+        A = A.reshape(X.shape)
+        return M, A

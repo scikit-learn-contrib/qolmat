@@ -196,7 +196,8 @@ def kl_divergence(
         norm_y = (y**2).sum()
         term_diag_L = 2 * np.sum(np.log(np.diagonal(L2) / np.diagonal(L1)))
         print(norm_M, "-", n_variables, "+", norm_y, "+", term_diag_L)
-        return 0.5 * (norm_M - n_variables + norm_y + term_diag_L)
+        div_kl = 0.5 * (norm_M - n_variables + norm_y + term_diag_L)
+        return pd.Series(div_kl, index=df1.columns)
     elif method == "random_forest":
         # df_1 = StandardScaler().fit_transform(df1[df_mask.any(axis=1)])
         # df_2 = StandardScaler().fit_transform(df2[df_mask.any(axis=1)])
@@ -212,7 +213,7 @@ def kl_divergence(
         counts1 = density_from_rf(df1, estimator, df_est=df2)
         counts2 = density_from_rf(df2, estimator, df_est=df2)
         div_kl = np.mean(np.log(counts1 / counts2) * counts1 / counts2)
-        return div_kl
+        return pd.Series(div_kl, index=df1.columns)
     else:
         raise AssertionError(
             f"The parameter of the function wasserstein_distance should be one of"
@@ -339,7 +340,6 @@ def total_variance_distance_1D(df1: pd.Series, df2: pd.Series) -> float:
     freqs1 = freqs1.reindex(list_categories, fill_value=0.0)
     freqs2 = df2.value_counts() / len(df2)
     freqs2 = freqs2.reindex(list_categories, fill_value=0.0)
-
     return (freqs1 - freqs2).abs().sum()
 
 

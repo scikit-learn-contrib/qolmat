@@ -331,10 +331,10 @@ class RPCANoisy(RPCA):
             "lam": lam,
         }
 
-    def fit_transform(
+    def decompose_rpca_signal(
         self,
         X: NDArray,
-    ) -> NDArray:
+    ) -> Tuple[NDArray, NDArray]:
         """
         Compute the noisy RPCA with L1 or L2 time penalisation
 
@@ -349,15 +349,7 @@ class RPCANoisy(RPCA):
             Low-rank signal
         A: NDArray
             Anomalies
-        U:
-            Basis Unitary array
-        V:
-            Basis Unitary array
-
-        errors:
-            Array of iterative errors
         """
-        X = X.copy().T
         D_init = self._prepare_data(X)
         Omega = ~np.isnan(D_init)
         D_proj = utils.impute_nans(D_init, method="median")
@@ -374,10 +366,7 @@ class RPCANoisy(RPCA):
         elif self.norm == "L2":
             M, A, U, V, errors = self.decompose_rpca_L2(D_proj, Omega, lam, tau, rank)
 
-        if X.shape[0] == 1:
-            M = M.reshape(1, -1)[:, : X.size]
-            A = A.reshape(1, -1)[:, : X.size]
-        M = M.T
-        A = A.T
+        M = M.reshape(X.shape)
+        A = A.reshape(X.shape)
 
-        return M
+        return M, A

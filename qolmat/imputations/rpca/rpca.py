@@ -42,6 +42,8 @@ class RPCA(BaseEstimator, TransformerMixin):
         """
         Transform signal to 2D-array in case of 1D-array.
         """
+        if len(X.shape) == 1:
+            X = X.reshape(1, -1)
         n_rows_X, n_cols_X = X.shape
         if n_rows_X == 1:
             if self.n_rows is None:
