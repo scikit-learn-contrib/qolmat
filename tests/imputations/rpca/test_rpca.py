@@ -1,97 +1,84 @@
-# import numpy as np
-# from numpy.typing import ArrayLike, NDArray
-# import pandas as pd
-# import pytest
-# from qolmat.benchmark import utils
-# from qolmat.imputations.rpca import rpca
-# from typing import List, Optional
+import numpy as np
+import pytest
+from numpy.typing import NDArray
+
+from qolmat.imputations.rpca.rpca_noisy import RPCANoisy
+from qolmat.imputations.rpca.rpca_pcp import RPCAPCP
+
+X_incomplete = np.array([[1, np.nan], [4, 2], [np.nan, 4]])
+X_flat = np.array([2, np.nan, 0, 4, 3, np.nan])
+
+X_exp_nrows_1__prepare_data = np.array([1.0, np.nan, 4.0, 2.0, np.nan, 4.0])
+X_exp_nrows_6__prepare_data = np.concatenate(
+    [X_incomplete.reshape(-1, 6).flatten(), np.ones((1, 94)).flatten() * np.nan]
+)
+
+period = 100
+max_iter = 32
+mu = 0.5
+tau = 0.5
+lam = 1
 
 
-# X = np.array([1, 1, 1, 1, 1, 2, 2, 2, 2, 2])
-# X_real = np.array([[1, 2], [1, 2], [1, 2], [1, 2], [1, 2]])
-# s_real = 0
+@pytest.mark.parametrize("X", [X_incomplete])
+def test_rpca__prepare_data_2D_fail(X: NDArray):
+    rpca_pcp = RPCAPCP(max_iter=max_iter, mu=mu, lam=lam, period=period)
+    np.testing.assert_raises(ValueError, rpca_pcp._prepare_data, X)
 
 
-# @pytest.mark.parametrize("X", [X])
-# def test_rpca_prepare_data(X: NDArray) -> None:
-#     """Test prepare data function"""
-#     X_output, s_output = rpca.RPCA()._prepare_data(X)
-#     assert np.isnan(X).any() == False
-#     if len(X.shape) == 1:
-#         assert s_real == s_output
-#         np.testing.assert_array_equal(X_real, X_output)
-#     else:
-#         assert s_output == 0
-#         np.testing.assert_array_equal(X, X_output)
+@pytest.mark.parametrize("X", [X_incomplete])
+def test_rpca__prepare_data_2D_succeed(X: NDArray):
+    rpca_pcp = RPCAPCP(max_iter=max_iter, mu=mu, lam=lam, period=None)
+    result = rpca_pcp._prepare_data(X)
+    np.testing.assert_allclose(result, X)
 
 
-# X_1d = np.array([1, 1, 1, 1, 1, 2, 2, 2, 2, 2])
-# X_1d_real1 = np.array([1, 2, 1, 2, 1, 2, 1, 2, 1, 2])
-# X_1d_real2 = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-# X_1d_real3 = np.array(
-#     [
-#         [-0.4472136, 0.89442719],
-#         [-0.4472136, -0.2236068],
-#         [-0.4472136, -0.2236068],
-#         [-0.4472136, -0.2236068],
-#         [-0.4472136, -0.2236068],
-#     ]
-# )
-# X_1d_real4 = np.array([[-0.4472136, -0.89442719], [0.89442719, -0.4472136]])
-
-# X_2d = np.array([[1, 1, 1, 1, 1, 2, 2, 2, 2, 2], [1, 1, 1, 1, 1, 2, 2, 2, 2, 2]])
-# X_2d_real1 = np.array([[1, 1, 1, 1, 1, 2, 2, 2, 2, 2], [1, 1, 1, 1, 1, 2, 2, 2, 2, 2]])
-# X_2d_real2 = np.array(
-#     [
-#         [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-#         [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-#     ]
-# )
-# X_2d_real3 = np.array([[-0.70710678, -0.70710678], [-0.70710678, 0.70710678]])
-# X_2d_real4 = np.array(
-#     [
-#         [-0.2, -0.2, -0.2, -0.2, -0.2, -0.4, -0.4, -0.4, -0.4, -0.4],
-#         [
-#             -0.9797959,
-#             0.04082483,
-#             0.04082483,
-#             0.04082483,
-#             0.04082483,
-#             0.08164966,
-#             0.08164966,
-#             0.08164966,
-#             0.08164966,
-#             0.08164966,
-#         ],
-#     ]
-# )
-
-# x = np.zeros((2, 3, 4))
+@pytest.mark.parametrize("X", [X_incomplete])
+def test_rpca__prepare_data_1D_fail(X: NDArray):
+    signal = X.reshape(1, -1)  # X.shape[0] * X.shape[1])
+    rpca_pcp = RPCAPCP(max_iter=max_iter, mu=mu, lam=lam, period=None)
+    np.testing.assert_raises(ValueError, rpca_pcp._prepare_data, signal)
 
 
-# @pytest.mark.parametrize("X", [X_1d])
-# def test_rpca_fit_transform(X: NDArray) -> None:
-#     """Test fit_transform function for rpca class"""
-#     if len(X.shape) == 1:
-#         a, b, c, d = rpca.RPCA().fit_transform(X, True)
-#         np.testing.assert_array_equal(X_1d_real1, a)
-#         np.testing.assert_array_equal(X_1d_real2, b)
-#         np.testing.assert_almost_equal(X_1d_real3, c)
-#         np.testing.assert_almost_equal(X_1d_real4, d)
-
-#     elif len(X.shape) == 2:
-#         a, b, c, d = rpca.RPCA().fit_transform(X, True)
-#         np.testing.assert_array_equal(X_2d_real1, a)
-#         np.testing.assert_array_equal(X_2d_real2, b)
-#         np.testing.assert_almost_equal(X_2d_real3, c)
-#         np.testing.assert_almost_equal(X_2d_real4, d)
+@pytest.mark.parametrize("X", [X_incomplete])
+def test_rpca__prepare_data_1D_succeed(X: NDArray):
+    signal = X.reshape(1, -1)  # , X.shape[0] * X.shape[1])
+    rpca_pcp = RPCAPCP(max_iter=max_iter, mu=mu, lam=lam, period=3)
+    result = rpca_pcp._prepare_data(signal)
+    np.testing.assert_allclose(result, X)
 
 
-# ####  There is a problem in the fucntion : self.input_data is always = "2DArray"########
-# # else:
-# # error = rpca.RPCA().fit_transform(X,False)
-# # print(error)
-# # try:
-# # rpca.RPCA().fit_transform(X,False)
-# # except ValueError("Data shape not recognized") as exc :
-# # assert ValueError("Data shape not recognized") == exc
+X_exp_nrows_2_pcp_decompose_rpca_signal = np.array([2, 3, 0, 4, 3, 0])
+X_exp_nrows_3_pcp_decompose_rpca_signal = np.array([2, 4, 0, 4, 3, 4])
+X_exp_nrows_1_pcp_decompose_rpca_signal = np.array([[1, 3], [4, 2], [2.5, 4]])
+
+
+@pytest.mark.parametrize(
+    "n_rows, X, X_expected",
+    [
+        (2, X_flat, X_exp_nrows_2_pcp_decompose_rpca_signal),
+        (3, X_flat, X_exp_nrows_3_pcp_decompose_rpca_signal),
+        (None, X_incomplete, X_exp_nrows_1_pcp_decompose_rpca_signal),
+    ],
+)
+def test_rpca_pcp_decompose_rpca_signal(n_rows: int, X: NDArray, X_expected: NDArray):
+    rpca_pcp = RPCAPCP(max_iter=max_iter, mu=mu, lam=lam, period=n_rows)
+    M, A = rpca_pcp.decompose_rpca_signal(X)
+    result = M + A
+    np.testing.assert_allclose(result, X_expected, atol=1e-3)
+
+
+X_exp_L1_noisy_decompose_rpca_signal = np.array([1.844, 2.845, -0.155, 3.844, 2.845, -0.155])
+X_exp_L2_noisy_decompose_rpca_signal = np.array([0, 6.498, 0, 0, 0, 6.493])
+
+
+@pytest.mark.parametrize("X", [X_flat])
+@pytest.mark.parametrize(
+    "norm, X_expected",
+    [("L1", X_exp_L1_noisy_decompose_rpca_signal), ("L2", X_exp_L2_noisy_decompose_rpca_signal)],
+)
+def test_rpca_noisy_decompose_rpca_signal(X: NDArray, norm: str, X_expected: NDArray):
+    rpca_noisy = RPCANoisy(period=2, max_iter=max_iter, tau=tau, lam=lam, norm=norm)
+    M, A = rpca_noisy.decompose_rpca_signal(X)
+    result = M + A
+    np.testing.assert_allclose(result, X_expected, atol=1e-3)

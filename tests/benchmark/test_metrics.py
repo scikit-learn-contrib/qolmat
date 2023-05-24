@@ -92,9 +92,9 @@ def test_wasserstein_distance(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.
 def test_kl_divergence_columnwise(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
 ) -> None:
-    assert metrics.kl_divergence(df1, df1, df_mask, method="columnwise").equals(
-        pd.Series([0.0, 0.0], index=["col1", "col2"])
-    )
+    result = metrics.kl_divergence(df1, df1, df_mask, method="columnwise")
+    expected = pd.Series([0.0, 0.0], index=["col1", "col2"])
+    np.testing.assert_allclose(result, expected, atol=1e-3)
     result = metrics.kl_divergence(df1, df2, df_mask, method="columnwise")
     expected = pd.Series([18.945, 36.637], index=["col1", "col2"])
     np.testing.assert_allclose(result, expected, atol=1e-3)
@@ -104,16 +104,13 @@ def test_kl_divergence_columnwise(
 @pytest.mark.parametrize("df2", [df_imputed])
 @pytest.mark.parametrize("df_mask", [df_mask])
 def test_kl_divergence(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> None:
-    assert (
-        metrics.kl_divergence(df1, df1, df_mask, method="gaussian")
-        .round(2)
-        .equals(pd.Series([-0.5, -0.5], index=["col1", "col2"]))
-    )
-    assert (
-        metrics.kl_divergence(df1, df2, df_mask, method="gaussian")
-        .round(3)
-        .equals(pd.Series([0.263, 0.263], index=["col1", "col2"]))
-    )
+    result = metrics.kl_divergence(df1, df1, df_mask, method="gaussian")
+    expected = pd.Series([0, 0], index=["col1", "col2"])
+    np.testing.assert_allclose(result, expected, atol=1e-3)
+
+    result = metrics.kl_divergence(df1, df2, df_mask, method="gaussian")
+    expected = pd.Series([0.669, 0.669], index=["col1", "col2"])
+    np.testing.assert_allclose(result, expected, atol=1e-3)
 
 
 @pytest.mark.parametrize("df1", [df_incomplete])
@@ -211,31 +208,36 @@ def test_mean_difference_correlation_matrix_numerical_features(
 
 
 df_incomplete_cat = pd.DataFrame(
-    {"col1": ["a", np.nan, "a", "b", np.nan], "col2": ["c", np.nan, "c", np.nan, "d"]}
+    {"col1": ["a", np.nan, "a", "b", np.nan], "col2": ["c", np.nan, "d", "b", "d"]}
 )
 
 df_imputed_cat = pd.DataFrame(
-    {"col1": ["a", "b", "a", "c", "c"], "col2": ["e", "d", "c", "d", "d"]}
+    {"col1": ["a", "b", "a", "c", "c"], "col2": ["b", "d", "c", "d", "d"]}
+)
+
+df_mask_cat = pd.DataFrame(
+    {"col1": [False, False, True, True, False], "col2": [True, False, True, True, False]}
 )
 
 
 @pytest.mark.parametrize("df1", [df_incomplete_cat])
 @pytest.mark.parametrize("df2", [df_imputed_cat])
-@pytest.mark.parametrize("df_mask", [df_mask])
+@pytest.mark.parametrize("df_mask", [df_mask_cat])
 def test_total_variance_distance(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
 ) -> None:
-    assert metrics.total_variance_distance(df1, df1, df_mask).equals(
-        pd.Series([0.0, 0.0], index=["col1", "col2"])
-    )
-    assert metrics.total_variance_distance(df1, df2, df_mask).equals(
-        pd.Series([1.0, 1.0], index=["col1", "col2"])
-    )
+    result = metrics.total_variance_distance(df1, df1, df_mask)
+    expected = pd.Series([0.0, 0.0], index=["col1", "col2"])
+    np.testing.assert_allclose(result, expected, atol=1e-3)
+
+    result = metrics.total_variance_distance(df1, df2, df_mask)
+    expected = pd.Series([1.0, 0], index=["col1", "col2"])
+    np.testing.assert_allclose(result, expected, atol=1e-3)
 
 
 @pytest.mark.parametrize("df1", [df_incomplete_cat])
 @pytest.mark.parametrize("df2", [df_imputed_cat])
-@pytest.mark.parametrize("df_mask", [df_mask])
+@pytest.mark.parametrize("df_mask", [df_mask_cat])
 def test_mean_difference_correlation_matrix_categorical_features(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
 ) -> None:
