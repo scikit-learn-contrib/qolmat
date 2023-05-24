@@ -99,11 +99,9 @@ def preprocess_data(df: pd.DataFrame):
     df.set_index(["station", "datetime"], inplace=True)
     df.drop(columns=["year", "month", "day", "hour", "wd", "No"], inplace=True)
     df.sort_index(inplace=True)
-    dict_agg = {key: np.mean for key in df.columns}
-    dict_agg["RAIN"] = np.mean
     df = df.groupby(
         ["station", df.index.get_level_values("datetime").floor("d")], group_keys=False
-    ).agg(dict_agg)
+    ).mean()
     return df
 
 
