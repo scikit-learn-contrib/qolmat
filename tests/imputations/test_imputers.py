@@ -154,7 +154,7 @@ def test_ImputerResiduals_fit_transform(df: pd.DataFrame) -> None:
         },
         index=pd.date_range("2023-04-17", periods=20, freq="D"),
     )
-    np.testing.assert_allclose(result, expected, rtol=1e-6)
+    np.testing.assert_allclose(result, expected, atol=1e-6)
 
 
 @pytest.mark.parametrize("df", [df_incomplete])
@@ -225,4 +225,4 @@ def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
             "col2": [0, 1.914706, 2, 2.480963, 2] + [i for i in range(5, 20)],
         }
     )
-    np.testing.assert_allclose(result, expected, rtol=1e-6)
+    np.testing.assert_allclose(result, expected, atol=1e-6)

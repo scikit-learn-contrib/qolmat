@@ -144,7 +144,7 @@ imputer_mice = imputers.ImputerMICE(groups=["station"], estimator=LinearRegressi
 imputer_regressor = imputers.ImputerRegressor(groups=["station"], estimator=LinearRegression())
 
 dict_imputers = {
-    # "mean": imputer_mean,
+    "mean": imputer_mean,
     # "median": imputer_median,
     # "mode": imputer_mode,
     "interpolation": imputer_interpol,
@@ -160,7 +160,7 @@ dict_imputers = {
     # "nocb": imputer_nocb,
     # "knn": imputer_knn,
     "ols": imputer_regressor,
-    "mice_ols": imputer_mice,
+    # "mice_ols": imputer_mice,
 }
 n_imputers = len(dict_imputers)
 
@@ -193,12 +193,22 @@ comparison = comparator.Comparator(
     dict_imputers,
     cols_to_impute,
     generator_holes = generator_holes,
-    metrics=["mae", "wmape", "KL"],
+    metrics=["mae", "wmape", "KL", "ks_test", "energy"],
     n_calls_opt=10,
     search_params=search_params,
 )
 results = comparison.compare(df_data)
 results
+```
+
+```python
+df_plot
+```
+
+```python
+df_plot = results.loc["energy", "All"]
+plt.bar(df_plot.index, df_plot, color=tab10(0))
+plt.show()
 ```
 
 ```python
