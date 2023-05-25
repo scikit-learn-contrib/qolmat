@@ -20,13 +20,9 @@ def compute_transition_counts_matrix(states: pd.Series):
     else:
         n_variables = 1
         last_line = pd.Series([False])
-    print(type(last_line))
     states = states.append(last_line, ignore_index=True)
-    print(states)
     df_couples = pd.DataFrame({"current": states.iloc[:-1], "next": states.shift(-1).iloc[1:]})
-    print(df_couples)
     df_couples = df_couples.iloc[1:-1]
-    print(df_couples)
     counts = df_couples.groupby(["current", "next"]).size()
     df_counts = counts.unstack().fillna(0)
     return df_counts
