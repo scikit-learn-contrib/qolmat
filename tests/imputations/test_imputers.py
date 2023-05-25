@@ -204,12 +204,12 @@ def test_ImputerRegressor_fit_transform(df: pd.DataFrame) -> None:
 
 @pytest.mark.parametrize("df", [df_timeseries])
 def test_ImputerRPCA_fit_transform(df: pd.DataFrame) -> None:
-    imputer = imputers.ImputerRPCA(columnwise=True, period=1, max_iter=100)
+    imputer = imputers.ImputerRPCA(columnwise=True, max_iter=100, period=2)
     result = imputer.fit_transform(df)
     expected = pd.DataFrame(
         {
             "col1": [i for i in range(20)],
-            "col2": [0, 5.496290833663846, 2, 5.496290833663846, 2] + [i for i in range(5, 20)],
+            "col2": [0, 10.5, 2, 10.5, 2] + [i for i in range(5, 20)],
         }
     )
     np.testing.assert_allclose(result, expected)
