@@ -50,12 +50,12 @@ Then we create some missing entries.
 Once we have a dataframe with missign values, we can define multiple imputation methods.
 Some methods take arguments. For instance, if we want to impute by the mean, we can specify some groups.
 
-* Here, in the :class:`ImputeByMean`, we specify :class:`groups=["datetime.dt.month", "datetime.dt.dayofweek"]`, which means  the method will first use a groupby operation (via :class:`pd.DataFrame.groupby`) and then impute missing values with the mean of their corresponding group. 
-* For the :class:`ImputeByInterpolation`, the method can be anything supported by :class:`pd.Series.interpolate`; hence for :class:`spline` and :class:`polynomial`, we have to provide an :class:`order`. 
-* For the :class:`ImputeRPCA`, we first need to specify the :class:`method`, i.e. :class:`PCP`, :class:`Temporal` or :class:`Online`. It is also mandatory to mention if we deal with multivariate or not. Finally, there is a set of hyperparameters that can be specify.  See the doc "Focus on RPCA" for more information. 
-* For the :class:`ImputeEM`, we can specify the maximum number of iterations or the strategy used, i.e. "sample" or "argmax" (By default, "sample"). See the doc "Focus on EM Sampler" for more information. 
-* For the :class:`ImputeIterative`, we can specify the regression model to use, with its own hyperparameters. 
-* For the :class:`ImputeRegressor` and :class:`ImputeStochasticRegressor`, we can specify the regression model to use, with its own hyperparameters as well as the name of the columns to impute. 
+* Here, in the :class:`ImputerMean` , we specify :class:`groups=["datetime.dt.month", "datetime.dt.dayofweek"]`, which means  the method will first use a groupby operation (via :class:`pd.DataFrame.groupby`) and then impute missing values with the mean of their corresponding group. 
+* For the :class:`ImputeInterpolation`, the method can be anything supported by :class:`pd.Series.interpolate`; hence for :class:`spline` and :class:`polynomial`, we have to provide an :class:`order`. 
+* For the :class:`ImputerRPCA`, we first need to specify the :class:`method`, i.e. :class:`PCP`, :class:`Temporal` or :class:`Online`. It is also mandatory to mention if we deal with multivariate or not. Finally, there is a set of hyperparameters that can be specify.  See the doc "Focus on RPCA" for more information. 
+* For the :class:`ImputerEM`, we can specify the maximum number of iterations or the model used, i.e. "sample" or "mle" (By default, "sample"). See the doc "Focus on EM Sampler" for more information. 
+* For the :class:`ImputerIterative`, we can specify the regression model to use, with its own hyperparameters. 
+* For the :class:`ImputerRegressor`, we can specify the regression model to use, with its own hyperparameters as well as the name of the columns to impute. 
 
 If the method requires hyperparameters, the user can either define them himself or define a search space for each of them. 
 In the latter case, he has to define a dictionay called :class:`search_params` with the following structure: 
@@ -67,23 +67,23 @@ In this way, the algorithms will use a cross-validatino to find and save the bes
 
 .. code-block:: python
 
-    imputer_interpol = models.ImputeByInterpolation(method="polynomial", order=2)
-    imputer_rpca = models.ImputeRPCA(
+    imputer_interpol = imputers.ImputerInterpolation(method="polynomial", order=2)
+    imputer_rpca = imputers.ImputerRPCA(
         method="temporal", multivariate=False, **{"n_rows":7*4, "maxIter":1000, "tau":1}
     )
-    imputer_em = ImputeEM(n_iter_em=14, n_iter_ou=10, verbose=1)
-    imputer_iterative = models.ImputeIterative(
+    imputer_em = ImputerEM(n_iter_em=14, n_iter_ou=10, verbose=1)
+    imputer_iterative = imputers.ImputeIterative(
         **{"estimator": LinearRegression(), "sample_posterior": False, "max_iter": 100, "missing_values": np.nan}
     )
 
     search_params = {
-        "ImputeKNN": {"k": {"min":2, "max":3, "type":"Integer"}},
-        "ImputeRPCA": {
+        "ImputerKNN": {"k": {"min":2, "max":3, "type":"Integer"}},
+        "ImputerRPCA": {
             "lam": {"min": 0.5, "max": 1, "type":"Real"},
         }
     }
 
-    dict_models = {
+    dict_imputers = {
         "interpolation": imputer_interpol,
         "EM": imputer_em,
         "RPCA": imputer_rpca,
@@ -155,7 +155,7 @@ For other vizualiations, we can for instance compare the distributions 2 by 2.
 .. image:: ../images/covariance_interpolation.png
 .. image:: ../images/covariance_EM.png
 .. image:: ../images/covariance_RPCA.png
-    .. image:: ../images/covariance_iterative.png
+.. image:: ../images/covariance_iterative.png
 
 Another quantity of interest could be the coefficient of determination.
 

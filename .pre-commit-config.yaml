@@ -12,7 +12,6 @@ repos:
     rev: 22.8.0
     hooks:
       - id: black
-        exclude: (tests/)
         args:
           - "-l 99"
   # Flake8
@@ -20,3 +19,7 @@ repos:
     rev: 4.0.1
     hooks:
       - id: flake8
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.1.1
+    hooks:
+      - id: mypy

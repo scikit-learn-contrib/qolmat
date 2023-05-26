@@ -4,11 +4,12 @@ Useful drawing functions
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Any, Optional, Tuple, Union
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.ticker as plticker
+
 import numpy as np
 import pandas as pd
 import scipy
@@ -162,7 +163,7 @@ def plot_images(
 
 def make_ellipses(
     X: np.ndarray,
-    ax: any,
+    ax: Any,
     color: Union[str, Tuple[float, float, float]],
 ):
     """Draw ellipses on a figure
@@ -176,7 +177,7 @@ def make_ellipses(
     color : Union[str, Tuple[float, float, float]]
         ellipse's color
     """
-    covariances = X.cov()  # gmm.covariances_[0] # [n][:2, :2]
+    covariances = np.cov(X)  # gmm.covariances_[0] # [n][:2, :2]
     v, w = np.linalg.eigh(covariances)
     u = w[0] / np.linalg.norm(w[0])
     angle = np.arctan2(u[1], u[0])
@@ -195,7 +196,7 @@ def compare_covariances(
     df2: pd.DataFrame,
     col_x: str,
     col_y: str,
-    ax: any,
+    ax: mpl.axes._subplots.AxesSubplot,
     label: str = "",
     color=None,
 ):
@@ -241,12 +242,22 @@ def multibar(df, ax=None, orientation="vertical", colors=None, decimals=0):
         dx = width_tot * (-0.5 + float(i_column) / n_columns)
         if orientation == "horizontal":
             rect = ax.barh(
-                x + dx, df[column], width_col, label=column, align="edge", color=color_col
+                x + dx,
+                df[column],
+                width_col,
+                label=column,
+                align="edge",
+                color=color_col,
             )
             plt.yticks(x, df.index)
         else:
             rect = ax.bar(
-                x + dx, df[column], width_col, label=column, align="edge", color=color_col
+                x + dx,
+                df[column],
+                width_col,
+                label=column,
+                align="edge",
+                color=color_col,
             )
             plt.xticks(x, df.index)
         ax.bar_label(rect, padding=3, fmt=f"%.{decimals}f")
@@ -268,7 +279,6 @@ def plot_imputations(df: pd.DataFrame, dict_df_imputed: Dict[str, pd.DataFrame])
     i_plot = 1
     for name_imputer, df_imputed in dict_df_imputed.items():
         for col in df:
-
             ax = fig.add_subplot(n_imputers, n_columns, i_plot)
             values_orig = df[col]
 
