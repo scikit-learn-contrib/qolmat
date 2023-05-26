@@ -193,16 +193,12 @@ comparison = comparator.Comparator(
     dict_imputers,
     cols_to_impute,
     generator_holes = generator_holes,
-    metrics=["mae", "wmape", "KL", "ks_test", "energy"],
+    metrics=["mae", "wmape", "KL_columnwise", "ks_test", "energy"],
     n_calls_opt=10,
     search_params=search_params,
 )
 results = comparison.compare(df_data)
 results
-```
-
-```python
-df_plot
 ```
 
 ```python
@@ -218,7 +214,7 @@ plot.multibar(results.loc["mae"], decimals=1)
 plt.ylabel("mae")
 
 fig.add_subplot(2, 1, 2)
-plot.multibar(results.loc["KL"], decimals=1)
+plot.multibar(results.loc["KL_columnwise"], decimals=1)
 plt.ylabel("KL")
 plt.show()
 ```

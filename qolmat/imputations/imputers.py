@@ -77,7 +77,6 @@ class Imputer(_BaseImputer):
         for column in df:
             if df[column].isnull().all():
                 raise ValueError("Input contains a column full of NaN")
-
         self.rng = sku.check_random_state(self.random_state)
         if hasattr(self, "estimator") and hasattr(self.estimator, "random_state"):
             self.estimator.random_state = self.rng
@@ -881,8 +880,10 @@ class ImputerRPCA(Imputer):
         else:
             raise ValueError("Argument method must be `PCP` or `noisy`!")
 
-        X_imputed = model.fit_transform(df.values)
-        df_imputed = pd.DataFrame(X_imputed, index=df.index, columns=df.columns)
+        X = df.values.T
+        M, A = model.decompose_rpca_signal(X)
+        df_imputed = pd.DataFrame((M + A).T, index=df.index, columns=df.columns)
+        df_imputed = df.where(df.isna(), df_imputed)
 
         return df_imputed
 

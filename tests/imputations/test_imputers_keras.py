@@ -43,7 +43,6 @@ def test_ImputerRegressorKeras_fit_transform(df: pd.DataFrame) -> None:
     )
 
     result = imputer.fit_transform(df)
-    print(result)
     expected = pd.DataFrame(
         {
             "col1": [0.002, 15.0, 19, 23.0, 33.0],
