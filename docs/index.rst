@@ -1,4 +1,4 @@
-.. include:: intro.rst 
+.. include:: ../README.rst
 
 .. toctree::
    :maxdepth: 2
@@ -10,11 +10,12 @@
    EM_sampler
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 2 
    :hidden:
    :caption: Simple examples
 
    examples/imputation_example
+   examples/imputer_keras
    examples/RPCA_example
 
 .. toctree::

@@ -17,7 +17,7 @@ class RPCA(BaseEstimator, TransformerMixin):
     ----------
     n_rows: Optional[int]
         Number of rows of the array if the array is
-        1D and reshaped into a 2D array, by default ``None`.
+        1D and reshaped into a 2D array, by default `None`.
     max_iter: int
         maximum number of iterations of the
         alternating direction method of multipliers,
@@ -25,7 +25,7 @@ class RPCA(BaseEstimator, TransformerMixin):
     tol: float
         Tolerance for stopping criteria, by default 1e-6
     verbose: bool
-        default ``False``
+        default `False`
     """
 
     def __init__(
@@ -34,21 +34,25 @@ class RPCA(BaseEstimator, TransformerMixin):
         max_iter: int = int(1e4),
         tol: float = 1e-6,
     ) -> None:
-
         self.n_rows = period
         self.max_iter = max_iter
         self.tol = tol
 
-    def _prepare_data(self, X: NDArray) -> Tuple[NDArray, int, int]:
+    def _prepare_data(self, X: NDArray) -> NDArray:
         """
         Transform signal to 2D-array in case of 1D-array.
         """
+        if len(X.shape) == 1:
+            X = X.reshape(1, -1)
         n_rows_X, n_cols_X = X.shape
         if n_rows_X == 1:
             if self.n_rows is None:
-                raise ValueError("`n_rows`must be specified when imputing 1D data.")
-            D_init = utils.fold_signal(X, self.n_rows)
+                raise ValueError("`n_rows` must be specified when imputing 1D data.")
+            elif self.n_rows >= n_cols_X:
+                raise ValueError("`n_rows` must be smaller than the signals duration.")
+            return utils.fold_signal(X, self.n_rows)
         else:
-            D_init = X.copy()
-
-        return D_init
+            if self.n_rows is None:
+                return X.copy()
+            else:
+                raise ValueError("`n_rows` should not be specified when imputing 2D data.")
