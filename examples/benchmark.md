@@ -48,7 +48,7 @@ from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor, HistGra
 
 import sys
 from qolmat.benchmark import comparator, missing_patterns
-from qolmat.benchmark.utils import kl_divergence
+from qolmat.benchmark.metrics import kl_divergence
 from qolmat.imputations import imputers
 from qolmat.utils import data, utils, plot
 # from qolmat.drawing import display_bar_table
@@ -132,9 +132,9 @@ imputer_residuals = imputers.ImputerResiduals(groups=["station"], period=7, mode
 imputer_rpca = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=365, max_iter=200, tau=2, lam=.3)
 imputer_rpca_opti = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=365, max_iter=100)
 
-imputer_ou = imputers.ImputerEM(groups=["station"], method="multinormal", strategy="ou", max_iter_em=34, n_iter_ou=15, dt=1e-3)
-imputer_tsou = imputers.ImputerEM(groups=["station"], method="VAR1", strategy="ou", max_iter_em=34, n_iter_ou=15, dt=1e-3)
-imputer_tsmle = imputers.ImputerEM(groups=["station"], method="VAR1", strategy="mle", max_iter_em=34, n_iter_ou=15, dt=1e-3)
+imputer_ou = imputers.ImputerEM(groups=["station"], model="multinormal", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
+imputer_tsou = imputers.ImputerEM(groups=["station"], model="VAR1", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
+imputer_tsmle = imputers.ImputerEM(groups=["station"], model="VAR1", method="mle", max_iter_em=34, n_iter_ou=15, dt=1e-3)
 
 
 imputer_knn = imputers.ImputerKNN(groups=["station"], k=10)
@@ -191,6 +191,7 @@ comparison = comparator.Comparator(
     dict_imputers,
     cols_to_impute,
     generator_holes = generator_holes,
+    metrics=["mae", "wmape", "KL"],
     n_calls_opt=10,
     search_params=search_params,
 )
@@ -205,8 +206,8 @@ plot.multibar(results.loc["mae"], decimals=1)
 plt.ylabel("mae")
 
 fig.add_subplot(2, 1, 2)
-plot.multibar(results.loc["energy"], decimals=1)
-plt.ylabel("energy")
+plot.multibar(results.loc["KL"], decimals=1)
+plt.ylabel("KL")
 plt.show()
 ```
 
