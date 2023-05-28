@@ -55,8 +55,9 @@ from qolmat.utils import data, utils, plot
 
 ```
 
+<!-- #region tags=[] -->
 ### **I. Load data**
-
+<!-- #endregion -->
 
 The dataset `Beijing` is the Beijing Multi-Site Air-Quality Data Set. It consists in hourly air pollutants data from 12 chinese nationally-controlled air-quality monitoring sites and is available at https://archive.ics.uci.edu/ml/machine-learning-databases/00501/.
 This dataset only contains numerical vairables.
@@ -72,7 +73,7 @@ cols_to_impute = ["TEMP", "PRES"]
 
 The dataset `Artificial` is designed to have a sum of a periodical signal, a white noise and some outliers.
 
-```python
+```python tags=[]
 df_data
 ```
 
@@ -106,8 +107,9 @@ for i_station, (station, df) in enumerate(df_data.groupby("station")):
 plt.show()
 ```
 
+<!-- #region tags=[] -->
 ### **II. Imputation methods**
-
+<!-- #endregion -->
 
 This part is devoted to the imputation methods. The idea is to try different algorithms and compare them.
 
@@ -143,22 +145,22 @@ imputer_regressor = imputers.ImputerRegressor(groups=["station"], estimator=Line
 
 dict_imputers = {
     "mean": imputer_mean,
-    "median": imputer_median,
+    # "median": imputer_median,
     # "mode": imputer_mode,
     "interpolation": imputer_interpol,
     # "spline": imputer_spline,
     # "shuffle": imputer_shuffle,
     # "residuals": imputer_residuals,
-    "OU": imputer_ou,
-    "TSOU": imputer_tsou,
-    "TSMLE": imputer_tsmle,
+    # "OU": imputer_ou,
+    # "TSOU": imputer_tsou,
+    # "TSMLE": imputer_tsmle,
     # "RPCA": imputer_rpca,
     # "RPCA_opti": imputer_rpca_opti,
     # "locf": imputer_locf,
     # "nocb": imputer_nocb,
     # "knn": imputer_knn,
-    "iterative": imputer_regressor,
-    "regressor": imputer_mice,
+    "ols": imputer_regressor,
+    # "mice_ols": imputer_mice,
 }
 n_imputers = len(dict_imputers)
 
@@ -191,12 +193,18 @@ comparison = comparator.Comparator(
     dict_imputers,
     cols_to_impute,
     generator_holes = generator_holes,
-    metrics=["mae", "wmape", "KL"],
+    metrics=["mae", "wmape", "KL_columnwise", "ks_test", "energy"],
     n_calls_opt=10,
     search_params=search_params,
 )
 results = comparison.compare(df_data)
 results
+```
+
+```python
+df_plot = results.loc["energy", "All"]
+plt.bar(df_plot.index, df_plot, color=tab10(0))
+plt.show()
 ```
 
 ```python
@@ -206,7 +214,7 @@ plot.multibar(results.loc["mae"], decimals=1)
 plt.ylabel("mae")
 
 fig.add_subplot(2, 1, 2)
-plot.multibar(results.loc["KL"], decimals=1)
+plot.multibar(results.loc["KL_columnwise"], decimals=1)
 plt.ylabel("KL")
 plt.show()
 ```
@@ -300,31 +308,35 @@ from qolmat.imputations import imputers_keras
 import tensorflow as tf
 ```
 
-We will train the MLP model on a time series, so we encode the temporality.
+For the MLP model, we work on a dataset that corresponds to weather data with missing values. We add missing MCAR values on the features "TEMP", "PRES" and other features with NaN values. The goal is impute the missing values for the features "TEMP" and "PRES" by a Deep Learning method. We add features to take into account the seasonality of the data set and a feature for the station name
 
 ```python
-time = np.concatenate([np.cos(2*np.pi*np.arange(60,366)/365), np.cos(2*np.pi*np.arange(1,366)/365), np.cos(2*np.pi*np.arange(1,366)/365), np.cos(2*np.pi*np.arange(1,367)/366),np.cos(2*np.pi*np.arange(1,60)/365)  ])
-for i_station, (station, df) in enumerate(df_data.groupby("station")):
-    df_data.loc[station, "Time"] = time
-    # df_data.loc[station, "Time"] = np.array(df_data.loc[station].index.dayofyear)
+df = data.get_data("Beijing")
+cols_to_impute = ["TEMP", "PRES"]
+cols_with_nans = list(df.columns[df.isna().any()])
+df_data = data.add_datetime_features(df)
+df_data = data.add_station_features(df_data)
+df_data[cols_with_nans + cols_to_impute] = data.add_holes(pd.DataFrame(df_data[cols_with_nans + cols_to_impute]), ratio_masked=.1, mean_size=120)
+df_data
 ```
 
-To illustrate with an example the use of an MLP imputor, we will set up a network with 3 layers of neurons by adding it to the previous dictionary dict_imputer.
+For the example, we use a simple MLP model with 3 layers of neurons.
+Then we train the model without taking a group on the stations
 
 ```python
 estimator = tf.keras.models.Sequential([
-    tf.keras.layers.Dense(256, activation='relu'),
-    tf.keras.layers.Dense(128, activation='relu'),
-    tf.keras.layers.Dense(64, activation='relu'),
+    tf.keras.layers.Dense(256, activation='sigmoid'),
+    tf.keras.layers.Dense(128, activation='sigmoid'),
+    tf.keras.layers.Dense(64, activation='sigmoid'),
     tf.keras.layers.Dense(1)])
-estimator.compile(optimizer='adam', loss='mse', metrics=['mae'])
-dict_imputers["MLP"] = imputer_mlp = imputers_keras.ImputerRegressorKeras(groups=["station"], estimator=estimator, handler_nan = "column")
+estimator.compile(optimizer='adam', loss='mse')
+dict_imputers["MLP"] = imputer_mlp = imputers_keras.ImputerRegressorKeras(estimator=estimator, handler_nan = "column")
 ```
 
 We can re-run the imputation model benchmark as before.
 
-```python
-generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, subset = cols_to_impute, groups=["station"], ratio_masked=ratio_masked)
+```python tags=[]
+generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, subset = cols_to_impute, ratio_masked=ratio_masked)
 
 comparison = comparator.Comparator(
     dict_imputers,

@@ -99,11 +99,9 @@ def preprocess_data(df: pd.DataFrame):
     df.set_index(["station", "datetime"], inplace=True)
     df.drop(columns=["year", "month", "day", "hour", "wd", "No"], inplace=True)
     df.sort_index(inplace=True)
-    dict_agg = {key: np.mean for key in df.columns}
-    dict_agg["RAIN"] = np.mean
     df = df.groupby(
         ["station", df.index.get_level_values("datetime").floor("d")], group_keys=False
-    ).agg(dict_agg)
+    ).mean()
     return df
 
 
@@ -142,6 +140,7 @@ def add_holes(df: pd.DataFrame, ratio_masked: float, mean_size: int):
         mask = generator.generate_mask(df)
     else:
         mask = df.groupby(groups, group_keys=False).apply(generator.generate_mask)
+
     X_with_nans = df.copy()
     X_with_nans[mask] = np.nan
     return X_with_nans
@@ -170,4 +169,49 @@ def get_data_corrupted(
     """
     df = get_data(name_data)
     df = add_holes(df, mean_size=mean_size, ratio_masked=ratio_masked)
+    return df
+
+
+def add_station_features(df: pd.DataFrame):
+    """
+    Create a station feature in the dataset
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        dataframe no missing values
+
+    Returns
+    -------
+    pd.DataFrame
+        dataframe with missing values
+    """
+    df = df.copy()
+    stations = df.index.get_level_values("station")
+    for station in stations.unique():
+        df[f"station={station}"] = (stations == station).astype(float)
+    return df
+
+
+def add_datetime_features(df: pd.DataFrame):
+    """
+    Create a seasonal feature in the dataset with a cosine function
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        dataframe no missing values
+
+    Returns
+    -------
+    pd.DataFrame
+        dataframe with missing values
+    """
+    df = df.copy()
+    time = df.index.get_level_values("datetime").to_series()
+    days_in_year = time.dt.year.apply(
+        lambda x: 366 if ((x % 4 == 0) and (x % 100 != 0)) or (x % 400 == 0) else 365
+    )
+    time_cos = np.cos(2 * np.pi * time.dt.dayofyear / days_in_year)
+    df["time_cos"] = np.array(time_cos)
     return df

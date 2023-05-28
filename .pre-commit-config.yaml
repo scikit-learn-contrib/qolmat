@@ -12,7 +12,6 @@ repos:
     rev: 22.8.0
     hooks:
       - id: black
-        # exclude: (tests/)
         args:
           - "-l 99"
   # Flake8

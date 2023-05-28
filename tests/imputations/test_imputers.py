@@ -154,7 +154,7 @@ def test_ImputerResiduals_fit_transform(df: pd.DataFrame) -> None:
         },
         index=pd.date_range("2023-04-17", periods=20, freq="D"),
     )
-    np.testing.assert_allclose(result, expected, rtol=1e-6)
+    np.testing.assert_allclose(result, expected, atol=1e-6)
 
 
 @pytest.mark.parametrize("df", [df_incomplete])
@@ -204,12 +204,12 @@ def test_ImputerRegressor_fit_transform(df: pd.DataFrame) -> None:
 
 @pytest.mark.parametrize("df", [df_timeseries])
 def test_ImputerRPCA_fit_transform(df: pd.DataFrame) -> None:
-    imputer = imputers.ImputerRPCA(columnwise=True, period=1, max_iter=100)
+    imputer = imputers.ImputerRPCA(columnwise=True, max_iter=100, period=2)
     result = imputer.fit_transform(df)
     expected = pd.DataFrame(
         {
             "col1": [i for i in range(20)],
-            "col2": [0, 5.496290833663846, 2, 5.496290833663846, 2] + [i for i in range(5, 20)],
+            "col2": [0, 10.5, 2, 10.5, 2] + [i for i in range(5, 20)],
         }
     )
     np.testing.assert_allclose(result, expected)
@@ -220,12 +220,12 @@ def test_ImputerRPCA_fit_transform(df: pd.DataFrame) -> None:
 
 @pytest.mark.parametrize("df", [df_timeseries])
 def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
-    imputer = imputers.ImputerEM(random_state=42)
+    imputer = imputers.ImputerEM(method="sample", random_state=42)
     result = imputer.fit_transform(df)
     expected = pd.DataFrame(
         {
             "col1": [i for i in range(20)],
-            "col2": [0, 0.78065142, 2, 2.80303879, 2] + [i for i in range(5, 20)],
+            "col2": [0, 1.914706, 2, 2.480963, 2] + [i for i in range(5, 20)],
         }
     )
-    np.testing.assert_allclose(result, expected)
+    np.testing.assert_allclose(result, expected, atol=1e-6)

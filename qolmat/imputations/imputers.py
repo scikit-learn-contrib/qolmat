@@ -77,7 +77,6 @@ class Imputer(_BaseImputer):
         for column in df:
             if df[column].isnull().all():
                 raise ValueError("Input contains a column full of NaN")
-
         self.rng = sku.check_random_state(self.random_state)
         if hasattr(self, "estimator") and hasattr(self.estimator, "random_state"):
             self.estimator.random_state = self.rng
@@ -762,10 +761,10 @@ class ImputerRegressor(Imputer):
         groups: List[str] = [],
         estimator: Optional[BaseEstimator] = None,
         handler_nan: str = "column",
-        # col_imp: List[str] = [],
+        random_state: Union[None, int, np.random.RandomState] = None,
         **hyperparams,
     ):
-        super().__init__(groups=groups, hyperparams=hyperparams)
+        super().__init__(groups=groups, hyperparams=hyperparams, random_state=random_state)
         self.columnwise = False
         self.estimator = estimator
         self.handler_nan = handler_nan
@@ -825,9 +824,14 @@ class ImputerRegressor(Imputer):
                 hp = self.get_params_fit()
                 self.estimator.fit(X[(~is_na) & is_valid], y[(~is_na) & is_valid], **hp)
                 y_imputed = self.estimator.predict(X[is_na & is_valid])
+                y_imputed = pd.Series(y_imputed.flatten())
 
             # Adds the imputed values
             df_imputed.loc[~is_na, col] = y[~is_na]
+            # if isinstance(y_imputed, pd.Series):
+            #     y_reshaped = y_imputed
+            # else:
+            #     y_reshaped = y_imputed.flatten()
             df_imputed.loc[is_na & is_valid, col] = y_imputed
 
         return df_imputed
@@ -876,8 +880,10 @@ class ImputerRPCA(Imputer):
         else:
             raise ValueError("Argument method must be `PCP` or `noisy`!")
 
-        X_imputed = model.fit_transform(df.values)
-        df_imputed = pd.DataFrame(X_imputed, index=df.index, columns=df.columns)
+        X = df.values.T
+        M, A = model.decompose_rpca_signal(X)
+        df_imputed = pd.DataFrame((M + A).T, index=df.index, columns=df.columns)
+        df_imputed = df.where(df.isna(), df_imputed)
 
         return df_imputed
 
@@ -927,7 +933,7 @@ class ImputerEM(Imputer):
         elif self.model == "VAR1":
             model = em_sampler.VAR1EM(random_state=self.rng, **self.hyperparams_element)
         else:
-            raise ValueError("Model '{self.model}' is not handled by ImputeEM!")
+            raise ValueError(f"Model '{self.model}' is not handled by ImputeEM!")
         X = df.values.T
         model.fit(X)
 

@@ -1,4 +1,5 @@
 import logging
+from functools import partial
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
@@ -33,10 +34,14 @@ class Comparator:
         "rmse": metrics.root_mean_squared_error,
         "mae": metrics.mean_absolute_error,
         "wmape": metrics.weighted_mean_absolute_percentage_error,
-        "wasser": metrics.wasser_distance,
-        "KL": metrics.kl_divergence,
+        "wasserstein_columnwise": partial(metrics.wasserstein_distance, method="columnwise"),
+        "KL_columnwise": partial(metrics.kl_divergence, method="columnwise"),
+        "KL_gaussian": partial(metrics.kl_divergence, method="gaussian"),
+        "ks_test": metrics.kolmogorov_smirnov_test,
+        "correlation_diff": metrics.mean_difference_correlation_matrix_numerical_features,
+        "pairwise_dist": metrics.sum_pairwise_distances,
+        "energy": metrics.sum_energy_distances,
         "frechet": metrics.frechet_distance,
-        "energy": metrics.energy_dist,
     }
 
     def __init__(
@@ -44,7 +49,7 @@ class Comparator:
         dict_models: Dict[str, Any],
         selected_columns: List[str],
         generator_holes: _HoleGenerator,
-        metrics: List = ["mae", "wmape", "KL"],
+        metrics: List = ["mae", "wmape", "KL_columnwise"],
         search_params: Optional[Dict[str, Dict[str, Union[float, int, str]]]] = {},
         n_calls_opt: int = 10,
     ):
@@ -110,6 +115,8 @@ class Comparator:
         for df_mask in self.generator_holes.split(df_origin):
             df_corrupted = df_origin.copy()
             df_corrupted[df_mask] = np.nan
+
+            assert not np.logical_and(df_mask, df_origin.isna()).any().any()
             if list_spaces:
                 cv = cross_validation.CrossValidation(
                     imputer,
