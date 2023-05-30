@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import scipy as scp
@@ -69,13 +69,42 @@ class RPCANoisy(RPCA):
         self.norm = norm
         self.random_state = random_state
 
-    def compute_L1(
-        self, proj_D: NDArray, Omega: NDArray, lam: float, tau: float, rank: int
+    def decompose_rpca_L1(
+        self, D: NDArray, Omega: NDArray, lam: float, tau: float, rank: int
     ) -> Tuple:
         """
-        compute RPCA with possible temporal regularisations, penalised with L1 norm
+        Compute the noisy RPCA with a L1 time penalisation
+
+        Parameters
+        ----------
+        D : np.ndarray
+            Observations matrix of shape (m, n).
+        Omega : np.ndarray
+            Binary matrix indicating the observed entries of D, shape (m, n).
+        lam : float
+            Regularization parameter for the L1 norm.
+        tau : float
+            Regularization parameter for the temporal correlations.
+        rank : int
+            Rank parameter for low-rank matrix decomposition.
+
+        Returns
+        -------
+        Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+            A tuple containing:
+        M : np.ndarray
+            Low-rank signal matrix of shape (m, n).
+        A : np.ndarray
+            Anomalies matrix of shape (m, n).
+        U : np.ndarray
+            Basis Unitary array of shape (m, rank).
+        V : np.ndarray
+            Basis Unitary array of shape (n, rank).
+        errors : np.ndarray
+            Array of iterative errors.
+
         """
-        m, n = proj_D.shape
+        m, n = D.shape
         rho = 1.1
         mu = 1e-6
         mu_bar = mu * 1e10
@@ -84,7 +113,7 @@ class RPCANoisy(RPCA):
         Y = np.ones((m, n))
         Y_ = [np.ones((m, n - period)) for period in self.list_periods]
 
-        X = proj_D.copy()
+        X = D.copy()
         A = np.zeros((m, n))
         L = np.ones((m, rank))
         Q = np.ones((n, rank))
@@ -115,18 +144,15 @@ class RPCANoisy(RPCA):
 
             X = scp.linalg.solve(
                 a=((1 + mu) * In + 2 * HHT).T,
-                b=(proj_D - A + mu * L @ Q.T - Y + sums).T,
+                b=(D - A + mu * L @ Q.T - Y + sums).T,
             ).T
 
-            if np.any(np.isnan(proj_D)):
-                A_Omega = utils.soft_thresholding(proj_D - X, lam)
-                # A_Omega = utils.ortho_proj(A_Omega, Omega, inverse=False)
-                A_Omega_C = proj_D - X
-                # A_Omega_C = utils.ortho_proj(A_Omega_C, Omega, inverse=True)
-                # A = A_Omega + A_Omega_C
+            if np.any(np.isnan(D)):
+                A_Omega = utils.soft_thresholding(D - X, lam)
+                A_Omega_C = D - X
                 A = np.where(Omega, A_Omega, A_Omega_C)
             else:
-                A = utils.soft_thresholding(proj_D - X, lam)
+                A = utils.soft_thresholding(D - X, lam)
 
             L = scp.linalg.solve(
                 a=(tau * Ir + mu * (Q.T @ Q)).T,
@@ -168,18 +194,47 @@ class RPCANoisy(RPCA):
         V = Q
         return M, A, U, V, errors
 
-    def compute_L2(
-        self, proj_D: NDArray, Omega: NDArray, lam: float, tau: float, rank: int
+    def decompose_rpca_L2(
+        self, D: NDArray, Omega: NDArray, lam: float, tau: float, rank: int
     ) -> Tuple:
         """
-        compute RPCA with possible temporal regularisations, penalised with L2 norm
+        Compute the noisy RPCA with a L1 time penalisation
+
+        Parameters
+        ----------
+        D : np.ndarray
+            Observations matrix of shape (m, n).
+        Omega : np.ndarray
+            Binary matrix indicating the observed entries of D, shape (m, n).
+        lam : float
+            Regularization parameter for the L2 norm.
+        tau : float
+            Regularization parameter for the temporal correlations.
+        rank : int
+            Rank parameter for low-rank matrix decomposition.
+
+        Returns
+        -------
+        Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+            A tuple containing:
+        M : np.ndarray
+            Low-rank signal matrix of shape (m, n).
+        A : np.ndarray
+            Anomalies matrix of shape (m, n).
+        U : np.ndarray
+            Basis Unitary array of shape (m, rank).
+        V : np.ndarray
+            Basis Unitary array of shape (n, rank).
+        errors : np.ndarray
+            Array of iterative errors.
+
         """
         rho = 1.1
-        m, n = proj_D.shape
+        m, n = D.shape
 
         # init
         Y = np.ones((m, n))
-        X = proj_D.copy()
+        X = D.copy()
         A = np.zeros((m, n))
         L = np.ones((m, rank))
         Q = np.ones((n, rank))
@@ -206,15 +261,15 @@ class RPCANoisy(RPCA):
 
             X = scp.linalg.solve(
                 a=((1 + mu) * In + HHT).T,
-                b=(proj_D - A + mu * L @ Q.T - Y).T,
+                b=(D - A + mu * L @ Q.T - Y).T,
             ).T
 
             if np.any(~Omega):
-                A_omega = utils.soft_thresholding(proj_D - X, lam)
-                A_omega_C = proj_D - X
+                A_omega = utils.soft_thresholding(D - X, lam)
+                A_omega_C = D - X
                 A = np.where(Omega, A_omega, A_omega_C)
             else:
-                A = utils.soft_thresholding(proj_D - X, lam)
+                A = utils.soft_thresholding(D - X, lam)
 
             L = scp.linalg.solve(
                 a=(tau * Ir + mu * (Q.T @ Q)).T,
@@ -248,16 +303,27 @@ class RPCANoisy(RPCA):
 
         return M, A, U, V, errors
 
-    # def get_params(self) -> dict:
-    #     dict_params = super().get_params()
-    #     dict_params["tau"] = self.tau
-    #     dict_params["lam"] = self.lam
-    #     dict_params["list_periods"] = self.list_periods
-    #     dict_params["list_etas"] = self.list_etas
-    #     dict_params["norm"] = self.norm
-    #     return dict_params
+    def get_params_scale(self, D: NDArray) -> Dict[str, float]:
+        """
+        Get parameters for scaling in RPCA based on the input data.
 
-    def get_params_scale(self, D: NDArray) -> dict:
+        Parameters
+        ----------
+        D : np.ndarray
+            Input data matrix of shape (m, n).
+
+        Returns
+        -------
+        dict
+            A dictionary containing the following parameters:
+            - "rank" : int
+                Rank estimate for low-rank matrix decomposition.
+            - "tau" : float
+                Regularization parameter for the temporal correlations.
+            - "lam" : float
+                Regularization parameter for the L1 norm.
+
+        """
         rank = utils.approx_rank(D)
         tau = 1.0 / np.sqrt(max(D.shape))
         lam = tau
@@ -267,34 +333,12 @@ class RPCANoisy(RPCA):
             "lam": lam,
         }
 
-    # def set_params(self, **kargs):
-    #     _ = super().set_params(**kargs)
-
-    #     for key, value in kargs.items():
-    #         setattr(self, key, value)
-
-    #     list_periods = []
-    #     list_etas = []
-
-    #     for key, value in kargs.items():
-    #         if "period" in key:
-    #             index_period = int(key[7:])
-    #             if f"eta_{index_period}" in kargs.keys():
-    #                 list_periods.append(value)
-    #                 list_etas.append(kargs[f"eta_{index_period}"])
-    #             else:
-    #                 raise ValueError(f"No etas' index correspond to {key}")
-
-    #     self.list_periods = list_periods
-    #     self.list_etas = list_etas
-    #     return self
-
-    def fit_transform(
+    def decompose_rpca_signal(
         self,
         X: NDArray,
-    ) -> NDArray:
+    ) -> Tuple[NDArray, NDArray]:
         """
-        Compute the noisy RPCA with time "penalisations"
+        Compute the noisy RPCA with L1 or L2 time penalisation
 
         Parameters
         ----------
@@ -307,35 +351,24 @@ class RPCANoisy(RPCA):
             Low-rank signal
         A: NDArray
             Anomalies
-        U:
-            Basis Unitary array
-        V:
-            Basis Unitary array
-
-        errors:
-            Array of iterative errors
         """
-        X = X.copy().T
         D_init = self._prepare_data(X)
         Omega = ~np.isnan(D_init)
-        proj_D = utils.impute_nans(D_init, method="median")
+        D_proj = utils.impute_nans(D_init, method="median")
 
-        params_scale = self.get_params_scale(proj_D)
+        params_scale = self.get_params_scale(D_proj)
 
         lam = params_scale["lam"] if self.lam is None else self.lam
         rank = params_scale["rank"] if self.rank is None else self.rank
+        rank = int(rank)
         tau = params_scale["tau"] if self.tau is None else self.tau
 
         if self.norm == "L1":
-            M, A, U, V, errors = self.compute_L1(proj_D, Omega, lam, tau, rank)
+            M, A, U, V, errors = self.decompose_rpca_L1(D_proj, Omega, lam, tau, rank)
         elif self.norm == "L2":
-            M, A, U, V, errors = self.compute_L2(proj_D, Omega, lam, tau, rank)
+            M, A, U, V, errors = self.decompose_rpca_L2(D_proj, Omega, lam, tau, rank)
 
-        if X.shape[0] == 1:
-            M = M.reshape(1, -1)[:, : X.size]
-            A = A.reshape(1, -1)[:, : X.size]
-        M = M.T
-        A = A.T
+        M = M.reshape(X.shape)
+        A = A.reshape(X.shape)
 
-        # return M, A, U, V, errors
-        return M
+        return M, A

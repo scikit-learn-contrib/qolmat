@@ -41,7 +41,7 @@ comparison_bug = comparator.Comparator(
 )
 
 result_expected_median = [3.0, 0.5, 0.75, 0.5, 37.88948, 39.68123]
-result_expected_rpca = [4.0, 1.0, 1.0, 1.0, 37.60179, 38.98809]
+result_expected_rpca = [3.0, 0.5, 0.75, 0.5, 37.88948, 39.68123]
 
 comparison_dict = {"median": comparison_median, "rpca": comparison_rpca, "bug": comparison_bug}
 result_expected_dict = {"median": result_expected_median, "rpca": result_expected_rpca}

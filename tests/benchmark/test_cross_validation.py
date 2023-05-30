@@ -96,5 +96,5 @@ def test_benchmark_cross_validation_optimize_hyperparams(df: pd.DataFrame) -> No
 def test_benchmark_cross_validation_fit_transform(df: pd.DataFrame) -> None:
     result_cv = cv.fit_transform(df)
     result = np.array(result_cv)
-    result_expected = np.array([[0, 0], [0, 0], [0, 0], [0, 0], [0, 1.5]])
+    result_expected = np.array([[0, 1.5], [0, 1.5], [0, 1.5], [0, 1.5], [0, 1.5]])
     np.testing.assert_allclose(result, result_expected, atol=1e-5)

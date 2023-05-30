@@ -51,9 +51,9 @@ class RPCAPCP(RPCA):
         return dict_params
 
     def decompose_rpca(self, D: NDArray) -> Tuple[NDArray, NDArray]:
-        proj_D = utils.impute_nans(D, method="median")
+        D_proj = utils.impute_nans(D, method="median")
 
-        params_scale = self.get_params_scale(proj_D)
+        params_scale = self.get_params_scale(D_proj)
 
         mu = params_scale["mu"] if self.mu is None else self.mu
         lam = params_scale["lam"] if self.lam is None else self.lam
@@ -66,12 +66,12 @@ class RPCAPCP(RPCA):
 
         errors: NDArray = np.full((self.max_iter,), fill_value=np.nan)
 
-        M: NDArray = proj_D - A
+        M: NDArray = D_proj - A
         for iteration in range(self.max_iter):
-            M = utils.svd_thresholding(proj_D - A + Y / mu, 1 / mu)
-            A = utils.soft_thresholding(proj_D - M + Y / mu, lam / mu)
-            A[~Omega] = (proj_D - M)[~Omega]
-            Y += mu * (proj_D - M - A)
+            M = utils.svd_thresholding(D_proj - A + Y / mu, 1 / mu)
+            A = utils.soft_thresholding(D_proj - M + Y / mu, lam / mu)
+            A[~Omega] = (D_proj - M)[~Omega]
+            Y += mu * (D_proj - M - A)
 
             error = np.linalg.norm(D - M - A, "fro") / D_norm
             errors[iteration] = error
@@ -80,10 +80,10 @@ class RPCAPCP(RPCA):
                 break
         return M, A
 
-    def fit_transform(
+    def decompose_rpca_signal(
         self,
         X: NDArray,
-    ) -> NDArray:
+    ) -> Tuple[NDArray, NDArray]:
         """
         Compute the RPCA decomposition of a matrix based on PCP method
 
@@ -97,23 +97,16 @@ class RPCAPCP(RPCA):
             Low-rank signal
         A: NDArray
             Anomalies
-        U: NDArray
-            Basis Unitary array
-        V: NDArray
-            Basis Unitary array
-
-        errors: NDArray
-            Array of iterative errors
         """
-        X = X.copy().T
         D = self._prepare_data(X)
         M, A = self.decompose_rpca(D)
 
         # U, _, V = np.linalg.svd(M, full_matrices=False, compute_uv=True)
 
-        if X.shape[0] == 1:
-            M = M.reshape(1, -1)[:, : X.size]
-            A = A.reshape(1, -1)[:, : X.size]
-        M = M.T
-        A = A.T
-        return M
+        # if X.shape[0] == 1:
+        # M = M.reshape(1, -1)[:, : X.size]
+        # M = M.reshape(X)
+        # A = A.reshape(1, -1)[:, : X.size]
+        M = M.reshape(X.shape)
+        A = A.reshape(X.shape)
+        return M, A
