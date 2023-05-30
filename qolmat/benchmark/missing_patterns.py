@@ -6,8 +6,8 @@ from typing import Callable, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import GroupShuffleSplit
 from sklearn import utils as sku
+from sklearn.model_selection import GroupShuffleSplit
 from sklearn.utils import resample
 
 logger = logging.getLogger(__name__)
@@ -16,13 +16,13 @@ logger = logging.getLogger(__name__)
 def compute_transition_counts_matrix(states: pd.Series):
     if isinstance(states.iloc[0], tuple):
         n_variables = len(states.iloc[0])
-        last_line = pd.Series([tuple([False] * n_variables)])
+        state_nonan = pd.Series([tuple([False] * n_variables)])
     else:
         n_variables = 1
-        last_line = pd.Series([False])
-    states = pd.concat([states, last_line], ignore_index=True)
-    df_couples = pd.DataFrame({"current": states.iloc[:-1], "next": states.shift(-1).iloc[1:]})
-    df_couples = df_couples.iloc[1:-1]
+        state_nonan = pd.Series([False])
+    states = pd.concat([state_nonan, states, state_nonan], ignore_index=True)
+    df_couples = pd.DataFrame({"current": states, "next": states.shift(-1)})
+    df_couples = df_couples.iloc[:-1]
     counts = df_couples.groupby(["current", "next"]).size()
     df_counts = counts.unstack().fillna(0)
     return df_counts
