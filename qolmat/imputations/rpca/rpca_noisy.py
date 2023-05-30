@@ -366,7 +366,7 @@ class RPCANoisy(RPCA):
         elif self.norm == "L2":
             M, A, U, V, errors = self.decompose_rpca_L2(D_proj, Omega, lam, tau, rank)
 
-        M_final = self.get_shape_original(M, X.shape)
-        A_final = self.get_shape_original(A, X.shape)
+        M_final = self.get_shape_original(M, X)
+        A_final = self.get_shape_original(A, X)
 
         return M_final, A_final

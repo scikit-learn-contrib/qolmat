@@ -100,6 +100,6 @@ class RPCAPCP(RPCA):
         D = self._prepare_data(X)
         M, A = self.decompose_rpca(D)
 
-        M_final = self.get_shape_original(M, X.shape)
-        A_final = self.get_shape_original(A, X.shape)
+        M_final = self.get_shape_original(M, X)
+        A_final = self.get_shape_original(A, X)
         return M_final, A_final
