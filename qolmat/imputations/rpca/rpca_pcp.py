@@ -100,12 +100,6 @@ class RPCAPCP(RPCA):
         D = self._prepare_data(X)
         M, A = self.decompose_rpca(D)
 
-        # U, _, V = np.linalg.svd(M, full_matrices=False, compute_uv=True)
-
-        # if X.shape[0] == 1:
-        # M = M.reshape(1, -1)[:, : X.size]
-        # M = M.reshape(X)
-        # A = A.reshape(1, -1)[:, : X.size]
-        M = M.reshape(X.shape)
-        A = A.reshape(X.shape)
-        return M, A
+        M_final = self.get_shape_original(M, X.shape)
+        A_final = self.get_shape_original(A, X.shape)
+        return M_final, A_final

@@ -168,9 +168,6 @@ class CrossValidation:
         """
 
         n0 = max(5, self.n_calls // 5)
-        print("---")
-        print(self.n_calls)
-        print(n0)
 
         # res = skopt.gp_minimize(
         #     self.objective(X=df),
@@ -191,8 +188,8 @@ class CrossValidation:
         )
 
         hyperparams_flat = {space.name: val for space, val in zip(self.list_spaces, res["x"])}
-        print(f"Optimal hyperparameters : {hyperparams_flat}")
-        print(f"Results: {res}")
+        # print(f"Optimal hyperparameters : {hyperparams_flat}")
+        # print(f"Results: {res}")
 
         self.imputer.hyperparams_optim = self.deflat_hyperparams(hyperparams_flat)
         df_imputed = self.imputer.fit_transform(df)
