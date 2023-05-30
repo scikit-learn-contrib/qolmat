@@ -30,14 +30,14 @@ comparison_rpca = comparator.Comparator(
     dict_models=dict_imputers_rpca,
     selected_columns=cols_to_impute,
     generator_holes=generator_holes,
-    search_params=search_params,
+    dict_config_opti=search_params,
 )
 
 comparison_bug = comparator.Comparator(
     dict_models=dict_imputers_median,
     selected_columns=["bug"],
     generator_holes=generator_holes,
-    search_params=search_params,
+    dict_config_opti=search_params,
 )
 
 result_expected_median = [3.0, 0.5, 0.75, 0.5, 37.88948, 39.68123]

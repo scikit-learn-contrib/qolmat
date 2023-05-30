@@ -864,9 +864,15 @@ class ImputerRPCA(Imputer):
         groups: List[str] = [],
         method: str = "noisy",
         columnwise: bool = False,
+        random_state: Union[None, int, np.random.RandomState] = None,
         **hyperparams,
     ) -> None:
-        super().__init__(groups=groups, columnwise=columnwise, hyperparams=hyperparams)
+        super().__init__(
+            groups=groups,
+            columnwise=columnwise,
+            hyperparams=hyperparams,
+            random_state=random_state,
+        )
 
         self.method = method
 

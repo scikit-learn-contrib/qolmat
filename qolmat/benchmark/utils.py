@@ -2,51 +2,12 @@ from typing import Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
-import scipy
 import scipy.sparse as sparse
 from scipy.optimize import Bounds, lsq_linear
 from sklearn.preprocessing import StandardScaler
-from skopt.space import Categorical, Dimension, Integer, Real
 
 BOUNDS = Bounds(1, np.inf, keep_feasible=True)
 EPS = np.finfo(float).eps
-
-
-def get_dimension(dict_bounds: Dict, name_dimension: str) -> Dimension:
-    if dict_bounds["type"] == "Integer":
-        return Integer(low=dict_bounds["min"], high=dict_bounds["max"], name=name_dimension)
-    elif dict_bounds["type"] == "Real":
-        return Real(low=dict_bounds["min"], high=dict_bounds["max"], name=name_dimension)
-    elif dict_bounds["type"] == "Categorical":
-        return Categorical(categories=dict_bounds["categories"], name=name_dimension)
-
-
-def get_search_space(search_params: Dict) -> List[Dimension]:
-    """Construct the search space for the tested_model
-    based on the search_params
-
-    Parameters
-    ----------
-    search_params : Dict
-
-    Returns
-    -------
-    List[Dimension]
-        search space
-
-    """
-    list_spaces = []
-
-    for name_hyperparam, value in search_params.items():
-        # space common for all columns
-        if "type" in value:
-            list_spaces.append(get_dimension(value, name_hyperparam))
-        else:
-            for col, dict_bounds in value.items():
-                name = f"{name_hyperparam}/{col}"
-                list_spaces.append(get_dimension(dict_bounds, name))
-
-    return list_spaces
 
 
 def custom_groupby(

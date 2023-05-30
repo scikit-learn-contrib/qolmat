@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import scipy as scp
@@ -58,6 +58,7 @@ class RPCANoisy(RPCA):
         max_iter: int = int(1e4),
         tol: float = 1e-6,
         norm: Optional[str] = "L2",
+        random_state: Union[None, int, np.random.RandomState] = None,
     ) -> None:
         super().__init__(period=period, max_iter=max_iter, tol=tol)
         self.rank = rank
@@ -66,6 +67,7 @@ class RPCANoisy(RPCA):
         self.list_periods = list_periods
         self.list_etas = list_etas
         self.norm = norm
+        self.random_state = random_state
 
     def compute_L1(
         self, proj_D: NDArray, Omega: NDArray, lam: float, tau: float, rank: int

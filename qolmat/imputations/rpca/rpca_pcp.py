@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import numpy as np
 from numpy.typing import NDArray
 
 from qolmat.imputations.rpca import utils
 from qolmat.imputations.rpca.rpca import RPCA
-from qolmat.utils.utils import progress_bar
 
 
 class RPCAPCP(RPCA):
@@ -34,6 +33,7 @@ class RPCAPCP(RPCA):
         lam: Optional[float] = None,
         max_iter: int = int(1e4),
         tol: float = 1e-6,
+        random_state: Union[None, int, np.random.RandomState] = None,
     ) -> None:
         super().__init__(
             period=period,
@@ -42,6 +42,7 @@ class RPCAPCP(RPCA):
         )
         self.mu = mu
         self.lam = lam
+        self.random_state = random_state
 
     def get_params_scale(self, D: NDArray):
         mu = D.size / (4.0 * utils.l1_norm(D))

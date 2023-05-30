@@ -1,6 +1,5 @@
-import logging
 from functools import partial
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -21,7 +20,7 @@ class Comparator:
         list of column's names selected (all with at least one null value will be imputed)
     columnwise_evaluation : Optional[bool], optional
         whether the metric should be calculated column-wise or not, by default False
-    search_params: Optional[Dict[str, Dict[str, Union[str, float, int]]]] = {}
+    dict_config_opti: Optional[Dict[str, Dict[str, Union[str, float, int]]]] = {}
         dictionary of search space for each implementation method. By default, the value is set to
         {}.
     n_calls_opt: int = 10
@@ -50,14 +49,14 @@ class Comparator:
         selected_columns: List[str],
         generator_holes: _HoleGenerator,
         metrics: List = ["mae", "wmape", "KL_columnwise"],
-        search_params: Optional[Dict] = {},
+        dict_config_opti: Optional[Dict[str, Any]] = {},
         n_calls_opt: int = 10,
     ):
         self.dict_imputers = dict_models
         self.selected_columns = selected_columns
         self.generator_holes = generator_holes
         self.metrics = metrics
-        self.search_params = search_params
+        self.dict_config_opti = dict_config_opti
         self.n_calls_opt = n_calls_opt
 
     def get_errors(
@@ -92,7 +91,7 @@ class Comparator:
         self,
         imputer: Any,
         df: pd.DataFrame,
-        list_spaces: List[Dict] = [],
+        dict_config_opti_imputer: Dict[str, Any] = {},
     ) -> pd.Series:
         """Evaluate the errors in the cross-validation
 
@@ -115,10 +114,10 @@ class Comparator:
         for df_mask in self.generator_holes.split(df_origin):
             df_corrupted = df_origin.copy()
             df_corrupted[df_mask] = np.nan
-            if list_spaces:
+            if dict_config_opti_imputer:
                 cv = cross_validation.CrossValidation(
                     imputer,
-                    list_spaces=list_spaces,
+                    dict_config_opti_imputer=dict_config_opti_imputer,
                     hole_generator=self.generator_holes,
                     n_calls=self.n_calls_opt,
                 )
@@ -153,11 +152,12 @@ class Comparator:
         dict_errors = {}
 
         for name, imputer in self.dict_imputers.items():
-            search_params = self.search_params.get(name, {})
-            list_spaces = utils.get_search_space(search_params)
+            dict_config_opti_imputer = self.dict_config_opti.get(name, {})
 
             try:
-                dict_errors[name] = self.evaluate_errors_sample(imputer, df, list_spaces)
+                dict_errors[name] = self.evaluate_errors_sample(
+                    imputer, df, dict_config_opti_imputer
+                )
                 print(f"Tested model: {type(imputer).__name__}")
             except Exception as excp:
                 print("Error while testing ", type(imputer).__name__)
