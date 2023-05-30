@@ -58,8 +58,10 @@ class RPCA(BaseEstimator, TransformerMixin):
                 raise ValueError("`n_rows` should not be specified when imputing 2D data.")
 
     def get_shape_original(self, X: NDArray, shape: Tuple[int]) -> NDArray:
-        if len(shape) == 1 or shape[0] == 1:
-            n_values = sum(shape)
-            return X.reshape(1, -1)[:, :n_values]
-        else:
-            return X
+        # if len(shape) == 1 or shape[0] == 1:
+        #     n_values = sum(shape)
+        #     return X.reshape(1, -1)[:, :n_values]
+        # else:
+        #     return X
+        X = X.flatten()[: np.prod(shape)]
+        return X.reshape(shape)
