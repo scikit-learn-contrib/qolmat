@@ -34,6 +34,8 @@ def get_dimension(dict_bounds: Dict, name_dimension: str) -> Dimension:
         return Real(low=dict_bounds["min"], high=dict_bounds["max"], name=name_dimension)
     elif dict_bounds["type"] == "Categorical":
         return Categorical(categories=dict_bounds["categories"], name=name_dimension)
+    else:
+        ValueError("The 'type' must be 'Integer', 'Real' or 'Categorical")
 
 
 def get_search_space(dict_config_opti_imputer: Dict) -> List[Dimension]:

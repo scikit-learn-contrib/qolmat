@@ -103,6 +103,8 @@ class Imputer(_BaseImputer):
                 df_imputed[col] = self.impute_element(df[[col]])
 
         else:
+            if any(isinstance(value, dict) for value in hyperparams.values()):
+                raise AssertionError("hyperparams contains a dictionary. Columnwise must be True.")
             self.hyperparams_element = hyperparams
             df_imputed = self.impute_element(df)
 

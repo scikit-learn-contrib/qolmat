@@ -10,23 +10,27 @@ from qolmat.benchmark.missing_patterns import EmpiricalHoleGenerator
 df_origin = pd.DataFrame({"col1": [0, np.nan, 2, 4, np.nan], "col2": [-1, np.nan, 0.5, 1, 1.5]})
 df_imputed = pd.DataFrame({"col1": [0, 1, 2, 3.5, 4], "col2": [-1.5, 0, 1.5, 2, 1.5]})
 df_mask = pd.DataFrame(
-    {"col1": [False, False, True, True, False], "col2": [True, False, True, True, False]}
+    {"col1": [False, False, True, False, False], "col2": [True, False, True, True, False]}
 )
 df_corrupted = df_origin.copy()
 df_corrupted[df_mask] = np.nan
 
-imputer_rpca = ImputerRPCA(tau=2, random_state=42)
+imputer_rpca = ImputerRPCA(tau=2, random_state=42, columnwise=True, period=1)
 dict_imputers_rpca = {"rpca": imputer_rpca}
 generator_holes = EmpiricalHoleGenerator(n_splits=1, ratio_masked=0.5)
 dict_config_opti = {
     "rpca": {
-        "lam": {"min": 0.1, "max": 1, "type": "Real"},
+        "lam": {
+            "col1": {"min": 0.1, "max": 6, "type": "Real"},
+            "col2": {"min": 1, "max": 4, "type": "Real"},
+        },
+        "tol": {"min": 1e-6, "max": 0.1, "type": "Real"},
         "max_iter": {"min": 99, "max": 100, "type": "Integer"},
         "norm": {"categories": ["L1", "L2"], "type": "Categorical"},
     }
 }
-dict_config_opti_imputer = dict_config_opti.get("rpca", {})
-hyperparams_flat = {"lam": 0.93382, "max_iter": 100, "norm": "L1"}
+dict_config_opti_imputer = dict_config_opti["rpca"]
+hyperparams_flat = {"lam/col1": 4.7, "lam/col2": 1.5, "tol": 0.07, "max_iter": 100, "norm": "L1"}
 
 cv = cross_validation.CrossValidation(
     imputer=imputer_rpca,
@@ -34,37 +38,47 @@ cv = cross_validation.CrossValidation(
     hole_generator=generator_holes,
 )
 
-result_params_expected = {"lam": (0.1, 1), "max_iter": (99, 100), "norm": ("L1", "L2")}
+result_params_expected = {
+    "lam1": (0.1, 6),
+    "lam2": (1, 4),
+    "tol": (1e-6, 0.1),
+    "max_iter": (99, 100),
+    "norm": ("L1", "L2"),
+}
 
 
-@pytest.mark.parametrize("dict_bounds", [dict_config_opti_imputer])
-@pytest.mark.parametrize("param", ["lam", "max_iter", "norm"])
-def test_benchmark_cross_validation_get_dimension(dict_bounds: Dict, param: str) -> None:
-    result = cross_validation.get_dimension(dict_bounds=dict_bounds[param], name_dimension=param)
+@pytest.mark.parametrize("dict_config_opti_imputer", [dict_config_opti_imputer])
+@pytest.mark.parametrize("param", ["tol", "max_iter", "norm"])
+def test_benchmark_cross_validation_get_dimension(
+    dict_config_opti_imputer: Dict, param: str
+) -> None:
+    result = cross_validation.get_dimension(
+        dict_bounds=dict_config_opti_imputer[param], name_dimension=param
+    )
     result_expected = result_params_expected[param]
-    np.testing.assert_equal(result.bounds, result_expected)
+    assert result.bounds == result_expected
 
 
 @pytest.mark.parametrize("dict_config_opti_imputer", [dict_config_opti_imputer])
 def test_benchmark_cross_validation_get_search_space(dict_config_opti_imputer: Dict) -> None:
     list_result = cross_validation.get_search_space(dict_config_opti_imputer)
-    result_expected = [
-        result_params_expected["lam"],
-        result_params_expected["max_iter"],
-        result_params_expected["norm"],
-    ]
-    for i in range(3):
-        np.testing.assert_equal(list_result[i].bounds, result_expected[i])
+    list_expected_bounds = list(result_params_expected.values())
+    for result, expected_bounds in zip(list_result, list_expected_bounds):
+        assert result.bounds == expected_bounds
 
 
 @pytest.mark.parametrize("hyperparams_flat", [hyperparams_flat])
 def test_benchmark_cross_validation_deflat_hyperparams(
     hyperparams_flat: Dict[str, Union[float, int, str]]
 ) -> None:
-    resul_deflat = cross_validation.deflat_hyperparams(hyperparams_flat=hyperparams_flat)
-    result = list(resul_deflat.values())
-    result_expected = [0.93382, 100, "L1"]
-    np.testing.assert_equal(result, result_expected)
+    result_deflat = cross_validation.deflat_hyperparams(hyperparams_flat=hyperparams_flat)
+    result_expected = {
+        "lam": {"col1": 4.7, "col2": 1.5},
+        "tol": 0.07,
+        "max_iter": 100,
+        "norm": "L1",
+    }
+    assert result_deflat == result_expected
 
 
 @pytest.mark.parametrize("df1", [df_origin])
@@ -78,23 +92,27 @@ def test_benchmark_cross_validation_loss_function(
     np.testing.assert_raises(ValueError, cv.loss_function, df1, df2, df_mask)
     cv.loss_norm = 2
     result_cv2 = cv.loss_function(df_origin=df1, df_imputed=df2, df_mask=df_mask)
-    np.testing.assert_allclose(result_cv2, 1.58113, atol=1e-5)
+    np.testing.assert_allclose(result_cv2, 1.5, atol=1e-5)
     cv.loss_norm = 1
     result_cv1 = cv.loss_function(df_origin=df1, df_imputed=df2, df_mask=df_mask)
-    np.testing.assert_allclose(result_cv1, 3, atol=1e-5)
+    np.testing.assert_allclose(result_cv1, 2.5, atol=1e-5)
 
 
 @pytest.mark.parametrize("df", [df_corrupted])
 def test_benchmark_cross_validation_optimize_hyperparams(df: pd.DataFrame) -> None:
     result_hp = cv.optimize_hyperparams(df)
-    result = list(result_hp.values())
-    result_expected = [0.8168886881742098, 99, "L2"]
-    np.testing.assert_equal(result, result_expected)
+    result_expected = {
+        "lam/col1": 4.799603622475375,
+        "lam/col2": 1.5503043695984915,
+        "tol": 0.07796932033627668,
+        "max_iter": 100,
+        "norm": "L1",
+    }
+    assert result_hp == result_expected
 
 
 @pytest.mark.parametrize("df", [df_corrupted])
 def test_benchmark_cross_validation_fit_transform(df: pd.DataFrame) -> None:
     result_cv = cv.fit_transform(df)
-    result = np.array(result_cv)
-    result_expected = np.array([[0, 1.5], [0, 1.5], [0, 1.5], [0, 1.5], [0, 1.5]])
-    np.testing.assert_allclose(result, result_expected, atol=1e-5)
+    result_expected = pd.DataFrame({"col1": [0, 2, 2, 4, 2], "col2": [1.5, 1.5, 1.5, 1.5, 1.5]})
+    np.testing.assert_allclose(result_cv, result_expected, atol=1e-5)
