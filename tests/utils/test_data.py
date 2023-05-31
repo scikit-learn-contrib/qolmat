@@ -76,10 +76,7 @@ def test_preprocess_data():
         ],
         columns=columns_raw,
     )
-    print(df_raw)
     result = data.preprocess_data(df_raw)
-    print(result)
-    print(df)
     # assert result.equals(df)
     pd.testing.assert_frame_equal(result, df, atol=1e-3)
 
