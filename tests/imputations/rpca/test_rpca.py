@@ -58,6 +58,7 @@ X_exp_nrows_1_pcp_decompose_rpca_signal = np.array([[1, 3], [4, 2], [2.5, 4]])
     [
         (2, X_flat, X_exp_nrows_2_pcp_decompose_rpca_signal),
         (3, X_flat, X_exp_nrows_3_pcp_decompose_rpca_signal),
+        (4, X_flat, X_exp_nrows_3_pcp_decompose_rpca_signal),
         (None, X_incomplete, X_exp_nrows_1_pcp_decompose_rpca_signal),
     ],
 )
