@@ -103,6 +103,8 @@ class Imputer(_BaseImputer):
                 df_imputed[col] = self.impute_element(df[[col]])
 
         else:
+            if any(isinstance(value, dict) for value in hyperparams.values()):
+                raise AssertionError("hyperparams contains a dictionary. Columnwise must be True.")
             self.hyperparams_element = hyperparams
             df_imputed = self.impute_element(df)
 
@@ -863,9 +865,15 @@ class ImputerRPCA(Imputer):
         groups: List[str] = [],
         method: str = "noisy",
         columnwise: bool = False,
+        random_state: Union[None, int, np.random.RandomState] = None,
         **hyperparams,
     ) -> None:
-        super().__init__(groups=groups, columnwise=columnwise, hyperparams=hyperparams)
+        super().__init__(
+            groups=groups,
+            columnwise=columnwise,
+            hyperparams=hyperparams,
+            random_state=random_state,
+        )
 
         self.method = method
 

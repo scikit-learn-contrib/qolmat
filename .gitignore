@@ -62,4 +62,6 @@ examples/local
 
 # VSCode
 .vscode
-# examples/benchmark.ipynb
+
+# Logs
+nohup.txt

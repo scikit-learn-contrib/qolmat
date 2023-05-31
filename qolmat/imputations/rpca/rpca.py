@@ -33,10 +33,12 @@ class RPCA(BaseEstimator, TransformerMixin):
         period: Optional[int] = None,
         max_iter: int = int(1e4),
         tol: float = 1e-6,
+        random_state: Union[None, int, np.random.RandomState] = None,
     ) -> None:
         self.n_rows = period
         self.max_iter = max_iter
         self.tol = tol
+        self.random_state = random_state
 
     def _prepare_data(self, X: NDArray) -> NDArray:
         """
