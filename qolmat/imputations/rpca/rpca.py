@@ -58,3 +58,22 @@ class RPCA(BaseEstimator, TransformerMixin):
                 return X.copy()
             else:
                 raise ValueError("`n_rows` should not be specified when imputing 2D data.")
+
+    def get_shape_original(self, M: NDArray, X: NDArray) -> NDArray:
+        """Shapes an output matrix from the RPCA algorithm into the original shape.
+
+        Parameters
+        ----------
+        M : NDArray
+            Matrix to reshape
+        X : NDArray
+            Matrix of the desired shape
+
+        Returns
+        -------
+        NDArray
+            Reshaped matrix
+        """
+        size = X.size
+        M_flat = M.flatten()[:size]
+        return M_flat.reshape(X.shape)

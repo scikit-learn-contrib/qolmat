@@ -140,8 +140,8 @@ imputer_spline = imputers.ImputerInterpolation(groups=["station"], method="splin
 imputer_shuffle = imputers.ImputerShuffle(groups=["station"])
 imputer_residuals = imputers.ImputerResiduals(groups=["station"], period=7, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
 
-imputer_rpca = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=365, max_iter=200, tau=2, lam=.3)
-imputer_rpca_opti = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=365, max_iter=100)
+imputer_rpca = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=7, max_iter=200, tau=2, lam=.3)
+imputer_rpca_opti = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=7, max_iter=100)
 
 imputer_ou = imputers.ImputerEM(groups=["station"], model="multinormal", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
 imputer_tsou = imputers.ImputerEM(groups=["station"], model="VAR1", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
@@ -161,9 +161,9 @@ dict_imputers = {
     "shuffle": imputer_shuffle,
     # "residuals": imputer_residuals,
     # "OU": imputer_ou,
-    "TSOU": imputer_tsou,
-    "TSMLE": imputer_tsmle,
-    # "RPCA": imputer_rpca,
+    # "TSOU": imputer_tsou,
+    # "TSMLE": imputer_tsmle,
+    "RPCA": imputer_rpca,
     "RPCA_opti": imputer_rpca_opti,
     # "locf": imputer_locf,
     # "nocb": imputer_nocb,
@@ -212,7 +212,7 @@ results
 
 ```python
 df_plot = results.loc["energy", "All"]
-plt.bar(df_plot.index, df_plot, color=tab10(0))
+plt.barh(df_plot.index, df_plot, color=tab10(0))
 plt.show()
 ```
 

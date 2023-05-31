@@ -1,9 +1,10 @@
 import logging
 from typing import Any, Callable, Dict, List, Union
-from skopt.space import Categorical, Dimension, Integer, Real
+
 import numpy as np
 import pandas as pd
 import skopt
+from skopt.space import Categorical, Dimension, Integer, Real
 
 from qolmat.benchmark.missing_patterns import _HoleGenerator
 
