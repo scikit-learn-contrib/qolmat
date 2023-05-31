@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -28,7 +28,7 @@ class Comparator:
         10.
     """
 
-    dict_metrics: Dict[str, Any] = {
+    dict_metrics: Dict[str, Callable] = {
         "mse": metrics.mean_squared_error,
         "rmse": metrics.root_mean_squared_error,
         "mae": metrics.mean_absolute_error,
@@ -101,7 +101,7 @@ class Comparator:
             imputation model
         df : pd.DataFrame
             dataframe to impute
-        search_space : Dict
+        dict_config_opti_imputer : Dict
             search space for tested_model's hyperparameters
 
         Returns
