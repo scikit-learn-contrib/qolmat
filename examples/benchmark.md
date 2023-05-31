@@ -82,13 +82,13 @@ cols_to_impute = ["TEMP", "PRES"]
 
 The dataset `Artificial` is designed to have a sum of a periodical signal, a white noise and some outliers.
 
-```python tags=[]
-df_data
-```
-
 ```python
 # df_data = data.get_data_corrupted("Artificial", ratio_masked=.2, mean_size=10)
 # cols_to_impute = ["signal"]
+```
+
+```python tags=[]
+df_data
 ```
 
 Let's take a look at variables to impute. We only consider a station, Aotizhongxin.
@@ -173,7 +173,7 @@ dict_imputers = {
 }
 n_imputers = len(dict_imputers)
 
-search_params = {
+dict_config_opti = {
     "RPCA_opti": {
         "tau": {"min": .5, "max": 5, "type":"Real"},
         "lam": {"min": .1, "max": 1, "type":"Real"},
@@ -204,7 +204,7 @@ comparison = comparator.Comparator(
     generator_holes = generator_holes,
     metrics=["mae", "wmape", "KL_columnwise", "ks_test", "energy"],
     n_calls_opt=10,
-    search_params=search_params,
+    dict_config_opti=dict_config_opti,
 )
 results = comparison.compare(df_data)
 results
@@ -368,7 +368,7 @@ comparison = comparator.Comparator(
     df_data.columns,
     generator_holes = generator_holes,
     n_calls_opt=10,
-    search_params=search_params,
+    dict_config_opti=dict_config_opti,
 )
 results = comparison.compare(df_data)
 results
