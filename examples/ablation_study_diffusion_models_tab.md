@@ -442,7 +442,7 @@ from typing import Tuple
 
 ```
 
-#### Simple TabDDPM
+#### TabDDPM simple
 
 - Training:
     - Fill real nan with mean
@@ -506,7 +506,8 @@ class TabDDPM:
 
         self.summary = {
             'epoch_loss': [],
-            'eval_mae': []
+            'eval_mae': [],
+            'eval_kl': []
         }
 
     def q_sample(self, x: torch.Tensor, t: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -541,12 +542,14 @@ class TabDDPM:
             
             self.summary['epoch_loss'].append(loss.item())
             if x_valid is not None:
-                self.summary['eval_mae'].append(self.eval(x_valid))
+                valid_loss = self.eval(x_valid)
+                self.summary['eval_mae'].append(valid_loss['L1Loss'])
+                self.summary['eval_kl'].append(valid_loss['KLDivLoss'])
 
     def eval(self, x):
         mask_x = ~x.isna().to_numpy()
 
-        x_normalized = self.normalizer_x.transform(x.values)
+        x_normalized = self.normalizer_x.transform(x.fillna(x.mean()).values)
         x_tensor = torch.from_numpy(x_normalized).float().to(self.device)
         mask_x_tensor = torch.from_numpy(mask_x).float().to(self.device)
 
@@ -565,7 +568,8 @@ class TabDDPM:
 
                 noise = ((1 / sqrt_alpha_t) * (noise - ((beta_t / sqrt_one_minus_alpha_hat_t) * self.eps_model(noise, t)))) + (epsilon_t * random_noise)
 
-        return (torch.nn.L1Loss(reduction='none')(x_tensor, noise) * mask_x_tensor).nanmean().item()
+        return {'L1Loss': (torch.nn.L1Loss(reduction='none')(x_tensor, noise) * mask_x_tensor).nanmean().item(),
+                'KLDivLoss': mtr.kl_divergence(pd.DataFrame(x_normalized), pd.DataFrame(noise.detach().cpu().numpy()), mask_x, method='gaussian').mean()}
 
     def predict(self, x):
         self.eps_model.eval()
@@ -642,12 +646,14 @@ class TabDDPM_Mask(TabDDPM):
 
             self.summary['epoch_loss'].append(loss.item())
             if x_valid is not None:
-                self.summary['eval_mae'].append(self.eval(x_valid))
+                valid_loss = self.eval(x_valid)
+                self.summary['eval_mae'].append(valid_loss['L1Loss'])
+                self.summary['eval_kl'].append(valid_loss['KLDivLoss'])
 
     def eval(self, x):
         mask_x = ~x.isna().to_numpy()
 
-        x_normalized = self.normalizer_x.transform(x.values)
+        x_normalized = self.normalizer_x.transform(x.fillna(x.mean()).values)
         x_tensor = torch.from_numpy(x_normalized).float().to(self.device)
         mask_x_tensor = torch.from_numpy(mask_x).float().to(self.device)
 
@@ -666,7 +672,9 @@ class TabDDPM_Mask(TabDDPM):
                 noise = mask_x_tensor * x_tensor + (1.0 - mask_x_tensor) * noise
                 noise = ((1 / sqrt_alpha_t) * (noise - ((beta_t / sqrt_one_minus_alpha_hat_t) * self.eps_model(noise, t)))) + (epsilon_t * random_noise)
 
-        return (torch.nn.L1Loss(reduction='none')(x_tensor, noise) * mask_x_tensor).nanmean().item()
+
+        return {'L1Loss': (torch.nn.L1Loss(reduction='none')(x_tensor, noise) * mask_x_tensor).nanmean().item(),
+                'KLDivLoss': mtr.kl_divergence(pd.DataFrame(x_normalized), pd.DataFrame(noise.detach().cpu().numpy()), mask_x, method='gaussian').mean()}
     
     def predict(self, x):
         self.eps_model.eval()
@@ -699,14 +707,13 @@ class TabDDPM_Mask(TabDDPM):
         return x
 ```
 
-#### TabDDPM with mask, more complex autoencoder
+#### TabDDPM with mask, more complex autoencoder - based-ResNet
 
 - Training:
     - Fill real nan with mean
-    - Time step t as a float
     - Compute only loss values from observed data
-    - Add: more complex autoencoder based on [Gorishniy et al., 2021](https://arxiv.org/abs/2106.11959) ([code](https://github.com/Yura52/rtdl))
-    - Add: improve embedding of noise steps
+    - Add: More complex autoencoder based on ResNet [Gorishniy et al., 2021](https://arxiv.org/abs/2106.11959) ([code](https://github.com/Yura52/rtdl))
+    - Add: Improve embedding of noise steps
 - Inference:
     - $\epsilon \rightarrow \hat{x}_t \rightarrow \hat{x}_0$ where
         - $\hat{x}_t = mask * x_0 + (1 - mask) * \hat{x}_t$
@@ -789,15 +796,14 @@ class TabDDPM_Mask_ResNet(TabDDPM_Mask):
         self.optimiser = torch.optim.Adam(self.eps_model.parameters(), lr = lr)
 ```
 
-#### TabDDPM with mask, more complex, conditional autoencoder
+#### TabDDPM with mask, conditional ResNet autoencoder
 
 - Training:
     - Fill real nan with mean
-    - Time step t as a float
     - Compute only loss values from observed data
     - More complex autoencoder based on ResNet [Gorishniy et al., 2021](https://arxiv.org/abs/2106.11959) ([code](https://github.com/Yura52/rtdl))
     - Improve embedding of noise steps
-    - Condition on $x_0$
+    - Add: Condition on $x_0$
 - Inference:
     - $\epsilon \rightarrow \hat{x}_t \rightarrow \hat{x}_0$ where
         - $\hat{x}_t = mask * x_0 + (1 - mask) * \hat{x}_t$
@@ -818,9 +824,7 @@ class ResidualBlock_Cond(torch.nn.Module):
         x_t = x + t + cond
         x_t = self.linear_in(x_t)
         x_t = torch.nn.functional.relu(x_t)
-        x_t = torch.nn.Dropout(0.1)(x_t)
         x_t = self.linear_out(x_t)
-        x_t = torch.nn.Dropout(0.1)(x_t)
         return x + x_t, x_t
 
 class AutoEncoder_ResNet_Cond(torch.nn.Module):
@@ -913,12 +917,14 @@ class TabDDPM_Mask_ResNet_Cond(TabDDPM_Mask):
 
             self.summary['epoch_loss'].append(loss.item())
             if x_valid is not None:
-                self.summary['eval_mae'].append(self.eval(x_valid))
+                valid_loss = self.eval(x_valid)
+                self.summary['eval_mae'].append(valid_loss['L1Loss'])
+                self.summary['eval_kl'].append(valid_loss['KLDivLoss'])
 
     def eval(self, x):
         mask_x = ~x.isna().to_numpy()
 
-        x_normalized = self.normalizer_x.transform(x.values)
+        x_normalized = self.normalizer_x.transform(x.fillna(x.mean()).values)
         x_tensor = torch.from_numpy(x_normalized).float().to(self.device)
         mask_x_tensor = torch.from_numpy(mask_x).float().to(self.device)
 
@@ -937,7 +943,8 @@ class TabDDPM_Mask_ResNet_Cond(TabDDPM_Mask):
                 noise = mask_x_tensor * x_tensor + (1.0 - mask_x_tensor) * noise
                 noise = ((1 / sqrt_alpha_t) * (noise - ((beta_t / sqrt_one_minus_alpha_hat_t) * self.eps_model(noise, t, x_tensor)))) + (epsilon_t * random_noise)
 
-        return (torch.nn.L1Loss(reduction='none')(x_tensor, noise) * mask_x_tensor).nanmean().item()
+        return {'L1Loss': (torch.nn.L1Loss(reduction='none')(x_tensor, noise) * mask_x_tensor).nanmean().item(),
+                'KLDivLoss': mtr.kl_divergence(pd.DataFrame(x_normalized), pd.DataFrame(noise.detach().cpu().numpy()), mask_x, method='gaussian').mean()}
     
     def predict(self, x):
         self.eps_model.eval()
@@ -968,6 +975,106 @@ class TabDDPM_Mask_ResNet_Cond(TabDDPM_Mask):
         outputs = pd.DataFrame(outputs_real, columns=x.columns, index=x.index)
         x = x.fillna(outputs)
         return x
+```
+
+#### TabDDPM with mask, conditional ResNet autoencoder using Transformer
+
+- Training:
+    - Fill real nan with mean
+    - Compute only loss values from observed data
+    - More complex autoencoder based on ResNet [Gorishniy et al., 2021](https://arxiv.org/abs/2106.11959) ([code](https://github.com/Yura52/rtdl))
+    - Improve embedding of noise steps
+    - Add: Condition on $x_0$ using Transformer layers
+- Inference:
+    - $\epsilon \rightarrow \hat{x}_t \rightarrow \hat{x}_0$ where
+        - $\hat{x}_t = mask * x_0 + (1 - mask) * \hat{x}_t$
+        - $mask$: 1 = observed values
+    - Fill nan with $\hat{x}_0$
+
+```python
+import math
+
+class ResidualBlock_Cond_Trans(torch.nn.Module):
+    def __init__(self, input_size, embedding_size, nheads=8, num_layers_transformer=1):
+        super(ResidualBlock_Cond_Trans, self).__init__()
+
+        self.linear_in = torch.nn.Linear(input_size, embedding_size)
+        self.linear_out = torch.nn.Linear(embedding_size, input_size)
+        
+        encoder_layer = torch.nn.TransformerEncoderLayer(
+        d_model=input_size, nhead=nheads, dim_feedforward=64, activation="gelu")
+        
+        self.feature_layer = torch.nn.TransformerEncoder(encoder_layer, num_layers=num_layers_transformer)
+
+    def forward(self, x, t, cond):
+        cond = self.feature_layer(cond)
+        x_t = x + t + cond
+        x_t = self.linear_in(x_t)
+        x_t = torch.nn.functional.relu(x_t)
+        x_t = self.linear_out(x_t)
+        return x + x_t, x_t
+
+class AutoEncoder_ResNet_Cond_Trans(torch.nn.Module):
+    def __init__(self, input_size, noise_steps, num_blocks=2):
+        super(AutoEncoder_ResNet_Cond_Trans, self).__init__()
+
+        embedding_size = 256
+        self.layer_x = torch.nn.Linear(input_size, embedding_size)
+
+        self.layer_cond = torch.nn.Linear(input_size, embedding_size)
+
+        self.register_buffer(
+            "pos_encoding",
+            self._build_embedding(noise_steps, embedding_size / 2),
+            persistent=False,
+        )
+        self.layer_t_1 = torch.nn.Linear(embedding_size, embedding_size)
+        self.layer_t_2 = torch.nn.Linear(embedding_size, embedding_size)
+
+        self.layer_out_1 = torch.nn.Linear(embedding_size, embedding_size)
+        self.layer_out_2 = torch.nn.Linear(embedding_size, input_size)
+
+        self.residual_layers = torch.nn.ModuleList([
+            ResidualBlock_Cond_Trans(input_size=embedding_size, embedding_size=embedding_size) for _ in range(num_blocks)
+        ])
+
+    def forward(self, x: torch.Tensor, t: torch.LongTensor, cond: torch.Tensor) -> torch.Tensor:
+        # Time step embedding
+        t_emb = self.pos_encoding[t].squeeze()
+        t_emb = self.layer_t_1(t_emb)
+        t_emb = torch.nn.functional.silu(t_emb)
+        t_emb = self.layer_t_2(t_emb)
+        t_emb = torch.nn.functional.silu(t_emb)
+
+        x_emb = torch.nn.functional.relu(self.layer_x(x))
+
+        cond_emb = torch.nn.functional.relu(self.layer_cond(cond))
+
+        skip = []
+        for layer in self.residual_layers:
+            x_emb, skip_connection = layer(x_emb, t_emb, cond_emb)
+            skip.append(skip_connection)
+
+        out = torch.sum(torch.stack(skip), dim=0) / math.sqrt(len(self.residual_layers))
+        out = self.layer_out_1(out)
+        out = torch.nn.functional.relu(out)
+        out = self.layer_out_2(out)
+
+        return out
+    
+    def _build_embedding(self, noise_steps, dim=64):
+        steps = torch.arange(noise_steps).unsqueeze(1)  # (T,1)
+        frequencies = 10.0 ** (torch.arange(dim) / (dim - 1) * 4.0).unsqueeze(0)  # (1,dim)
+        table = steps * frequencies  # (T,dim)
+        table = torch.cat([torch.sin(table), torch.cos(table)], dim=1)  # (T,dim*2)
+        return table
+
+class TabDDPM_Mask_ResNet_Cond_Trans(TabDDPM_Mask_ResNet_Cond):
+    def __init__(self, input_size, noise_steps, beta_start: float = 1e-4, beta_end: float = 0.02, lr: float = 0.0001, num_blocks: int = 2):
+        super(TabDDPM_Mask_ResNet_Cond_Trans, self).__init__(input_size, noise_steps, beta_start, beta_end, lr)
+
+        self.eps_model = AutoEncoder_ResNet_Cond_Trans(input_size, noise_steps=noise_steps, num_blocks=num_blocks).to(self.device)
+        self.optimiser = torch.optim.Adam(self.eps_model.parameters(), lr = lr)
 ```
 
 # Evaluation
@@ -1024,25 +1131,25 @@ class TabDDPM_Mask_ResNet_Cond(TabDDPM_Mask):
 - Decrease ratio of nan in dataset: 0.1 -> 0.9
 
 ```python
-dfs_imputed_ratio = {}
-for ratio_masked in np.arange(0.1, 1.0, 0.1):
-    print(ratio_masked)
-    df_mask_ratio = missing_patterns.UniformHoleGenerator(n_splits=1, subset=cols_to_impute, ratio_masked=ratio_masked).generate_mask(df_data_raw_sample)
-    df_data_ratio = df_data_raw_sample[df_mask_ratio]
-    for name, imp in dict_imputers_baseline.items():
-        dfs_imputed_ratio[(name, ratio_masked)] = imp.fit_transform(df_data_ratio)
+# dfs_imputed_ratio = {}
+# for ratio_masked in np.arange(0.1, 1.0, 0.1):
+#     print(ratio_masked)
+#     df_mask_ratio = missing_patterns.UniformHoleGenerator(n_splits=1, subset=cols_to_impute, ratio_masked=ratio_masked).generate_mask(df_data_raw_sample)
+#     df_data_ratio = df_data_raw_sample[df_mask_ratio]
+#     for name, imp in dict_imputers_baseline.items():
+#         dfs_imputed_ratio[(name, ratio_masked)] = imp.fit_transform(df_data_ratio)
 
-    TabDDPM_simple = imputers_pytorch.ImputerGenerativeModelPytorch(model=TabDDPM(input_size=10, noise_steps=100), batch_size=500, epochs=100)
-    dfs_imputed_ratio[("TabDDPM", ratio_masked)] = TabDDPM_simple.fit_transform(df_data_ratio)
+#     TabDDPM_simple = imputers_pytorch.ImputerGenerativeModelPytorch(model=TabDDPM(input_size=10, noise_steps=100), batch_size=500, epochs=100)
+#     dfs_imputed_ratio[("TabDDPM", ratio_masked)] = TabDDPM_simple.fit_transform(df_data_ratio)
 
-    TabDDPM_mask = imputers_pytorch.ImputerGenerativeModelPytorch(model=TabDDPM_Mask(input_size=10, noise_steps=100), batch_size=500, epochs=100)
-    dfs_imputed_ratio[("TabDDPM_mask", ratio_masked)] = TabDDPM_mask.fit_transform(df_data_ratio)
+#     TabDDPM_mask = imputers_pytorch.ImputerGenerativeModelPytorch(model=TabDDPM_Mask(input_size=10, noise_steps=100), batch_size=500, epochs=100)
+#     dfs_imputed_ratio[("TabDDPM_mask", ratio_masked)] = TabDDPM_mask.fit_transform(df_data_ratio)
 
-    TabDDPM_mask_resnet = imputers_pytorch.ImputerGenerativeModelPytorch(model=TabDDPM_Mask_ResNet(input_size=10, noise_steps=100, num_blocks=2), batch_size=500, epochs=100)
-    dfs_imputed_ratio[("TabDDPM_mask_resnet", ratio_masked)] = TabDDPM_mask_resnet.fit_transform(df_data_ratio)
+#     TabDDPM_mask_resnet = imputers_pytorch.ImputerGenerativeModelPytorch(model=TabDDPM_Mask_ResNet(input_size=10, noise_steps=100, num_blocks=2), batch_size=500, epochs=100)
+#     dfs_imputed_ratio[("TabDDPM_mask_resnet", ratio_masked)] = TabDDPM_mask_resnet.fit_transform(df_data_ratio)
 
-    TabDDPM_mask_resnet_cond = imputers_pytorch.ImputerGenerativeModelPytorch(model=TabDDPM_Mask_ResNet_Cond(input_size=10, noise_steps=100, num_blocks=2), batch_size=500, epochs=100)
-    dfs_imputed_ratio[("TabDDPM_mask_resnet_cond", ratio_masked)] = TabDDPM_mask_resnet_cond.fit_transform(df_data_ratio)
+#     TabDDPM_mask_resnet_cond = imputers_pytorch.ImputerGenerativeModelPytorch(model=TabDDPM_Mask_ResNet_Cond(input_size=10, noise_steps=100, num_blocks=2), batch_size=500, epochs=100)
+#     dfs_imputed_ratio[("TabDDPM_mask_resnet_cond", ratio_masked)] = TabDDPM_mask_resnet_cond.fit_transform(df_data_ratio)
 ```
 
 ```python
@@ -1130,6 +1237,12 @@ models["TabDDPM_Mask_ResNet_Cond"].fit(df_data, batch_size=500, epochs=50, x_val
 ```
 
 ```python
+%%time
+models["TabDDPM_Mask_ResNet_Cond_Trans"] = TabDDPM_Mask_ResNet_Cond_Trans(input_size=10, noise_steps=100, num_blocks=2)
+models["TabDDPM_Mask_ResNet_Cond_Trans"].fit(df_data, batch_size=500, epochs=50, x_valid=df_data_valid)
+```
+
+```python
 print('Number of trained parameters:')
 for name_model, model in models.items():
     print(f"{name_model}: {get_num_params(model.eps_model)}")
@@ -1138,11 +1251,13 @@ summaries = {
     "TabDDPM": models["TabDDPM"].summary,
     "TabDDPM_Mask": models["TabDDPM_Mask"].summary,
     "TabDDPM_Mask_ResNet": models["TabDDPM_Mask_ResNet"].summary,
-    "TabDDPM_Mask_ResNet_Cond": models["TabDDPM_Mask_ResNet_Cond"].summary
+    "TabDDPM_Mask_ResNet_Cond": models["TabDDPM_Mask_ResNet_Cond"].summary,
+    "TabDDPM_Mask_ResNet_Cond_Trans": models["TabDDPM_Mask_ResNet_Cond_Trans"].summary
 }
 
 plot_summaries(summaries, display='epoch_loss', height=300).show()
 plot_summaries(summaries, display='eval_mae', height=300).show()
+plot_summaries(summaries, display='eval_kl', height=300).show()
 ```
 
 ### Test
@@ -1166,10 +1281,6 @@ dict_imputers = {}
 
 # dict_imputers["MLP_fit"] = imputers_pytorch.ImputerRegressorPytorch(estimator=feedforward_regressor(input_size=9), handler_nan = "fit", batch_size=500, epochs=100)
 # dfs_imputed["MLP_fit"] = dict_imputers["MLP_fit"].fit_transform(df_data)
-```
-
-```python
-%%time
 
 dict_imputers["AutoEncoderImputer"] = imputers_pytorch.ImputerGenerativeModelPytorch(model=AutoEncoderImputer(input_size=10), batch_size=500, epochs=100)
 dfs_imputed["AutoEncoderImputer"] = dict_imputers["AutoEncoderImputer"].fit_transform(df_data)
@@ -1192,15 +1303,22 @@ dfs_imputed["TabDDPM_mask"] = dict_imputers["TabDDPM_mask"].fit_transform(df_dat
 ```python
 %%time
 
-dict_imputers["TabDDPM_mask_resnet"] = imputers_pytorch.ImputerGenerativeModelPytorch(model=TabDDPM_Mask_ResNet(input_size=10, noise_steps=200, num_blocks=2), batch_size=500, epochs=100)
+dict_imputers["TabDDPM_mask_resnet"] = imputers_pytorch.ImputerGenerativeModelPytorch(model=TabDDPM_Mask_ResNet(input_size=10, noise_steps=100, num_blocks=2), batch_size=500, epochs=100)
 dfs_imputed["TabDDPM_mask_resnet"] = dict_imputers["TabDDPM_mask_resnet"].fit_transform(df_data)
 ```
 
 ```python
 %%time
 
-dict_imputers["TabDDPM_mask_resnet_cond"] = imputers_pytorch.ImputerGenerativeModelPytorch(model=TabDDPM_Mask_ResNet_Cond(input_size=10, noise_steps=200, num_blocks=2), batch_size=500, epochs=100)
+dict_imputers["TabDDPM_mask_resnet_cond"] = imputers_pytorch.ImputerGenerativeModelPytorch(model=TabDDPM_Mask_ResNet_Cond(input_size=10, noise_steps=100, num_blocks=2), batch_size=500, epochs=100)
 dfs_imputed["TabDDPM_mask_resnet_cond"] = dict_imputers["TabDDPM_mask_resnet_cond"].fit_transform(df_data)
+```
+
+```python
+%%time
+
+dict_imputers["TabDDPM_mask_resnet_cond_trans"] = imputers_pytorch.ImputerGenerativeModelPytorch(model=TabDDPM_Mask_ResNet_Cond_Trans(input_size=10, noise_steps=100, num_blocks=2), batch_size=500, epochs=100)
+dfs_imputed["TabDDPM_mask_resnet_cond_trans"] = dict_imputers["TabDDPM_mask_resnet_cond_trans"].fit_transform(df_data)
 ```
 
 ```python
@@ -1217,15 +1335,16 @@ df_error = plot_errors(df_data_raw_sample, dfs_imputed, df_mask.replace(False, T
 - Diffusion models only
 
 ```python
-df_error[["TabDDPM", "TabDDPM_mask", "TabDDPM_mask_resnet", "TabDDPM_mask_resnet_cond"]].style.apply(lambda x: ["background: green" if v == x.min() else "" for v in x], axis = 1)
+df_error[["TabDDPM", "TabDDPM_mask", "TabDDPM_mask_resnet", "TabDDPM_mask_resnet_cond", "TabDDPM_mask_resnet_cond_trans"]].style.apply(lambda x: ["background: green" if v == x.min() else "" for v in x], axis = 1)
 ```
 
 - Other models
 - Distribution metrics (KL, Wasserten distance) and Accuracy metrics (MAE)
 
 ```python
-cols_min_value = df_error.idxmin(axis=1).unique().tolist() + ["AutoEncoderImputer", "TabDDPM", "TabDDPM_mask", "TabDDPM_mask_resnet", "TabDDPM_mask_resnet_cond"]
+cols_min_value = df_error.idxmin(axis=1).unique().tolist() + list(dict_imputers.keys())
 
+print("Metrics: ", df_error.columns)
 # df_error.style\
 # .apply(lambda x: ["background: green" if v == x.min() else "" for v in x], axis = 1)\
 # .hide([col for col in df_error.columns.to_list() if col not in cols_min_value or col in ['shuffle']], axis=1)\
