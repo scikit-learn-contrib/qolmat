@@ -33,10 +33,12 @@ class RPCA(BaseEstimator, TransformerMixin):
         period: Optional[int] = None,
         max_iter: int = int(1e4),
         tol: float = 1e-6,
+        random_state: Union[None, int, np.random.RandomState] = None,
     ) -> None:
         self.n_rows = period
         self.max_iter = max_iter
         self.tol = tol
+        self.random_state = random_state
 
     def _prepare_data(self, X: NDArray) -> NDArray:
         """
@@ -56,3 +58,22 @@ class RPCA(BaseEstimator, TransformerMixin):
                 return X.copy()
             else:
                 raise ValueError("`n_rows` should not be specified when imputing 2D data.")
+
+    def get_shape_original(self, M: NDArray, X: NDArray) -> NDArray:
+        """Shapes an output matrix from the RPCA algorithm into the original shape.
+
+        Parameters
+        ----------
+        M : NDArray
+            Matrix to reshape
+        X : NDArray
+            Matrix of the desired shape
+
+        Returns
+        -------
+        NDArray
+            Reshaped matrix
+        """
+        size = X.size
+        M_flat = M.flatten()[:size]
+        return M_flat.reshape(X.shape)

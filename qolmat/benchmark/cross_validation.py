@@ -1,15 +1,101 @@
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Union
 
 import numpy as np
 import pandas as pd
 import skopt
-from skopt.space import Dimension
+from skopt.space import Categorical, Dimension, Integer, Real
 
 from qolmat.benchmark.missing_patterns import _HoleGenerator
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+
+
+def get_dimension(dict_bounds: Dict, name_dimension: str) -> Dimension:
+    """Get the dimension of hyperparamaters with skopt
+
+    Parameters
+    ----------
+    dict_bounds : Dict
+        Dictionnay of bounds of hyperparameters
+    name_dimension : str
+        Name of hyperparameters
+
+    Returns
+    -------
+    Dimension
+        In the case Integer, we have a skopt.space.Integer,
+        for Real we have skopt.space.Real and
+        for Categorical we have skopt.space.Categorical
+    """
+    if dict_bounds["type"] == "Integer":
+        return Integer(low=dict_bounds["min"], high=dict_bounds["max"], name=name_dimension)
+    elif dict_bounds["type"] == "Real":
+        return Real(low=dict_bounds["min"], high=dict_bounds["max"], name=name_dimension)
+    elif dict_bounds["type"] == "Categorical":
+        return Categorical(categories=dict_bounds["categories"], name=name_dimension)
+    else:
+        ValueError("The 'type' must be 'Integer', 'Real' or 'Categorical")
+
+
+def get_search_space(dict_config_opti_imputer: Dict) -> List[Dimension]:
+    """Construct the search space for the tested_model
+    based on the dict_config_opti_imputer
+
+    Parameters
+    ----------
+    dict_config_opti_imputer : Dict
+
+    Returns
+    -------
+    List[Dimension]
+        search space
+
+    """
+    list_spaces = []
+
+    for name_hyperparam, value in dict_config_opti_imputer.items():
+        # space common for all columns
+        if "type" in value:
+            list_spaces.append(get_dimension(value, name_hyperparam))
+        else:
+            for col, dict_bounds in value.items():
+                name = f"{name_hyperparam}/{col}"
+                list_spaces.append(get_dimension(dict_bounds, name))
+
+    return list_spaces
+
+
+def deflat_hyperparams(
+    hyperparams_flat: Dict[str, Union[float, int, str]]
+) -> Dict[str, Union[float, int, str, Dict[str, Union[float, int, str]]]]:
+    """
+    Set the hyperparameters to the model
+
+    Parameters
+    ----------
+    hyperparams_flat : Dict[str, Union[int, float, str]]
+        dictionary containing the hyperparameters and their value`
+
+    Return
+    -------
+    Dict
+    Deflat hyperparams_flat
+    """
+
+    hyperparams: Dict[str, Any] = {}
+    for name_dimension, hyperparam in hyperparams_flat.items():
+        if "/" not in name_dimension:
+            hyperparams[name_dimension] = hyperparam
+        else:
+            name_hyperparam, col = name_dimension.split("/")
+            if name_hyperparam in hyperparams:
+                hyperparams[name_hyperparam][col] = hyperparam
+            else:
+                new_dict: Dict[str, Union[float, int, str]] = {col: hyperparam}
+                hyperparams[name_hyperparam] = new_dict
+    return hyperparams
 
 
 class CrossValidation:
@@ -19,11 +105,12 @@ class CrossValidation:
 
     Parameters
     ----------
-    model:
-    search_space: Optional[Dict[str, Union[int, float, str]]]
+    imputer: Any
+        Imputer with the hyperparameters
+    dict_config_opti_imputer: Optional[Dict[str, Union[int, float, str]]]
         search space for the hyperparameters
-    hole_generator:
-
+    hole_generator: _HoleGenerator
+        The generator of hole
     n_calls: Optional[int]
         number of calls. By default the value is set to 10
     n_jobs: Optional[int]
@@ -32,23 +119,19 @@ class CrossValidation:
         -1 means using all processors. By default the value is set to -1
     loss_norm: Optional[int]
         loss norm to evaluate the reconstruction. By default the value is set to 1
-    ratio_missing: Optional[float]
-        ratio of artificially missing data. By default the value is set to 0.1
-    corruption: Optional[str]
-        type of corruption: "missing" or "outlier". By default the value is set to "missing"
     """
 
     def __init__(
         self,
         imputer: Any,
-        list_spaces: List[Dimension],
+        dict_config_opti_imputer: Dict[str, Any],
         hole_generator: _HoleGenerator,
         n_calls: int = 10,
         n_jobs: int = -1,
         loss_norm: int = 1,
     ):
         self.imputer = imputer
-        self.list_spaces = list_spaces
+        self.dict_config_opti_imputer = dict_config_opti_imputer
         self.hole_generator = hole_generator
         self.n_calls = n_calls
         self.n_jobs = n_jobs
@@ -89,31 +172,7 @@ class CrossValidation:
         else:
             raise ValueError("loss_norm has to be 0 or 1 (int)")
 
-    def deflat_hyperparams(
-        self, hyperparams_flat: Dict[str, Union[float, int, str]]
-    ) -> Dict[str, Union[float, int, str, Dict[str, Union[float, int, str]]]]:
-        """
-        Set the hyperparameters to the model
-
-        Parameters
-        ----------
-        hyperparams_flat : Dict[str, Union[int, float, str]]
-            dictionary containing the hyperparameters and their value
-        """
-        hyperparams: Dict[str, Any] = {}
-        for name_dimension, hyperparam in hyperparams_flat.items():
-            if "/" not in name_dimension:
-                hyperparams[name_dimension] = hyperparam
-            else:
-                name_hyperparam, col = name_dimension.split("/")
-                if name_hyperparam in hyperparams:
-                    hyperparams[name_hyperparam][col] = hyperparam
-                else:
-                    new_dict: Dict[str, Union[float, int, str]] = {col: hyperparam}
-                    hyperparams[name_hyperparam] = new_dict
-        return hyperparams
-
-    def objective(self, X):
+    def objective(self, df: pd.DataFrame, list_spaces: List[Dimension]) -> Callable:
         """
         Define the objective function for the cross-validation
 
@@ -123,17 +182,17 @@ class CrossValidation:
             objective function
         """
 
-        @skopt.utils.use_named_args(self.list_spaces)
+        @skopt.utils.use_named_args(list_spaces)
         def obj_func(**hyperparams_flat):
-            self.imputer.hyperparams_optim = self.deflat_hyperparams(hyperparams_flat)
+            self.imputer.hyperparams_optim = deflat_hyperparams(hyperparams_flat)
 
             errors = []
 
-            for df_mask in self.hole_generator.split(X):
-                df_origin = X.copy()
+            for df_mask in self.hole_generator.split(df):
+                df_origin = df.copy()
                 df_corrupted = df_origin.copy()
                 df_corrupted[df_mask] = np.nan
-                cols_with_nans = X.columns[X.isna().any(axis=0)].tolist()
+                cols_with_nans = df.columns[df.isna().any(axis=0)].tolist()
                 imputed = self.imputer.fit_transform(df_corrupted)
 
                 error = self.loss_function(
@@ -148,18 +207,40 @@ class CrossValidation:
 
         return obj_func
 
-    def fit_transform(
-        self, df: pd.DataFrame, return_hyper_params: Optional[bool] = False
-    ) -> pd.DataFrame:
+    def optimize_hyperparams(self, df: pd.DataFrame) -> Dict[str, Union[float, int, str]]:
+        """Optimize hyperparamaters
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            DataFrame masked
+
+        Returns
+        -------
+        Dict[str, Union[float,int, str]]
+            hyperparameters optimize flat
+        """
+        list_spaces = get_search_space(self.dict_config_opti_imputer)
+        res = skopt.gp_minimize(
+            self.objective(df, list_spaces),
+            dimensions=list_spaces,
+            n_calls=self.n_calls,
+            n_initial_points=max(5, self.n_calls // 5),
+            random_state=self.imputer.random_state,
+            n_jobs=self.n_jobs,
+        )
+
+        hyperparams_flat = {space.name: val for space, val in zip(list_spaces, res["x"])}
+        return hyperparams_flat
+
+    def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Fit and transform estimator and impute the missing values.
 
         Parameters
         ----------
-        X : pd.DataFrame
+        df : pd.DataFrame
             dataframe to impute
-        return_hyper_params : Optional[bool]
-            by default False
 
         Returns
         -------
@@ -167,36 +248,8 @@ class CrossValidation:
             imputed dataframe
         """
 
-        n0 = max(5, self.n_calls // 5)
-        print("---")
-        print(self.n_calls)
-        print(n0)
-
-        # res = skopt.gp_minimize(
-        #     self.objective(X=df),
-        #     dimensions=self.list_spaces,
-        #     n_calls=self.n_calls,
-        #     n_initial_points=n0,
-        #     random_state=42,
-        #     n_jobs=self.n_jobs,
-        # )
-
-        res = skopt.gp_minimize(
-            self.objective(X=df),
-            dimensions=self.list_spaces,
-            n_calls=self.n_calls,
-            n_initial_points=n0,
-            random_state=42,
-            n_jobs=self.n_jobs,
-        )
-
-        hyperparams_flat = {space.name: val for space, val in zip(self.list_spaces, res["x"])}
-        print(f"Optimal hyperparameters : {hyperparams_flat}")
-        print(f"Results: {res}")
-
-        self.imputer.hyperparams_optim = self.deflat_hyperparams(hyperparams_flat)
+        hyperparams_flat = self.optimize_hyperparams(df)
+        self.imputer.hyperparams_optim = deflat_hyperparams(hyperparams_flat)
         df_imputed = self.imputer.fit_transform(df)
 
-        if return_hyper_params:
-            return df_imputed, hyperparams_flat
         return df_imputed

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import scipy as scp
@@ -366,7 +366,7 @@ class RPCANoisy(RPCA):
         elif self.norm == "L2":
             M, A, U, V, errors = self.decompose_rpca_L2(D_proj, Omega, lam, tau, rank)
 
-        M = M.reshape(X.shape)
-        A = A.reshape(X.shape)
+        M_final = self.get_shape_original(M, X)
+        A_final = self.get_shape_original(A, X)
 
-        return M, A
+        return M_final, A_final

@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import numpy as np
 from numpy.typing import NDArray
 
 from qolmat.imputations.rpca import utils
 from qolmat.imputations.rpca.rpca import RPCA
-from qolmat.utils.utils import progress_bar
 
 
 class RPCAPCP(RPCA):
@@ -100,12 +99,6 @@ class RPCAPCP(RPCA):
         D = self._prepare_data(X)
         M, A = self.decompose_rpca(D)
 
-        # U, _, V = np.linalg.svd(M, full_matrices=False, compute_uv=True)
-
-        # if X.shape[0] == 1:
-        # M = M.reshape(1, -1)[:, : X.size]
-        # M = M.reshape(X)
-        # A = A.reshape(1, -1)[:, : X.size]
-        M = M.reshape(X.shape)
-        A = A.reshape(X.shape)
-        return M, A
+        M_final = self.get_shape_original(M, X)
+        A_final = self.get_shape_original(A, X)
+        return M_final, A_final

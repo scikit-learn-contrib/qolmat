@@ -57,9 +57,11 @@ qolmat/.converge
 examples/*.ipynb
 examples/figures/*
 examples/data/*
-examples/*.ipynb
+examples/local
 
 
 # VSCode
 .vscode
-# examples/benchmark.ipynb
+
+# Logs
+nohup.txt
