@@ -97,9 +97,11 @@ df_data_raw_sample = df_data_raw.iloc[:, :10].sample(20000)
 df_data_raw_sample = df_data_raw_sample.sample(frac = 1)
 df_data_raw_sample = df_data_raw_sample.reset_index(drop=True)
 cols_to_impute = df_data_raw_sample.columns.to_list()
+
 ratio_masked = 0.5
 
-df_mask = missing_patterns.UniformHoleGenerator(n_splits=1, subset=cols_to_impute, ratio_masked=ratio_masked).generate_mask(df_data_raw_sample)
+hole_generator = missing_patterns.UniformHoleGenerator(n_splits=1, subset=cols_to_impute, ratio_masked=ratio_masked)
+df_mask = hole_generator.generate_mask(df_data_raw_sample)
 
 df_data = df_data_raw_sample[df_mask]
 
@@ -471,9 +473,9 @@ class AutoEncoder(torch.nn.Module):
         t_1 = torch.nn.functional.relu(self.layer_t_1(t.float()))
         t_2 = torch.nn.functional.relu(self.layer_t_2(t_1))
 
-        cat_x_t = x_2 + t_2
+        x_t = x_2 + t_2
 
-        out_1 = torch.nn.functional.relu(self.layer_out_1(cat_x_t))
+        out_1 = torch.nn.functional.relu(self.layer_out_1(x_t))
         out_2 = self.layer_out_2(out_1)
         return out_2
 
@@ -520,7 +522,7 @@ class TabDDPM:
         epsilon = torch.randn_like(x, device=self.device)
         return sqrt_alpha_hat * x + sqrt_one_minus_alpha_hat * epsilon, epsilon
 
-    def fit(self, x, epochs=10, batch_size=100, x_valid=None):
+    def fit(self, x, epochs=10, batch_size=100, x_valid=None, x_valid_mask=None):
         x = x.fillna(x.mean())
         x_normalized = self.normalizer_x.fit_transform(x.values)
 
@@ -542,13 +544,13 @@ class TabDDPM:
             
             self.summary['epoch_loss'].append(loss.item())
             if x_valid is not None:
-                valid_loss = self.eval(x_valid)
+                valid_loss = self.eval(x_valid, x_valid_mask)
                 self.summary['eval_mae'].append(valid_loss['L1Loss'])
                 self.summary['eval_kl'].append(valid_loss['KLDivLoss'])
 
-    def eval(self, x):
-        mask_x = ~x.isna().to_numpy()
-
+    def eval(self, x, mask_x_obs):
+        mask_x = mask_x_obs.to_numpy()
+        
         x_normalized = self.normalizer_x.transform(x.fillna(x.mean()).values)
         x_tensor = torch.from_numpy(x_normalized).float().to(self.device)
         mask_x_tensor = torch.from_numpy(mask_x).float().to(self.device)
@@ -568,8 +570,8 @@ class TabDDPM:
 
                 noise = ((1 / sqrt_alpha_t) * (noise - ((beta_t / sqrt_one_minus_alpha_hat_t) * self.eps_model(noise, t)))) + (epsilon_t * random_noise)
 
-        return {'L1Loss': (torch.nn.L1Loss(reduction='none')(x_tensor, noise) * mask_x_tensor).nanmean().item(),
-                'KLDivLoss': mtr.kl_divergence(pd.DataFrame(x_normalized), pd.DataFrame(noise.detach().cpu().numpy()), mask_x, method='gaussian').mean()}
+        return {'L1Loss': (torch.nn.L1Loss(reduction='none')(x_tensor, noise) * (1.0 - mask_x_tensor)).nanmean().item(),
+                'KLDivLoss': mtr.kl_divergence(pd.DataFrame(x_normalized), pd.DataFrame(noise.detach().cpu().numpy()), ~mask_x, method='gaussian').mean()}
 
     def predict(self, x):
         self.eps_model.eval()
@@ -618,7 +620,7 @@ class TabDDPM_Mask(TabDDPM):
         self.eps_model = AutoEncoder(input_size).to(self.device)
         self.optimiser = torch.optim.Adam(self.eps_model.parameters(), lr = lr)
         
-    def fit(self, x, epochs=10, batch_size=100, x_valid=None):
+    def fit(self, x, epochs=10, batch_size=100, x_valid=None, x_valid_mask=None):
         mask_x = ~x.isna().to_numpy()
         x = x.fillna(x.mean())
         
@@ -646,12 +648,12 @@ class TabDDPM_Mask(TabDDPM):
 
             self.summary['epoch_loss'].append(loss.item())
             if x_valid is not None:
-                valid_loss = self.eval(x_valid)
+                valid_loss = self.eval(x_valid, x_valid_mask)
                 self.summary['eval_mae'].append(valid_loss['L1Loss'])
                 self.summary['eval_kl'].append(valid_loss['KLDivLoss'])
 
-    def eval(self, x):
-        mask_x = ~x.isna().to_numpy()
+    def eval(self, x, mask_x_obs):
+        mask_x = mask_x_obs.to_numpy()
 
         x_normalized = self.normalizer_x.transform(x.fillna(x.mean()).values)
         x_tensor = torch.from_numpy(x_normalized).float().to(self.device)
@@ -669,12 +671,12 @@ class TabDDPM_Mask(TabDDPM):
                 epsilon_t = self.std_beta[t].view(-1, 1)
 
                 random_noise = torch.randn_like(noise) if i > 1 else torch.zeros_like(noise)
-                noise = mask_x_tensor * x_tensor + (1.0 - mask_x_tensor) * noise
+
                 noise = ((1 / sqrt_alpha_t) * (noise - ((beta_t / sqrt_one_minus_alpha_hat_t) * self.eps_model(noise, t)))) + (epsilon_t * random_noise)
+                noise = mask_x_tensor * x_tensor + (1.0 - mask_x_tensor) * noise
 
-
-        return {'L1Loss': (torch.nn.L1Loss(reduction='none')(x_tensor, noise) * mask_x_tensor).nanmean().item(),
-                'KLDivLoss': mtr.kl_divergence(pd.DataFrame(x_normalized), pd.DataFrame(noise.detach().cpu().numpy()), mask_x, method='gaussian').mean()}
+        return {'L1Loss': (torch.nn.L1Loss(reduction='none')(x_tensor, noise) * (1.0 - mask_x_tensor)).nanmean().item(),
+                'KLDivLoss': mtr.kl_divergence(pd.DataFrame(x_normalized), pd.DataFrame(noise.detach().cpu().numpy()), ~mask_x, method='gaussian').mean()}
     
     def predict(self, x):
         self.eps_model.eval()
@@ -697,8 +699,218 @@ class TabDDPM_Mask(TabDDPM):
                 epsilon_t = self.std_beta[t].view(-1, 1)
 
                 random_noise = torch.randn_like(noise) if i > 1 else torch.zeros_like(noise)
-                noise = mask_x_tensor * x_tensor + (1.0 - mask_x_tensor) * noise
+                
                 noise = ((1 / sqrt_alpha_t) * (noise - ((beta_t / sqrt_one_minus_alpha_hat_t) * self.eps_model(noise, t)))) + (epsilon_t * random_noise)
+                noise = mask_x_tensor * x_tensor + (1.0 - mask_x_tensor) * noise
+                
+        outputs_normalized = noise.detach().cpu().numpy()
+        outputs_real = self.normalizer_x.inverse_transform(outputs_normalized)
+        outputs = pd.DataFrame(outputs_real, columns=x.columns, index=x.index)
+        x = x.fillna(outputs)
+        return x
+```
+
+#### TabDDPM with mask, autoencoder + complex t emb
+
+- Training:
+    - Fill real nan with mean
+    - Compute only loss values from observed data
+    - Add: Improve embedding of noise steps
+- Inference:
+    - $\epsilon \rightarrow \hat{x}_t \rightarrow \hat{x}_0$ where
+        - $\hat{x}_t = mask * x_0 + (1 - mask) * \hat{x}_t$
+        - $mask$: 1 = observed values
+    - Fill nan with $\hat{x}_0$
+
+```python
+class AutoEncoder_EmbT(torch.nn.Module):
+    def __init__(self, input_size, noise_steps):
+        super(AutoEncoder_EmbT, self).__init__()
+
+        embedding_size = 256
+        self.layer_x_1 = torch.nn.Linear(input_size, embedding_size)
+        self.layer_x_2 = torch.nn.Linear(embedding_size, embedding_size)
+
+        self.register_buffer(
+            "pos_encoding",
+            self._build_embedding(noise_steps, embedding_size / 2),
+            persistent=False,
+        )
+        self.layer_t_1 = torch.nn.Linear(embedding_size, embedding_size)
+        self.layer_t_2 = torch.nn.Linear(embedding_size, embedding_size)
+
+        self.layer_out_1 = torch.nn.Linear(256, 256)
+        self.layer_out_2 = torch.nn.Linear(256, input_size)
+
+    def forward(self, x: torch.Tensor, t: torch.LongTensor) -> torch.Tensor:
+        t_emb = self.pos_encoding[t].squeeze()
+        t_emb = self.layer_t_1(t_emb)
+        t_emb = torch.nn.functional.silu(t_emb)
+        t_emb = self.layer_t_2(t_emb)
+        t_emb = torch.nn.functional.silu(t_emb)
+        
+        x_1 = torch.nn.functional.relu(self.layer_x_1(x))
+        x_2 = torch.nn.functional.relu(self.layer_x_2(x_1))
+
+        x_t = x_2 + t_emb
+
+        out_1 = torch.nn.functional.relu(self.layer_out_1(x_t))
+        out_2 = self.layer_out_2(out_1)
+        return out_2
+    
+    def _build_embedding(self, noise_steps, dim=64):
+        steps = torch.arange(noise_steps).unsqueeze(1)  # (T,1)
+        frequencies = 10.0 ** (torch.arange(dim) / (dim - 1) * 4.0).unsqueeze(0)  # (1,dim)
+        table = steps * frequencies  # (T,dim)
+        table = torch.cat([torch.sin(table), torch.cos(table)], dim=1)  # (T,dim*2)
+        return table
+    
+class TabDDPM_Mask_EmbT(TabDDPM_Mask):
+    def __init__(self, input_size, noise_steps, beta_start: float = 1e-4, beta_end: float = 0.02, lr: float = 0.0001):
+        super(TabDDPM_Mask_EmbT, self).__init__(input_size, noise_steps, beta_start, beta_end, lr)
+
+        self.eps_model = AutoEncoder_EmbT(input_size, noise_steps=noise_steps).to(self.device)
+        self.optimiser = torch.optim.Adam(self.eps_model.parameters(), lr = lr)
+```
+
+#### TabDDPM with mask, autoencoder + condition
+
+- Training:
+    - Fill real nan with mean
+    - Compute only loss values from observed data
+    - Add: $\epsilon_\theta(x_t, t, x_0)$ Condition on $x_0$
+- Inference:
+    - $\epsilon \rightarrow \hat{x}_t \rightarrow \hat{x}_0$ where
+        - $\hat{x}_t = mask * x_0 + (1 - mask) * \hat{x}_t$
+        - $mask$: 1 = observed values
+    - Fill nan with $\hat{x}_0$
+
+```python
+class AutoEncoder_Cond(torch.nn.Module):
+    def __init__(self, input_size):
+        super(AutoEncoder_Cond, self).__init__()
+        embedding_size = 256
+        self.layer_x_1 = torch.nn.Linear(input_size, embedding_size)
+        self.layer_x_2 = torch.nn.Linear(embedding_size, embedding_size)
+
+        self.layer_t_1 = torch.nn.Linear(1, embedding_size)
+        self.layer_t_2 = torch.nn.Linear(embedding_size, embedding_size)
+
+        self.layer_cond_1 = torch.nn.Linear(input_size, embedding_size)
+        self.layer_cond_2 = torch.nn.Linear(embedding_size, embedding_size)
+
+        self.layer_out_1 = torch.nn.Linear(embedding_size, embedding_size)
+        self.layer_out_2 = torch.nn.Linear(embedding_size, input_size)
+
+        self.normalization = torch.nn.BatchNorm1d(embedding_size)
+        self.dropout = torch.nn.Dropout(0.5)
+
+    def forward(self, x: torch.Tensor, t: torch.LongTensor, cond: torch.Tensor) -> torch.Tensor:
+        x_1 = torch.nn.functional.relu(self.layer_x_1(x))
+        x_2 = torch.nn.functional.relu(self.layer_x_2(x_1))
+
+        t_1 = torch.nn.functional.relu(self.layer_t_1(t.float()))
+        t_2 = torch.nn.functional.relu(self.layer_t_2(t_1))
+
+        cond_1 = torch.nn.functional.relu(self.layer_cond_1(cond))
+        cond_2 = torch.nn.functional.relu(self.layer_cond_2(cond_1))
+
+        x_t = x_2 + t_2 + self.dropout(cond_2)
+        #self.normalization(x_t)
+
+        out_1 = torch.nn.functional.relu(self.layer_out_1(x_t))
+        out_2 = self.layer_out_2(out_1)
+        return out_2
+
+class TabDDPM_Mask_Cond(TabDDPM_Mask):
+    def __init__(self, input_size, noise_steps, beta_start: float = 1e-4, beta_end: float = 0.02, lr: float = 0.0001):
+        super(TabDDPM_Mask_Cond, self).__init__(input_size, noise_steps, beta_start, beta_end, lr)
+
+        self.eps_model = AutoEncoder_Cond(input_size).to(self.device)
+        self.optimiser = torch.optim.Adam(self.eps_model.parameters(), lr = lr)
+
+    def fit(self, x, epochs=10, batch_size=100, x_valid=None, x_valid_mask=None):
+        mask_x = ~x.isna().to_numpy()
+        x = x.fillna(x.mean())
+        
+        x_normalized = self.normalizer_x.fit_transform(x.values)
+
+        self.eps_model.train()
+        x_tensor = torch.from_numpy(x_normalized).float()
+        mask_x_tensor = torch.from_numpy(mask_x)
+        dataloader = DataLoader(TensorDataset(x_tensor, mask_x_tensor), batch_size=batch_size, shuffle=True)
+        for epoch in range(epochs):
+            loss_epoch = 0.
+            for id_batch, (x_batch, mask_x_batch) in enumerate(dataloader):
+                x_batch = x_batch.to(self.device)
+                mask_rand = torch.cuda.FloatTensor(mask_x_batch.size()).uniform_() > 0.2
+                mask_x_batch = mask_x_batch.to(self.device).bool().float() * mask_rand
+
+                self.optimiser.zero_grad()
+                t = torch.randint(low=1, high=self.noise_steps, size=(x_batch.size(dim=0), 1), device=self.device)
+                x_batch_t, noise = self.q_sample(x=x_batch, t=t)
+                predicted_noise = self.eps_model(x=x_batch_t, t=t, cond=x_batch)
+                loss = (self.loss_func(predicted_noise, noise) * mask_x_batch).mean()
+                loss.backward()
+                self.optimiser.step()
+                loss_epoch += loss.item()
+
+            self.summary['epoch_loss'].append(loss.item())
+            if x_valid is not None:
+                valid_loss = self.eval(x_valid, x_valid_mask)
+                self.summary['eval_mae'].append(valid_loss['L1Loss'])
+                self.summary['eval_kl'].append(valid_loss['KLDivLoss'])
+
+    def eval(self, x, mask_x_obs):
+        mask_x = mask_x_obs.to_numpy()
+
+        x_normalized = self.normalizer_x.transform(x.fillna(x.mean()).values)
+        x_tensor = torch.from_numpy(x_normalized).float().to(self.device)
+        mask_x_tensor = torch.from_numpy(mask_x).float().to(self.device)
+
+        with torch.no_grad():
+            noise = torch.randn((x_tensor.size(dim=0), x_tensor.size(dim=1)), device=self.device)
+
+            for i in reversed(range(1, self.noise_steps)):
+                t = torch.ones((x_tensor.size(dim=0), 1), dtype=torch.long, device=self.device) * i
+
+                sqrt_alpha_t = self.sqrt_alpha[t].view(-1, 1)
+                beta_t = self.beta[t].view(-1, 1)
+                sqrt_one_minus_alpha_hat_t = self.sqrt_one_minus_alpha_hat[t].view(-1, 1)
+                epsilon_t = self.std_beta[t].view(-1, 1)
+
+                random_noise = torch.randn_like(noise) if i > 1 else torch.zeros_like(noise)
+                
+                noise = ((1 / sqrt_alpha_t) * (noise - ((beta_t / sqrt_one_minus_alpha_hat_t) * self.eps_model(noise, t, x_tensor)))) + (epsilon_t * random_noise)
+                noise = mask_x_tensor * x_tensor + (1.0 - mask_x_tensor) * noise
+
+        return {'L1Loss': (torch.nn.L1Loss(reduction='none')(x_tensor, noise) * (1.0 - mask_x_tensor)).nanmean().item(),
+                'KLDivLoss': mtr.kl_divergence(pd.DataFrame(x_normalized), pd.DataFrame(noise.detach().cpu().numpy()), ~mask_x, method='gaussian').mean()}
+    
+    def predict(self, x):
+        self.eps_model.eval()
+        n_samples = len(x)
+        n_features = x.columns.size
+        mask_x = ~x.isna().to_numpy()
+        x_normalized = self.normalizer_x.transform(x.fillna(x.mean()).values)
+
+        with torch.no_grad():
+            noise = torch.randn((n_samples, n_features), device=self.device)
+            mask_x_tensor = torch.from_numpy(mask_x).to(self.device).bool().float()
+            x_tensor = torch.from_numpy(x_normalized).to(self.device).float()
+
+            for i in reversed(range(1, self.noise_steps)):
+                t = torch.ones((n_samples, 1), dtype=torch.long, device=self.device) * i
+
+                sqrt_alpha_t = self.sqrt_alpha[t].view(-1, 1)
+                beta_t = self.beta[t].view(-1, 1)
+                sqrt_one_minus_alpha_hat_t = self.sqrt_one_minus_alpha_hat[t].view(-1, 1)
+                epsilon_t = self.std_beta[t].view(-1, 1)
+
+                random_noise = torch.randn_like(noise) if i > 1 else torch.zeros_like(noise)
+
+                noise = ((1 / sqrt_alpha_t) * (noise - ((beta_t / sqrt_one_minus_alpha_hat_t) * self.eps_model(noise, t, x_tensor)))) + (epsilon_t * random_noise)
+                noise = mask_x_tensor * x_tensor + (1.0 - mask_x_tensor) * noise
 
         outputs_normalized = noise.detach().cpu().numpy()
         outputs_real = self.normalizer_x.inverse_transform(outputs_normalized)
@@ -707,13 +919,13 @@ class TabDDPM_Mask(TabDDPM):
         return x
 ```
 
-#### TabDDPM with mask, more complex autoencoder - based-ResNet
+#### TabDDPM with mask, autoencoder + ResNet
 
 - Training:
     - Fill real nan with mean
     - Compute only loss values from observed data
-    - Add: More complex autoencoder based on ResNet [Gorishniy et al., 2021](https://arxiv.org/abs/2106.11959) ([code](https://github.com/Yura52/rtdl))
     - Add: Improve embedding of noise steps
+    - Add: More complex autoencoder based on ResNet [Gorishniy et al., 2021](https://arxiv.org/abs/2106.11959) ([code](https://github.com/Yura52/rtdl))
 - Inference:
     - $\epsilon \rightarrow \hat{x}_t \rightarrow \hat{x}_0$ where
         - $\hat{x}_t = mask * x_0 + (1 - mask) * \hat{x}_t$
@@ -796,14 +1008,14 @@ class TabDDPM_Mask_ResNet(TabDDPM_Mask):
         self.optimiser = torch.optim.Adam(self.eps_model.parameters(), lr = lr)
 ```
 
-#### TabDDPM with mask, conditional ResNet autoencoder
+#### TabDDPM with mask, autoencoder + condition + ResNet
 
 - Training:
     - Fill real nan with mean
     - Compute only loss values from observed data
     - More complex autoencoder based on ResNet [Gorishniy et al., 2021](https://arxiv.org/abs/2106.11959) ([code](https://github.com/Yura52/rtdl))
     - Improve embedding of noise steps
-    - Add: Condition on $x_0$
+    - Add: $\epsilon_\theta(x_t, t, x_0)$ Condition on $x_0$
 - Inference:
     - $\epsilon \rightarrow \hat{x}_t \rightarrow \hat{x}_0$ where
         - $\hat{x}_t = mask * x_0 + (1 - mask) * \hat{x}_t$
@@ -819,11 +1031,13 @@ class ResidualBlock_Cond(torch.nn.Module):
 
         self.linear_in = torch.nn.Linear(input_size, embedding_size)
         self.linear_out = torch.nn.Linear(embedding_size, input_size)
+        self.dropout = torch.nn.Dropout(0.2)
 
     def forward(self, x, t, cond):
         x_t = x + t + cond
         x_t = self.linear_in(x_t)
         x_t = torch.nn.functional.relu(x_t)
+        x_t = self.dropout(x_t)
         x_t = self.linear_out(x_t)
         return x + x_t, x_t
 
@@ -882,102 +1096,15 @@ class AutoEncoder_ResNet_Cond(torch.nn.Module):
         table = torch.cat([torch.sin(table), torch.cos(table)], dim=1)  # (T,dim*2)
         return table
 
-class TabDDPM_Mask_ResNet_Cond(TabDDPM_Mask):
+class TabDDPM_Mask_ResNet_Cond(TabDDPM_Mask_Cond):
     def __init__(self, input_size, noise_steps, beta_start: float = 1e-4, beta_end: float = 0.02, lr: float = 0.0001, num_blocks: int = 2):
         super(TabDDPM_Mask_ResNet_Cond, self).__init__(input_size, noise_steps, beta_start, beta_end, lr)
 
         self.eps_model = AutoEncoder_ResNet_Cond(input_size, noise_steps=noise_steps, num_blocks=num_blocks).to(self.device)
         self.optimiser = torch.optim.Adam(self.eps_model.parameters(), lr = lr)
-
-    def fit(self, x, epochs=10, batch_size=100, x_valid=None):
-        mask_x = ~x.isna().to_numpy()
-        x = x.fillna(x.mean())
-        
-        x_normalized = self.normalizer_x.fit_transform(x.values)
-
-        self.eps_model.train()
-        x_tensor = torch.from_numpy(x_normalized).float()
-        mask_x_tensor = torch.from_numpy(mask_x)
-        dataloader = DataLoader(TensorDataset(x_tensor, mask_x_tensor), batch_size=batch_size, shuffle=True)
-        for epoch in range(epochs):
-            loss_epoch = 0.
-            for id_batch, (x_batch, mask_x_batch) in enumerate(dataloader):
-                x_batch = x_batch.to(self.device)
-                mask_rand = torch.cuda.FloatTensor(mask_x_batch.size()).uniform_() > 0.2
-                mask_x_batch = mask_x_batch.to(self.device).bool().float() * mask_rand
-
-                self.optimiser.zero_grad()
-                t = torch.randint(low=1, high=self.noise_steps, size=(x_batch.size(dim=0), 1), device=self.device)
-                x_batch_t, noise = self.q_sample(x=x_batch, t=t)
-                predicted_noise = self.eps_model(x=x_batch_t, t=t, cond=x_batch)
-                loss = (self.loss_func(predicted_noise, noise) * mask_x_batch).mean()
-                loss.backward()
-                self.optimiser.step()
-                loss_epoch += loss.item()
-
-            self.summary['epoch_loss'].append(loss.item())
-            if x_valid is not None:
-                valid_loss = self.eval(x_valid)
-                self.summary['eval_mae'].append(valid_loss['L1Loss'])
-                self.summary['eval_kl'].append(valid_loss['KLDivLoss'])
-
-    def eval(self, x):
-        mask_x = ~x.isna().to_numpy()
-
-        x_normalized = self.normalizer_x.transform(x.fillna(x.mean()).values)
-        x_tensor = torch.from_numpy(x_normalized).float().to(self.device)
-        mask_x_tensor = torch.from_numpy(mask_x).float().to(self.device)
-
-        with torch.no_grad():
-            noise = torch.randn((x_tensor.size(dim=0), x_tensor.size(dim=1)), device=self.device)
-
-            for i in reversed(range(1, self.noise_steps)):
-                t = torch.ones((x_tensor.size(dim=0), 1), dtype=torch.long, device=self.device) * i
-
-                sqrt_alpha_t = self.sqrt_alpha[t].view(-1, 1)
-                beta_t = self.beta[t].view(-1, 1)
-                sqrt_one_minus_alpha_hat_t = self.sqrt_one_minus_alpha_hat[t].view(-1, 1)
-                epsilon_t = self.std_beta[t].view(-1, 1)
-
-                random_noise = torch.randn_like(noise) if i > 1 else torch.zeros_like(noise)
-                noise = mask_x_tensor * x_tensor + (1.0 - mask_x_tensor) * noise
-                noise = ((1 / sqrt_alpha_t) * (noise - ((beta_t / sqrt_one_minus_alpha_hat_t) * self.eps_model(noise, t, x_tensor)))) + (epsilon_t * random_noise)
-
-        return {'L1Loss': (torch.nn.L1Loss(reduction='none')(x_tensor, noise) * mask_x_tensor).nanmean().item(),
-                'KLDivLoss': mtr.kl_divergence(pd.DataFrame(x_normalized), pd.DataFrame(noise.detach().cpu().numpy()), mask_x, method='gaussian').mean()}
-    
-    def predict(self, x):
-        self.eps_model.eval()
-        n_samples = len(x)
-        n_features = x.columns.size
-        mask_x = ~x.isna().to_numpy()
-        x_normalized = self.normalizer_x.transform(x.fillna(x.mean()).values)
-
-        with torch.no_grad():
-            noise = torch.randn((n_samples, n_features), device=self.device)
-            mask_x_tensor = torch.from_numpy(mask_x).to(self.device).bool().float()
-            x_tensor = torch.from_numpy(x_normalized).to(self.device).float()
-
-            for i in reversed(range(1, self.noise_steps)):
-                t = torch.ones((n_samples, 1), dtype=torch.long, device=self.device) * i
-
-                sqrt_alpha_t = self.sqrt_alpha[t].view(-1, 1)
-                beta_t = self.beta[t].view(-1, 1)
-                sqrt_one_minus_alpha_hat_t = self.sqrt_one_minus_alpha_hat[t].view(-1, 1)
-                epsilon_t = self.std_beta[t].view(-1, 1)
-
-                random_noise = torch.randn_like(noise) if i > 1 else torch.zeros_like(noise)
-                noise = mask_x_tensor * x_tensor + (1.0 - mask_x_tensor) * noise
-                noise = ((1 / sqrt_alpha_t) * (noise - ((beta_t / sqrt_one_minus_alpha_hat_t) * self.eps_model(noise, t, x_tensor)))) + (epsilon_t * random_noise)
-
-        outputs_normalized = noise.detach().cpu().numpy()
-        outputs_real = self.normalizer_x.inverse_transform(outputs_normalized)
-        outputs = pd.DataFrame(outputs_real, columns=x.columns, index=x.index)
-        x = x.fillna(outputs)
-        return x
 ```
 
-#### TabDDPM with mask, conditional ResNet autoencoder using Transformer
+#### TabDDPM with mask, autoencoder + condition + ResNet + transformer
 
 - Training:
     - Fill real nan with mean
@@ -1209,37 +1336,36 @@ for m in ['mae', 'KL', 'corr']:
 
 ```python
 models = {}
-df_data_valid = df_data.sample(1000)
+df_valid = df_data_raw_sample.sample(1000)
+df_valid_mask = hole_generator.generate_mask(df_valid)
+
 ```
 
 ```python
 %%time
-models["TabDDPM"] = TabDDPM(input_size=10, noise_steps=100)
-models["TabDDPM"].fit(df_data, batch_size=500, epochs=50, x_valid=df_data_valid)
-```
+# models["TabDDPM"] = TabDDPM(input_size=10, noise_steps=100)
+# models["TabDDPM"].fit(df_data, batch_size=500, epochs=50, x_valid=df_data_valid, x_valid_mask=df_valid_mask)
 
-```python
-%%time
-models["TabDDPM_Mask"] = TabDDPM_Mask(input_size=10, noise_steps=100)
-models["TabDDPM_Mask"].fit(df_data, batch_size=500, epochs=50, x_valid=df_data_valid)
-```
+# models["TabDDPM_Mask"] = TabDDPM_Mask(input_size=10, noise_steps=100)
+# models["TabDDPM_Mask"].fit(df_data, batch_size=500, epochs=50, x_valid=df_data_valid, x_valid_mask=df_valid_mask)
 
-```python
-%%time
-models["TabDDPM_Mask_ResNet"] = TabDDPM_Mask_ResNet(input_size=10, noise_steps=100, num_blocks=2)
-models["TabDDPM_Mask_ResNet"].fit(df_data, batch_size=500, epochs=50, x_valid=df_data_valid)
-```
+# models["TabDDPM_Mask_EmbT"] = TabDDPM_Mask_EmbT(input_size=10, noise_steps=100)
+# models["TabDDPM_Mask_EmbT"].fit(df_data, batch_size=500, epochs=50, x_valid=df_data_valid, x_valid_mask=df_valid_mask)
 
-```python
-%%time
+# models["TabDDPM_Mask_ResNet"] = TabDDPM_Mask_ResNet(input_size=10, noise_steps=100, num_blocks=2)
+# models["TabDDPM_Mask_ResNet"].fit(df_data, batch_size=500, epochs=50, x_valid=df_data_valid, x_valid_mask=df_valid_mask)
+
+models["TabDDPM_Mask_Cond"] = TabDDPM_Mask_Cond(input_size=10, noise_steps=100)
+models["TabDDPM_Mask_Cond"].fit(df_data, batch_size=500, epochs=50, x_valid=df_data_valid, x_valid_mask=df_valid_mask)
+
 models["TabDDPM_Mask_ResNet_Cond"] = TabDDPM_Mask_ResNet_Cond(input_size=10, noise_steps=100, num_blocks=2)
-models["TabDDPM_Mask_ResNet_Cond"].fit(df_data, batch_size=500, epochs=50, x_valid=df_data_valid)
+models["TabDDPM_Mask_ResNet_Cond"].fit(df_data, batch_size=500, epochs=50, x_valid=df_data_valid, x_valid_mask=df_valid_mask)
 ```
 
 ```python
 %%time
 models["TabDDPM_Mask_ResNet_Cond_Trans"] = TabDDPM_Mask_ResNet_Cond_Trans(input_size=10, noise_steps=100, num_blocks=2)
-models["TabDDPM_Mask_ResNet_Cond_Trans"].fit(df_data, batch_size=500, epochs=50, x_valid=df_data_valid)
+models["TabDDPM_Mask_ResNet_Cond_Trans"].fit(df_data, batch_size=500, epochs=50, x_valid=df_data_valid, x_valid_mask=df_valid_mask)
 ```
 
 ```python
@@ -1248,9 +1374,11 @@ for name_model, model in models.items():
     print(f"{name_model}: {get_num_params(model.eps_model)}")
 
 summaries = {
-    "TabDDPM": models["TabDDPM"].summary,
-    "TabDDPM_Mask": models["TabDDPM_Mask"].summary,
-    "TabDDPM_Mask_ResNet": models["TabDDPM_Mask_ResNet"].summary,
+    # "TabDDPM": models["TabDDPM"].summary,
+    # "TabDDPM_Mask": models["TabDDPM_Mask"].summary,
+    # "TabDDPM_Mask_EmbT": models["TabDDPM_Mask_EmbT"].summary,
+    "TabDDPM_Mask_Cond": models["TabDDPM_Mask_Cond"].summary,
+    # "TabDDPM_Mask_ResNet": models["TabDDPM_Mask_ResNet"].summary,
     "TabDDPM_Mask_ResNet_Cond": models["TabDDPM_Mask_ResNet_Cond"].summary,
     "TabDDPM_Mask_ResNet_Cond_Trans": models["TabDDPM_Mask_ResNet_Cond_Trans"].summary
 }
@@ -1265,13 +1393,14 @@ plot_summaries(summaries, display='eval_kl', height=300).show()
 ```python
 %%time
 
-dfs_imputed = {name: imp.fit_transform(df_data) for name, imp in dict_imputers_baseline.items()}
+dfs_imputed_baseline = {name: imp.fit_transform(df_data) for name, imp in dict_imputers_baseline.items()}
 ```
 
 ```python
 %%time
 
 dict_imputers = {}
+dfs_imputed = {}
 
 # dict_imputers["regressor_col"] = imputers.ImputerRegressor(estimator=LinearRegression(), handler_nan = "column")
 # dfs_imputed["regressor_col"] = dict_imputers["regressor_col"].fit_transform(df_data)
@@ -1282,22 +1411,25 @@ dict_imputers = {}
 # dict_imputers["MLP_fit"] = imputers_pytorch.ImputerRegressorPytorch(estimator=feedforward_regressor(input_size=9), handler_nan = "fit", batch_size=500, epochs=100)
 # dfs_imputed["MLP_fit"] = dict_imputers["MLP_fit"].fit_transform(df_data)
 
-dict_imputers["AutoEncoderImputer"] = imputers_pytorch.ImputerGenerativeModelPytorch(model=AutoEncoderImputer(input_size=10), batch_size=500, epochs=100)
-dfs_imputed["AutoEncoderImputer"] = dict_imputers["AutoEncoderImputer"].fit_transform(df_data)
+# dict_imputers["AutoEncoderImputer"] = imputers_pytorch.ImputerGenerativeModelPytorch(model=AutoEncoderImputer(input_size=10), batch_size=500, epochs=100)
+# dfs_imputed["AutoEncoderImputer"] = dict_imputers["AutoEncoderImputer"].fit_transform(df_data)
+```
+
+```python
+# %%time
+
+# dict_imputers["TabDDPM"] = imputers_pytorch.ImputerGenerativeModelPytorch(model=TabDDPM(input_size=10, noise_steps=100), batch_size=500, epochs=100)
+# dfs_imputed["TabDDPM"] = dict_imputers["TabDDPM"].fit_transform(df_data)
+
+# dict_imputers["TabDDPM_mask"] = imputers_pytorch.ImputerGenerativeModelPytorch(model=TabDDPM_Mask(input_size=10, noise_steps=100), batch_size=500, epochs=100)
+# dfs_imputed["TabDDPM_mask"] = dict_imputers["TabDDPM_mask"].fit_transform(df_data)
 ```
 
 ```python
 %%time
+dict_imputers["TabDDPM_mask_cond"] = imputers_pytorch.ImputerGenerativeModelPytorch(model=TabDDPM_Mask_Cond(input_size=10, noise_steps=100), batch_size=500, epochs=100)
+dfs_imputed["TabDDPM_mask_cond"] = dict_imputers["TabDDPM_mask_cond"].fit_transform(df_data)
 
-dict_imputers["TabDDPM"] = imputers_pytorch.ImputerGenerativeModelPytorch(model=TabDDPM(input_size=10, noise_steps=100), batch_size=500, epochs=100)
-dfs_imputed["TabDDPM"] = dict_imputers["TabDDPM"].fit_transform(df_data)
-```
-
-```python
-%%time
-
-dict_imputers["TabDDPM_mask"] = imputers_pytorch.ImputerGenerativeModelPytorch(model=TabDDPM_Mask(input_size=10, noise_steps=100), batch_size=500, epochs=100)
-dfs_imputed["TabDDPM_mask"] = dict_imputers["TabDDPM_mask"].fit_transform(df_data)
 ```
 
 ```python
@@ -1329,13 +1461,13 @@ dict_metrics = {
     "corr": mtr.mean_difference_correlation_matrix_numerical_features,
 }
 
-df_error = plot_errors(df_data_raw_sample, dfs_imputed, df_mask.replace(False, True), dict_metrics, use_p_value=False, method="gaussian").sort_index()
+df_error = plot_errors(df_data_raw_sample, {**dfs_imputed_baseline, **dfs_imputed}, df_mask.replace(False, True), dict_metrics, use_p_value=False, method="gaussian").sort_index()
 ```
 
 - Diffusion models only
 
 ```python
-df_error[["TabDDPM", "TabDDPM_mask", "TabDDPM_mask_resnet", "TabDDPM_mask_resnet_cond", "TabDDPM_mask_resnet_cond_trans"]].style.apply(lambda x: ["background: green" if v == x.min() else "" for v in x], axis = 1)
+df_error[["TabDDPM_mask_cond", "TabDDPM_mask_resnet", "TabDDPM_mask_resnet_cond", "TabDDPM_mask_resnet_cond_trans"]].style.apply(lambda x: ["background: green" if v == x.min() else "" for v in x], axis = 1)
 ```
 
 - Other models
@@ -1384,7 +1516,7 @@ index_nan = df_data.isna().any(axis=1).index
 # fig.add_trace(go.Scatter(x=df_data_raw.iloc[index_nan][col1], y=df_data_raw.iloc[index_nan][col2], mode='markers', name='all original', marker=dict(color='black')))
 fig.add_trace(go.Scatter(x=df_data_raw_sample.iloc[index_nan][col1], y=df_data_raw_sample.iloc[index_nan][col2], mode='markers', name='original', marker=dict(color='black')))
 
-for ind, (name, data) in enumerate(list(dfs_imputed.items())):
+for ind, (name, data) in enumerate(list({**dfs_imputed_baseline, **dfs_imputed}.items())):
     values_imp_col1 = data[col1].copy()
     values_imp_col1[df_data[col1].notna()] = np.nan
 
