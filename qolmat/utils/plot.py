@@ -3,7 +3,6 @@ Useful drawing functions
 """
 
 from __future__ import annotations
-
 from typing import Dict, List, Any, Optional, Tuple, Union
 
 import matplotlib as mpl
@@ -42,12 +41,7 @@ def plot_matrices(list_matrices: List[np.ndarray], title: Optional[str] = None) 
 
     for i, (m, t) in enumerate(zip(list_matrices, suptitles)):
         if i != 2:
-            im = ax[i].imshow(
-                m,
-                aspect="auto",
-                # vmin=min(np.min(list_matrices[0]), np.min(list_matrices[1])),
-                # vmax=max(np.max(list_matrices[0]), np.max(list_matrices[1])),
-            )
+            im = ax[i].imshow(m, aspect="auto")
         else:
             m = ax[i].imshow(m, aspect="auto")
         divider = make_axes_locatable(ax[i])
@@ -183,8 +177,9 @@ def make_ellipses(
     angle = np.arctan2(u[1], u[0])
     angle = 180 * angle / np.pi  # convert to degrees
     center = X.mean(axis=0)  # .means_[0]
+    v[v < 0] = np.nan
     v = 2.0 * np.sqrt(2.0) * np.sqrt(v)
-    ell = mpl.patches.Ellipse(center, v[0], v[1], 180 + angle, color=color)
+    ell = mpl.patches.Ellipse(center, v[0], v[1], angle=180 + angle, color=color)
     ell.set_clip_box(ax.bbox)
     ell.set_alpha(0.5)
     ax.add_artist(ell)
@@ -198,7 +193,7 @@ def compare_covariances(
     col_y: str,
     ax: mpl.axes._subplots.AxesSubplot,
     label: str = "",
-    color=None,
+    color: Optional[Union[str, Tuple[float, float, float]]] = None,
 ):
     """
     Covariance plot: scatter plot with ellipses
@@ -226,7 +221,29 @@ def compare_covariances(
     ax.set_ylabel(col_y)
 
 
-def multibar(df, ax=None, orientation="vertical", colors=None, decimals=0):
+def multibar(
+    df: pd.DataFrame,
+    ax: Any = None,
+    orientation: str = "vertical",
+    colors=None,
+    decimals: float = 0,
+):
+    """Create a multi-bar graph to represent the values of the different dataframe columns.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        contain the dataframe
+    ax : Any, optional
+        matplotlib ax handles, by default None
+    orientation : str, optional
+        orientation of plot, by default "vertical"
+    colors : str, optional
+        color in multibar plot, by default None
+    decimals : float, optional
+        the decimals numbers, by default 0
+    """
+
     if ax is None:
         ax = plt.gca()
         if colors is None:
@@ -235,8 +252,7 @@ def multibar(df, ax=None, orientation="vertical", colors=None, decimals=0):
     n_columns = len(df.columns)
     width_tot = 0.8
     width_col = width_tot / n_columns  # the width of the bars
-    # fig, ax = plt.subplots()
-    # ax = plt.gca()
+
     for i_column, column in enumerate(df.columns):
         color_col = colors(i_column % 10)
         dx = width_tot * (-0.5 + float(i_column) / n_columns)
@@ -262,16 +278,19 @@ def multibar(df, ax=None, orientation="vertical", colors=None, decimals=0):
             plt.xticks(x, df.index)
         ax.bar_label(rect, padding=3, fmt=f"%.{decimals}f")
 
-    # Add some text for labels, title and custom x-axis tick labels, etc.
     plt.legend()
-
-    # ax.bar_label(rects1, padding=3)
-    # ax.bar_label(rects2, padding=3)
-
-    # plt.tight_layout()
 
 
 def plot_imputations(df: pd.DataFrame, dict_df_imputed: Dict[str, pd.DataFrame]):
+    """Plot original and imputed dataframes for each imputers
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        original dataframe
+    dict_df_imputed : Dict[str, pd.DataFrame]
+        dictionnary of imputed dataframe for each imputers
+    """
     n_columns = len(df.columns)
     n_imputers = len(dict_df_imputed)
 
@@ -283,8 +302,6 @@ def plot_imputations(df: pd.DataFrame, dict_df_imputed: Dict[str, pd.DataFrame])
             values_orig = df[col]
 
             plt.plot(values_orig, ".", color="black", label="original")
-            # plt.plot(df.iloc[870:1000][col], markers[0], color='k', linestyle='-' , ms=3)
-
             values_imp = df_imputed[col].copy()
             values_imp[values_orig.notna()] = np.nan
             plt.plot(values_imp, ".", color=tab10(0), label=name_imputer, alpha=1)
