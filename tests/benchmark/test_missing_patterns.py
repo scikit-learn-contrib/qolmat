@@ -85,10 +85,10 @@ def test_SamplerHoleGenerator_without_real_nans(
     mask = generator.split(df)[0]
 
     loc_real_nans_col1 = np.where(df["col1"].isna())[0]
-    loc_mask_col1 = np.where(mask["col1"] == True)[0]
+    loc_mask_col1 = np.where(mask["col1"])[0]
 
     loc_real_nans_col2 = np.where(df["col2"].isna())[0]
-    loc_mask_col2 = np.where(mask["col2"] == True)[0]
+    loc_mask_col2 = np.where(mask["col2"])[0]
 
     np.testing.assert_allclose(len(set(loc_real_nans_col1) & set(loc_mask_col1)), 0)
     np.testing.assert_allclose(len(set(loc_real_nans_col2) & set(loc_mask_col2)), 0)
