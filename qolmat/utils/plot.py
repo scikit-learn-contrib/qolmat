@@ -157,7 +157,7 @@ def plot_images(
 
 def make_ellipses(
     X: np.ndarray,
-    ax: Any,
+    ax: mpl.axes.Axes,
     color: Union[str, Tuple[float, float, float]],
 ):
     """Draw ellipses on a figure
@@ -223,9 +223,9 @@ def compare_covariances(
 
 def multibar(
     df: pd.DataFrame,
-    ax: Any = None,
+    ax: Optional[mpl.axes.Axes] = None,
     orientation: str = "vertical",
-    colors=None,
+    colors: Any = None,
     decimals: float = 0,
 ):
     """Create a multi-bar graph to represent the values of the different dataframe columns.
