@@ -8,9 +8,9 @@ jupyter:
       format_version: '1.3'
       jupytext_version: 1.14.4
   kernelspec:
-    display_name: env_qolmat
+    display_name: env_qolmat_dev
     language: python
-    name: env_qolmat
+    name: env_qolmat_dev
 ---
 
 **This notebook aims to present the Qolmat repo through an example of a multivariate time series.
@@ -73,13 +73,13 @@ cols_to_impute = ["TEMP", "PRES"]
 
 The dataset `Artificial` is designed to have a sum of a periodical signal, a white noise and some outliers.
 
-```python tags=[]
-df_data
-```
-
 ```python
 # df_data = data.get_data_corrupted("Artificial", ratio_masked=.2, mean_size=10)
 # cols_to_impute = ["signal"]
+```
+
+```python tags=[]
+df_data
 ```
 
 Let's take a look at variables to impute. We only consider a station, Aotizhongxin.
@@ -131,8 +131,8 @@ imputer_spline = imputers.ImputerInterpolation(groups=["station"], method="splin
 imputer_shuffle = imputers.ImputerShuffle(groups=["station"])
 imputer_residuals = imputers.ImputerResiduals(groups=["station"], period=7, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
 
-imputer_rpca = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=365, max_iter=200, tau=2, lam=.3)
-imputer_rpca_opti = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=365, max_iter=100)
+imputer_rpca = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=7, max_iter=200, tau=2, lam=.3)
+imputer_rpca_opti = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=7, max_iter=100)
 
 imputer_ou = imputers.ImputerEM(groups=["station"], model="multinormal", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
 imputer_tsou = imputers.ImputerEM(groups=["station"], model="VAR1", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
@@ -154,8 +154,8 @@ dict_imputers = {
     # "OU": imputer_ou,
     # "TSOU": imputer_tsou,
     # "TSMLE": imputer_tsmle,
-    # "RPCA": imputer_rpca,
-    # "RPCA_opti": imputer_rpca_opti,
+    "RPCA": imputer_rpca,
+    "RPCA_opti": imputer_rpca_opti,
     # "locf": imputer_locf,
     # "nocb": imputer_nocb,
     # "knn": imputer_knn,
@@ -164,7 +164,7 @@ dict_imputers = {
 }
 n_imputers = len(dict_imputers)
 
-search_params = {
+dict_config_opti = {
     "RPCA_opti": {
         "tau": {"min": .5, "max": 5, "type":"Real"},
         "lam": {"min": .1, "max": 1, "type":"Real"},
@@ -195,7 +195,7 @@ comparison = comparator.Comparator(
     generator_holes = generator_holes,
     metrics=["mae", "wmape", "KL_columnwise", "ks_test", "energy"],
     n_calls_opt=10,
-    search_params=search_params,
+    dict_config_opti=dict_config_opti,
 )
 results = comparison.compare(df_data)
 results
@@ -203,7 +203,7 @@ results
 
 ```python
 df_plot = results.loc["energy", "All"]
-plt.bar(df_plot.index, df_plot, color=tab10(0))
+plt.barh(df_plot.index, df_plot, color=tab10(0))
 plt.show()
 ```
 
@@ -335,7 +335,7 @@ dict_imputers["MLP"] = imputer_mlp = imputers_keras.ImputerRegressorKeras(estima
 
 We can re-run the imputation model benchmark as before.
 
-```python tags=[] jupyter={"outputs_hidden": true}
+```python tags=[]
 generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, subset = cols_to_impute, ratio_masked=ratio_masked)
 
 comparison = comparator.Comparator(
@@ -343,7 +343,7 @@ comparison = comparator.Comparator(
     df_data.columns,
     generator_holes = generator_holes,
     n_calls_opt=10,
-    search_params=search_params,
+    dict_config_opti=dict_config_opti,
 )
 results = comparison.compare(df_data)
 results
@@ -356,7 +356,7 @@ plt.ylabel("mae")
 plt.show()
 ```
 
-```python jupyter={"outputs_hidden": true}
+```python
 df_plot = df_data
 dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_imputers.items()}
 station = df_plot.index.get_level_values("station")[0]
