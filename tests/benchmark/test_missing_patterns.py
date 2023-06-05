@@ -18,7 +18,7 @@ list_generators = {
     "df, generator",
     [(df, list_generators["geo"]), (df, list_generators["unif"]), (df, list_generators["multi"])],
 )
-def test_SamplerHoleGenerator_split(df: pd.DataFrame, generator: mp._HoleGenerator) -> None:
+def test_Generators_split(df: pd.DataFrame, generator: mp._HoleGenerator) -> None:
     mask = generator.split(df)[0]
     col1_holes = mask["col1"].sum()
     col2_holes = mask["col2"].sum()
@@ -84,11 +84,11 @@ def test_SamplerHoleGenerator_without_real_nans(
 
     mask = generator.split(df)[0]
 
-    loc_real_nans_col1 = np.where(df["col1"].isna())[0]
-    loc_mask_col1 = np.where(mask["col1"] == True)[0]
+    loc_real_nans_col1 = df.index[df["col1"].isna()]
+    loc_mask_col1 = mask.index[mask["col1"]]
 
     loc_real_nans_col2 = np.where(df["col2"].isna())[0]
-    loc_mask_col2 = np.where(mask["col2"] == True)[0]
+    loc_mask_col2 = mask.index[mask["col2"]]
 
     np.testing.assert_allclose(len(set(loc_real_nans_col1) & set(loc_mask_col1)), 0)
     np.testing.assert_allclose(len(set(loc_real_nans_col2) & set(loc_mask_col2)), 0)
