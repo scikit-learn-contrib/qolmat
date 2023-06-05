@@ -43,6 +43,7 @@ Once the environment is installed, pre-commit is installed, but need to be activ
 .. code:: sh
 
     $ pre-commit install
+    $ pre-commit install-hooks
 
 Documenting your change
 -----------------------
@@ -83,7 +84,7 @@ Unit test
 ^^^^^^^^^
 
 These tests absolutely have to pass.
-The coverage should absolutely be 100%.
+The coverage should on new features must be above 95%.
 
 .. code:: sh
 

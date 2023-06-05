@@ -7,13 +7,17 @@ Development Lead
 
 * Julien Roussel <jroussel@quantmetry.com>
 
+Maintainers
+------------
+
+* Mikail Duran <mduran@quantmetry.com>
+* Anh Khoa Ngo Ho <angoho@quantmetry.com>
+* Guillaume Saës <gsaes@quantmetry.com>
+
 Contributors
 ------------
 
-* Hong-Lan Botterman <hlbotterman@quantmetry.com>
-* Firas Dakhli <fdakhli@quantmetry.com>
-* Mikail Duran <mduran@quantmetry.com>
-* Rima Hajou <rhajou@quantmetry.com>
-* Guillaume Saës <gsaes@quantmetry.com>
-
-To be continued ...
+* Hong-Lan Botterman
+* Firas Dakhli
+* Rima Hajou
+* Vianey Taquet

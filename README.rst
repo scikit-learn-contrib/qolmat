@@ -71,29 +71,28 @@ Let us start with a basic imputation problem. Here, we generate one-dimensional 
     np.random.seed(42)
     t = np.linspace(0,1,1000)
     y = np.cos(2*np.pi*t*10)+np.random.randn(1000)/2
-    df = pd.DataFrame({'y': y}, index=t)
+    df = pd.DataFrame({'y': y}, index=pd.Series(t, name='index'))
 
-With **Qolmat**, it's perfectly possible to generate missing data using the hole generators. In this example, we generate a Missing Complet At Random (MCAR) hole.
-Thus, you need to import the hole generators with ``from qolmat.benchmark import missing_patterns``.
+For this demonstration, let us create artificial holes in our dataset.
 
 .. code:: sh
 
-    from qolmat.benchmark import missing_patterns
+    from qolmat.utils.data import add_holes
+    plt.rcParams.update({'font.size': 18})
 
-    ratio_masked = 0.2
+    ratio_masked = 0.1
     mean_size = 20
-    generator = missing_patterns.GeometricHoleGenerator(1, ratio_masked=ratio_masked, subset = df.columns, random_state=42)
-    generator.dict_probas_out = {'y': 1 / mean_size}
-    generator.dict_ratios = {'y': 1 / len(df.columns) }
-    mask = generator.generate_mask(df)
-    df_with_nan = df[~mask]
-
+    df_with_nan = add_holes(df, ratio_masked=ratio_masked, mean_size=mean_size)
+    is_na = df_with_nan['y'].isna()
 
     plt.figure(figsize=(25,4))
-    plt.plot(df['y'],'.r')
-    plt.plot(df_with_nan['y'],'.b')
+    plt.plot(df_with_nan['y'],'.')
+    plt.plot(df.loc[is_na, 'y'],'.')
+    plt. grid()
+    plt.xlim(0,1)
+
     plt.legend(['Data', 'Missing data'])
-    plt.savefig('figure.png')
+    plt.savefig('readme1.png')
     plt.show()
 
 .. image:: https://github.com/Quantmetry/qolmat/tree/main/docs/images/readme1.png
@@ -112,7 +111,7 @@ The creation of an imputation dictionary will enable us to benchmark the various
     imputer_mode = imputers.ImputerMode()
     imputer_locf = imputers.ImputerLOCF()
     imputer_nocb = imputers.ImputerNOCB()
-    imputer_interpol = imputers.ImputerInterpolation(method="cubic")
+    imputer_interpol = imputers.ImputerInterpolation(method="linear")
     imputer_spline = imputers.ImputerInterpolation(method="spline", order=2)
     imputer_shuffle = imputers.ImputerShuffle()
     imputer_residuals = imputers.ImputerResiduals(period=10, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
@@ -156,7 +155,7 @@ It is possible to define a parameter dictionary for an imputer with three pieces
         }
     }
 
-Then with the comparator function in ``from qolmat.benchmark import comparator``, we can compare the different imputation methods while determining the optimal parameters we've requested in the dictionary. For more details on how imputors and comparator work, please see the following `link <https://qolmat.readthedocs.io/en/latest/explanation.html>`_.
+Then with the comparator function in ``from qolmat.benchmark import comparator``, we can compare the different imputation methods. This **does not use knowledge on missing values**, but it relies data masking instead. For more details on how imputors and comparator work, please see the following `link <https://qolmat.readthedocs.io/en/latest/explanation.html>`_.
 
 .. code:: sh
 
@@ -178,13 +177,21 @@ We can observe the benchmark results.
 
 .. code:: sh
 
-    df_plot_y = results.loc["mae", "y"]
+    dfs_imputed =  imputer_tsmle.fit_transform(df_with_nan)
+
     plt.figure(figsize=(25,5))
-    plt.bar(df_plot_y.index, df_plot_y)
-    plt.savefig('readme2.png')
+
+    plt.plot(df.loc[~is_na, 'y'],'.')
+    plt.plot(df.loc[is_na, 'y'],'.')
+    plt.plot(dfs_imputed.loc[is_na, 'y'],'.')
+
+    plt. grid()
+    plt.xlim(0,1)
+    plt.legend(['Data','Missing data', 'Imputed data'])
+    plt.savefig('readme3.png')
     plt.show()
 
-.. image:: docs/images/readme2.png
+.. image:: https://github.com/Quantmetry/qolmat/tree/main/docs/images/readme2.png
     :align: center
 
 Finally, we keep the best ``TSMLE`` imputor we represent.
@@ -253,6 +260,9 @@ Selected Topics in Signal Processing 10.4 (2016): 740-756.
 [5] Jiashi Feng, et al. “Online robust pca via stochastic opti-
 mization.“ Advances in neural information processing systems, 26, 2013.
 (`pdf <https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.721.7506&rep=rep1&type=pdf>`__)
+
+[6] García, S., Luengo, J., & Herrera, F. "Data preprocessing in data mining". 2015.
+(`pdf <https://www.academia.edu/download/60477900/Garcia__Luengo__Herrera-Data_Preprocessing_in_Data_Mining_-_Springer_International_Publishing_201520190903-77973-th1o73.pdf>`__)
 
 📝 License
 ==========
