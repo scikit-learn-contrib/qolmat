@@ -48,8 +48,6 @@ class Imputer(_BaseImputer):
         random_state: Union[None, int, np.random.RandomState] = None,
     ):
         self.hyperparams_user = hyperparams
-        self.hyperparams_optim: Dict = {}
-        self.hyperparams_local: Dict = {}
         self.groups = groups
         self.columnwise = columnwise
         self.shrink = shrink
