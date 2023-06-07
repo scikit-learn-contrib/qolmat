@@ -1,11 +1,12 @@
 from typing import Dict, Union
+
 import numpy as np
 import pandas as pd
 import pytest
 
 from qolmat.benchmark import cross_validation
-from qolmat.imputations.imputers import ImputerRPCA
 from qolmat.benchmark.missing_patterns import EmpiricalHoleGenerator
+from qolmat.imputations.imputers import ImputerRPCA
 
 df_origin = pd.DataFrame({"col1": [0, np.nan, 2, 4, np.nan], "col2": [-1, np.nan, 0.5, 1, 1.5]})
 df_imputed = pd.DataFrame({"col1": [0, 1, 2, 3.5, 4], "col2": [-1.5, 0, 1.5, 2, 1.5]})
@@ -87,7 +88,6 @@ def test_benchmark_cross_validation_deflat_hyperparams(
 def test_benchmark_cross_validation_loss_function(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
 ) -> None:
-
     cv.loss_norm = 3
     np.testing.assert_raises(ValueError, cv.loss_function, df1, df2, df_mask)
     cv.loss_norm = 2
@@ -102,17 +102,12 @@ def test_benchmark_cross_validation_loss_function(
 def test_benchmark_cross_validation_optimize_hyperparams(df: pd.DataFrame) -> None:
     result_hp = cv.optimize_hyperparams(df)
     result_expected = {
-        "lam/col1": 4.799603622475375,
-        "lam/col2": 1.5503043695984915,
+        "lam": {
+            "col1": 4.799603622475375,
+            "col2": 1.5503043695984915,
+        },
         "tol": 0.07796932033627668,
         "max_iter": 100,
         "norm": "L1",
     }
     assert result_hp == result_expected
-
-
-@pytest.mark.parametrize("df", [df_corrupted])
-def test_benchmark_cross_validation_fit_transform(df: pd.DataFrame) -> None:
-    result_cv = cv.fit_transform(df)
-    result_expected = pd.DataFrame({"col1": [0, 2, 2, 4, 2], "col2": [1.5, 1.5, 1.5, 1.5, 1.5]})
-    np.testing.assert_allclose(result_cv, result_expected, atol=1e-5)

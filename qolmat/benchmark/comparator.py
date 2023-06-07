@@ -121,9 +121,10 @@ class Comparator:
                     hole_generator=self.generator_holes,
                     n_calls=self.n_calls_opt,
                 )
-                df_imputed = cv.fit_transform(df_corrupted)
+                imputer.hyperparams_optim = cv.optimize_hyperparams(df_corrupted)
             else:
-                df_imputed = imputer.fit_transform(df_corrupted)
+                imputer.hyperparams_optim = {}
+            df_imputed = imputer.fit_transform(df_corrupted)
             subset = self.generator_holes.subset
             errors = self.get_errors(df_origin[subset], df_imputed[subset], df_mask[subset])
             list_errors.append(errors)
