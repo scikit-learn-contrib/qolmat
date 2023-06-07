@@ -608,9 +608,10 @@ class MultiMarkovHoleGenerator(_HoleGenerator):
             realisation = realisation[:size_hole]
             i_hole = self.rng.choice(np.where(size_hole <= sizes_max)[0])
             assert (~mask.iloc[i_hole - size_hole : i_hole]).all().all()
-            mask.iloc[i_hole - size_hole : i_hole] = mask.iloc[i_hole - size_hole : i_hole].where(
-                ~np.array(realisation), other=True
-            )
+            if size_hole != 0:
+                mask.iloc[i_hole - size_hole : i_hole] = mask.iloc[
+                    i_hole - size_hole : i_hole
+                ].where(~np.array(realisation).astype(bool), other=True)
             n_masked_left -= n_masked
 
             sizes_max.iloc[i_hole - size_hole : i_hole] = 0
@@ -693,7 +694,7 @@ class GroupedHoleGenerator(_HoleGenerator):
 
         gss = GroupShuffleSplit(
             n_splits=self.n_splits,
-            train_size=1 - self.ratio_masked,
+            test_size=self.ratio_masked,
             random_state=self.random_state,
         )
 
