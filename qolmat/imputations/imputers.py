@@ -229,9 +229,9 @@ class ImputerOracle(Imputer):
         if y is None:
             raise ValueError("y must be provided.")
         self.fit(X, y, groups)
+        if not isinstance(X, (pd.DataFrame, np.ndarray)):
+            raise ValueError("Input has to be a pandas.DataFrame or numpy.ndarray.")
         df = pd.DataFrame(X)
-        if not isinstance(df, pd.DataFrame):
-            raise ValueError("Input has to be a pandas.DataFrame.")
         return df.fillna(self.df_)
 
 
