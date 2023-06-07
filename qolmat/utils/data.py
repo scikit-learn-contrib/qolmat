@@ -11,6 +11,23 @@ import pandas as pd
 from qolmat.benchmark import missing_patterns
 
 
+def download_data(zipname: str, urllink: str, datapath: str = "data/") -> List[pd.DataFrame]:
+    path_zip = os.path.join(datapath)
+    print("Download data")
+    if not os.path.exists(path_zip + ".zip"):
+        if not os.path.exists(datapath):
+            os.mkdir(datapath)
+        request.urlretrieve(urllink + zipname + ".zip", path_zip + ".zip")
+
+    with zipfile.ZipFile(path_zip + ".zip", "r") as zip_ref:
+        zip_ref.extractall(path_zip)
+    data_folder = os.listdir(path_zip)
+    subfolder = os.path.join(path_zip, data_folder[0])
+    data_files = os.listdir(subfolder)
+    list_df = [pd.read_csv(os.path.join(subfolder, file)) for file in data_files]
+    return list_df
+
+
 def get_data(
     name_data: str = "Beijing", datapath: str = "data/", download: Optional[bool] = True
 ) -> pd.DataFrame:
@@ -32,19 +49,7 @@ def get_data(
     if name_data == "Beijing":
         urllink = "https://archive.ics.uci.edu/ml/machine-learning-databases/00501/"
         zipname = "PRSA2017_Data_20130301-20170228"
-        path_zip = os.path.join(datapath, zipname)
-
-        if not os.path.exists(path_zip + ".zip"):
-            if not os.path.exists(datapath):
-                os.mkdir(datapath)
-            request.urlretrieve(urllink + zipname + ".zip", path_zip + ".zip")
-
-        with zipfile.ZipFile(path_zip + ".zip", "r") as zip_ref:
-            zip_ref.extractall(path_zip)
-        data_folder = os.listdir(path_zip)
-        subfolder = os.path.join(path_zip, data_folder[0])
-        data_files = os.listdir(subfolder)
-        list_df = [pd.read_csv(os.path.join(subfolder, file)) for file in data_files]
+        list_df = download_data(zipname, urllink, datapath=datapath)
         list_df = [preprocess_data(df) for df in list_df]
         df = pd.concat(list_df)
         return df

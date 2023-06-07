@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 
 from qolmat.utils import data
+from pytest_mock.plugin import MockerFixture
 
 columns = ["No", "year", "month", "day", "hour", "a", "b", "wd", "station"]
 df = pd.DataFrame(
@@ -30,31 +31,25 @@ df_preprocess = pd.DataFrame(
 
 
 @pytest.mark.parametrize("name_data", ["Beijing", "Artificial", "Bug"])
-def test_utils_data_get_data(name_data: str) -> None:
-    if name_data == "Beijing":
-        df = data.get_data(name_data=name_data)
-        expected_columns = [
-            "PM2.5",
-            "PM10",
-            "SO2",
-            "NO2",
-            "CO",
-            "O3",
-            "TEMP",
-            "PRES",
-            "DEWP",
-            "RAIN",
-            "WSPM",
-        ]
-        assert isinstance(df, pd.DataFrame)
-        assert df.columns.tolist() == expected_columns
-    elif name_data == "Artificial":
-        df = data.get_data(name_data=name_data)
-        expected_columns = ["signal", "X", "A", "E"]
-        assert isinstance(df, pd.DataFrame)
-        assert df.columns.tolist() == expected_columns
-    else:
+def test_utils_data_get_data(name_data: str, mocker: MockerFixture) -> None:
+    mock_download = mocker.patch("qolmat.utils.data.download_data", return_value=[df])
+    mocker.patch("qolmat.utils.data.preprocess_data", return_value=df_preprocess)
+    try:
+        df_result = data.get_data(name_data=name_data)
+    except ValueError:
+        assert name_data not in ["Beijing", "Artificial"]
         np.testing.assert_raises(ValueError, data.get_data, name_data)
+        return
+
+    if name_data == "Beijing":
+        assert mock_download.call_count == 1
+        pd.testing.assert_frame_equal(df_result, df_preprocess)
+    elif name_data == "Artificial":
+        expected_columns = ["signal", "X", "A", "E"]
+        assert isinstance(df_result, pd.DataFrame)
+        assert df_result.columns.tolist() == expected_columns
+    else:
+        assert False
 
 
 @pytest.mark.parametrize("df", [df])
