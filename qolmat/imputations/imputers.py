@@ -83,11 +83,9 @@ class Imputer(_BaseImputer):
         """
         self.fit(X, groups=groups)
 
+        if not isinstance(X, (pd.DataFrame, np.ndarray)):
+            raise ValueError("Input has to be a pandas.DataFrame or numpy.ndarray.")
         df = pd.DataFrame(X)
-        # if isinstance(X, np.ndarray):
-        #     df = pd.DataFrame(X)
-        if not isinstance(df, pd.DataFrame):
-            raise ValueError("Input has to be a pandas.DataFrame.")
         for column in df:
             if df[column].isnull().all():
                 raise ValueError("Input contains a column full of NaN")
