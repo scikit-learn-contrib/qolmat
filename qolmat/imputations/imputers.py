@@ -208,10 +208,10 @@ class ImputerOracle(Imputer):
     ) -> None:
         super().__init__()
 
-    def fit(self, X: pd.DataFrame, y=None, groups: List[str] = []):
+    def fit(self, X: pd.DataFrame, y: pd.DataFrame = None, groups: List[str] = []):
         self.groups_ = groups
         X = self._validate_data(X, force_all_finite="allow-nan")
-        self.df_ = pd.DataFrame(X)
+        self.df_ = pd.DataFrame(y)
         return self
 
     def fit_transform(
@@ -228,7 +228,9 @@ class ImputerOracle(Imputer):
         pd.DataFrame
             dataframe imputed with premasked values
         """
-        self.fit(y, groups)
+        if y is None:
+            raise ValueError("y must be provided.")
+        self.fit(X, y, groups)
         df = pd.DataFrame(X)
         if not isinstance(df, pd.DataFrame):
             raise ValueError("Input has to be a pandas.DataFrame.")
