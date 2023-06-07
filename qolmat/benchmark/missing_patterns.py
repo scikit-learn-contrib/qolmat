@@ -7,7 +7,7 @@ from typing import Callable, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 from sklearn import utils as sku
-from sklearn.model_selection import GroupShuffleSplit
+from sklearn.model_selection import GroupShuffleSplit, LeavePGroupsOut
 from sklearn.utils import resample
 
 logger = logging.getLogger(__name__)
@@ -692,23 +692,24 @@ class GroupedHoleGenerator(_HoleGenerator):
     def split(self, X: pd.DataFrame) -> List[pd.DataFrame]:
         self.fit(X)
 
-        gss = GroupShuffleSplit(
-            n_splits=self.n_splits,
-            test_size=self.ratio_masked,
-            random_state=self.random_state,
-        )
+        for n_groups in range(1, self.ngroups.nunique()):
+            lpgo = LeavePGroupsOut(n_groups=n_groups)
 
-        list_masks = []
-        for _, observed_indices in gss.split(X=X, y=None, groups=self.ngroups):
-            observed_indices = X.index[observed_indices]
-            # create the boolean mask of missing values
-            df_mask = pd.DataFrame(
-                False,
-                columns=X.columns,
-                index=X.index,
-            )
-            df_mask.loc[observed_indices, self.subset] = True
-            df_mask[X.isna()] = False
-            list_masks.append(df_mask)
+            list_masks = []
+            for _, observed_indices in lpgo.split(X=X, y=None, groups=self.ngroups):
+                observed_indices = X.index[observed_indices]
+                # create the boolean mask of missing values
+                df_mask = pd.DataFrame(
+                    False,
+                    columns=X.columns,
+                    index=X.index,
+                )
+                df_mask.loc[observed_indices, self.subset] = True
+                df_mask[X.isna()] = False
+                list_masks.append(df_mask)
+
+            ratio_masked = np.mean([m.sum().mean() for m in list_masks]) / len(X)
+            if ratio_masked >= self.ratio_masked:
+                break
 
         return list_masks
