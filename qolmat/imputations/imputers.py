@@ -48,8 +48,6 @@ class Imputer(_BaseImputer):
         random_state: Union[None, int, np.random.RandomState] = None,
     ):
         self.hyperparams_user = hyperparams
-        self.hyperparams_optim: Dict = {}
-        self.hyperparams_local: Dict = {}
         self.groups = groups
         self.columnwise = columnwise
         self.shrink = shrink
@@ -82,7 +80,8 @@ class Imputer(_BaseImputer):
             self.estimator.random_state = self.rng
 
         hyperparams = self.hyperparams_user.copy()
-        hyperparams.update(self.hyperparams_optim)
+        if hasattr(self, "hyperparams_optim"):
+            hyperparams.update(self.hyperparams_optim)
         cols_with_nans = df.columns[df.isna().any()]
 
         if self.groups == []:

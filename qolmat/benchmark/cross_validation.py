@@ -207,7 +207,7 @@ class CrossValidation:
 
         return obj_func
 
-    def optimize_hyperparams(self, df: pd.DataFrame) -> Dict[str, Union[float, int, str]]:
+    def optimize_hyperparams(self, df: pd.DataFrame) -> Dict[str, Any]:
         """Optimize hyperparamaters
 
         Parameters
@@ -217,7 +217,7 @@ class CrossValidation:
 
         Returns
         -------
-        Dict[str, Union[float,int, str]]
+        Dict[str, Any]
             hyperparameters optimize flat
         """
         list_spaces = get_search_space(self.dict_config_opti_imputer)
@@ -231,25 +231,5 @@ class CrossValidation:
         )
 
         hyperparams_flat = {space.name: val for space, val in zip(list_spaces, res["x"])}
-        return hyperparams_flat
-
-    def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Fit and transform estimator and impute the missing values.
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            dataframe to impute
-
-        Returns
-        -------
-        pd.DataFrame
-            imputed dataframe
-        """
-
-        hyperparams_flat = self.optimize_hyperparams(df)
-        self.imputer.hyperparams_optim = deflat_hyperparams(hyperparams_flat)
-        df_imputed = self.imputer.fit_transform(df)
-
-        return df_imputed
+        hyperparams = deflat_hyperparams(hyperparams_flat)
+        return hyperparams
