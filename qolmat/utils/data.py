@@ -11,7 +11,9 @@ import pandas as pd
 from qolmat.benchmark import missing_patterns
 
 
-def get_data(name_data="Beijing", datapath: str = "data/", download: Optional[bool] = True):
+def get_data(
+    name_data: str = "Beijing", datapath: str = "data/", download: Optional[bool] = True
+) -> pd.DataFrame:
     """Download or generate data
 
     Parameters
@@ -82,7 +84,7 @@ def get_data(name_data="Beijing", datapath: str = "data/", download: Optional[bo
         raise ValueError(f"Data name {name_data} is unknown!")
 
 
-def preprocess_data(df: pd.DataFrame):
+def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     """Preprocess data from the "Beijing" datset
 
     Parameters
@@ -105,12 +107,7 @@ def preprocess_data(df: pd.DataFrame):
     return df
 
 
-def add_holes(
-    df: pd.DataFrame,
-    ratio_masked: float,
-    mean_size: int,
-    random_state: Union[None, int, np.random.RandomState] = None,
-):
+def add_holes(df: pd.DataFrame, ratio_masked: float, mean_size: int) -> pd.DataFrame:
     """
     Creates holes in a dataset with no missing value, starting from `df`. Only used in the
     documentation to design examples.
@@ -138,7 +135,7 @@ def add_holes(
     """
     groups = df.index.names.difference(["datetime", "date", "index"])
     generator = missing_patterns.GeometricHoleGenerator(
-        1, ratio_masked=ratio_masked, subset=df.columns, groups=groups, random_state=random_state
+        1, ratio_masked=ratio_masked, subset=df.columns, groups=groups
     )
 
     generator.dict_probas_out = {column: 1 / mean_size for column in df.columns}
@@ -157,7 +154,7 @@ def get_data_corrupted(
     name_data: str = "Beijing",
     mean_size: int = 90,
     ratio_masked: float = 0.2,
-):
+) -> pd.DataFrame:
     """
     Returns a dataframe with controled corruption optained from the source `name_data`
 
@@ -179,7 +176,7 @@ def get_data_corrupted(
     return df
 
 
-def add_station_features(df: pd.DataFrame):
+def add_station_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     Create a station feature in the dataset
 
@@ -200,7 +197,7 @@ def add_station_features(df: pd.DataFrame):
     return df
 
 
-def add_datetime_features(df: pd.DataFrame):
+def add_datetime_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     Create a seasonal feature in the dataset with a cosine function
 
