@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from sklearn.ensemble import ExtraTreesRegressor
+from sklearn.utils.estimator_checks import parametrize_with_checks
 
 from qolmat.imputations import imputers
 
@@ -57,8 +58,8 @@ def test_fit_transform_not_on_pandas(df: Any) -> None:
 
 @pytest.mark.parametrize("df", [df_groups])
 def test_fit_transform_on_grouped(df: pd.DataFrame) -> None:
-    imputer = imputers.ImputerMean(groups=["col1"])
-    result = imputer.fit_transform(df)
+    imputer = imputers.ImputerMean()
+    result = imputer.fit_transform(df, groups=["col1"])
     expected = pd.DataFrame(
         {
             "col1": [1, 1, 0, 1],
@@ -71,8 +72,8 @@ def test_fit_transform_on_grouped(df: pd.DataFrame) -> None:
 @pytest.mark.parametrize("df", [df_incomplete])
 @pytest.mark.parametrize("df_oracle", [df_complete])
 def test_ImputerOracle_fit_transform(df: pd.DataFrame, df_oracle: pd.DataFrame) -> None:
-    imputer = imputers.ImputerOracle(df_oracle)
-    result = imputer.fit_transform(df)
+    imputer = imputers.ImputerOracle()
+    result = imputer.fit_transform(df, df_oracle)
     expected = df_oracle
     np.testing.assert_allclose(result, expected)
 
@@ -229,3 +230,26 @@ def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
         }
     )
     np.testing.assert_allclose(result, expected, atol=1e-6)
+
+
+@parametrize_with_checks(
+    [
+        imputers.ImputerOracle(),
+        imputers.ImputerMean(),
+        imputers.ImputerMedian(),
+        imputers.ImputerMode(),
+        imputers.ImputerShuffle(),
+        imputers.ImputerLOCF(),
+        imputers.ImputerNOCB(),
+        imputers.ImputerInterpolation(),
+        imputers.ImputerResiduals(),
+        imputers.KNNImputer(),
+        imputers.ImputerMICE(),
+        imputers.ImputerRegressor(),
+        imputers.ImputerRPCA(),
+        imputers.ImputerEM(),
+    ]
+)
+def test_sklearn_compatible_estimator(estimator: imputers.Imputer, check: Any) -> None:
+    """Check compatibility with sklearn, using sklearn estimator checks API."""
+    check(estimator)
