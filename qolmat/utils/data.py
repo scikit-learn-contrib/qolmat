@@ -1,6 +1,5 @@
 import os
 import zipfile
-from datetime import datetime
 from math import pi
 from typing import List, Optional
 from urllib import request
@@ -13,7 +12,6 @@ from qolmat.benchmark import missing_patterns
 
 def download_data(zipname: str, urllink: str, datapath: str = "data/") -> List[pd.DataFrame]:
     path_zip = os.path.join(datapath)
-    print("Download data")
     if not os.path.exists(path_zip + ".zip"):
         if not os.path.exists(datapath):
             os.mkdir(datapath)

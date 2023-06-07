@@ -1,9 +1,10 @@
 =======
 History
 =======
-0.0.12 (2023-05-31)
+0.0.13 (2023-06-07)
 -------------------
 
+* Refacto cross validation
 * Fix Readme
 * Add test utils.plot
 
