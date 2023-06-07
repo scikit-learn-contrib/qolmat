@@ -1,6 +1,5 @@
 import os
 import zipfile
-from datetime import datetime
 from math import pi
 from typing import List, Optional
 from urllib import request
@@ -11,7 +10,25 @@ import pandas as pd
 from qolmat.benchmark import missing_patterns
 
 
-def get_data(name_data="Beijing", datapath: str = "data/", download: Optional[bool] = True):
+def download_data(zipname: str, urllink: str, datapath: str = "data/") -> List[pd.DataFrame]:
+    path_zip = os.path.join(datapath)
+    if not os.path.exists(path_zip + ".zip"):
+        if not os.path.exists(datapath):
+            os.mkdir(datapath)
+        request.urlretrieve(urllink + zipname + ".zip", path_zip + ".zip")
+
+    with zipfile.ZipFile(path_zip + ".zip", "r") as zip_ref:
+        zip_ref.extractall(path_zip)
+    data_folder = os.listdir(path_zip)
+    subfolder = os.path.join(path_zip, data_folder[0])
+    data_files = os.listdir(subfolder)
+    list_df = [pd.read_csv(os.path.join(subfolder, file)) for file in data_files]
+    return list_df
+
+
+def get_data(
+    name_data: str = "Beijing", datapath: str = "data/", download: Optional[bool] = True
+) -> pd.DataFrame:
     """Download or generate data
 
     Parameters
@@ -30,19 +47,7 @@ def get_data(name_data="Beijing", datapath: str = "data/", download: Optional[bo
     if name_data == "Beijing":
         urllink = "https://archive.ics.uci.edu/ml/machine-learning-databases/00501/"
         zipname = "PRSA2017_Data_20130301-20170228"
-        path_zip = os.path.join(datapath, zipname)
-
-        if not os.path.exists(path_zip + ".zip"):
-            if not os.path.exists(datapath):
-                os.mkdir(datapath)
-            request.urlretrieve(urllink + zipname + ".zip", path_zip + ".zip")
-
-        with zipfile.ZipFile(path_zip + ".zip", "r") as zip_ref:
-            zip_ref.extractall(path_zip)
-        data_folder = os.listdir(path_zip)
-        subfolder = os.path.join(path_zip, data_folder[0])
-        data_files = os.listdir(subfolder)
-        list_df = [pd.read_csv(os.path.join(subfolder, file)) for file in data_files]
+        list_df = download_data(zipname, urllink, datapath=datapath)
         list_df = [preprocess_data(df) for df in list_df]
         df = pd.concat(list_df)
         return df
@@ -82,7 +87,7 @@ def get_data(name_data="Beijing", datapath: str = "data/", download: Optional[bo
         raise ValueError(f"Data name {name_data} is unknown!")
 
 
-def preprocess_data(df: pd.DataFrame):
+def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     """Preprocess data from the "Beijing" datset
 
     Parameters
@@ -105,7 +110,7 @@ def preprocess_data(df: pd.DataFrame):
     return df
 
 
-def add_holes(df: pd.DataFrame, ratio_masked: float, mean_size: int):
+def add_holes(df: pd.DataFrame, ratio_masked: float, mean_size: int) -> pd.DataFrame:
     """
     Creates holes in a dataset with no missing value, starting from `df`. Only used in the
     documentation to design examples.
@@ -150,7 +155,7 @@ def get_data_corrupted(
     name_data: str = "Beijing",
     mean_size: int = 90,
     ratio_masked: float = 0.2,
-):
+) -> pd.DataFrame:
     """
     Returns a dataframe with controled corruption optained from the source `name_data`
 
@@ -172,7 +177,7 @@ def get_data_corrupted(
     return df
 
 
-def add_station_features(df: pd.DataFrame):
+def add_station_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     Create a station feature in the dataset
 
@@ -193,7 +198,7 @@ def add_station_features(df: pd.DataFrame):
     return df
 
 
-def add_datetime_features(df: pd.DataFrame):
+def add_datetime_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     Create a seasonal feature in the dataset with a cosine function
 

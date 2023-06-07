@@ -51,9 +51,9 @@ class Imputer(_BaseImputer):
         self.columnwise = columnwise
         self.shrink = shrink
         self.hyperparams = hyperparams
-        self.hyperparams_optim = hyperparams_optim
         self.random_state = random_state
         self.missing_values = missing_values
+        self.hyperparams_optim = hyperparams_optim
 
     def _more_tags(self):
         return {"allow_nan": True, "requires_fit": False}
@@ -94,7 +94,8 @@ class Imputer(_BaseImputer):
             self.estimator.random_state = self.rng
 
         hyperparams = self.hyperparams.copy()
-        hyperparams.update(self.hyperparams_optim)
+        if hasattr(self, "hyperparams_optim"):
+            hyperparams.update(self.hyperparams_optim)
         cols_with_nans = df.columns[df.isna().any()]
 
         if self.groups_ == []:
@@ -665,11 +666,13 @@ class ImputerKNN(Imputer):
         self,
         n_neighbors: int = 5,
         weights: str = "distance",
+        hyperparams_optim: Dict = {},
         **hyperparams,
     ) -> None:
         super().__init__(columnwise=False, hyperparams=hyperparams)
         self.n_neighbors = n_neighbors
         self.weights = weights
+        self.hyperparams_optim = hyperparams_optim
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         imputer = KNNImputer(
@@ -725,6 +728,7 @@ class ImputerMICE(Imputer):
         self,
         estimator: Optional[BaseEstimator] = None,
         random_state: Union[None, int, np.random.RandomState] = None,
+        # hyperparams_optim: Dict = {},
         **hyperparams,
     ) -> None:
         super().__init__(
@@ -733,6 +737,7 @@ class ImputerMICE(Imputer):
             random_state=random_state,
         )
         self.estimator = estimator
+        # self.hyperparams_optim = hyperparams_optim
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         iterative_imputer = IterativeImputer(estimator=self.estimator, **self.hyperparams_element)
@@ -784,12 +789,14 @@ class ImputerRegressor(Imputer):
         estimator: Optional[BaseEstimator] = None,
         handler_nan: str = "column",
         random_state: Union[None, int, np.random.RandomState] = None,
+        # hyperparams_optim: Dict = {},
         **hyperparams,
     ):
         super().__init__(hyperparams=hyperparams, random_state=random_state)
         self.columnwise = False
         self.estimator = estimator
         self.handler_nan = handler_nan
+        # self.hyperparams_optim = hyperparams_optim
 
     def get_params_fit(self) -> Dict:
         return {}
@@ -886,6 +893,7 @@ class ImputerRPCA(Imputer):
         method: str = "noisy",
         columnwise: bool = False,
         random_state: Union[None, int, np.random.RandomState] = None,
+        # hyperparams_optim: Dict = {},
         **hyperparams,
     ) -> None:
         super().__init__(
@@ -895,6 +903,7 @@ class ImputerRPCA(Imputer):
         )
 
         self.method = method
+        # self.hyperparams_optim = hyperparams_optim
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         if not isinstance(df, pd.DataFrame):
@@ -943,6 +952,7 @@ class ImputerEM(Imputer):
         model: Optional[str] = "multinormal",
         columnwise: bool = False,
         random_state: Union[None, int, np.random.RandomState] = None,
+        # hyperparams_optim: Dict = {},
         **hyperparams,
     ):
         super().__init__(
@@ -951,6 +961,7 @@ class ImputerEM(Imputer):
             random_state=random_state,
         )
         self.model = model
+        # self.hyperparams_optim = hyperparams_optim
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         if self.model == "multinormal":

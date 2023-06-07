@@ -210,16 +210,7 @@ The resulting imputed data is the final imputed array, obtained at convergence.
 Multivariate time series
 ************************
 
-To explicitely take into account the temporal aspect of the data 
-(temporal correlations), we construct an extended matrix :math:`\mathbf{X}^{ext}` 
-by considering the shifted columns, i.e.
-:math:`\mathbf{X}^{ext} := [\mathbf{X}, \mathbf{X}^{s+1}, \mathbf{X}^{s-1}]` where
-:math:`\mathbf{X}^{s+1}` (resp. :math:`\mathbf{X}^{s-1}`) is the :math:`\mathbf{X}` matrix 
-where all columns are shifted +1 for one step backward in time (resp. -1 for one step forward in time).
-The covariance matrix :math:`\mathbf{\Sigma}^{ext}` is therefore richer in information since the presence of additional 
-(temporal) correlations.
-
-.. image:: images/extended_matrix.png
+The class VAR1EM takes into account the temporal structure of the data by using likelihood based on a VAR(1) assumption. Stay tuned for more details!
 
 
 
