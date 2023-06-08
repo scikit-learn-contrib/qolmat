@@ -45,7 +45,7 @@ def get_data(
         requested data
     """
     if name_data == "Beijing":
-        urllink = "https://archive.ics.uci.edu/ml/machine-learning-databases/00501/"
+        urllink = "https://archive.ics.uci.edu/dataset/381/beijing+pm2+5+data"
         zipname = "PRSA2017_Data_20130301-20170228"
         list_df = download_data(zipname, urllink, datapath=datapath)
         list_df = [preprocess_data(df) for df in list_df]
