@@ -231,7 +231,7 @@ Qolmat has been developed by Quantmetry.
 
 |Quantmetry|_
 
-.. |Quantmetry| image:: https://www.quantmetry.com/wp-content/uploads/2020/08/08-Logo-quant-Texte-noir.svg
+.. |Quantmetry| image:: https://raw.githubusercontent.com/Quantmetry/qolmat/main/docs/images/quantmetry.png
     :width: 150
 .. _Quantmetry: https://www.quantmetry.com/
 
