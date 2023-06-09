@@ -10,7 +10,7 @@ jupyter:
   kernelspec:
     display_name: env_qolmat_dev
     language: python
-    name: env_qolmat_dev
+    name: python3
 ---
 
 **This notebook aims to present the Qolmat repo through an example of a multivariate time series.
@@ -121,27 +121,27 @@ Some methods require hyperparameters. The user can directly specify them, or rat
 In pratice, we rely on a cross validation to find the best hyperparams values minimizing an error reconstruction.
 
 ```python
-imputer_mean = imputers.ImputerMean(groups=["station"])
-imputer_median = imputers.ImputerMedian(groups=["station"])
-imputer_mode = imputers.ImputerMode(groups=["station"])
-imputer_locf = imputers.ImputerLOCF(groups=["station"])
-imputer_nocb = imputers.ImputerNOCB(groups=["station"])
-imputer_interpol = imputers.ImputerInterpolation(groups=["station"], method="linear")
-imputer_spline = imputers.ImputerInterpolation(groups=["station"], method="spline", order=2)
-imputer_shuffle = imputers.ImputerShuffle(groups=["station"])
-imputer_residuals = imputers.ImputerResiduals(groups=["station"], period=7, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
+imputer_mean = imputers.ImputerMean()
+imputer_median = imputers.ImputerMedian()
+imputer_mode = imputers.ImputerMode()
+imputer_locf = imputers.ImputerLOCF()
+imputer_nocb = imputers.ImputerNOCB()
+imputer_interpol = imputers.ImputerInterpolation(method="linear")
+imputer_spline = imputers.ImputerInterpolation(method="spline", order=2)
+imputer_shuffle = imputers.ImputerShuffle()
+imputer_residuals = imputers.ImputerResiduals(period=7, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
 
-imputer_rpca = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=7, max_iter=200, tau=2, lam=.3)
-imputer_rpca_opti = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=7, max_iter=100)
+imputer_rpca = imputers.ImputerRPCA(columnwise=True, period=7, max_iter=200, tau=2, lam=.3)
+imputer_rpca_opti = imputers.ImputerRPCA(columnwise=True, period=7, max_iter=100)
 
-imputer_ou = imputers.ImputerEM(groups=["station"], model="multinormal", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
-imputer_tsou = imputers.ImputerEM(groups=["station"], model="VAR1", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
-imputer_tsmle = imputers.ImputerEM(groups=["station"], model="VAR1", method="mle", max_iter_em=34, n_iter_ou=15, dt=1e-3)
+imputer_ou = imputers.ImputerEM(model="multinormal", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
+imputer_tsou = imputers.ImputerEM(model="VAR1", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
+imputer_tsmle = imputers.ImputerEM(model="VAR1", method="mle", max_iter_em=34, n_iter_ou=15, dt=1e-3)
 
 
-imputer_knn = imputers.ImputerKNN(groups=["station"], k=10)
-imputer_mice = imputers.ImputerMICE(groups=["station"], estimator=LinearRegression(), sample_posterior=False, max_iter=100, missing_values=np.nan)
-imputer_regressor = imputers.ImputerRegressor(groups=["station"], estimator=LinearRegression())
+imputer_knn = imputers.ImputerKNN(k=10)
+imputer_mice = imputers.ImputerMICE(estimator=LinearRegression(), sample_posterior=False, max_iter=100, missing_values=np.nan)
+imputer_regressor = imputers.ImputerRegressor(estimator=LinearRegression())
 
 dict_imputers = {
     "mean": imputer_mean,
@@ -197,7 +197,7 @@ comparison = comparator.Comparator(
     n_calls_opt=10,
     dict_config_opti=dict_config_opti,
 )
-results = comparison.compare(df_data)
+results = comparison.compare(df_data, groups=["station"])
 results
 ```
 
@@ -229,7 +229,7 @@ df_plot = df_data[cols_to_impute]
 ```
 
 ```python
-dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_imputers.items()}
+dfs_imputed = {name: imp.fit_transform(df_plot, groups=["station"]) for name, imp in dict_imputers.items()}
 ```
 
 ```python
@@ -293,7 +293,7 @@ for i_col, col in enumerate(df_plot):
         ax.xaxis.set_major_locator(loc)
         ax.tick_params(axis='both', which='major')
         i_plot += 1
-plt.savefig("figures/imputations_benchmark.png")
+plt.savefig("imputations_benchmark.png")
 plt.show()
 
 ```
@@ -345,7 +345,7 @@ comparison = comparator.Comparator(
     n_calls_opt=10,
     dict_config_opti=dict_config_opti,
 )
-results = comparison.compare(df_data)
+results = comparison.compare(df_data, groups=["station"])
 results
 ```
 
@@ -358,7 +358,7 @@ plt.show()
 
 ```python
 df_plot = df_data
-dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_imputers.items()}
+dfs_imputed = {name: imp.fit_transform(df_plot, groups=["station"]) for name, imp in dict_imputers.items()}
 station = df_plot.index.get_level_values("station")[0]
 df_station = df_plot.loc[station]
 dfs_imputed_station = {name: df_plot.loc[station] for name, df_plot in dfs_imputed.items()}
@@ -412,7 +412,7 @@ for i_col, col in enumerate(df_plot):
         ax.xaxis.set_major_locator(loc)
         ax.tick_params(axis='both', which='major')
         i_plot += 1
-plt.savefig("figures/imputations_benchmark.png")
+plt.savefig("imputations_benchmark.png")
 plt.show()
 ```
 
@@ -462,7 +462,7 @@ for i_col, col in enumerate(df_plot):
     plt.plot(acf, color="black", lw=2, ls="--", label="original")
     plt.legend()
 
-plt.savefig("figures/acf.png")
+plt.savefig("acf.png")
 plt.show()
 
 ```

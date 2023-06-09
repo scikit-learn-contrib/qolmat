@@ -92,6 +92,7 @@ class Comparator:
         imputer: Any,
         df: pd.DataFrame,
         dict_config_opti_imputer: Dict[str, Any] = {},
+        **kwargs,
     ) -> pd.Series:
         """Evaluate the errors in the cross-validation
 
@@ -124,7 +125,7 @@ class Comparator:
                 imputer.hyperparams_optim = cv.optimize_hyperparams(df_corrupted)
             else:
                 imputer.hyperparams_optim = {}
-            df_imputed = imputer.fit_transform(df_corrupted)
+            df_imputed = imputer.fit_transform(df_corrupted, **kwargs)
             subset = self.generator_holes.subset
             errors = self.get_errors(df_origin[subset], df_imputed[subset], df_mask[subset])
             list_errors.append(errors)
@@ -136,6 +137,7 @@ class Comparator:
     def compare(
         self,
         df: pd.DataFrame,
+        **kwargs,
     ):
         """Function to compare different imputation methods on dataframe df
 
@@ -157,7 +159,7 @@ class Comparator:
 
             try:
                 dict_errors[name] = self.evaluate_errors_sample(
-                    imputer, df, dict_config_opti_imputer
+                    imputer, df, dict_config_opti_imputer, **kwargs
                 )
                 print(f"Tested model: {type(imputer).__name__}")
             except Exception as excp:
