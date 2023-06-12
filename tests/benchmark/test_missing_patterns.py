@@ -37,12 +37,12 @@ def test_SamplerHoleGenerator_split(df: pd.DataFrame, generator: mp._HoleGenerat
 
 df_group_1 = pd.DataFrame(
     {"col1": [i for i in range(99)] + [np.nan], "col2": [2 * i for i in range(99)] + [np.nan]},
-    index=np.concatenate([[i for i in range(10)] for j in range(10)]),
+    index=np.concatenate([[f"g{i}" for i in range(10)] for j in range(10)]),
 )
 
 df_group_2 = pd.DataFrame(
     {"col1": [i for i in range(99)] + [np.nan], "col2": [2 * i for i in range(99)] + [np.nan]},
-    index=np.concatenate([[i for i in range(5)] for j in range(20)]),
+    index=np.concatenate([[f"g{i}" for i in range(5)] for j in range(20)]),
 )
 
 

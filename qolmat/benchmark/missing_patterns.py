@@ -691,25 +691,37 @@ class GroupedHoleGenerator(_HoleGenerator):
 
     def split(self, X: pd.DataFrame) -> List[pd.DataFrame]:
         self.fit(X)
+        group_sizes = X.groupby(self.ngroups, group_keys=False).count().mean(axis=1)
+        list_masks = []
 
-        for n_groups in range(1, self.ngroups.nunique()):
-            lpgo = LeavePGroupsOut(n_groups=n_groups)
+        for _ in range(self.n_splits):
+            # Shuffle the group sizes to obtain a different order
+            shuffled_group_sizes = group_sizes.sample(frac=1)
 
-            list_masks = []
-            for _, observed_indices in lpgo.split(X=X, y=None, groups=self.ngroups):
-                observed_indices = X.index[observed_indices]
-                # create the boolean mask of missing values
-                df_mask = pd.DataFrame(
-                    False,
-                    columns=X.columns,
-                    index=X.index,
-                )
-                df_mask.loc[observed_indices, self.subset] = True
-                df_mask[X.isna()] = False
-                list_masks.append(df_mask)
+            # Calculate cumulative ratios based on shuffled group sizes
+            ratio_masks = shuffled_group_sizes.cumsum() / len(X)
+            ratio_masks = ratio_masks.reset_index(name="ratio")
 
-            ratio_masked = np.mean([m.sum().mean() for m in list_masks]) / len(X)
-            if ratio_masked >= self.ratio_masked:
-                break
+            # Find the closest ratio to the user-defined ratio
+            closest_ratio_mask = ratio_masks.iloc[
+                (ratio_masks["ratio"] - self.ratio_masked).abs().argsort()[:1]
+            ]
+
+            # Create a mask DataFrame with False values
+            df_mask = pd.DataFrame(
+                False,
+                columns=X.columns,
+                index=X.index,
+            )
+
+            # Set True values in the mask for the observed indices
+            ngroups = pd.Series(self.ngroups)
+            observed_indices = ngroups[ngroups == closest_ratio_mask["_ngroup"].iloc[0]].index
+            df_mask.loc[observed_indices, self.subset] = True
+
+            # Set False values for any missing values in X
+            df_mask[X.isna()] = False
+
+            list_masks.append(df_mask)
 
         return list_masks
