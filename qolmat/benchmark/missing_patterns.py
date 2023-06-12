@@ -714,7 +714,7 @@ class GroupedHoleGenerator(_HoleGenerator):
                 index=X.index,
             )
 
-            # Set True values in the mask for the observed indices
+            # Set True values in the mask
             ngroups = pd.Series(self.ngroups)
             observed_indices = ngroups[ngroups == closest_ratio_mask["_ngroup"].iloc[0]].index
             df_mask.loc[observed_indices, self.subset] = True
