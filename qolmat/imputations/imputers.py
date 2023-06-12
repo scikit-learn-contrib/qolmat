@@ -1,5 +1,6 @@
 import warnings
 from typing import Dict, List, Optional, Union
+from abc import abstractmethod
 
 import numpy as np
 import pandas as pd
@@ -185,6 +186,10 @@ class Imputer(_BaseImputer):
             imputation_values = self.fit_transform_fallback(df)
             df = df.fillna(imputation_values)
 
+        return df
+
+    @abstractmethod
+    def fit_transform_element(self, df: pd.DataFrame):
         return df
 
 

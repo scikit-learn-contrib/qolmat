@@ -234,6 +234,7 @@ def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
 
 @parametrize_with_checks(
     [
+        imputers.Imputer(),
         imputers.ImputerOracle(),
         imputers.ImputerMean(),
         imputers.ImputerMedian(),
