@@ -192,7 +192,7 @@ def test_ImputerMICE_fit_transform(df: pd.DataFrame) -> None:
 
 @pytest.mark.parametrize("df", [df_incomplete])
 def test_ImputerRegressor_fit_transform(df: pd.DataFrame) -> None:
-    imputer = imputers.ImputerRegressor(model=ExtraTreesRegressor())
+    imputer = imputers.ImputerRegressor(estimator=ExtraTreesRegressor())
     result = imputer.fit_transform(df)
     expected = pd.DataFrame(
         {
@@ -210,7 +210,7 @@ def test_ImputerRPCA_fit_transform(df: pd.DataFrame) -> None:
     expected = pd.DataFrame(
         {
             "col1": [i for i in range(20)],
-            "col2": [0, 10.5, 2, 10.5, 2] + [i for i in range(5, 20)],
+            "col2": [0, 25.375562, 2, 29.396932, 2] + [i for i in range(5, 20)],
         }
     )
     np.testing.assert_allclose(result, expected)
