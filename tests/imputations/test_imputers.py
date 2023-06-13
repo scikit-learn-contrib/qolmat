@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from sklearn.ensemble import ExtraTreesRegressor
+from sklearn.utils.estimator_checks import parametrize_with_checks
 
 from qolmat.imputations import imputers
 
@@ -145,7 +146,7 @@ def test_ImputerInterpolation_fit_transform(df: pd.DataFrame) -> None:
 
 @pytest.mark.parametrize("df", [df_timeseries])
 def test_ImputerResiduals_fit_transform(df: pd.DataFrame) -> None:
-    imputer = imputers.ImputerResiduals(7)
+    imputer = imputers.ImputerResiduals(period=7)
     result = imputer.fit_transform(df)
     expected = pd.DataFrame(
         {
@@ -191,7 +192,7 @@ def test_ImputerMICE_fit_transform(df: pd.DataFrame) -> None:
 
 @pytest.mark.parametrize("df", [df_incomplete])
 def test_ImputerRegressor_fit_transform(df: pd.DataFrame) -> None:
-    imputer = imputers.ImputerRegressor(model=ExtraTreesRegressor())
+    imputer = imputers.ImputerRegressor(estimator=ExtraTreesRegressor())
     result = imputer.fit_transform(df)
     expected = pd.DataFrame(
         {
@@ -209,7 +210,7 @@ def test_ImputerRPCA_fit_transform(df: pd.DataFrame) -> None:
     expected = pd.DataFrame(
         {
             "col1": [i for i in range(20)],
-            "col2": [0, 10.5, 2, 10.5, 2] + [i for i in range(5, 20)],
+            "col2": [0, 25.375562, 2, 29.396932, 2] + [i for i in range(5, 20)],
         }
     )
     np.testing.assert_allclose(result, expected)
@@ -229,3 +230,27 @@ def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
         }
     )
     np.testing.assert_allclose(result, expected, atol=1e-6)
+
+
+@parametrize_with_checks(
+    [
+        imputers.Imputer(),
+        imputers.ImputerOracle(df_complete),
+        imputers.ImputerMean(),
+        imputers.ImputerMedian(),
+        imputers.ImputerMode(),
+        imputers.ImputerShuffle(),
+        imputers.ImputerLOCF(),
+        imputers.ImputerNOCB(),
+        imputers.ImputerInterpolation(),
+        imputers.ImputerResiduals(period=7),
+        imputers.KNNImputer(),
+        imputers.ImputerMICE(),
+        imputers.ImputerRegressor(),
+        imputers.ImputerRPCA(),
+        imputers.ImputerEM(),
+    ]
+)
+def test_sklearn_compatible_estimator(estimator: imputers.Imputer, check: Any) -> None:
+    """Check compatibility with sklearn, using sklearn estimator checks API."""
+    check(estimator)

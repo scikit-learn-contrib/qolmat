@@ -77,7 +77,8 @@ Some algorithms are implemented:
    & \text{s.t.} \quad \mathbf{D} = \mathbf{X} + \mathbf{A}
    \end{align*}
 
-* :class:`GraphRPCA` class (based on this `paper <https://arxiv.org/abs/1507.08173>`__). The optimisation problem is the following
+..
+   * :class:`GraphRPCA` class (based on this `paper <https://arxiv.org/abs/1507.08173>`__). The optimisation problem is the following
 
 .. math:: 
 
@@ -95,7 +96,8 @@ By defining :math:`\Vert \mathbf{XH_k} \Vert_p` is either :math:`\Vert \mathbf{X
    \text{minimise} \quad \Vert P_{\Omega}(\mathbf{X}+\mathbf{A}-\mathbf{D}) \Vert_F^2 + \lambda_1 \Vert \mathbf{X} \Vert_* + \lambda_2 \Vert \mathbf{A} \Vert_1 + \sum_{k=1}^K \eta_k \Vert \mathbf{XH_k} \Vert_p
 
 
-* :class:`OnlineTemporalRPCA` class. This class implements the online version of the above problem using stochastic optimisation (based on this `paper <https://www.hindawi.com/journals/jat/2018/7191549/>`__  and this `paper <https://dl.acm.org/doi/10.5555/2999611.2999657>`__). This allows to deal with large ammount of data or data that arrives continuously and does not assume a stable subspace.
+..
+   * :class:`OnlineTemporalRPCA` class. This class implements the online version of the above problem using stochastic optimisation (based on this `paper <https://www.hindawi.com/journals/jat/2018/7191549/>`__  and this `paper <https://dl.acm.org/doi/10.5555/2999611.2999657>`__). This allows to deal with large ammount of data or data that arrives continuously and does not assume a stable subspace.
 
 
 The operator :math:`P_{\Omega}` is the projection operator such that 

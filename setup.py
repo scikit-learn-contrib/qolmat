@@ -3,7 +3,7 @@ import codecs
 from setuptools import find_packages, setup
 
 DISTNAME = "qolmat"
-VERSION = "0.0.11"
+VERSION = "0.0.12"
 DESCRIPTION = "Tools to impute"
 LONG_DESCRIPTION_CONTENT_TYPE = "text/x-rst"
 with codecs.open("README.rst", encoding="utf-8-sig") as f:
@@ -74,7 +74,6 @@ CLASSIFIERS = [
     "Operating System :: POSIX",
     "Operating System :: Unix",
     "Operating System :: MacOS",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
