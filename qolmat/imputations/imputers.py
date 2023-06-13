@@ -890,7 +890,7 @@ class ImputerRPCA(Imputer):
         X = df.values.T
         M, A = model.decompose_rpca_signal(X)
         df_imputed = pd.DataFrame((M + A).T, index=df.index, columns=df.columns)
-        df_imputed = df.where(df.isna(), df_imputed)
+        df_imputed = df.where(~df.isna(), df_imputed)
 
         return df_imputed
 
@@ -945,5 +945,6 @@ class ImputerEM(Imputer):
         model.fit(X)
 
         X_transformed = model.transform(X)
+        X_transformed = X_transformed.T
         df_transformed = pd.DataFrame(X_transformed, columns=df.columns, index=df.index)
         return df_transformed

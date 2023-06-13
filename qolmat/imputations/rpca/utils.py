@@ -13,37 +13,6 @@ from scipy.linalg import toeplitz
 from sklearn.neighbors import kneighbors_graph
 
 
-def fold_signal(X: NDArray, n_rows: int) -> NDArray:
-    """
-    Reshape a time series into a 2D-array
-
-    Parameters
-    ----------
-    X : NDArray
-    n_rows : int
-        Number of rows of the 2D-array
-
-    Returns
-    -------
-    Tuple[NDArray, int]
-        Array and number of added nan's fill it
-
-    Raises
-    ------
-    ValueError
-        if X is not a 1D array
-    """
-    if len(X.shape) != 2 or X.shape[0] != 1:
-        raise ValueError("'X' should be 2D with a single line")
-
-    if (X.size % n_rows) > 0:
-        X = X[0]
-        X = np.append(X, [np.nan] * (n_rows - (X.size % n_rows)))
-    X = X.reshape(n_rows, -1)
-
-    return X
-
-
 def approx_rank(
     M: NDArray,
     threshold: float = 0.95,
@@ -64,10 +33,12 @@ def approx_rank(
     """
     if threshold == 1:
         return min(M.shape)
-    _, svd, _ = np.linalg.svd(M, full_matrices=True)
-    nuclear = np.sum(svd)
-    cum_sum = np.cumsum([sv / nuclear for sv in svd])
-    return np.argwhere(cum_sum > threshold)[0][0] + 1
+    _, values_singular, _ = np.linalg.svd(M, full_matrices=True)
+
+    cum_sum = np.cumsum(values_singular) / np.sum(values_singular)
+    rank = np.argwhere(cum_sum > threshold)[0][0] + 1
+
+    return rank
 
 
 def soft_thresholding(
