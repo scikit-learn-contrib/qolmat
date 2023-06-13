@@ -149,7 +149,7 @@ dict_imputers = {
     # "mode": imputer_mode,
     "interpolation": imputer_interpol,
     # "spline": imputer_spline,
-    # "shuffle": imputer_shuffle,
+    "shuffle": imputer_shuffle,
     # "residuals": imputer_residuals,
     # "OU": imputer_ou,
     # "TSOU": imputer_tsou,
@@ -185,6 +185,12 @@ In order to compare the methods, we $i)$ artificially create missing data (for m
 Concretely, the comparator takes as input a dataframe to impute, a proportion of nan to create, a dictionary of imputers (those previously mentioned), a list with the columns names to impute, a generator of holes specifying the type of holes to create and the search dictionary search_params for hyperparameter optimization.
 
 Note these metrics compute reconstruction errors; it tells nothing about the distances between the "true" and "imputed" distributions.
+
+```python
+df = pd.DataFrame(columns=["a", "b"])
+df["a"] = [1, 2]
+df
+```
 
 ```python
 generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], ratio_masked=ratio_masked)
