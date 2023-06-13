@@ -58,8 +58,8 @@ def test_fit_transform_not_on_pandas(df: Any) -> None:
 
 @pytest.mark.parametrize("df", [df_groups])
 def test_fit_transform_on_grouped(df: pd.DataFrame) -> None:
-    imputer = imputers.ImputerMean()
-    result = imputer.fit_transform(df, groups=["col1"])
+    imputer = imputers.ImputerMean(groups=["col1"])
+    result = imputer.fit_transform(df)
     expected = pd.DataFrame(
         {
             "col1": [1, 1, 0, 1],
@@ -72,8 +72,8 @@ def test_fit_transform_on_grouped(df: pd.DataFrame) -> None:
 @pytest.mark.parametrize("df", [df_incomplete])
 @pytest.mark.parametrize("df_oracle", [df_complete])
 def test_ImputerOracle_fit_transform(df: pd.DataFrame, df_oracle: pd.DataFrame) -> None:
-    imputer = imputers.ImputerOracle()
-    result = imputer.fit_transform(df, df_oracle)
+    imputer = imputers.ImputerOracle(df_oracle)
+    result = imputer.fit_transform(df)
     expected = df_oracle
     np.testing.assert_allclose(result, expected)
 
@@ -146,7 +146,7 @@ def test_ImputerInterpolation_fit_transform(df: pd.DataFrame) -> None:
 
 @pytest.mark.parametrize("df", [df_timeseries])
 def test_ImputerResiduals_fit_transform(df: pd.DataFrame) -> None:
-    imputer = imputers.ImputerResiduals(7)
+    imputer = imputers.ImputerResiduals(period=7)
     result = imputer.fit_transform(df)
     expected = pd.DataFrame(
         {
@@ -235,7 +235,7 @@ def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
 @parametrize_with_checks(
     [
         imputers.Imputer(),
-        imputers.ImputerOracle(),
+        imputers.ImputerOracle(df_complete),
         imputers.ImputerMean(),
         imputers.ImputerMedian(),
         imputers.ImputerMode(),
@@ -243,7 +243,7 @@ def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
         imputers.ImputerLOCF(),
         imputers.ImputerNOCB(),
         imputers.ImputerInterpolation(),
-        imputers.ImputerResiduals(),
+        imputers.ImputerResiduals(period=7),
         imputers.KNNImputer(),
         imputers.ImputerMICE(),
         imputers.ImputerRegressor(),

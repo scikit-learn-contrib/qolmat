@@ -44,34 +44,36 @@ class Imputer(_BaseImputer):
         self,
         columnwise: bool = False,
         shrink: bool = False,
-        hyperparams: Dict = {},
-        # hyperparams_optim: Dict = {},
         random_state: Union[None, int, np.random.RandomState] = None,
         missing_values=np.nan,
+        groups: List[str] = [],
+        hyperparams: Dict = {},
     ):
         self.columnwise = columnwise
         self.shrink = shrink
-        self.hyperparams = hyperparams
         self.random_state = random_state
         self.missing_values = missing_values
-        # self.hyperparams_optim = hyperparams_optim
+        self.groups = groups
+        self.hyperparams = hyperparams
 
     def _more_tags(self):
+        """Define tags for scikit-learn"""
+
         return {
             "allow_nan": True,
             "requires_fit": False,
             "_xfail_checks": {
-                "check_parameters_default_constructible": "The imputer need Dict as a parammeter"
+                "check_parameters_default_constructible": "The imputer need Dict as a parammeter",
+                "check_no_attributes_set_in_init": """The imputer can define an attribute
+                modifiable in init""",
             },
         }
 
-    def fit(self, X, y: pd.DataFrame = None, groups: List[str] = []):
-        self.groups_ = groups
+    def fit(self, X, y: pd.DataFrame = None):
         X = self._validate_data(X, force_all_finite="allow-nan")
-
         return self
 
-    def fit_transform(self, X: pd.DataFrame, y=None, groups: List[str] = []) -> pd.DataFrame:
+    def fit_transform(self, X: pd.DataFrame, y=None) -> pd.DataFrame:
         """
         Returns a dataframe with same shape as `df`, unchanged values, where all nans are replaced
         by non-nan values.
@@ -88,7 +90,7 @@ class Imputer(_BaseImputer):
         pd.DataFrame
             Imputed dataframe.
         """
-        self.fit(X, groups=groups)
+        self.fit(X)
 
         if not isinstance(X, (pd.DataFrame, np.ndarray)):
             raise ValueError("Input has to be a pandas.DataFrame or numpy.ndarray.")
@@ -105,10 +107,10 @@ class Imputer(_BaseImputer):
             hyperparams.update(self.hyperparams_optim)
         cols_with_nans = df.columns[df.isna().any()]
 
-        if self.groups_ == []:
+        if self.groups == []:
             self.ngroups_ = pd.Series(0, index=df.index).rename("_ngroup")
         else:
-            self.ngroups_ = df.groupby(self.groups_).ngroup().rename("_ngroup")
+            self.ngroups_ = df.groupby(self.groups).ngroup().rename("_ngroup")
 
         if self.columnwise:
             df_imputed = df.copy()
@@ -176,7 +178,7 @@ class Imputer(_BaseImputer):
         if not isinstance(df, pd.DataFrame):
             raise ValueError("Input has to be a pandas.DataFrame.")
         df = df.copy()
-        if self.groups_:
+        if self.groups:
             # groupby = utils.custom_groupby(df, groups)
             groupby = df.groupby(self.ngroups_, group_keys=False)
             if self.shrink:
@@ -215,18 +217,12 @@ class ImputerOracle(Imputer):
 
     def __init__(
         self,
+        df: pd.DataFrame,
     ) -> None:
         super().__init__()
+        self.df = df
 
-    def fit(self, X: pd.DataFrame, y: pd.DataFrame = None, groups: List[str] = []):
-        self.groups_ = groups
-        X = self._validate_data(X, force_all_finite="allow-nan")
-        self.df_ = pd.DataFrame(y)
-        return self
-
-    def fit_transform(
-        self, X: pd.DataFrame, y: pd.DataFrame = None, groups: List[str] = []
-    ) -> pd.DataFrame:
+    def fit_transform(self, X: pd.DataFrame, y=None) -> pd.DataFrame:
         """Impute df with corresponding known values
 
         Parameters
@@ -238,13 +234,11 @@ class ImputerOracle(Imputer):
         pd.DataFrame
             dataframe imputed with premasked values
         """
-        if y is None:
-            raise ValueError("y must be provided.")
-        self.fit(X, y, groups)
+        self.fit(X)
         if not isinstance(X, (pd.DataFrame, np.ndarray)):
             raise ValueError("Input has to be a pandas.DataFrame or numpy.ndarray.")
         df = pd.DataFrame(X)
-        return df.fillna(self.df_)
+        return df.fillna(self.df)
 
 
 class ImputerMean(Imputer):
@@ -276,8 +270,9 @@ class ImputerMean(Imputer):
 
     def __init__(
         self,
+        groups: List[str] = [],
     ) -> None:
-        super().__init__(columnwise=True, shrink=True)
+        super().__init__(groups=groups, columnwise=True, shrink=True)
 
     def _more_tags(self):
         return {"allow_nan": True, "requires_fit": False}
@@ -315,8 +310,9 @@ class ImputerMedian(Imputer):
 
     def __init__(
         self,
+        groups: List[str] = [],
     ) -> None:
-        super().__init__(columnwise=True, shrink=True)
+        super().__init__(groups=groups, columnwise=True, shrink=True)
 
     def fit_transform_element(self, df: pd.DataFrame):
         return pd.DataFrame.median(df)
@@ -351,8 +347,9 @@ class ImputerMode(Imputer):
 
     def __init__(
         self,
+        groups: List[str] = [],
     ) -> None:
-        super().__init__(columnwise=True, shrink=True)
+        super().__init__(groups=groups, columnwise=True, shrink=True)
 
     def fit_transform_element(self, df: pd.DataFrame):
         return df.mode().iloc[0]
@@ -389,9 +386,10 @@ class ImputerShuffle(Imputer):
 
     def __init__(
         self,
+        groups: List[str] = [],
         random_state: Union[None, int, np.random.RandomState] = None,
     ) -> None:
-        super().__init__(columnwise=True, random_state=random_state)
+        super().__init__(groups=groups, columnwise=True, random_state=random_state)
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         n_missing = df.isna().sum().sum()
@@ -437,8 +435,9 @@ class ImputerLOCF(Imputer):
 
     def __init__(
         self,
+        groups: List[str] = [],
     ) -> None:
-        super().__init__(columnwise=True)
+        super().__init__(groups=groups, columnwise=True)
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         df_out = df.copy()
@@ -477,8 +476,9 @@ class ImputerNOCB(Imputer):
 
     def __init__(
         self,
+        groups: List[str] = [],
     ) -> None:
-        super().__init__(columnwise=True)
+        super().__init__(groups=groups, columnwise=True)
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         df_out = df.copy()
@@ -530,11 +530,12 @@ class ImputerInterpolation(Imputer):
 
     def __init__(
         self,
+        groups: List[str] = [],
         method: str = "linear",
         order: Optional[int] = None,
         col_time: Optional[str] = None,
     ) -> None:
-        super().__init__(columnwise=True)
+        super().__init__(groups=groups, columnwise=True)
         self.method = method
         self.order = order
         self.col_time = col_time
@@ -601,14 +602,15 @@ class ImputerResiduals(Imputer):
 
     def __init__(
         self,
-        period: int = 1,
+        period: int,
+        groups: List[str] = [],
         model_tsa: Optional[str] = "additive",
         extrapolate_trend: Optional[Union[int, str]] = "freq",
         method_interpolation: Optional[str] = "linear",
     ):
-        super().__init__(columnwise=True)
-        self.period = period
+        super().__init__(groups=groups, columnwise=True)
         self.model_tsa = model_tsa
+        self.period = period
         self.extrapolate_trend = extrapolate_trend
         self.method_interpolation = method_interpolation
 
@@ -675,13 +677,15 @@ class ImputerKNN(Imputer):
 
     def __init__(
         self,
+        groups: List[str] = [],
         n_neighbors: int = 5,
         weights: str = "distance",
         **hyperparams,
     ) -> None:
-        super().__init__(columnwise=False, hyperparams=hyperparams)
+        super().__init__(groups=groups, columnwise=False, hyperparams=hyperparams)
         self.n_neighbors = n_neighbors
         self.weights = weights
+        self.hyperparams_optim: Dict = {}
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         imputer = KNNImputer(
@@ -735,18 +739,19 @@ class ImputerMICE(Imputer):
 
     def __init__(
         self,
+        groups: List[str] = [],
         estimator: Optional[BaseEstimator] = None,
         random_state: Union[None, int, np.random.RandomState] = None,
-        hyperparams_optim: Dict = {},
         **hyperparams,
     ) -> None:
         super().__init__(
+            groups=groups,
             columnwise=False,
             hyperparams=hyperparams,
             random_state=random_state,
         )
         self.estimator = estimator
-        self.hyperparams_optim = hyperparams_optim
+        self.hyperparams_optim: Dict = {}
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         iterative_imputer = IterativeImputer(estimator=self.estimator, **self.hyperparams_element)
@@ -795,17 +800,17 @@ class ImputerRegressor(Imputer):
 
     def __init__(
         self,
+        groups: List[str] = [],
         estimator: Optional[BaseEstimator] = None,
         handler_nan: str = "column",
         random_state: Union[None, int, np.random.RandomState] = None,
-        hyperparams_optim: Dict = {},
         **hyperparams,
     ):
-        super().__init__(hyperparams=hyperparams, random_state=random_state)
+        super().__init__(groups=groups, hyperparams=hyperparams, random_state=random_state)
         self.columnwise = False
         self.estimator = estimator
         self.handler_nan = handler_nan
-        self.hyperparams_optim = hyperparams_optim
+        self.hyperparams_optim: Dict = {}
 
     def get_params_fit(self) -> Dict:
         return {}
@@ -899,20 +904,21 @@ class ImputerRPCA(Imputer):
 
     def __init__(
         self,
+        groups: List[str] = [],
         method: str = "noisy",
         columnwise: bool = False,
         random_state: Union[None, int, np.random.RandomState] = None,
-        hyperparams_optim: Dict = {},
         **hyperparams,
     ) -> None:
         super().__init__(
+            groups=groups,
             columnwise=columnwise,
             hyperparams=hyperparams,
             random_state=random_state,
         )
 
         self.method = method
-        self.hyperparams_optim = hyperparams_optim
+        self.hyperparams_optim: Dict = {}
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         if not isinstance(df, pd.DataFrame):
@@ -958,19 +964,20 @@ class ImputerEM(Imputer):
 
     def __init__(
         self,
+        groups: List[str] = [],
         model: Optional[str] = "multinormal",
         columnwise: bool = False,
         random_state: Union[None, int, np.random.RandomState] = None,
-        hyperparams_optim: Dict = {},
         **hyperparams,
     ):
         super().__init__(
+            groups=groups,
             columnwise=columnwise,
             hyperparams=hyperparams,
             random_state=random_state,
         )
         self.model = model
-        self.hyperparams_optim = hyperparams_optim
+        self.hyperparams_optim: Dict = {}
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         if self.model == "multinormal":

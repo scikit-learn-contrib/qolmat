@@ -125,7 +125,7 @@ class Comparator:
                 imputer.hyperparams_optim = cv.optimize_hyperparams(df_corrupted)
             else:
                 imputer.hyperparams_optim = {}
-            df_imputed = imputer.fit_transform(df_corrupted, **kwargs)
+            df_imputed = imputer.fit_transform(df_corrupted)
             subset = self.generator_holes.subset
             errors = self.get_errors(df_origin[subset], df_imputed[subset], df_mask[subset])
             list_errors.append(errors)
