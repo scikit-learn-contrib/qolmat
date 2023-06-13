@@ -29,6 +29,7 @@ import warnings
 %autoreload 2
 
 import pandas as pd
+from datetime import datetime
 import numpy as np
 import scipy
 np.random.seed(1234)
@@ -63,19 +64,24 @@ The dataset `Beijing` is the Beijing Multi-Site Air-Quality Data Set. It consist
 This dataset only contains numerical vairables.
 
 ```python
-df_data = data.get_data_corrupted("Beijing", ratio_masked=.2, mean_size=120)
+# df_data = data.get_data_corrupted("Beijing", ratio_masked=.2, mean_size=120)
 
 # cols_to_impute = ["TEMP", "PRES", "DEWP", "NO2", "CO", "O3", "WSPM"]
 # cols_to_impute = df_data.columns[df_data.isna().any()]
-cols_to_impute = ["TEMP", "PRES"]
+# cols_to_impute = ["TEMP", "PRES"]
 
 ```
 
 The dataset `Artificial` is designed to have a sum of a periodical signal, a white noise and some outliers.
 
 ```python
-# df_data = data.get_data_corrupted("Artificial", ratio_masked=.2, mean_size=10)
-# cols_to_impute = ["signal"]
+df_data = data.get_data_corrupted("Artificial", ratio_masked=.2, mean_size=10)
+cols_to_impute = ["signal"]
+```
+
+```python
+df_data = data.get_data("SNCF", n_groups_max=2)
+cols_to_impute = ["val_in"]
 ```
 
 ```python tags=[]
@@ -131,12 +137,12 @@ imputer_spline = imputers.ImputerInterpolation(groups=["station"], method="splin
 imputer_shuffle = imputers.ImputerShuffle(groups=["station"])
 imputer_residuals = imputers.ImputerResiduals(groups=["station"], period=7, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
 
-imputer_rpca = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=7, max_iter=200, tau=2, lam=.3)
-imputer_rpca_opti = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=7, max_iter=100)
+imputer_rpca = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=7, max_iter=1000, tau=2, lam=1)
+# imputer_rpca_opti = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=7, max_iter=100)
 
 imputer_ou = imputers.ImputerEM(groups=["station"], model="multinormal", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
 imputer_tsou = imputers.ImputerEM(groups=["station"], model="VAR1", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
-imputer_tsmle = imputers.ImputerEM(groups=["station"], model="VAR1", method="mle", max_iter_em=34, n_iter_ou=15, dt=1e-3)
+imputer_tsmle = imputers.ImputerEM(groups=["station"], model="VAR1", method="mle", max_iter_em=100, n_iter_ou=15, dt=1e-3, period=7)
 
 
 imputer_knn = imputers.ImputerKNN(groups=["station"], k=10)
@@ -144,7 +150,7 @@ imputer_mice = imputers.ImputerMICE(groups=["station"], estimator=LinearRegressi
 imputer_regressor = imputers.ImputerRegressor(groups=["station"], estimator=LinearRegression())
 
 dict_imputers = {
-    "mean": imputer_mean,
+    # "mean": imputer_mean,
     # "median": imputer_median,
     # "mode": imputer_mode,
     "interpolation": imputer_interpol,
@@ -153,13 +159,13 @@ dict_imputers = {
     # "residuals": imputer_residuals,
     # "OU": imputer_ou,
     # "TSOU": imputer_tsou,
-    # "TSMLE": imputer_tsmle,
+    "TSMLE": imputer_tsmle,
     "RPCA": imputer_rpca,
-    "RPCA_opti": imputer_rpca_opti,
+    # "RPCA_opti": imputer_rpca_opti,
     # "locf": imputer_locf,
     # "nocb": imputer_nocb,
     # "knn": imputer_knn,
-    "ols": imputer_regressor,
+    # "ols": imputer_regressor,
     # "mice_ols": imputer_mice,
 }
 n_imputers = len(dict_imputers)
@@ -181,6 +187,9 @@ In order to compare the methods, we $i)$ artificially create missing data (for m
 </p>
 
 
+```python
+imputer_tsmle.hyperparams_user
+```
 
 Concretely, the comparator takes as input a dataframe to impute, a proportion of nan to create, a dictionary of imputers (those previously mentioned), a list with the columns names to impute, a generator of holes specifying the type of holes to create and the search dictionary search_params for hyperparameter optimization.
 
@@ -216,6 +225,8 @@ plt.ylabel("mae")
 fig.add_subplot(2, 1, 2)
 plot.multibar(results.loc["KL_columnwise"], decimals=1)
 plt.ylabel("KL")
+
+plt.savefig("figures/imputations_benchmark_errors.png")
 plt.show()
 ```
 
@@ -267,7 +278,7 @@ for col in cols_to_impute:
 n_columns = len(df_plot.columns)
 n_imputers = len(dict_imputers)
 
-fig = plt.figure(figsize=(8 * n_imputers, 6 * n_columns))
+fig = plt.figure(figsize=(12 * n_imputers, 4 * n_columns))
 i_plot = 1
 for i_col, col in enumerate(df_plot):
     for name_imputer, df_imp in dfs_imputed_station.items():
@@ -275,12 +286,10 @@ for i_col, col in enumerate(df_plot):
         fig.add_subplot(n_columns, n_imputers, i_plot)
         values_orig = df_station[col]
 
-        plt.plot(values_orig, ".", color='black', label="original")
-        #plt.plot(df.iloc[870:1000][col], markers[0], color='k', linestyle='-' , ms=3)
-
         values_imp = df_imp[col].copy()
         values_imp[values_orig.notna()] = np.nan
-        plt.plot(values_imp, ".", color=tab10(0), label=name_imputer, alpha=1)
+        plt.plot(values_imp, marker="o", color=tab10(0), label=name_imputer, alpha=1)
+        plt.plot(values_orig, color='black', marker="o", label="original")
         plt.ylabel(col, fontsize=16)
         if i_plot % n_columns == 1:
             plt.legend(loc=[1, 0], fontsize=18)
@@ -292,6 +301,7 @@ for i_col, col in enumerate(df_plot):
         loc = plticker.MultipleLocator(base=2*365)
         ax.xaxis.set_major_locator(loc)
         ax.tick_params(axis='both', which='major')
+        plt.xlim(datetime(2019, 2, 1), datetime(2019, 3, 1))
         i_plot += 1
 plt.savefig("figures/imputations_benchmark.png")
 plt.show()
