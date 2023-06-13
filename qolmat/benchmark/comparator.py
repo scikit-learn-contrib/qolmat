@@ -92,7 +92,6 @@ class Comparator:
         imputer: Any,
         df: pd.DataFrame,
         dict_config_opti_imputer: Dict[str, Any] = {},
-        **kwargs,
     ) -> pd.Series:
         """Evaluate the errors in the cross-validation
 
@@ -137,7 +136,6 @@ class Comparator:
     def compare(
         self,
         df: pd.DataFrame,
-        **kwargs,
     ):
         """Function to compare different imputation methods on dataframe df
 
@@ -159,7 +157,7 @@ class Comparator:
 
             try:
                 dict_errors[name] = self.evaluate_errors_sample(
-                    imputer, df, dict_config_opti_imputer, **kwargs
+                    imputer, df, dict_config_opti_imputer
                 )
                 print(f"Tested model: {type(imputer).__name__}")
             except Exception as excp:
