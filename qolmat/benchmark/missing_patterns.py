@@ -706,6 +706,9 @@ class GroupedHoleGenerator(_HoleGenerator):
             closest_ratio_mask = ratio_masks.iloc[
                 (ratio_masks["ratio"] - self.ratio_masked).abs().argsort()[:1]
             ]
+            groups_masked = ratio_masks.iloc[: closest_ratio_mask.index[0], :]["_ngroup"].values
+            if closest_ratio_mask.index[0] == 0:
+                groups_masked = ratio_masks.iloc[:1, :]["_ngroup"].values
 
             # Create a mask DataFrame with False values
             df_mask = pd.DataFrame(
@@ -716,7 +719,7 @@ class GroupedHoleGenerator(_HoleGenerator):
 
             # Set True values in the mask
             ngroups = pd.Series(self.ngroups)
-            observed_indices = ngroups[ngroups == closest_ratio_mask["_ngroup"].iloc[0]].index
+            observed_indices = ngroups[ngroups.isin(groups_masked)].index
             df_mask.loc[observed_indices, self.subset] = True
 
             # Set False values for any missing values in X

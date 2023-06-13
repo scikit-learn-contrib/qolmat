@@ -4,16 +4,28 @@ import pytest
 
 from qolmat.benchmark import missing_patterns as mp
 
-df_incomplet = pd.DataFrame(
-    {"col1": [i for i in range(99)] + [np.nan], "col2": [2 * i for i in range(99)] + [np.nan]}
-)
-
 df_complet = pd.DataFrame({"col1": [i for i in range(100)], "col2": [2 * i for i in range(100)]})
+
+df_incomplet = df_complet.copy()
+df_incomplet.iloc[99, :] = np.nan
+
+index_group = np.concatenate([[f"g{i}" for i in range(10)] for j in range(10)])
+
+df_complet_group = df_complet.copy()
+df_complet_group = df_complet_group.set_index(index_group)
+df_complet_group.index = df_complet_group.index.set_names("group")
+
+df_incomplet_group = df_incomplet.copy()
+df_incomplet_group = df_incomplet_group.set_index(pd.Index(index_group))
+df_incomplet_group.index = df_incomplet_group.index.set_names("group")
 
 list_generators = {
     "geo": mp.GeometricHoleGenerator(n_splits=2, ratio_masked=0.1, random_state=42),
     "unif": mp.UniformHoleGenerator(n_splits=2, ratio_masked=0.1, random_state=42),
     "multi": mp.MultiMarkovHoleGenerator(n_splits=2, ratio_masked=0.1, random_state=42),
+    "group": mp.GroupedHoleGenerator(
+        n_splits=2, ratio_masked=0.1, random_state=42, groups=["group"]
+    ),
 }
 
 
@@ -23,6 +35,7 @@ list_generators = {
         (df_incomplet, list_generators["geo"]),
         (df_incomplet, list_generators["unif"]),
         (df_incomplet, list_generators["multi"]),
+        (df_incomplet_group, list_generators["group"]),
     ],
 )
 def test_SamplerHoleGenerator_split(df: pd.DataFrame, generator: mp._HoleGenerator) -> None:
@@ -35,53 +48,13 @@ def test_SamplerHoleGenerator_split(df: pd.DataFrame, generator: mp._HoleGenerat
     np.testing.assert_allclose(col2_holes, expected_col2_holes)
 
 
-df_group_1 = pd.DataFrame(
-    {"col1": [i for i in range(99)] + [np.nan], "col2": [2 * i for i in range(99)] + [np.nan]},
-    index=np.concatenate([[f"g{i}" for i in range(10)] for j in range(10)]),
-)
-
-df_group_2 = pd.DataFrame(
-    {"col1": [i for i in range(99)] + [np.nan], "col2": [2 * i for i in range(99)] + [np.nan]},
-    index=np.concatenate([[f"g{i}" for i in range(5)] for j in range(20)]),
-)
-
-
-@pytest.mark.parametrize(
-    "df, generator",
-    [
-        (
-            df_group_1,
-            mp.GroupedHoleGenerator(
-                n_splits=2, ratio_masked=0.1, random_state=42, groups=["group"]
-            ),
-        ),
-        (
-            df_group_2,
-            mp.GroupedHoleGenerator(
-                n_splits=2, ratio_masked=0.1, random_state=42, groups=["group"]
-            ),
-        ),
-    ],
-)
-def test_GroupedHoleGenerator_split(df: pd.DataFrame, generator: mp._HoleGenerator) -> None:
-    df.index = df.index.rename("group")
-
-    mask = generator.split(df)[0]
-
-    col1_holes = mask["col1"].sum()
-    col2_holes = mask["col2"].sum()
-    expected_col1_holes = 10
-    expected_col2_holes = 10
-    assert col1_holes >= expected_col1_holes
-    assert col2_holes >= expected_col2_holes
-
-
 @pytest.mark.parametrize(
     "df, generator",
     [
         (df_complet, list_generators["geo"]),
         (df_complet, list_generators["unif"]),
         (df_complet, list_generators["multi"]),
+        (df_complet_group, list_generators["group"]),
     ],
 )
 def test_SamplerHoleGenerator_without_real_nans(
