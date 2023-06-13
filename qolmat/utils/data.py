@@ -16,10 +16,7 @@ def download_data(zipname: str, urllink: str, datapath: str = "data/") -> List[p
     path_zip_ext = path_zip + ".zip"
     url = os.path.join(urllink, zipname) + ".zip"
     os.makedirs(datapath, exist_ok=True)
-    print("exists ?", path_zip_ext)
     if not os.path.exists(path_zip_ext) and not os.path.exists(path_zip):
-        print("url")
-        print(url)
         request.urlretrieve(url, path_zip_ext)
     if not os.path.exists(path_zip):
         with zipfile.ZipFile(path_zip_ext, "r") as zip_ref:
@@ -132,8 +129,9 @@ def preprocess_data_beijing(df: pd.DataFrame) -> pd.DataFrame:
     df["datetime"] = pd.to_datetime(df[["year", "month", "day", "hour"]])
     df["station"] = "Beijing"
     df.set_index(["station", "datetime"], inplace=True)
-    # df.drop(columns=["year", "month", "day", "hour", "No", "cbwd", ""], inplace=True)
-    df.drop(columns=["year", "month", "day", "hour", "wd", "No"], inplace=True)
+    df.drop(
+        columns=["year", "month", "day", "hour", "No", "cbwd", "Iws", "Is", "Ir"], inplace=True
+    )
     df.sort_index(inplace=True)
     df = df.groupby(
         ["station", df.index.get_level_values("datetime").floor("d")], group_keys=False
@@ -154,8 +152,6 @@ def preprocess_data_beijing_offline(df: pd.DataFrame) -> pd.DataFrame:
     pd.DataFrame
         preprocessed dataframe
     """
-    print("preprocess_data_beijing_offline")
-    print(df.dtypes)
     df["datetime"] = pd.to_datetime(df[["year", "month", "day", "hour"]])
     df.set_index(["station", "datetime"], inplace=True)
     df.drop(columns=["year", "month", "day", "hour", "wd", "No"], inplace=True)
