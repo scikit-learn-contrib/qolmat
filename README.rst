@@ -23,7 +23,7 @@
 .. |Commits| image:: https://img.shields.io/github/commits-since/Quantmetry/qolmat/latest/main
 .. _Commits: https://github.com/Quantmetry/qolmat/commits/main
 
-.. image:: https://github.com/Quantmetry/qolmat/tree/main/docs/images/logo.png
+.. image:: https://raw.githubusercontent.com/Quantmetry/qolmat/main/docs/images/logo.png
     :align: center
 
 Qolmat -  The Tool for Data Imputation
@@ -95,7 +95,7 @@ For this demonstration, let us create artificial holes in our dataset.
     plt.savefig('readme1.png')
     plt.show()
 
-.. image:: https://github.com/Quantmetry/qolmat/tree/main/docs/images/readme1.png
+.. image:: https://raw.githubusercontent.com/Quantmetry/qolmat/main/docs/images/readme1.png
     :align: center
 
 To impute missing data, there are several methods that can be imported with ``from qolmat.imputations import imputers``.
@@ -191,7 +191,7 @@ We can observe the benchmark results.
     plt.savefig('readme3.png')
     plt.show()
 
-.. image:: https://github.com/Quantmetry/qolmat/tree/main/docs/images/readme2.png
+.. image:: https://raw.githubusercontent.com/Quantmetry/qolmat/main/docs/images/readme2.png
     :align: center
 
 Finally, we keep the best ``TSMLE`` imputor we represent.
@@ -206,7 +206,7 @@ Finally, we keep the best ``TSMLE`` imputor we represent.
     plt.plot(df_with_nan['y'],'.b')
     plt.show()
 
-.. image:: https://github.com/Quantmetry/qolmat/tree/main/docs/images/readme3.png
+.. image:: https://raw.githubusercontent.com/Quantmetry/qolmat/main/docs/images/readme3.png
     :align: center
 
 
@@ -231,7 +231,7 @@ Qolmat has been developed by Quantmetry.
 
 |Quantmetry|_
 
-.. |Quantmetry| image:: https://www.quantmetry.com/wp-content/uploads/2020/08/08-Logo-quant-Texte-noir.svg
+.. |Quantmetry| image:: https://raw.githubusercontent.com/Quantmetry/qolmat/main/docs/images/quantmetry.png
     :width: 150
 .. _Quantmetry: https://www.quantmetry.com/
 

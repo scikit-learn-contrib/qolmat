@@ -149,7 +149,7 @@ dict_imputers = {
     # "mode": imputer_mode,
     "interpolation": imputer_interpol,
     # "spline": imputer_spline,
-    # "shuffle": imputer_shuffle,
+    "shuffle": imputer_shuffle,
     # "residuals": imputer_residuals,
     # "OU": imputer_ou,
     # "TSOU": imputer_tsou,
