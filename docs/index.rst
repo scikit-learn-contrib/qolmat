@@ -8,6 +8,7 @@
    explanation
    RPCA
    EM_sampler
+   Hole_Generator
 
 .. toctree::
    :maxdepth: 2 
