@@ -1,6 +1,15 @@
 =======
 History
 =======
+0.0.14 (2023-06-14)
+-------------------
+
+* Documentation improved, with the API information
+* Bug patched, in particular for some logo display and RPCA imputation
+* The PRSA online dataset has been modified, the benchmark now loads the new version with a single station
+* More tests have been implemented
+* Tests for compliance with the sklearn standards have been implemented (check_estimator). Some arguments are mutable, and the corresponding tests are for now ignored
+
 0.0.13 (2023-06-07)
 -------------------
 

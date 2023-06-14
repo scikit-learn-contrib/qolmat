@@ -268,16 +268,16 @@ df_mask_cat_num = pd.DataFrame(
 @pytest.mark.parametrize("df1", [df_incomplete_cat_num])
 @pytest.mark.parametrize("df2", [df_imputed_cat_num])
 @pytest.mark.parametrize("df_mask", [df_mask_cat_num])
-def test_mean_difference_correlation_matrix_categorical_vs_numerical_features(
+def test_mean_diff_corr_matrix_categorical_vs_numerical_features(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
 ) -> None:
-    assert metrics.mean_difference_correlation_matrix_categorical_vs_numerical_features(
+    assert metrics.mean_diff_corr_matrix_categorical_vs_numerical_features(
         df1, df1, df_mask
     ).equals(pd.Series([0.0], index=["col1"]))
-    assert metrics.mean_difference_correlation_matrix_categorical_vs_numerical_features(
+    assert metrics.mean_diff_corr_matrix_categorical_vs_numerical_features(
         df1, df1, df_mask, False
     ).equals(pd.Series([0.0], index=["col1"]))
-    assert metrics.mean_difference_correlation_matrix_categorical_vs_numerical_features(
+    assert metrics.mean_diff_corr_matrix_categorical_vs_numerical_features(
         df1, df2, df_mask
     ).equals(pd.Series([0.07009774198932273], index=["col1"]))
 
@@ -330,6 +330,6 @@ df_incomplete_cat_num_bad = pd.DataFrame(
 def test_value_error_get_correlation_f_oneway_matrix(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
 ) -> None:
-    assert metrics.mean_difference_correlation_matrix_categorical_vs_numerical_features(
+    assert metrics.mean_diff_corr_matrix_categorical_vs_numerical_features(
         df1, df2, df_mask
     ).equals(pd.Series([np.nan], index=["col1"]))

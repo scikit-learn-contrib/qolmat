@@ -60,14 +60,12 @@ Metrics
     benchmark.metrics.root_mean_squared_error
     benchmark.metrics.weighted_mean_absolute_percentage_error
     benchmark.metrics.wasserstein_distance
-    benchmark.metrics.density_from_rf
-    benchmark.metrics.kl_divergence_1D
     benchmark.metrics.kl_divergence
     benchmark.metrics.kolmogorov_smirnov_test
     benchmark.metrics.total_variance_distance
     benchmark.metrics.mean_difference_correlation_matrix_numerical_features
     benchmark.metrics.mean_difference_correlation_matrix_categorical_features
-    benchmark.metrics.mean_difference_correlation_matrix_categorical_vs_numerical_features
+    benchmark.metrics.mean_diff_corr_matrix_categorical_vs_numerical_features
     benchmark.metrics.sum_energy_distances
     benchmark.metrics.frechet_distance
 
@@ -79,7 +77,6 @@ RPCA engine
     :toctree: generated/
     :template: class.rst    
     
-    imputations.rpca.rpca.RPCA
     imputations.rpca.rpca_noisy.RPCANoisy
     imputations.rpca.rpca_pcp.RPCAPCP
 
@@ -91,7 +88,6 @@ EM engine
     :toctree: generated/
     :template: class.rst    
     
-    imputations.em_sampler.EM
     imputations.em_sampler.MultiNormalEM
     imputations.em_sampler.VAR1EM
 
