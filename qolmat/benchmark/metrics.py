@@ -159,8 +159,8 @@ def wasserstein_distance(
 def density_from_rf(
     df: pd.DataFrame, estimator: BaseEnsemble, df_est: Optional[pd.DataFrame] = None
 ):
-    """Estimates the density of the empirical distribution given by df at the sample points given by
-    df_est. The estimation uses an random forest estimator and relies on the average number of
+    """Estimates the density of the empirical distribution given by df at the sample points given
+    by df_est. The estimation uses an random forest estimator and relies on the average number of
     samples in the leaf corresponding to each estimation point.
 
     Parameters
@@ -222,17 +222,23 @@ def kl_divergence_1D(df1: pd.Series, df2: pd.Series) -> float:
 def kl_divergence(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame, method: str = "columnwise"
 ) -> pd.Series:
-    """TODO Documentation
-    Kullback-Leibler divergence between distributions
-    If multivariate normal distributions:
-    https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence
+    """
+    Estimation of the Kullback-Leibler divergence between too empirical distributions. Three
+    methods are implemented:
+    - columnwise, relying on a uniform binarization and only taking marginals into account
+    (https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence),
+    - gaussian, relying on a Gaussian approximation,
+    - random_forest, experimental
 
     Parameters
     ----------
     df1 : pd.DataFrame
+        First empirical distribution
     df2 : pd.DataFrame
-    columnwise_evaluation: Optional[bool]
-        if the evalutation is computed column-wise. By default, is set to False
+        Second empirical distribution
+    df_mask: pd.DataFrame
+        Mask indicating on what values the divergence should be computed
+    method:
 
     Returns
     -------
