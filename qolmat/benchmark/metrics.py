@@ -5,6 +5,7 @@ import pandas as pd
 import scipy
 import sklearn
 from sklearn import metrics as skm
+from sklearn.ensemble import BaseEnsemble
 from sklearn.preprocessing import StandardScaler
 
 EPS = np.finfo(float).eps
@@ -156,7 +157,28 @@ def wasserstein_distance(
         )
 
 
-def density_from_rf(df, estimator, df_est=None):
+def density_from_rf(
+    df: pd.DataFrame, estimator: BaseEnsemble, df_est: Optional[pd.DataFrame] = None
+):
+    """Estimates the density of the empirical distribution given by df at the sample points given
+    by df_est. The estimation uses an random forest estimator and relies on the average number of
+    samples in the leaf corresponding to each estimation point.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Empirical distribution which density should be estimated
+    estimator : BaseEnsemble
+        Estimator defining the forest upon which is based the density counting.
+    df_est : pd.DataFrame, optional
+        Sample points of the estimation, by default None
+        If None, the density is estimated at the points given by `df`.
+
+    Returns
+    -------
+    pd.Series
+        Series of floats providing the normalized density
+    """
     if df_est is None:
         df_est = df.copy()
     counts = pd.Series(0, index=df_est.index)
@@ -173,7 +195,23 @@ def density_from_rf(df, estimator, df_est=None):
     return counts
 
 
-def kl_divergence_1D(df1: pd.Series, df2: pd.Series) -> np.number:
+def kl_divergence_1D(df1: pd.Series, df2: pd.Series) -> float:
+    """Estimation of the Kullback-Leibler divergence between the two 1D empirical distributions
+    given by `df1`and `df2`. The samples are binarized using a uniform spacing with 20 bins from
+    the smallest to the largest value. Not that this may be a coarse estimation.
+
+    Parameters
+    ----------
+    df1 : pd.Series
+        First empirical distribution
+    df2 : pd.Series
+        Second empirical distribution
+
+    Returns
+    -------
+    float
+        Kullback-Leibler divergence between the two empirical distributions.
+    """
     min_val = min(df1.min(), df2.min())
     max_val = max(df1.max(), df2.max())
     bins = np.linspace(min_val, max_val, 20)
@@ -185,17 +223,23 @@ def kl_divergence_1D(df1: pd.Series, df2: pd.Series) -> np.number:
 def kl_divergence(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame, method: str = "columnwise"
 ) -> pd.Series:
-    """TODO Documentation
-    Kullback-Leibler divergence between distributions
-    If multivariate normal distributions:
-    https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence
+    """
+    Estimation of the Kullback-Leibler divergence between too empirical distributions. Three
+    methods are implemented:
+    - columnwise, relying on a uniform binarization and only taking marginals into account
+    (https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence),
+    - gaussian, relying on a Gaussian approximation,
+    - random_forest, experimental
 
     Parameters
     ----------
     df1 : pd.DataFrame
+        First empirical distribution
     df2 : pd.DataFrame
-    columnwise_evaluation: Optional[bool]
-        if the evalutation is computed column-wise. By default, is set to False
+        Second empirical distribution
+    df_mask: pd.DataFrame
+        Mask indicating on what values the divergence should be computed
+    method:
 
     Returns
     -------
@@ -573,7 +617,7 @@ def _get_correlation_f_oneway_matrix(
     return pd.DataFrame(matrix, index=cols_categorical, columns=cols_numerical)
 
 
-def mean_difference_correlation_matrix_categorical_vs_numerical_features(
+def mean_diff_corr_matrix_categorical_vs_numerical_features(
     df1: pd.DataFrame,
     df2: pd.DataFrame,
     df_mask: pd.DataFrame,
