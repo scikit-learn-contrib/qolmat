@@ -1,18 +1,24 @@
 from typing import Tuple
 import torch
 
+
 class DDPM:
     def __init__(self, num_noise_steps, beta_start: float = 1e-4, beta_end: float = 0.02):
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-        self.loss_func = torch.nn.MSELoss(reduction='none')
+        self.loss_func = torch.nn.MSELoss(reduction="none")
 
         self.num_noise_steps = num_noise_steps
         self.beta_start = beta_start
         self.beta_end = beta_end
 
         # Section 2, equation 4 and near explation for alpha, alpha hat, beta.
-        self.beta = torch.linspace(start=self.beta_start, end=self.beta_end, steps=self.num_noise_steps, device=self.device) # Linear noise schedule
+        self.beta = torch.linspace(
+            start=self.beta_start,
+            end=self.beta_end,
+            steps=self.num_noise_steps,
+            device=self.device,
+        )  # Linear noise schedule
         self.alpha = 1 - self.beta
         self.alpha_hat = torch.cumprod(self.alpha, dim=0)
 
@@ -32,7 +38,7 @@ class DDPM:
 
         sqrt_alpha_hat = self.sqrt_alpha_hat[t].view(-1, 1)
         sqrt_one_minus_alpha_hat = self.sqrt_one_minus_alpha_hat[t].view(-1, 1)
-        if x.dim() == 3: #in the case of time series
+        if x.dim() == 3:  # in the case of time series
             sqrt_alpha_hat = self.sqrt_alpha_hat[t].view(-1, 1, 1)
             sqrt_one_minus_alpha_hat = self.sqrt_one_minus_alpha_hat[t].view(-1, 1, 1)
 

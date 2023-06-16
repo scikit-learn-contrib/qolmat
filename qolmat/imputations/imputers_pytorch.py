@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional, Tuple
 
-import math 
+import math
 
 from sklearn.base import BaseEstimator
 from sklearn import preprocessing
@@ -23,11 +23,13 @@ from qolmat.benchmark import missing_patterns, metrics
 # except ModuleNotFoundError:
 #     raise PytorchNotInstalled
 
+
 def get_num_params(model):
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])
 
     return params
+
 
 class ImputerRegressorPytorch(ImputerRegressor):
     def __init__(
@@ -65,4 +67,8 @@ class ImputerGenerativeModelPytorch(ImputerGenerativeModel):
         self.print_valid = print_valid
 
     def get_params_fit(self) -> Dict:
-        return {"epochs": self.epochs, "batch_size": self.batch_size, "print_valid": self.print_valid}
+        return {
+            "epochs": self.epochs,
+            "batch_size": self.batch_size,
+            "print_valid": self.print_valid,
+        }
