@@ -2,6 +2,7 @@ from typing import Tuple
 import torch
 import math
 
+
 class DDPM:
     def __init__(self, num_noise_steps, beta_start: float = 1e-4, beta_end: float = 0.02):
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -44,6 +45,7 @@ class DDPM:
 
         epsilon = torch.randn_like(x, device=self.device)
         return sqrt_alpha_hat * x + sqrt_one_minus_alpha_hat * epsilon, epsilon
+
 
 class ResidualBlock(torch.nn.Module):
     def __init__(self, dim_input, dim_embedding=128, p_dropout=0.1):
@@ -115,7 +117,8 @@ class AutoEncoder(torch.nn.Module):
         table = steps * frequencies  # (T,dim)
         table = torch.cat([torch.sin(table), torch.cos(table)], dim=1)  # (T,dim*2)
         return table
-    
+
+
 class ResidualBlockTS(torch.nn.Module):
     def __init__(
         self,
@@ -185,9 +188,7 @@ class AutoEncoderTS(AutoEncoder):
         num_layers_transformer=1,
         p_dropout=0.0,
     ):
-        super().__init__(
-            num_noise_steps, dim_input, dim_embedding, num_blocks, p_dropout
-        )
+        super().__init__(num_noise_steps, dim_input, dim_embedding, num_blocks, p_dropout)
 
         self.residual_layers = torch.nn.ModuleList(
             [

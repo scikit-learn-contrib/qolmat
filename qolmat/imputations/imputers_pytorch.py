@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Callable
 import numpy as np
 import pandas as pd
 
@@ -12,6 +12,7 @@ try:
     import torch
 except ModuleNotFoundError:
     raise PytorchNotInstalled
+
 
 class ImputerRegressorPytorch(ImputerRegressor):
     def __init__(
@@ -43,9 +44,7 @@ class ImputerGenerativeModelPytorch(ImputerGenerativeModel):
         x_valid: pd.DataFrame = None,
         x_valid_mask: pd.DataFrame = None,
         print_valid: bool = False,
-        metrics_valid: Dict[str, callable] = {
-            "mae": metrics.mean_absolute_error
-        },
+        metrics_valid: Dict[str, Callable] = {"mae": metrics.mean_absolute_error},
         **hyperparams,
     ):
         super().__init__(groups=groups, model=model, **hyperparams)
@@ -63,5 +62,5 @@ class ImputerGenerativeModelPytorch(ImputerGenerativeModel):
             "x_valid": self.x_valid,
             "x_valid_mask": self.x_valid_mask,
             "print_valid": self.print_valid,
-            "metrics_valid": self.metrics_valid
+            "metrics_valid": self.metrics_valid,
         }

@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Callable
 import math
 import numpy as np
 import pandas as pd
@@ -12,6 +12,7 @@ from sklearn import preprocessing
 from qolmat.imputations.diffusions.base import DDPM, AutoEncoder, AutoEncoderTS
 from qolmat.imputations.diffusions.utils import get_num_params
 from qolmat.benchmark import missing_patterns, metrics
+
 
 class TabDDPM(DDPM):
     def __init__(
@@ -46,9 +47,7 @@ class TabDDPM(DDPM):
         print_valid: bool = False,
         x_valid: pd.DataFrame = None,
         x_valid_mask: pd.DataFrame = None,
-        metrics_valid: Dict[str, callable] = {
-            "mae": metrics.mean_absolute_error
-        },
+        metrics_valid: Dict[str, Callable] = {"mae": metrics.mean_absolute_error},
     ):
         self.epochs = epochs
         self.batch_size = batch_size
@@ -130,7 +129,7 @@ class TabDDPM(DDPM):
         if self.print_valid and epoch % print_step == 0:
             string_valid = f"Epoch {epoch}: "
             for s in self.summary:
-                if s not in ['num_params']:
+                if s not in ["num_params"]:
                     string_valid += f" {s}={round(self.summary[s][epoch], 5)}"
             string_valid += f" in {round(time_duration, 3)} secs"
             print(string_valid)
@@ -217,6 +216,7 @@ class TabDDPM(DDPM):
         gc.collect()
         torch.cuda.empty_cache()
 
+
 class TabDDPMTS(TabDDPM):
     def __init__(
         self,
@@ -261,9 +261,7 @@ class TabDDPMTS(TabDDPM):
         print_valid=True,
         x_valid=None,
         x_valid_mask=None,
-        metrics_valid: Dict[str, callable] = {
-            "mae": metrics.mean_absolute_error
-        },
+        metrics_valid: Dict[str, Callable] = {"mae": metrics.mean_absolute_error},
     ):
         self.epochs = epochs
         self.batch_size = batch_size
@@ -300,9 +298,7 @@ class TabDDPMTS(TabDDPM):
                     n_splits=1, ratio_masked=self.ratio_masked
                 ).generate_mask(x_valid)
             if len(x_valid) < self.size_window:
-                raise ValueError("Size of validation dataframe"\
-                                 " must be larger than size_window"
-                )
+                raise ValueError("Size of validation dataframe" " must be larger than size_window")
             x_processed_valid, x_mask_valid = self._process_data(x_valid, x_valid_mask)
 
         self.eps_model.train()
