@@ -110,7 +110,10 @@ class Comparator:
             DataFrame with the errors for each metric (in column) and at each fold (in index)
         """
         list_errors = []
-        df_origin = df[self.selected_columns].copy()
+        if imputer.columnwise:
+            df_origin = df[self.selected_columns].copy()
+        else:
+            df_origin = df.copy()
         for df_mask in self.generator_holes.split(df_origin):
             df_corrupted = df_origin.copy()
             df_corrupted[df_mask] = np.nan

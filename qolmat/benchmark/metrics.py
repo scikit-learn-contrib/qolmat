@@ -37,7 +37,8 @@ def columnwise_metric(
         Series of scores for all columns
     """
     values = {}
-    for col in df1.columns:
+    # for col in df1.columns:
+    for col in df_mask.sum()[df_mask.sum() > 0].index.to_list():
         df1_col = df1.loc[df_mask[col], col]
         df2_col = df2.loc[df_mask[col], col]
         assert df1_col.notna().all()
@@ -215,7 +216,7 @@ def kl_divergence(
         norm_M = (M**2).sum().sum()
         norm_y = (y**2).sum()
         term_diag_L = 2 * np.sum(np.log(np.diagonal(L2) / np.diagonal(L1)))
-        print(norm_M, "-", n_variables, "+", norm_y, "+", term_diag_L)
+        # print(norm_M, "-", n_variables, "+", norm_y, "+", term_diag_L)
         div_kl = 0.5 * (norm_M - n_variables + norm_y + term_diag_L)
         return pd.Series(div_kl, index=df1.columns)
     elif method == "random_forest":
