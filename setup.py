@@ -47,7 +47,7 @@ INSTALL_REQUIRES = [
     "scikit-optimize",
     "scipy",
     "statsmodels>=0.14",
-    "pandas>=2.0",
+    "pandas>=1.3",
     "dcor>=0.6",
 ]
 EXTRAS_REQUIRE = {
