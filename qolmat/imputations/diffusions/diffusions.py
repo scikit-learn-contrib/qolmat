@@ -354,7 +354,4 @@ class TabDDPMTS(TabDDPM):
             for x_m in x_masks:
                 x_windows_mask_processed.append(x_m.to_numpy())
 
-        x_windows_processed = np.array(x_windows_processed)
-        x_windows_mask_processed = np.array(x_windows_mask_processed)
-
-        return x_windows_processed, x_windows_mask_processed
+        return np.array(x_windows_processed), np.array(x_windows_mask_processed)
