@@ -110,6 +110,10 @@ class Comparator:
             DataFrame with the errors for each metric (in column) and at each fold (in index)
         """
         list_errors = []
+        if len(np.setdiff1d(self.selected_columns, df.columns.to_list())) > 0:
+            raise ValueError(
+                f"{np.setdiff1d(self.selected_columns, df.columns.to_list())}" "not found."
+            )
         if imputer.columnwise:
             df_origin = df[self.selected_columns].copy()
         else:
