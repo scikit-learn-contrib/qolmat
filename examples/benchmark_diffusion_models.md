@@ -16,12 +16,12 @@ jupyter:
 # Benchmark for diffusion models
 
 ```python
-cd ../
-```
-
-```python
 %reload_ext autoreload
 %autoreload 2
+
+import os
+import sys
+sys.path.append('/home/ec2-ngo/qolmat/')
 
 # import warnings
 # warnings.filterwarnings('error')
@@ -29,11 +29,12 @@ cd ../
 import pandas as pd
 import numpy as np
 
-from matplotlib import pyplot as plt
 import plotly.graph_objects as go
-import plotly.io as pio
+import plotly.express as px
 import inspect
+import pickle
 
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.linear_model import LinearRegression
 
 from qolmat.benchmark import comparator, missing_patterns, metrics
@@ -46,7 +47,6 @@ from qolmat.utils import data, plot
 dict_metrics = {
     "mae": metrics.mean_absolute_error,
     "wasser": metrics.wasserstein_distance,
-    "kl": metrics.kl_divergence
 }
 
 def plot_errors(df_original, dfs_imputed, dfs_mask, dict_metrics, cols_to_impute, **kwargs):
@@ -67,6 +67,13 @@ def plot_errors(df_original, dfs_imputed, dfs_mask, dict_metrics, cols_to_impute
 def plot_summaries(summaries, display='epoch_loss', xaxis_title='epoch', height=500):
     fig = go.Figure()
 
+    if display == 'num_params':
+        values_selected = []
+        for ind, (name, values) in enumerate(list(summaries.items())):
+            values_selected.append(values[display])
+        fig.add_trace(go.Bar(x=list(summaries.keys()), y=np.squeeze(values_selected)))
+        return fig
+
     for ind, (name, values) in enumerate(list(summaries.items())):
         values_selected = values[display]
         fig.add_trace(go.Scatter(x=list(range(len(values_selected))), y=values_selected, mode='lines', name=name))
@@ -82,8 +89,8 @@ def plot_summaries(summaries, display='epoch_loss', xaxis_title='epoch', height=
 ## **I. Load data**
 
 ```python
-df_data_raw = data.get_data_corrupted("Beijing", ratio_masked=0., mean_size=120)
-df_data = data.get_data_corrupted("Beijing", ratio_masked=.2, mean_size=120)
+df_data_raw = data.get_data("Beijing_offline", datapath='../data')
+df_data = data.add_holes(df_data_raw, ratio_masked=.2, mean_size=120)
 
 # cols_to_impute = ["TEMP", "PRES", "DEWP", "NO2", "CO", "O3", "WSPM"]
 # cols_to_impute = df_data.columns[df_data.isna().any()]
@@ -98,7 +105,8 @@ df_mask[df_data_raw.isna()] = False
 ```
 
 ```python
-df_data.describe()
+display(df_data.describe())
+display(df_data.isna().sum())
 ```
 
 ## II. Baseline imputers
@@ -133,13 +141,13 @@ dict_imputers_baseline = {
     # "spline": imputer_spline,
     # "shuffle": imputer_shuffle,
     # "residuals": imputer_residuals,
-    # "OU": imputer_ou,
-    # "TSOU": imputer_tsou,
+    "OU": imputer_ou,
+    "TSOU": imputer_tsou,
     "TSMLE": imputer_tsmle,
     # "RPCA": imputer_rpca,
     "RPCA_opti": imputer_rpca_opti,
-    # "locf": imputer_locf,
-    # "nocb": imputer_nocb,
+    "locf": imputer_locf,
+    "nocb": imputer_nocb,
     "knn": imputer_knn,
     "mice": imputer_mice,
     # "regressor": imputer_regressor,
@@ -151,97 +159,142 @@ n_imputers = len(dict_imputers_baseline)
 ## III. Hyperparameter tuning
 
 ```python
-# station = df_mask.index.get_level_values("station").unique()[:2]
-# df_valid = df_data_raw.loc[station].dropna()
-# df_valid_mask = df_mask.loc[station].loc[df_valid.index]
-# df_train = df_data.loc[station]
+station = df_data_raw.index.get_level_values("station").unique()[0]
+df_valid = df_data_raw.loc[station].dropna()
+df_valid_mask = df_mask.loc[station].loc[df_valid.index]
 
-# print(f"Train: {len(df_train)}, Valid: {len(df_valid)} ")
+df_train = df_data.loc[station]
 
-# summaries = {}
+print(f"Train: {len(df_train)}, Valid: {len(df_valid)} ")
+
+summaries = {}
 ```
 
 ```python
-# imputer = diffusions.TabDDPM(dim_input=11, num_noise_steps=50, num_blocks=1, dim_embedding=256)
-# imputer.fit(df_train, batch_size=500, epochs=10, x_valid=df_valid, x_valid_mask=df_valid_mask, print_valid=True, metrics_valid=dict_metrics)
-# summaries["model"] = imputer.summary
-# imputer.cuda_empty_cache()
+%%time
+
+hyperparams_tuning = {
+    'num_noise_steps': [50, 100, 200, 300],
+    'dim_embedding': [128, 256, 512],
+}
+
+for name_hyperparam, hyperparams in hyperparams_tuning.items():
+    for hyperparam in hyperparams:
+        imputer = diffusions.TabDDPM(dim_input=11, **{name_hyperparam: hyperparam})
+        imputer.fit(df_train, batch_size=500, epochs=100, x_valid=df_valid, x_valid_mask=df_valid_mask, print_valid=False, metrics_valid=dict_metrics)
+        summaries[f"{name_hyperparam}={hyperparam}"] = imputer.summary
+        imputer.cuda_empty_cache()
+
 ```
 
 ```python
-# imputer = diffusions.TabDDPMTS(dim_input=11, num_noise_steps=50, num_blocks=1, size_window=10, dim_embedding=256)
-# imputer.fit(df_train, batch_size=1000, epochs=10, x_valid=df_valid, x_valid_mask=df_valid_mask, print_valid=True, metrics_valid=dict_metrics)
-# summaries["model_ts"] = imputer.summary
-# imputer.cuda_empty_cache()
+%%time
+
+hyperparams_tuning = {
+    'size_window': [10, 30, 60, 180, 200],
+}
+
+for name_hyperparam, hyperparams in hyperparams_tuning.items():
+    for hyperparam in hyperparams:
+        imputer = diffusions.TabDDPMTS(dim_input=11, num_noise_steps=100, dim_embedding=256, **{name_hyperparam: hyperparam})
+        imputer.fit(df_train, batch_size=500, epochs=100, x_valid=df_valid, x_valid_mask=df_valid_mask, print_valid=False, metrics_valid=dict_metrics)
+        summaries[f"TS {name_hyperparam}={hyperparam}"] = imputer.summary
+        imputer.cuda_empty_cache()
 ```
 
-### Hyperparams
-
 ```python
-# %%time
-# name_hyperparam = 'size_window'
-# hyperparams = [30, 60, 180]
-# for hyperparam in hyperparams:
-#     imputer = imputers_pytorch.TabDDPMTS(dim_input=11, num_noise_steps=50, num_blocks=1, size_window=hyperparam, lr=0.001, dim_embedding=256)
-#     imputer.fit(df_train, batch_size=500, epochs=50, x_valid=df_valid, x_valid_mask=df_valid_mask, print_valid=True)
-#     summaries[f"{name_hyperparam}={hyperparam}"] = imputer.summary
-#     imputer.cuda_empty_cache()
+with open('figures/summaries_tuning.pkl', 'wb') as handle:
+    pickle.dump(summaries, handle, protocol=pickle.HIGHEST_PROTOCOL)
 ```
 
-### Plot
-
 ```python
+with open('figures/summaries_tuning.pkl', 'rb') as handle:
+    summaries = pickle.load(handle)
+
 plot_summaries(summaries, display='epoch_loss', height=300).show()
 plot_summaries(summaries, display='mae', height=300).show()
-plot_summaries(summaries, display='kl', height=300).show()
-#plot_summaries(summaries, display='num_params', height=300).show()
+plot_summaries(summaries, display='wasser', height=300).show()
+plot_summaries(summaries, display='num_params', height=300).show()
 ```
 
 ## III. Evaluation
+
+
+### One-shot training
 
 ```python
 df_data_st = df_data.loc[['Aotizhongxin']]
 df_data_raw_st = df_data_raw.loc[['Aotizhongxin']]
 df_mask_st = df_mask.loc[['Aotizhongxin']]
 
-df_data_ft_dt = data.add_datetime_features(df_data)
-# df_data_ft_st = data.add_station_features(df_data)
+df_data_ft = data.add_datetime_features(df_data)
+# df_data_ft = data.add_station_features(df_data_ft)
+df_data_ft_st = df_data_ft.loc[['Aotizhongxin']]
 
-df_data_dt_st = df_data_ft_dt.loc[['Aotizhongxin']]
-```
+df_data_raw_eval = df_data_raw
+df_data_eval = df_data
+df_mask_eval = df_mask
+dim_input = 11
 
-```python
-dfs_imputed_baseline = {name: imp.fit_transform(df_data) for name, imp in dict_imputers_baseline.items()}
-```
-
-```python
 dict_imputers = {}
 dfs_imputed = {}
 ```
 
 ```python
-%%time
-
-dict_imputers["TabDDPM"] = imputers_pytorch.ImputerGenerativeModelPytorch(groups=['station'], model=diffusions.TabDDPM(dim_input=11, num_noise_steps=200, num_blocks=1, dim_embedding=512), batch_size=500, epochs=500, print_valid=True)
-dfs_imputed["TabDDPM"] = dict_imputers["TabDDPM"].fit_transform(df_data)
+dfs_imputed_baseline = {name: imp.fit_transform(df_data_eval) for name, imp in dict_imputers_baseline.items()}
 ```
 
 ```python
 %%time
 
-dict_imputers["TabDDPMTS"] = imputers_pytorch.ImputerGenerativeModelPytorch(groups=['station'], model=diffusions.TabDDPMTS(dim_input=11, num_noise_steps=200, num_blocks=1, size_window=60, dim_embedding=512), batch_size=300, epochs=500, print_valid=True)
-dfs_imputed["TabDDPMTS"] = dict_imputers["TabDDPMTS"].fit_transform(df_data)
+dict_imputers["TabDDPM"] = imputers_pytorch.ImputerGenerativeModelPytorch(groups=['station'], model=diffusions.TabDDPM(dim_input=dim_input, num_noise_steps=500, num_blocks=1, dim_embedding=512), batch_size=500, epochs=500, print_valid=False)
+dfs_imputed["TabDDPM"] = dict_imputers["TabDDPM"].fit_transform(df_data_eval)
+```
+
+```python
+%%time
+
+dict_imputers["TabDDPMTS"] = imputers_pytorch.ImputerGenerativeModelPytorch(groups=['station'], model=diffusions.TabDDPMTS(dim_input=dim_input, num_noise_steps=500, num_blocks=1, size_window=180, dim_embedding=512), batch_size=500, epochs=500, print_valid=False)
+dfs_imputed["TabDDPMTS"] = dict_imputers["TabDDPMTS"].fit_transform(df_data_eval)
+```
+
+```python
+with open('figures/df_data_raw_eval.pkl', 'wb') as handle:
+    pickle.dump(df_data_raw_eval, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+with open('figures/df_mask_eval.pkl', 'wb') as handle:
+    pickle.dump(df_mask_eval, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+with open('figures/dfs_imputed_baseline.pkl', 'wb') as handle:
+    pickle.dump(dfs_imputed_baseline, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+with open('figures/dfs_imputed.pkl', 'wb') as handle:
+    pickle.dump(dfs_imputed, handle, protocol=pickle.HIGHEST_PROTOCOL)
+```
+
+```python
+with open('figures/df_data_raw_eval.pkl', 'rb') as handle:
+    df_data_raw_eval = pickle.load(handle)
+
+with open('figures/df_mask_eval.pkl', 'rb') as handle:
+    df_mask_eval = pickle.load(handle)
+
+with open('figures/dfs_imputed_baseline.pkl', 'rb') as handle:
+    dfs_imputed_baseline = pickle.load(handle)
+
+with open('figures/dfs_imputed.pkl', 'rb') as handle:
+    dfs_imputed = pickle.load(handle)
 ```
 
 ```python
 dict_metrics = {
     "mae": metrics.mean_absolute_error,
     "wasser": metrics.wasserstein_distance,
-    "kl": metrics.kl_divergence,
-    "corr": metrics.mean_difference_correlation_matrix_numerical_features,
+    # "kl": metrics.kl_divergence,
+    # "corr": metrics.mean_difference_correlation_matrix_numerical_features,
 }
 
-df_error = plot_errors(df_data_raw, {**dfs_imputed_baseline, **dfs_imputed}, df_mask, dict_metrics, df_data_raw.columns.to_list(), use_p_value=False, method="gaussian").sort_index()
+df_error = plot_errors(df_data_raw_eval, {**dfs_imputed_baseline, **dfs_imputed}, df_mask_eval, dict_metrics, df_data_raw.columns.to_list()).sort_index()
 ```
 
 ```python
@@ -252,47 +305,90 @@ df_error.style\
 .apply(lambda x: ["background: green" if v == x.min() else "" for v in x], axis = 1)\
 # .hide([col for col in df_error.columns.to_list() if col not in cols_min_value], axis=1)\
 
-display(df_error.loc[ ['kl', 'wasser'], [col for col in df_error.columns.to_list() if col in cols_min_value]]\
+display(df_error.loc[ ['wasser'], [col for col in df_error.columns.to_list() if col in cols_min_value]]\
 .style.apply(lambda x: ["background: green" if v == x.min() else "" for v in x], axis = 1))
 
 display(df_error.loc[ ['mae'], [col for col in df_error.columns.to_list() if col in cols_min_value]]\
 .style.apply(lambda x: ["background: green" if v == x.min() else "" for v in x], axis = 1))
-
-display(df_error.loc[ ['corr'], [col for col in df_error.columns.to_list() if col in cols_min_value]]\
-.style.apply(lambda x: ["background: green" if v == x.min() else "" for v in x], axis = 1))
 ```
 
 ```python
-from matplotlib import pyplot as plt
-import matplotlib.image as mpimg
-import matplotlib.ticker as plticker
-
-tab10 = plt.get_cmap("tab10")
-plt.rcParams.update({'font.size': 18})
-
-station = df_data.index.get_level_values("station")[0]
+station = df_data_eval.index.get_level_values("station").unique()[5]
 print(station)
-df_station = df_data.loc[station]
-df_station_raw = df_data_raw.loc[station]
+df_station = df_data_eval.loc[station]
+df_raw_station = df_data_raw_eval.loc[station]
 dfs_imputed_station = {name: df_plot.loc[station] for name, df_plot in {**dfs_imputed_baseline, **dfs_imputed}.items()}
 
 for col in cols_to_impute:
-    fig, ax = plt.subplots(figsize=(10, 3))
-    values_orig_raw = df_station_raw[col]
-    values_orig = df_station[col]
+    fig = go.Figure()
+    df_target = df_raw_station.copy()
+    df_target[df_station.notna()] = np.nan
 
-    plt.plot(values_orig, ".", color='black', label="obs")
-    values_orig_raw[values_orig.notna()] = np.nan
-    plt.plot(values_orig_raw, ".", color='yellow', label="true")
+    fig.add_trace(go.Scatter(x=df_station.index, y=df_station[col], mode='markers', name='obs', marker=dict(color='black')))
+    fig.add_trace(go.Scatter(x=df_target.index, y=df_target[col], mode='markers', name='true', marker=dict(color='grey')))
 
     for ind, (name, model) in enumerate(list(dfs_imputed_station.items())):
-        values_imp = dfs_imputed_station[name][col].copy()
-        values_imp[values_orig.notna()] = np.nan
-        plt.plot(values_imp, ".", color=tab10(ind), label=name, alpha=1)
-    plt.ylabel(col, fontsize=16)
-    plt.legend(loc=[1, 0], fontsize=18)
-    loc = plticker.MultipleLocator(base=2*365)
-    ax.xaxis.set_major_locator(loc)
-    ax.tick_params(axis='both', which='major', labelsize=17)
-    plt.show()
+        values_imp = dfs_imputed_station[name].copy()
+        values_imp[df_station.notna()] = np.nan
+        fig.add_trace(go.Scatter(x=values_imp.index, y=values_imp[col], mode='markers', name=name))
+    fig.update_layout(title=f'{station}: {col}', xaxis_title="datetime", yaxis_title=col, legend_title="Models")
+    fig.show()
+```
+
+### Noise ratio
+
+```python
+%%time
+ratios_masked = [0.2, 0.4, 0.6, 0.8]
+
+dfs_imputed_ratio = {}
+df_mask_ratio = {}
+for ratio_masked in ratios_masked:
+    df_data_ = data.add_holes(df_data_raw, ratio_masked=ratio_masked, mean_size=120)
+    df_mask_ = df_data_.isna()
+    df_mask_[df_data_raw.isna()] = False
+
+    dfs_imputed_ = {name: imp.fit_transform(df_data_) for name, imp in dict_imputers_baseline.items()}
+
+    imputer = imputers_pytorch.ImputerGenerativeModelPytorch(groups=['station'], model=diffusions.TabDDPM(dim_input=11, num_noise_steps=200, num_blocks=1, dim_embedding=512), batch_size=500, epochs=100, print_valid=False)
+    dfs_imputed_["TabDDPM"] = imputer.fit_transform(df_data_)
+    imputer.model.cuda_empty_cache()
+
+    imputer = imputers_pytorch.ImputerGenerativeModelPytorch(groups=['station'], model=diffusions.TabDDPMTS(dim_input=11, num_noise_steps=200, num_blocks=1, dim_embedding=512), batch_size=500, epochs=100, print_valid=False)
+    dfs_imputed_["TabDDPMTS"] = imputer.fit_transform(df_data_)
+    imputer.model.cuda_empty_cache()
+
+    dfs_imputed_ratio[ratio_masked] = dfs_imputed_
+    df_mask_ratio[ratio_masked] = df_mask_
+
+columns_ratio = list(dfs_imputed_ratio[list(dfs_imputed_ratio.keys())[0]].keys())
+df_error_ratio = pd.DataFrame()
+scaler = MinMaxScaler()
+df_data_raw_scaled = pd.DataFrame(scaler.fit_transform(df_data_raw.values), columns=df_data_raw.columns, index=df_data_raw.index)
+for ratio, dfs_imputed_ in dfs_imputed_ratio.items():
+    dfs_imputed_scaled = {}
+    for method, df_imputed_ in dfs_imputed_.items():
+        dfs_imputed_scaled[method] = pd.DataFrame(scaler.transform(df_imputed_.values), columns=df_data_raw.columns, index=df_data_raw.index)
+
+    df_error_ = plot_errors(df_data_raw_scaled, dfs_imputed_scaled, df_mask_ratio[ratio], dict_metrics, df_data_raw.columns.to_list()).sort_index()
+    df_error_.columns=pd.MultiIndex.from_tuples([(ratio, col) for col in columns_ratio])
+    df_error_ratio = pd.concat([df_error_ratio, df_error_], axis=1)
+
+with open('figures/df_error_ratio.pkl', 'wb') as handle:
+    pickle.dump(df_error_ratio, handle, protocol=pickle.HIGHEST_PROTOCOL)
+```
+
+```python
+with open('figures/df_error_ratio.pkl', 'rb') as handle:
+    df_error_ratio = pickle.load(handle)
+
+for mtr in dict_metrics:
+    df_plot = df_error_ratio.groupby(level=0).mean().loc[mtr]
+    fig = px.line(x=df_plot.index.get_level_values(0), y=df_plot.values, color=df_plot.index.get_level_values(1), markers=True)
+    fig.update_layout(title=mtr, xaxis_title="Ratio masked", yaxis_title=mtr, legend_title="Models")
+    fig.show()
+```
+
+```python
+
 ```

@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import time
 import gc
+from datetime import timedelta
 
 import torch
 from torch.utils.data import DataLoader, TensorDataset
@@ -25,7 +26,7 @@ class TabDDPM(DDPM):
         ratio_masked: float = 0.1,
         dim_embedding: int = 128,
         num_blocks: int = 1,
-        p_dropout: float = 0.1,
+        p_dropout: float = 0.0,
     ):
         super().__init__(num_noise_steps, beta_start, beta_end)
 
@@ -38,6 +39,22 @@ class TabDDPM(DDPM):
         self.p_dropout = p_dropout
 
         self.normalizer_x = preprocessing.StandardScaler()
+
+    def _set_eps_model(self):
+        self.eps_model = AutoEncoder(
+            self.num_noise_steps,
+            self.dim_input,
+            self.dim_embedding,
+            self.num_blocks,
+            self.p_dropout,
+        ).to(self.device)
+        self.optimiser = torch.optim.Adam(self.eps_model.parameters(), lr=self.lr)
+
+        # p1 = int(0.75 * self.epochs)
+        # p2 = int(0.9 * self.epochs)
+        # self.lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
+        #     self.optimiser, milestones=[p1, p2], gamma=0.1
+        # )
 
     def fit(
         self,
@@ -54,15 +71,9 @@ class TabDDPM(DDPM):
         self.columns = x.columns.tolist()
         self.metrics_valid = metrics_valid
         self.print_valid = print_valid
+        self.time_durations: List = []
 
-        self.eps_model = AutoEncoder(
-            self.num_noise_steps,
-            self.dim_input,
-            self.dim_embedding,
-            self.num_blocks,
-            self.p_dropout,
-        ).to(self.device)
-        self.optimiser = torch.optim.Adam(self.eps_model.parameters(), lr=self.lr)
+        self._set_eps_model()
 
         self.summary: Dict[str, List] = {
             "epoch_loss": [],
@@ -80,7 +91,6 @@ class TabDDPM(DDPM):
                 ).generate_mask(x_valid)
             x_processed_valid, x_mask_valid = self._process_data(x_valid, x_valid_mask)
 
-        self.eps_model.train()
         x_tensor = torch.from_numpy(x_processed).float().to(self.device)
         x_mask_tensor = torch.from_numpy(x_mask).float().to(self.device)
         dataloader = DataLoader(
@@ -92,6 +102,7 @@ class TabDDPM(DDPM):
         for epoch in range(epochs):
             loss_epoch = 0.0
             time_start = time.time()
+            self.eps_model.train()
             for id_batch, (x_batch, mask_x_batch) in enumerate(dataloader):
                 mask_rand = (
                     torch.cuda.FloatTensor(mask_x_batch.size()).uniform_() > self.ratio_masked
@@ -112,9 +123,11 @@ class TabDDPM(DDPM):
                 self.optimiser.step()
                 loss_epoch += loss.item()
 
+            # self.lr_scheduler.step()
             time_duration = time.time() - time_start
             self.summary["epoch_loss"].append(loss.item())
             if x_valid is not None:
+                self.eps_model.eval()
                 dict_loss = self._eval(x_processed_valid, x_mask_valid, x_valid, x_valid_mask)
                 for name_loss, value_loss in dict_loss.items():
                     if name_loss not in self.summary:
@@ -125,13 +138,18 @@ class TabDDPM(DDPM):
             self._print_valid(epoch, time_duration)
 
     def _print_valid(self, epoch: int, time_duration: float):
+        self.time_durations.append(time_duration)
         print_step = 1 if int(self.epochs / 10) == 0 else int(self.epochs / 10)
+        if epoch == 0:
+            print(f'Num params: {self.summary["num_params"][0]}')
         if self.print_valid and epoch % print_step == 0:
             string_valid = f"Epoch {epoch}: "
             for s in self.summary:
                 if s not in ["num_params"]:
                     string_valid += f" {s}={round(self.summary[s][epoch], 5)}"
-            string_valid += f" in {round(time_duration, 3)} secs"
+            string_valid += f" | in {round(time_duration, 3)} secs"
+            remaining_duration = np.mean(self.time_durations) * (self.epochs - epoch)
+            string_valid += f" remaining {timedelta(seconds=remaining_duration)}"
             print(string_valid)
 
     def _impute(self, x: np.ndarray, x_mask_obs: np.ndarray) -> np.ndarray:
@@ -233,7 +251,7 @@ class TabDDPMTS(TabDDPM):
         nheads_feature: int = 5,
         nheads_time: int = 8,
         num_layers_transformer: int = 1,
-        p_dropout: float = 0.1,
+        p_dropout: float = 0.0,
     ):
         super().__init__(
             dim_input,
@@ -253,22 +271,7 @@ class TabDDPMTS(TabDDPM):
         self.nheads_time = nheads_time
         self.num_layers_transformer = num_layers_transformer
 
-    def fit(
-        self,
-        x: pd.DataFrame,
-        epochs=10,
-        batch_size=100,
-        print_valid=True,
-        x_valid=None,
-        x_valid_mask=None,
-        metrics_valid: Dict[str, Callable] = {"mae": metrics.mean_absolute_error},
-    ):
-        self.epochs = epochs
-        self.batch_size = batch_size
-        self.columns = x.columns.tolist()
-        self.metrics_valid = metrics_valid
-        self.print_valid = print_valid
-
+    def _set_eps_model(self):
         self.eps_model = AutoEncoderTS(
             self.num_noise_steps,
             self.dim_input,
@@ -283,67 +286,11 @@ class TabDDPMTS(TabDDPM):
         ).to(self.device)
         self.optimiser = torch.optim.Adam(self.eps_model.parameters(), lr=self.lr)
 
-        self.summary: Dict[str, List] = {
-            "epoch_loss": [],
-            "num_params": [get_num_params(self.eps_model)],
-        }
-
-        self.normalizer_x.fit(x.values)
-
-        x_processed, x_mask = self._process_data(x)
-
-        if x_valid is not None:
-            if x_valid_mask is None:
-                x_valid_mask = missing_patterns.UniformHoleGenerator(
-                    n_splits=1, ratio_masked=self.ratio_masked
-                ).generate_mask(x_valid)
-            if len(x_valid) < self.size_window:
-                raise ValueError("Size of validation dataframe" " must be larger than size_window")
-            x_processed_valid, x_mask_valid = self._process_data(x_valid, x_valid_mask)
-
-        self.eps_model.train()
-        x_tensor = torch.from_numpy(x_processed).float().to(self.device)
-        x_mask_tensor = torch.from_numpy(x_mask).float().to(self.device)
-        dataloader = DataLoader(
-            TensorDataset(x_tensor, x_mask_tensor),
-            batch_size=batch_size,
-            drop_last=True,
-            shuffle=True,
-        )
-        for epoch in range(epochs):
-            loss_epoch = 0.0
-            time_start = time.time()
-            for id_batch, (x_batch, mask_x_batch) in enumerate(dataloader):
-                mask_rand = (
-                    torch.cuda.FloatTensor(mask_x_batch.size()).uniform_() > self.ratio_masked
-                )
-                mask_x_batch = mask_x_batch * mask_rand
-
-                self.optimiser.zero_grad()
-                t = torch.randint(
-                    low=1,
-                    high=self.num_noise_steps,
-                    size=(x_batch.size(dim=0), 1),
-                    device=self.device,
-                )
-                x_batch_t, noise = self.q_sample(x=x_batch, t=t)
-                predicted_noise = self.eps_model(x=x_batch_t, t=t)
-                loss = (self.loss_func(predicted_noise, noise) * mask_x_batch).mean()
-                loss.backward()
-                self.optimiser.step()
-                loss_epoch += loss.item()
-
-            time_duration = time.time() - time_start
-            self.summary["epoch_loss"].append(loss.item())
-            if x_valid is not None:
-                dict_loss = self._eval(x_processed_valid, x_mask_valid, x_valid, x_valid_mask)
-                for name_loss, value_loss in dict_loss.items():
-                    if name_loss not in self.summary:
-                        self.summary[name_loss] = [value_loss]
-                    else:
-                        self.summary[name_loss].append(value_loss)
-
-            self._print_valid(epoch, time_duration)
+        # p1 = int(0.75 * self.epochs)
+        # p2 = int(0.9 * self.epochs)
+        # self.lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
+        #     self.optimiser, milestones=[p1, p2], gamma=0.1
+        # )
 
     def _impute(self, x: np.ndarray, x_mask_obs: np.ndarray) -> np.ndarray:
         x_tensor = torch.from_numpy(x).float().to(self.device)
