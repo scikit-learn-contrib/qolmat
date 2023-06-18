@@ -15,6 +15,43 @@ jupyter:
 
 # Benchmark for diffusion models
 
+
+**ImputerGenerativeModel: Denoising Diffusion Probabilistic Models - [DDPM](https://arxiv.org/abs/2006.11239)**
+
+- Forward: $x_0 \rightarrow x_1 \rightarrow \dots \rightarrow x_{T-1} \rightarrow x_T$
+    - $q(x_t | x_0) = \mathcal{N}(x_t; \sqrt{\bar{\alpha}_t} x_0, (1-\bar{\alpha}_t)I)$
+    - $x_t = \bar{\alpha}_t \times x_0 + \sqrt{1-\bar{\alpha}_t} \times \epsilon$ where
+        - $\epsilon \sim \mathcal{N}(0,I)$
+        - $\bar{\alpha}_t = \sum^t_{t=0} \alpha_t$
+        - $\alpha$: noise scheduler
+
+- Reserve: $x_T \rightarrow x_{t-1} \rightarrow \dots \rightarrow x_1 \rightarrow x_0$
+    - $p_\theta (x_{t-1}|x_t) = \mathcal{N}(x_{t-1}; \mu_\theta (x_t, t), \Sigma_\theta (x_t, t))$
+    - $x_{t-1} = \frac{1}{\sqrt{\alpha_t}} (x_t - \frac{1 - \alpha_t}{\sqrt{1-\bar{\alpha}_t}} \epsilon_\theta(x_t, t)) + \sigma_t z$ where
+        - $\epsilon$: our model to predict noise at t
+        - $z \sim \mathcal{N}(0,I)$
+
+- Objective function:
+    - $E_{t \sim \mathcal{U} [[1,T]], x_0 \sim q(x_0), \epsilon \sim \mathcal{N}(0,I)} [|| \epsilon - \epsilon_\theta(x_t, t)||^2]$
+
+**TabDDPM**
+
+- Training:
+    - Fill real nan with mean
+    - Self-training: compute only loss values from observed data (CSDI)
+    - More complex autoencoder based on ResNet [Gorishniy et al., 2021](https://arxiv.org/abs/2106.11959) ([code](https://github.com/Yura52/rtdl))
+    - Embedding of noise steps (CSDI)
+- Inference:
+    - $\epsilon \rightarrow \hat{x}_t \rightarrow \hat{x}_0$ where
+        - $\hat{x}_t = mask * x_0 + (1 - mask) * \hat{x}_t$
+        - $mask$: 1 = observed values
+    - Fill nan with $\hat{x}_0$
+
+**TabDDPMTS**
+- Sliding window method: obtain a list of data chunks
+- Apply Transformer Encoder to encode the relationship between times in a chunk
+
+
 ```python
 %reload_ext autoreload
 %autoreload 2
