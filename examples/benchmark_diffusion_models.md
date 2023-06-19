@@ -71,6 +71,7 @@ import plotly.express as px
 import inspect
 import pickle
 
+from functools import partial
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.linear_model import LinearRegression
 
@@ -83,7 +84,9 @@ from qolmat.utils import data, plot
 ```python
 dict_metrics = {
     "mae": metrics.mean_absolute_error,
+    "wmape": metrics.weighted_mean_absolute_percentage_error,
     "wasser": metrics.wasserstein_distance,
+    "KL_gaussian": partial(metrics.kl_divergence, method="gaussian"),
 }
 
 def plot_errors(df_original, dfs_imputed, dfs_mask, dict_metrics, cols_to_impute, **kwargs):
@@ -171,13 +174,13 @@ imputer_mice = imputers.ImputerMICE(groups=["station"], estimator=LinearRegressi
 imputer_regressor = imputers.ImputerRegressor(groups=["station"], estimator=LinearRegression())
 
 dict_imputers_baseline = {
-    # "mean": imputer_mean,
-    # "median": imputer_median,
-    # "mode": imputer_mode,
+    "mean": imputer_mean,
+    "median": imputer_median,
+    "mode": imputer_mode,
     "interpolation": imputer_interpol,
-    # "spline": imputer_spline,
-    # "shuffle": imputer_shuffle,
-    # "residuals": imputer_residuals,
+    "spline": imputer_spline,
+    "shuffle": imputer_shuffle,
+    "residuals": imputer_residuals,
     "OU": imputer_ou,
     "TSOU": imputer_tsou,
     "TSMLE": imputer_tsmle,
@@ -196,11 +199,14 @@ n_imputers = len(dict_imputers_baseline)
 ## III. Hyperparameter tuning
 
 ```python
-station = df_data_raw.index.get_level_values("station").unique()[0]
-df_valid = df_data_raw.loc[station].dropna()
-df_valid_mask = df_mask.loc[station].loc[df_valid.index]
+# station = df_data_raw.index.get_level_values("station").unique()[0]
+# df_valid = df_data_raw.loc[station].dropna()
+# df_valid_mask = df_mask.loc[station].loc[df_valid.index]
+# df_train = df_data.loc[station]
 
-df_train = df_data.loc[station]
+df_valid = df_data_raw.dropna()
+df_valid_mask = df_mask.loc[df_valid.index]
+df_train = df_data
 
 print(f"Train: {len(df_train)}, Valid: {len(df_valid)} ")
 
@@ -260,13 +266,13 @@ plot_summaries(summaries, display='num_params', height=300).show()
 ### One-shot training
 
 ```python
-df_data_st = df_data.loc[['Aotizhongxin']]
-df_data_raw_st = df_data_raw.loc[['Aotizhongxin']]
-df_mask_st = df_mask.loc[['Aotizhongxin']]
+# df_data_st = df_data.loc[['Aotizhongxin']]
+# df_data_raw_st = df_data_raw.loc[['Aotizhongxin']]
+# df_mask_st = df_mask.loc[['Aotizhongxin']]
 
-df_data_ft = data.add_datetime_features(df_data)
+# df_data_ft = data.add_datetime_features(df_data)
 # df_data_ft = data.add_station_features(df_data_ft)
-df_data_ft_st = df_data_ft.loc[['Aotizhongxin']]
+# df_data_ft_st = df_data_ft.loc[['Aotizhongxin']]
 
 df_data_raw_eval = df_data_raw
 df_data_eval = df_data
@@ -324,13 +330,6 @@ with open('figures/dfs_imputed.pkl', 'rb') as handle:
 ```
 
 ```python
-dict_metrics = {
-    "mae": metrics.mean_absolute_error,
-    "wasser": metrics.wasserstein_distance,
-    # "kl": metrics.kl_divergence,
-    # "corr": metrics.mean_difference_correlation_matrix_numerical_features,
-}
-
 df_error = plot_errors(df_data_raw_eval, {**dfs_imputed_baseline, **dfs_imputed}, df_mask_eval, dict_metrics, df_data_raw.columns.to_list()).sort_index()
 ```
 
@@ -342,10 +341,10 @@ df_error.style\
 .apply(lambda x: ["background: green" if v == x.min() else "" for v in x], axis = 1)\
 # .hide([col for col in df_error.columns.to_list() if col not in cols_min_value], axis=1)\
 
-display(df_error.loc[ ['wasser'], [col for col in df_error.columns.to_list() if col in cols_min_value]]\
+display(df_error.loc[ ['wasser', 'KL_gaussian'], [col for col in df_error.columns.to_list() if col in cols_min_value]]\
 .style.apply(lambda x: ["background: green" if v == x.min() else "" for v in x], axis = 1))
 
-display(df_error.loc[ ['mae'], [col for col in df_error.columns.to_list() if col in cols_min_value]]\
+display(df_error.loc[ ['mae', 'wmape'], [col for col in df_error.columns.to_list() if col in cols_min_value]]\
 .style.apply(lambda x: ["background: green" if v == x.min() else "" for v in x], axis = 1))
 ```
 
@@ -376,7 +375,8 @@ for col in cols_to_impute:
 
 ```python
 %%time
-ratios_masked = [0.2, 0.4, 0.6, 0.8]
+
+ratios_masked = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
 dfs_imputed_ratio = {}
 df_mask_ratio = {}
@@ -400,16 +400,16 @@ for ratio_masked in ratios_masked:
 
 columns_ratio = list(dfs_imputed_ratio[list(dfs_imputed_ratio.keys())[0]].keys())
 df_error_ratio = pd.DataFrame()
-scaler = MinMaxScaler()
-df_data_raw_scaled = pd.DataFrame(scaler.fit_transform(df_data_raw.values), columns=df_data_raw.columns, index=df_data_raw.index)
 for ratio, dfs_imputed_ in dfs_imputed_ratio.items():
-    dfs_imputed_scaled = {}
-    for method, df_imputed_ in dfs_imputed_.items():
-        dfs_imputed_scaled[method] = pd.DataFrame(scaler.transform(df_imputed_.values), columns=df_data_raw.columns, index=df_data_raw.index)
-
-    df_error_ = plot_errors(df_data_raw_scaled, dfs_imputed_scaled, df_mask_ratio[ratio], dict_metrics, df_data_raw.columns.to_list()).sort_index()
+    df_error_ = plot_errors(df_data_raw, dfs_imputed_, df_mask_ratio[ratio], dict_metrics, df_data_raw.columns.to_list()).sort_index()
     df_error_.columns=pd.MultiIndex.from_tuples([(ratio, col) for col in columns_ratio])
     df_error_ratio = pd.concat([df_error_ratio, df_error_], axis=1)
+
+with open('figures/dfs_imputed_ratio.pkl', 'wb') as handle:
+    pickle.dump(dfs_imputed_ratio, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+with open('figures/df_mask_ratio.pkl', 'wb') as handle:
+    pickle.dump(df_mask_ratio, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 with open('figures/df_error_ratio.pkl', 'wb') as handle:
     pickle.dump(df_error_ratio, handle, protocol=pickle.HIGHEST_PROTOCOL)
