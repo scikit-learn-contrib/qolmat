@@ -140,7 +140,7 @@ class TabDDPM(DDPM):
     def _print_valid(self, epoch: int, time_duration: float):
         self.time_durations.append(time_duration)
         print_step = 1 if int(self.epochs / 10) == 0 else int(self.epochs / 10)
-        if epoch == 0:
+        if self.print_valid and epoch == 0:
             print(f'Num params: {self.summary["num_params"][0]}')
         if self.print_valid and epoch % print_step == 0:
             string_valid = f"Epoch {epoch}: "

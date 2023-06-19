@@ -10,7 +10,7 @@ jupyter:
   kernelspec:
     display_name: env_qolmat_dev
     language: python
-    name: python3
+    name: env_qolmat_dev
 ---
 
 # Benchmark for diffusion models

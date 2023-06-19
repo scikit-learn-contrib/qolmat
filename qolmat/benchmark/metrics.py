@@ -38,8 +38,7 @@ def columnwise_metric(
         Series of scores for all columns
     """
     values = {}
-    # for col in df1.columns:
-    for col in df_mask.sum()[df_mask.sum() > 0].index.to_list():
+    for col in df1.columns:
         df1_col = df1.loc[df_mask[col], col]
         df2_col = df2.loc[df_mask[col], col]
         assert df1_col.notna().all()
