@@ -985,7 +985,7 @@ class ImputerRegressor(Imputer):
             #     y_reshaped = y_imputed
             # else:
             #     y_reshaped = y_imputed.flatten()
-            df_imputed.loc[is_na & is_valid, col] = y_imputed.values
+            df_imputed.loc[is_na & is_valid, col] = y_imputed.values[: sum(is_na & is_valid)]
 
         return df_imputed
 
