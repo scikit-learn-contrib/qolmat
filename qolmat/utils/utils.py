@@ -37,7 +37,15 @@ def display_bar_table(data: pd.DataFrame, ylabel: Optional[str] = "", path: Opti
     plt.show()
 
 
-def progress_bar(iteration, total, prefix="", suffix="", decimals=1, length=100, fill="█"):
+def progress_bar(
+    iteration: int,
+    total: int,
+    prefix: str = "",
+    suffix: str = "",
+    decimals: int = 1,
+    length: int = 100,
+    fill: str = "█",
+):
     """Call in a loop to create terminal progress bar
 
     Parameters
@@ -46,27 +54,40 @@ def progress_bar(iteration, total, prefix="", suffix="", decimals=1, length=100,
         current iteration
     total : int
         total iterations
-    prefix : str, optional
+    prefix : str
         prefix string, by default ""
-    suffix : str, optional
+    suffix : str
         suffix string, by default ""
-    decimals : int, optional
+    decimals : int
         positive number of decimals in percent complete, by default 1
-    length : int, optional
+    length : int
         character length of bar, by default 100
-    fill : str, optional
+    fill : str
         bar fill character, by default "█"
     """
     percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
     filled_length = int(length * iteration // total)
     bar = fill * filled_length + "-" * (length - filled_length)
     print(f"\r{prefix} |{bar}| {percent}% {suffix}", end="\r")
-    # Print New Line on Complete
     if iteration == total:
         print()
 
 
 def acf(values: pd.Series, lag_max: int = 30) -> pd.Series:
+    """Correlation series of dataseries
+
+    Parameters
+    ----------
+    values : pd.Series
+        dataseries
+    lag_max : int, optional
+        the maximum lag, by default 30
+
+    Returns
+    -------
+    pd.Series
+        correlation series of value
+    """
     acf = pd.Series(0, index=range(lag_max))
     for lag in range(lag_max):
         acf[lag] = values.corr(values.shift(lag))

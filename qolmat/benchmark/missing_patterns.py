@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import functools
 import logging
-from typing import List, Optional, Tuple, Callable
+from typing import Callable, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -111,7 +111,7 @@ class _HoleGenerator:
             mask
         """
 
-        # self.fit(X)
+        self.fit(X)
         list_masks = []
         for _ in range(self.n_splits):
             if self.ngroups is None:
@@ -694,6 +694,7 @@ class GroupedHoleGenerator(_HoleGenerator):
                 index=X.index,
             )
             df_mask.loc[observed_indices, self.subset] = True
+            df_mask[X.isna()] = False
             list_masks.append(df_mask)
 
         return list_masks

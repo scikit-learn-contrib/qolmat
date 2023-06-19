@@ -73,13 +73,13 @@ cols_to_impute = ["TEMP", "PRES"]
 
 The dataset `Artificial` is designed to have a sum of a periodical signal, a white noise and some outliers.
 
-```python tags=[]
-df_data
-```
-
 ```python
 # df_data = data.get_data_corrupted("Artificial", ratio_masked=.2, mean_size=10)
 # cols_to_impute = ["signal"]
+```
+
+```python tags=[]
+df_data
 ```
 
 Let's take a look at variables to impute. We only consider a station, Aotizhongxin.
@@ -131,8 +131,8 @@ imputer_spline = imputers.ImputerInterpolation(groups=["station"], method="splin
 imputer_shuffle = imputers.ImputerShuffle(groups=["station"])
 imputer_residuals = imputers.ImputerResiduals(groups=["station"], period=7, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
 
-imputer_rpca = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=365, max_iter=200, tau=2, lam=.3)
-imputer_rpca_opti = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=365, max_iter=100)
+imputer_rpca = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=7, max_iter=200, tau=2, lam=.3)
+imputer_rpca_opti = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=7, max_iter=100)
 
 imputer_ou = imputers.ImputerEM(groups=["station"], model="multinormal", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
 imputer_tsou = imputers.ImputerEM(groups=["station"], model="VAR1", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
@@ -144,27 +144,27 @@ imputer_mice = imputers.ImputerMICE(groups=["station"], estimator=LinearRegressi
 imputer_regressor = imputers.ImputerRegressor(groups=["station"], estimator=LinearRegression())
 
 dict_imputers = {
-    # "mean": imputer_mean,
+    "mean": imputer_mean,
     # "median": imputer_median,
     # "mode": imputer_mode,
     "interpolation": imputer_interpol,
     # "spline": imputer_spline,
-    # "shuffle": imputer_shuffle,
+    "shuffle": imputer_shuffle,
     # "residuals": imputer_residuals,
     # "OU": imputer_ou,
     # "TSOU": imputer_tsou,
     # "TSMLE": imputer_tsmle,
-    # "RPCA": imputer_rpca,
-    # "RPCA_opti": imputer_rpca_opti,
+    "RPCA": imputer_rpca,
+    "RPCA_opti": imputer_rpca_opti,
     # "locf": imputer_locf,
     # "nocb": imputer_nocb,
     # "knn": imputer_knn,
     "ols": imputer_regressor,
-    "mice_ols": imputer_mice,
+    # "mice_ols": imputer_mice,
 }
 n_imputers = len(dict_imputers)
 
-search_params = {
+dict_config_opti = {
     "RPCA_opti": {
         "tau": {"min": .5, "max": 5, "type":"Real"},
         "lam": {"min": .1, "max": 1, "type":"Real"},
@@ -193,12 +193,18 @@ comparison = comparator.Comparator(
     dict_imputers,
     cols_to_impute,
     generator_holes = generator_holes,
-    metrics=["mae", "wmape", "KL"],
+    metrics=["mae", "wmape", "KL_columnwise", "ks_test", "energy"],
     n_calls_opt=10,
-    search_params=search_params,
+    dict_config_opti=dict_config_opti,
 )
 results = comparison.compare(df_data)
 results
+```
+
+```python
+df_plot = results.loc["energy", "All"]
+plt.barh(df_plot.index, df_plot, color=tab10(0))
+plt.show()
 ```
 
 ```python
@@ -208,7 +214,7 @@ plot.multibar(results.loc["mae"], decimals=1)
 plt.ylabel("mae")
 
 fig.add_subplot(2, 1, 2)
-plot.multibar(results.loc["KL"], decimals=1)
+plot.multibar(results.loc["KL_columnwise"], decimals=1)
 plt.ylabel("KL")
 plt.show()
 ```
@@ -337,7 +343,7 @@ comparison = comparator.Comparator(
     df_data.columns,
     generator_holes = generator_holes,
     n_calls_opt=10,
-    search_params=search_params,
+    dict_config_opti=dict_config_opti,
 )
 results = comparison.compare(df_data)
 results
