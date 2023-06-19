@@ -869,7 +869,27 @@ class ImputerRegressor(Imputer):
     def get_params_fit(self) -> Dict:
         return {}
 
-    def fit(self, X: pd.DataFrame, y=None):
+    def fit(self, X: pd.DataFrame, y: pd.DataFrame = None) -> Imputer:
+        """Fit regressor model
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            dataframe for training
+        y : pd.DataFrame, optional
+            by default None
+
+        Returns
+        -------
+        Imputer
+            imputer fit
+
+        Raises
+        ------
+        ValueError
+            the handler is not correct
+        """
+
         super().fit(X)
         if not isinstance(X, (pd.DataFrame)):
             X = pd.DataFrame(np.array(X), columns=[i for i in range(np.array(X).shape[1])])
@@ -965,7 +985,7 @@ class ImputerRegressor(Imputer):
             #     y_reshaped = y_imputed
             # else:
             #     y_reshaped = y_imputed.flatten()
-            df_imputed.loc[is_na & is_valid, col] = y_imputed
+            df_imputed.loc[is_na & is_valid, col] = y_imputed.values
 
         return df_imputed
 
@@ -1009,7 +1029,7 @@ class ImputerRPCA(Imputer):
 
         self.method = method
 
-    def fit(self, X: pd.DataFrame, y=None):
+    def fit(self, X: pd.DataFrame, y: pd.DataFrame = None):
         super().fit(X)
         if not isinstance(X, (pd.DataFrame)):
             X = pd.DataFrame(np.array(X), columns=[i for i in range(np.array(X).shape[1])])
