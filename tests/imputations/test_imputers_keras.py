@@ -52,5 +52,4 @@ def test_ImputerRegressorKeras_fit_transform(df: pd.DataFrame) -> None:
             "col5": [93.0, 75.0, 38.36526, 12.0, 38.36547],
         }
     )
-    print(result)
     np.testing.assert_allclose(result, expected, atol=1e-5)
