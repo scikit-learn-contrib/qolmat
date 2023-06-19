@@ -64,14 +64,89 @@ class Imputer(_BaseImputer):
             "requires_fit": False,
             "_xfail_checks": {
                 "check_parameters_default_constructible": "The imputer need Dict as a parammeter",
-                "check_no_attributes_set_in_init": """The imputer can define an attribute
-                modifiable in init""",
             },
         }
 
-    def fit(self, X, y: pd.DataFrame = None):
-        X = self._validate_data(X, force_all_finite="allow-nan")
+    def fit(self, X: pd.DataFrame, y=None):
+        _ = self._validate_data(X, force_all_finite="allow-nan")
+        if not isinstance(X, (pd.DataFrame)):
+            X = pd.DataFrame(np.array(X), columns=[i for i in range(np.array(X).shape[1])])
+        df = X
+
+        self.columns_ = df.columns
+        self.rng_ = sku.check_random_state(self.random_state)
+        if hasattr(self, "estimator") and hasattr(self.estimator, "random_state"):
+            self.estimator.random_state = self.rng_
+
+        if self.groups == []:
+            self.ngroups_ = pd.Series(0, index=df.index).rename("_ngroup")
+        else:
+            self.ngroups_ = df.groupby(self.groups).ngroup().rename("_ngroup")
+
         return self
+
+    def set_hyperparams(self, df: pd.DataFrame):
+        cols_with_nans = df.columns[df.isna().any()]
+        self.hyperparams_element_ = {}
+        if self.columnwise:
+            for col in cols_with_nans:
+                hyperparams_element = {}
+                for hyperparam, value in self.hyperparams.items():
+                    if isinstance(value, dict):
+                        value = value[col]
+                    hyperparams_element[hyperparam] = value
+                self.hyperparams_element_[col] = hyperparams_element
+        else:
+            if any(isinstance(value, dict) for value in self.hyperparams.values()):
+                raise AssertionError("hyperparams contains a dictionary. Columnwise must be True.")
+            self.hyperparams_element_["__all__"] = self.hyperparams
+
+    def transform(self, X: pd.DataFrame) -> pd.DataFrame:
+        """
+        Returns a dataframe with same shape as `df`, unchanged values, where all nans are replaced
+        by non-nan values.
+        Depending on the imputer parameters, the dataframe can be imputed with columnwise and/or
+        groupwise methods.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe to impute.
+
+        Returns
+        -------
+        pd.DataFrame
+            Imputed dataframe.
+        """
+        if not isinstance(X, (pd.DataFrame, np.ndarray)):
+            X = np.array(X)
+        df = pd.DataFrame(X)
+        if df.columns.size != self.columns_.size:
+            raise ValueError(
+                """The number of features is different from the counterpart in fit.
+                Reshape your data"""
+            )
+
+        for column in df:
+            if df[column].isnull().all():
+                raise ValueError("Input contains a column full of NaN")
+
+        cols_with_nans = df.columns[df.isna().any()]
+
+        if self.columnwise:
+            df_imputed = df.copy()
+            for col in cols_with_nans:
+                df_imputed[col] = self.impute_element(df[[col]])
+        else:
+            df_imputed = self.impute_element(df)
+
+        if df_imputed.isna().any().any():
+            raise AssertionError("Result of imputation contains NaN!")
+
+        if isinstance(X, (np.ndarray)):
+            df_imputed = df_imputed.to_numpy()
+
+        return df_imputed
 
     def fit_transform(self, X: pd.DataFrame, y=None) -> pd.DataFrame:
         """
@@ -91,47 +166,7 @@ class Imputer(_BaseImputer):
             Imputed dataframe.
         """
         self.fit(X)
-
-        if not isinstance(X, (pd.DataFrame, np.ndarray)):
-            raise ValueError("Input has to be a pandas.DataFrame or numpy.ndarray.")
-        df = pd.DataFrame(X)
-        for column in df:
-            if df[column].isnull().all():
-                raise ValueError("Input contains a column full of NaN")
-        self.rng = sku.check_random_state(self.random_state)
-        if hasattr(self, "estimator") and hasattr(self.estimator, "random_state"):
-            self.estimator.random_state = self.rng
-
-        hyperparams = self.hyperparams.copy()
-        if hasattr(self, "hyperparams_optim"):
-            hyperparams.update(self.hyperparams_optim)
-        cols_with_nans = df.columns[df.isna().any()]
-
-        if self.groups == []:
-            self.ngroups_ = pd.Series(0, index=df.index).rename("_ngroup")
-        else:
-            self.ngroups_ = df.groupby(self.groups).ngroup().rename("_ngroup")
-
-        if self.columnwise:
-            df_imputed = df.copy()
-
-            for col in cols_with_nans:
-                self.hyperparams_element = {}
-                for hyperparam, value in hyperparams.items():
-                    if isinstance(value, dict):
-                        value = value[col]
-                    self.hyperparams_element[hyperparam] = value
-
-                df_imputed[col] = self.impute_element(df[[col]])
-
-        else:
-            if any(isinstance(value, dict) for value in hyperparams.values()):
-                raise AssertionError("hyperparams contains a dictionary. Columnwise must be True.")
-            self.hyperparams_element = hyperparams
-            df_imputed = self.impute_element(df)
-
-        if df_imputed.isna().any().any():
-            raise AssertionError("Result of imputation contains NaN!")
+        df_imputed = self.transform(X)
 
         return df_imputed
 
@@ -154,7 +189,7 @@ class Imputer(_BaseImputer):
 
     def impute_element(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Impute `df` by applying the specialized method `fit_transform_element` on each group, if
+        Impute `df` by applying the specialized method `transform_element` on each group, if
         groups have been given. If the method leaves nan, `fit_transform_fallback` is called in
         order to return a dataframe without nan.
 
@@ -173,7 +208,7 @@ class Imputer(_BaseImputer):
         ValueError
             Input has to be a pandas.DataFrame.
         """
-        # Impute `df` by applying the specialized method `fit_transform_element` on each group, if
+        # Impute `df` by applying the specialized method `transform_element` on each group, if
         # groups have been given.
         if not isinstance(df, pd.DataFrame):
             raise ValueError("Input has to be a pandas.DataFrame.")
@@ -182,11 +217,11 @@ class Imputer(_BaseImputer):
             # groupby = utils.custom_groupby(df, groups)
             groupby = df.groupby(self.ngroups_, group_keys=False)
             if self.shrink:
-                imputation_values = groupby.transform(self.fit_transform_element)
+                imputation_values = groupby.transform(self.transform_element)
             else:
-                imputation_values = groupby.apply(self.fit_transform_element)
+                imputation_values = groupby.apply(self.transform_element)
         else:
-            imputation_values = self.fit_transform_element(df)
+            imputation_values = self.transform_element(df)
 
         df = df.fillna(imputation_values)
         # fill na by applying imputation method without groups
@@ -197,7 +232,7 @@ class Imputer(_BaseImputer):
         return df
 
     @abstractmethod
-    def fit_transform_element(self, df: pd.DataFrame):
+    def transform_element(self, df: pd.DataFrame):
         return df
 
 
@@ -222,7 +257,7 @@ class ImputerOracle(Imputer):
         super().__init__()
         self.df = df
 
-    def fit_transform(self, X: pd.DataFrame, y=None) -> pd.DataFrame:
+    def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         """Impute df with corresponding known values
 
         Parameters
@@ -234,11 +269,21 @@ class ImputerOracle(Imputer):
         pd.DataFrame
             dataframe imputed with premasked values
         """
-        self.fit(X)
         if not isinstance(X, (pd.DataFrame, np.ndarray)):
-            raise ValueError("Input has to be a pandas.DataFrame or numpy.ndarray.")
+            X = np.array(X)
         df = pd.DataFrame(X)
-        return df.fillna(self.df)
+        if df.columns.size != self.columns_.size:
+            raise ValueError(
+                """The number of features is different from the counterpart in fit.
+                Reshape your data"""
+            )
+
+        df_imputed = pd.DataFrame(X)
+        df_imputed = df_imputed.fillna(self.df)
+
+        if isinstance(X, (np.ndarray)):
+            df_imputed = df_imputed.to_numpy()
+        return df_imputed
 
 
 class ImputerMean(Imputer):
@@ -274,10 +319,7 @@ class ImputerMean(Imputer):
     ) -> None:
         super().__init__(groups=groups, columnwise=True, shrink=True)
 
-    def _more_tags(self):
-        return {"allow_nan": True, "requires_fit": False}
-
-    def fit_transform_element(self, df: pd.DataFrame):
+    def transform_element(self, df: pd.DataFrame):
         return pd.DataFrame.mean(df)
 
 
@@ -314,7 +356,7 @@ class ImputerMedian(Imputer):
     ) -> None:
         super().__init__(groups=groups, columnwise=True, shrink=True)
 
-    def fit_transform_element(self, df: pd.DataFrame):
+    def transform_element(self, df: pd.DataFrame):
         return pd.DataFrame.median(df)
 
 
@@ -351,7 +393,7 @@ class ImputerMode(Imputer):
     ) -> None:
         super().__init__(groups=groups, columnwise=True, shrink=True)
 
-    def fit_transform_element(self, df: pd.DataFrame):
+    def transform_element(self, df: pd.DataFrame):
         return df.mode().iloc[0]
 
 
@@ -391,14 +433,14 @@ class ImputerShuffle(Imputer):
     ) -> None:
         super().__init__(groups=groups, columnwise=True, random_state=random_state)
 
-    def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
+    def transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         n_missing = df.isna().sum().sum()
         if df.isna().all().all():
             return df
         name = df.columns[0]
         values = df[name]
         values_notna = values.dropna()
-        samples = self.rng.choice(values_notna, n_missing, replace=True)
+        samples = self.rng_.choice(values_notna, n_missing, replace=True)
         values[values.isna()] = samples
         df_imputed = values.to_frame()
         return df_imputed
@@ -439,7 +481,7 @@ class ImputerLOCF(Imputer):
     ) -> None:
         super().__init__(groups=groups, columnwise=True)
 
-    def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
+    def transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         df_out = df.copy()
         for col in df:
             df_out[col] = df[col].ffill().bfill()
@@ -480,7 +522,7 @@ class ImputerNOCB(Imputer):
     ) -> None:
         super().__init__(groups=groups, columnwise=True)
 
-    def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
+    def transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         df_out = df.copy()
         for col in df:
             df_out[col] = df[col].bfill().ffill()
@@ -540,7 +582,7 @@ class ImputerInterpolation(Imputer):
         self.order = order
         self.col_time = col_time
 
-    def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
+    def transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         index = df.index
         if self.col_time is None:
             df = df.reset_index(drop=True)
@@ -614,7 +656,7 @@ class ImputerResiduals(Imputer):
         self.extrapolate_trend = extrapolate_trend
         self.method_interpolation = method_interpolation
 
-    def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
+    def transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         name = df.columns[0]
         values = df[name]
         if values.isna().all():
@@ -685,15 +727,19 @@ class ImputerKNN(Imputer):
         super().__init__(groups=groups, columnwise=False, hyperparams=hyperparams)
         self.n_neighbors = n_neighbors
         self.weights = weights
-        self.hyperparams_optim: Dict = {}
 
-    def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
-        imputer = KNNImputer(
+    def fit(self, X: pd.DataFrame, y=None):
+        super().fit(X)
+        self.imputer_ = KNNImputer(
             n_neighbors=self.n_neighbors,
             weights=self.weights,
             metric="nan_euclidean",
         )
-        results = imputer.fit_transform(df)
+        self.imputer_.fit(X)
+        return self
+
+    def transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
+        results = self.imputer_.transform(df)
         return pd.DataFrame(data=results, columns=df.columns, index=df.index)
 
 
@@ -751,11 +797,20 @@ class ImputerMICE(Imputer):
             random_state=random_state,
         )
         self.estimator = estimator
-        self.hyperparams_optim: Dict = {}
 
-    def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
-        iterative_imputer = IterativeImputer(estimator=self.estimator, **self.hyperparams_element)
-        res = iterative_imputer.fit_transform(df.values)
+    def fit(self, X: pd.DataFrame, y=None):
+        super().fit(X)
+        if not isinstance(X, (pd.DataFrame)):
+            X = pd.DataFrame(np.array(X), columns=[i for i in range(np.array(X).shape[1])])
+        self.set_hyperparams(X)
+        self.imputer_ = IterativeImputer(
+            estimator=self.estimator, **self.hyperparams_element_["__all__"]
+        )
+        self.imputer_.fit(X)
+        return self
+
+    def transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
+        res = self.imputer_.transform(df)
         imputed = pd.DataFrame(columns=df.columns)
         for ind, col in enumerate(imputed.columns):
             imputed[col] = res[:, ind]
@@ -810,14 +865,50 @@ class ImputerRegressor(Imputer):
         self.columnwise = False
         self.estimator = estimator
         self.handler_nan = handler_nan
-        self.hyperparams_optim: Dict = {}
 
     def get_params_fit(self) -> Dict:
         return {}
 
-    def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
+    def fit(self, X: pd.DataFrame, y=None):
+        super().fit(X)
+        if not isinstance(X, (pd.DataFrame)):
+            X = pd.DataFrame(np.array(X), columns=[i for i in range(np.array(X).shape[1])])
+        self.set_hyperparams(X)
+
+        cols_with_nans = X.columns[X.isna().any()]
+        self.estimators_ = {}
+        for col in cols_with_nans:
+            # Define the Train and Test set
+            X_ = X.drop(columns=col, errors="ignore")
+            y_ = X[col]
+
+            # Selects only the valid values in the Train Set according to the chosen method
+            is_valid = pd.Series(True, index=X.index)
+            if self.handler_nan == "fit":
+                pass
+            elif self.handler_nan == "row":
+                is_valid = ~X_.isna().any(axis=1)
+            elif self.handler_nan == "column":
+                X_ = X_.dropna(how="any", axis=1)
+            else:
+                raise ValueError(
+                    f"Value '{self.handler_nan}' is not correct for argument `handler_nan'"
+                )
+
+            # Selects only non-NaN values for the Test Set
+            is_na = y_.isna()
+
+            # Train the model according to an ML or DL method and after predict the imputation
+            if not X_.empty:
+                hp = self.get_params_fit()
+                self.estimators_[col] = self.estimator
+                self.estimators_[col].fit(X_[(~is_na) & is_valid], y_[(~is_na) & is_valid], **hp)
+
+        return self
+
+    def transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Fit/transform using a (specified) regression model
+        Transform using a (specified) regression model
 
         Parameters
         ----------
@@ -834,11 +925,12 @@ class ImputerRegressor(Imputer):
         cols_with_nans = df.columns[df.isna().any()]
 
         for col in cols_with_nans:
-            hyperparams = {}
-            for hyperparam, value in self.hyperparams_element.items():
-                if isinstance(value, dict):
-                    value = value[col]
-                hyperparams[hyperparam] = value
+            # hyperparams = {}
+            # for hyperparam, value in self.hyperparams_element.items():
+            #     if isinstance(value, dict):
+            #         value = value[col]
+            #     hyperparams[hyperparam] = value
+            # GSA: Why we need this
 
             # Define the Train and Test set
             X = df.drop(columns=col, errors="ignore")
@@ -861,12 +953,10 @@ class ImputerRegressor(Imputer):
             is_na = y.isna()
 
             # Train the model according to an ML or DL method and after predict the imputation
-            if X.empty:
+            if col not in self.estimators_:
                 y_imputed = pd.Series(y.mean(), index=y.index)
             else:
-                hp = self.get_params_fit()
-                self.estimator.fit(X[(~is_na) & is_valid], y[(~is_na) & is_valid], **hp)
-                y_imputed = self.estimator.predict(X[is_na & is_valid])
+                y_imputed = self.estimators_[col].predict(X[is_na & is_valid])
                 y_imputed = pd.Series(y_imputed.flatten())
 
             # Adds the imputed values
@@ -918,23 +1008,65 @@ class ImputerRPCA(Imputer):
         )
 
         self.method = method
-        self.hyperparams_optim: Dict = {}
 
-    def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
-        if not isinstance(df, pd.DataFrame):
-            raise ValueError("Input has to be a pandas.DataFrame.")
+    def fit(self, X: pd.DataFrame, y=None):
+        super().fit(X)
+        if not isinstance(X, (pd.DataFrame)):
+            X = pd.DataFrame(np.array(X), columns=[i for i in range(np.array(X).shape[1])])
+        self.set_hyperparams(X)
 
-        if self.method == "PCP":
-            model = RPCAPCP(**self.hyperparams_element)
-        elif self.method == "noisy":
-            model = RPCANoisy(**self.hyperparams_element)
-        else:
+        if self.method not in ["PCP", "noisy"]:
             raise ValueError("Argument method must be `PCP` or `noisy`!")
+        self.shape_ = X.shape
+        n_rows_X, n_cols_X = X.shape
+        if n_rows_X == 1:
+            raise ValueError(
+                "Since n_samples=1, `n_rows` must be specified when imputing 1D data."
+            )
+        if n_cols_X == 1:
+            raise ValueError(
+                "Since n_features=1, `n_rows` must be specified when imputing 1D data."
+            )
 
-        X = df.values.T
-        M, A = model.decompose_rpca_signal(X)
-        df_imputed = pd.DataFrame((M + A).T, index=df.index, columns=df.columns)
-        df_imputed = df.where(~df.isna(), df_imputed)
+        cols_with_nans = X.columns[X.isna().any()]
+
+        self.model_ = {}
+        if self.columnwise:
+            self.M_ = {}
+            self.A_ = {}
+            for col in cols_with_nans:
+                if self.method == "PCP":
+                    self.model_[col] = RPCAPCP(**self.hyperparams_element_[col])
+                else:
+                    self.model_[col] = RPCANoisy(**self.hyperparams_element_[col])
+
+                self.M_[col], self.A_[col] = self.model_[col].decompose_rpca_signal(
+                    X[[col]].values.T.astype(float)
+                )
+        else:
+            if self.method == "PCP":
+                self.model_["__all__"] = RPCAPCP(**self.hyperparams_element_["__all__"])
+            else:
+                self.model_["__all__"] = RPCANoisy(**self.hyperparams_element_["__all__"])
+
+            self.M_, self.A_ = self.model_["__all__"].decompose_rpca_signal(
+                X.values.T.astype(float)
+            )
+
+        return self
+
+    def transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
+        if self.columnwise:
+            col = df.columns.values[0]
+            M_ = self.M_[col][:, : df.shape[0]]
+            A_ = self.A_[col][:, : df.shape[0]]
+            df_imputed = pd.DataFrame((M_ + A_).T, index=df.index, columns=df.columns)
+            df_imputed = df.where(~df.isna(), df_imputed)
+        else:
+            M_ = self.M_[:, : df.shape[0]]
+            A_ = self.A_[:, : df.shape[0]]
+            df_imputed = pd.DataFrame((M_ + A_).T, index=df.index, columns=df.columns)
+            df_imputed = df.where(~df.isna(), df_imputed)
 
         return df_imputed
 
@@ -977,18 +1109,63 @@ class ImputerEM(Imputer):
             random_state=random_state,
         )
         self.model = model
-        self.hyperparams_optim: Dict = {}
 
-    def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
-        if self.model == "multinormal":
-            model = em_sampler.MultiNormalEM(random_state=self.rng, **self.hyperparams_element)
-        elif self.model == "VAR1":
-            model = em_sampler.VAR1EM(random_state=self.rng, **self.hyperparams_element)
-        else:
+    def fit(self, X: pd.DataFrame, y=None):
+        super().fit(X)
+        if not isinstance(X, (pd.DataFrame)):
+            X = pd.DataFrame(np.array(X), columns=[i for i in range(np.array(X).shape[1])])
+        self.set_hyperparams(X)
+
+        n_rows, n_cols = X.shape
+        if n_rows == 1:
+            raise ValueError("n_samples=1 is not allowed!")
+
+        if self.model not in ["multinormal", "VAR1"]:
             raise ValueError(f"Model '{self.model}' is not handled by ImputeEM!")
-        X = df.values.T
-        model.fit(X)
 
-        X_transformed = model.transform(X)
+        cols_with_nans = X.columns[X.isna().any()]
+
+        self.model_ = {}
+        if self.columnwise:
+            for col in cols_with_nans:
+                if self.model == "multinormal":
+                    self.model_[col] = em_sampler.MultiNormalEM(
+                        random_state=self.rng_, **self.hyperparams_element_[col]
+                    )
+                else:
+                    self.model_[col] = em_sampler.VAR1EM(
+                        random_state=self.rng_, **self.hyperparams_element_[col]
+                    )
+
+                self.model_[col].fit(X[[col]].values.T)
+        else:
+            if self.model == "multinormal":
+                self.model_["__all__"] = em_sampler.MultiNormalEM(
+                    random_state=self.rng_, **self.hyperparams_element_["__all__"]
+                )
+            else:
+                self.model_["__all__"] = em_sampler.VAR1EM(
+                    random_state=self.rng_, **self.hyperparams_element_["__all__"]
+                )
+
+            self.model_["__all__"].fit(X.values.T)
+        return self
+
+    def transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
+        n_rows, n_cols = df.shape
+        if n_rows == 1:
+            warnings.warn(
+                "n_samples=1 is not allowed. It can lead to numpy.linalg.LinAlgError:"
+                "When `allow_singular is False`, the input matrix"
+                "must be symmetric positive definite."
+            )
+            return df
+        if self.columnwise:
+            col = df.columns.values[0]
+            X_transformed = self.model_[col].transform(df.values.T.astype(float))
+        else:
+            X_transformed = self.model_["__all__"].transform(df.values.T.astype(float))
+
         df_transformed = pd.DataFrame(X_transformed, columns=df.columns, index=df.index)
+
         return df_transformed
