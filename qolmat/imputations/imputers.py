@@ -1031,9 +1031,9 @@ class ImputerRPCA(Imputer):
         cols_with_nans = X.columns[X.isna().any()]
 
         self.model_ = {}
+        self.M_ = {}
+        self.A_ = {}
         if self.columnwise:
-            self.M_ = {}
-            self.A_ = {}
             for col in cols_with_nans:
                 if self.method == "PCP":
                     self.model_[col] = RPCAPCP(**self.hyperparams_element_[col])
@@ -1049,7 +1049,7 @@ class ImputerRPCA(Imputer):
             else:
                 self.model_["__all__"] = RPCANoisy(**self.hyperparams_element_["__all__"])
 
-            self.M_, self.A_ = self.model_["__all__"].decompose_rpca_signal(
+            self.M_["__all__"], self.A_["__all__"] = self.model_["__all__"].decompose_rpca_signal(
                 X.values.T.astype(float)
             )
 
@@ -1063,8 +1063,8 @@ class ImputerRPCA(Imputer):
             df_imputed = pd.DataFrame((M_ + A_).T, index=df.index, columns=df.columns)
             df_imputed = df.where(~df.isna(), df_imputed)
         else:
-            M_ = self.M_[:, : df.shape[0]]
-            A_ = self.A_[:, : df.shape[0]]
+            M_ = self.M_["__all__"][:, : df.shape[0]]
+            A_ = self.A_["__all__"][:, : df.shape[0]]
             df_imputed = pd.DataFrame((M_ + A_).T, index=df.index, columns=df.columns)
             df_imputed = df.where(~df.isna(), df_imputed)
 
