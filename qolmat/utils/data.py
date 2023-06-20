@@ -13,26 +13,24 @@ from qolmat.benchmark import missing_patterns
 
 def download_data(zipname: str, urllink: str, datapath: str = "data/") -> List[pd.DataFrame]:
     path_zip = os.path.join(datapath, zipname)
-    path_zip_ext = os.path.join(path_zip, ".zip")
-    url = os.path.join(urllink, zipname, ".zip")
-    if not os.path.exists(path_zip):
-        os.makedirs(datapath, exist_ok=True)
+    path_zip_ext = path_zip + ".zip"
+    url = os.path.join(urllink, zipname) + ".zip"
+    os.makedirs(datapath, exist_ok=True)
+    if not os.path.exists(path_zip_ext) and not os.path.exists(path_zip):
         request.urlretrieve(url, path_zip_ext)
+    if not os.path.exists(path_zip):
         with zipfile.ZipFile(path_zip_ext, "r") as zip_ref:
             zip_ref.extractall(path_zip)
-    data_folder = os.listdir(path_zip)
-    subfolder = os.path.join(path_zip, data_folder[0])
-    data_files = os.listdir(subfolder)
-    list_df = [pd.read_csv(os.path.join(subfolder, file)) for file in data_files]
+    list_df = []
+    for folder, _, files in os.walk(path_zip):
+        for file in files:
+            if ".csv" in file:
+                list_df.append(pd.read_csv(os.path.join(folder, file)))
     return list_df
 
 
 def generate_artificial_ts(n_samples, periods, amp_anomalies, ratio_anomalies, amp_noise):
-    # n_samples = 1000
-
     mesh = np.arange(n_samples)
-    # p1 = 100
-    # p2 = 20
     X = np.ones(n_samples)
     for p in periods:
         X += np.sin(2 * pi * mesh / p)
@@ -69,10 +67,19 @@ def get_data(
         requested data
     """
     if name_data == "Beijing":
-        urllink = "https://archive.ics.uci.edu/ml/machine-learning-databases/00501/"
-        zipname = "PRSA2017_Data_20130301-20170228"
+        urllink = "https://archive.ics.uci.edu/static/public/381/"
+        zipname = "beijing+pm2+5+data"
+
         list_df = download_data(zipname, urllink, datapath=datapath)
-        list_df = [preprocess_data(df) for df in list_df]
+        list_df = [preprocess_data_beijing(df) for df in list_df]
+        df = pd.concat(list_df)
+        return df
+    elif name_data == "Beijing_offline":
+        urllink = "https://archive.ics.uci.edu/dataset/381/beijing+pm2+5+data"
+        zipname = "PRSA2017_Data_20130301-20170228"
+
+        list_df = download_data(zipname, urllink, datapath=datapath)
+        list_df = [preprocess_data_beijing_offline(df) for df in list_df]
         df = pd.concat(list_df)
         return df
     elif name_data == "Artificial":
@@ -82,22 +89,6 @@ def get_data(
         amp_anomalies = 0.5
         ratio_anomalies = 0.05
         amp_noise = 0.1
-
-        # mesh = np.arange(n_samples)
-
-        # X_true = 1 + np.sin(2 * pi * mesh / p1) + np.sin(2 * pi * mesh / p2)
-
-        # noise = np.random.uniform(size=n_samples)
-        # A_true = (
-        #     amplitude_A
-        #     * np.where(noise < freq_A, -np.log(noise), 0)
-        #     * (2 * (np.random.uniform(size=n_samples) > 0.5) - 1)
-        # )
-
-        # E_true = amplitude_E * np.random.normal(size=n_samples)
-
-        # signal = X_true + E_true
-        # signal[A_true != 0] = A_true[A_true != 0]
 
         X, A, E = generate_artificial_ts(
             n_samples, periods, amp_anomalies, ratio_anomalies, amp_noise
@@ -122,7 +113,33 @@ def get_data(
         raise ValueError(f"Data name {name_data} is unknown!")
 
 
-def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
+def preprocess_data_beijing(df: pd.DataFrame) -> pd.DataFrame:
+    """Preprocess data from the "Beijing" datset
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        dataframe with some specific column names
+
+    Returns
+    -------
+    pd.DataFrame
+        preprocessed dataframe
+    """
+    df["datetime"] = pd.to_datetime(df[["year", "month", "day", "hour"]])
+    df["station"] = "Beijing"
+    df.set_index(["station", "datetime"], inplace=True)
+    df.drop(
+        columns=["year", "month", "day", "hour", "No", "cbwd", "Iws", "Is", "Ir"], inplace=True
+    )
+    df.sort_index(inplace=True)
+    df = df.groupby(
+        ["station", df.index.get_level_values("datetime").floor("d")], group_keys=False
+    ).mean()
+    return df
+
+
+def preprocess_data_beijing_offline(df: pd.DataFrame) -> pd.DataFrame:
     """Preprocess data from the "Beijing" datset
 
     Parameters

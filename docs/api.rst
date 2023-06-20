@@ -1,22 +1,94 @@
-##########
+###########
 Qolmat API
-##########
+###########
 
 .. currentmodule:: qolmat
 
-Classes
+Imputers
+=========
+
+.. autosummary::
+    :toctree: generated/
+    :template: class.rst    
+    
+    imputations.imputers.ImputerEM
+    imputations.imputers.ImputerKNN
+    imputations.imputers.ImputerInterpolation
+    imputations.imputers.ImputerLOCF
+    imputations.imputers.ImputerMedian
+    imputations.imputers.ImputerMean
+    imputations.imputers.ImputerMICE
+    imputations.imputers.ImputerMode
+    imputations.imputers.ImputerNOCB
+    imputations.imputers.ImputerOracle
+    imputations.imputers.ImputerRegressor
+    imputations.imputers.ImputerResiduals
+    imputations.imputers.ImputerRPCA
+    imputations.imputers.ImputerShuffle
+
+Comparator
+===========
+
+.. autosummary::
+    :toctree: generated/
+    :template: class.rst    
+    
+    benchmark.comparator.Comparator
+
+Missing Patterns
+================
+
+.. autosummary::
+    :toctree: generated/
+    :template: class.rst    
+    
+    benchmark.missing_patterns.UniformHoleGenerator
+    benchmark.missing_patterns.GeometricHoleGenerator
+    benchmark.missing_patterns.EmpiricalHoleGenerator
+    benchmark.missing_patterns.MultiMarkovHoleGenerator
+    benchmark.missing_patterns.GroupedHoleGenerator
+
+
+Metrics
 =======
 
 .. autosummary::
     :toctree: generated/
-    :template: class.rst
+    :template: function.rst
 
-    imputations.rpca.rpca.RPCA
+    benchmark.metrics.mean_squared_error
+    benchmark.metrics.root_mean_squared_error
+    benchmark.metrics.weighted_mean_absolute_percentage_error
+    benchmark.metrics.wasserstein_distance
+    benchmark.metrics.kl_divergence
+    benchmark.metrics.kolmogorov_smirnov_test
+    benchmark.metrics.total_variance_distance
+    benchmark.metrics.mean_difference_correlation_matrix_numerical_features
+    benchmark.metrics.mean_difference_correlation_matrix_categorical_features
+    benchmark.metrics.mean_diff_corr_matrix_categorical_vs_numerical_features
+    benchmark.metrics.sum_energy_distances
+    benchmark.metrics.frechet_distance
 
-Utils
-=====
+
+RPCA engine
+================
 
 .. autosummary::
     :toctree: generated/
-    :template: function.rst
+    :template: class.rst    
+    
+    imputations.rpca.rpca_noisy.RPCANoisy
+    imputations.rpca.rpca_pcp.RPCAPCP
+
+
+EM engine
+================
+
+.. autosummary::
+    :toctree: generated/
+    :template: class.rst    
+    
+    imputations.em_sampler.MultiNormalEM
+    imputations.em_sampler.VAR1EM
+
 
