@@ -7,7 +7,6 @@ from typing import Callable, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 from sklearn import utils as sku
-from sklearn.model_selection import GroupShuffleSplit, LeavePGroupsOut
 from sklearn.utils import resample
 
 logger = logging.getLogger(__name__)
@@ -630,7 +629,6 @@ class MultiMarkovHoleGenerator(_HoleGenerator):
 class GroupedHoleGenerator(_HoleGenerator):
     """This class implements a way to generate holes in a dataframe.
     The holes are generated from groups, specified by the user.
-    This class uses the GroupShuffleSplit function of sklearn.
 
     Parameters
     ----------

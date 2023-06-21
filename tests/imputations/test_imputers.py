@@ -216,6 +216,9 @@ def test_ImputerRPCA_fit_transform(df: pd.DataFrame) -> None:
     np.testing.assert_allclose(result, expected)
 
 
+# TODO Imputeur EM
+
+
 @pytest.mark.parametrize("df", [df_timeseries])
 def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
     imputer = imputers.ImputerEM(method="sample", random_state=42)

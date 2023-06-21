@@ -2,7 +2,7 @@ import os
 import sys
 import zipfile
 from math import pi
-from typing import List, Optional, Union
+from typing import List, Optional
 from urllib import request
 
 import numpy as np
@@ -180,8 +180,6 @@ def add_holes(df: pd.DataFrame, ratio_masked: float, mean_size: int) -> pd.DataF
 
     groups: list of strings
         List of the column names used as groups
-    random_state: Union[None, int, np.random.RandomState] = None
-        Determine the randomness
 
     Returns
     -------
