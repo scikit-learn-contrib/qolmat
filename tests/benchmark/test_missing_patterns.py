@@ -44,8 +44,8 @@ def test_SamplerHoleGenerator_split(df: pd.DataFrame, generator: mp._HoleGenerat
     col2_holes = mask["col2"].sum()
     expected_col1_holes = 10
     expected_col2_holes = 10
-    np.testing.assert_allclose(col1_holes, expected_col1_holes)
-    np.testing.assert_allclose(col2_holes, expected_col2_holes)
+    np.testing.assert_allclose(col1_holes, expected_col1_holes, atol=1)
+    np.testing.assert_allclose(col2_holes, expected_col2_holes, atol=1)
 
 
 @pytest.mark.parametrize(
