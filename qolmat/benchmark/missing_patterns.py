@@ -7,7 +7,6 @@ from typing import Callable, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 from sklearn import utils as sku
-from sklearn.model_selection import GroupShuffleSplit, LeavePGroupsOut
 from sklearn.utils import resample
 
 logger = logging.getLogger(__name__)
