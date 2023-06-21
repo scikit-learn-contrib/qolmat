@@ -7,6 +7,7 @@ import sklearn
 from sklearn import metrics as skm
 from sklearn.ensemble import BaseEnsemble
 from sklearn.preprocessing import StandardScaler
+import dcor
 
 EPS = np.finfo(float).eps
 
@@ -381,6 +382,32 @@ def kolmogorov_smirnov_test(
         df_mask[cols_numerical],
         kolmogorov_smirnov_test_1D,
     )
+
+
+def distance_correlation_complement(
+    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
+) -> pd.Series:
+    """Correlation distance between columns of 2 dataframes.
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        true dataframe
+    df2 : pd.DataFrame
+        predicted dataframe
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
+
+    Returns
+    -------
+    pd.Series
+        Correlation distance
+    """
+
+    df1 = df1.fillna(0.0)
+    df2 = df2[["TEMP", "PRES"]].fillna(0.0)
+    print(df1.shape, df2.shape)
+    return 1.0 - pd.Series(dcor.distance_correlation(df1.values, df2.values), index=["All"])
 
 
 def _total_variance_distance_1D(df1: pd.Series, df2: pd.Series) -> float:

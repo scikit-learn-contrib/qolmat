@@ -41,6 +41,7 @@ class Comparator:
         "pairwise_dist": metrics.sum_pairwise_distances,
         "energy": metrics.sum_energy_distances,
         "frechet": metrics.frechet_distance,
+        "correlation_dist": partial(metrics.distance_correlation_complement),
     }
 
     def __init__(
