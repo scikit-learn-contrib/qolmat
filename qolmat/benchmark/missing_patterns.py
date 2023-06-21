@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import functools
 import logging
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -698,3 +698,92 @@ class GroupedHoleGenerator(_HoleGenerator):
             list_masks.append(df_mask)
 
         return list_masks
+
+
+class PatternHoleGenerator(_HoleGenerator):
+    """This class implements a way to generate holes in a dataframe.
+    The holes are generated from pattern, specified by the user.
+
+    Parameters
+    ----------
+    n_splits : int
+        Number of splits
+    subset : Optional[List[str]], optional
+        Names of the columns for which holes must be created, by default None
+    ratio_masked : Optional[float], optional
+        Ratio of masked values ​​to add, by default 0.05.
+    random_state : Optional[int], optional
+        The seed used by the random number generator, by default 42.
+    groups : List[str]
+        Names of the columns forming the groups, by default []
+    """
+
+    def __init__(
+        self,
+        n_splits: int,
+        ratio_masked: float = 0.05,
+        random_state: Union[None, int, np.random.RandomState] = None,
+        groups: List[str] = [],
+    ):
+        super().__init__(
+            n_splits=n_splits,
+            subset=None,
+            random_state=random_state,
+            ratio_masked=ratio_masked,
+            groups=groups,
+        )
+
+    def fit(self, X: pd.DataFrame) -> PatternHoleGenerator:
+        """Creare the groups based on the column names (groups attribute)
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+
+        Returns
+        -------
+        PatternHoleGenerator
+            The model itself
+
+        Raises
+        ------
+        if the number of samples/splits is greater than the number of groups.
+        """
+
+        super().fit(X)
+        df_isna = X.isna().apply(lambda x: self.get_pattern(x), axis=1).to_frame(name="pattern")
+        self.df_isna = df_isna["pattern"]
+
+        patterns = self.df_isna.value_counts().index.to_list()
+        if "_ALLNAN_" in patterns:
+            patterns.remove("_ALLNAN_")
+        if "_EMPTY_" in patterns:
+            patterns.remove("_EMPTY_")
+        self.patterns = patterns
+
+        return self
+
+    def generate_mask(self, X: pd.DataFrame) -> pd.DataFrame:
+        """
+        Returns a mask for the dataframe at hand.
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            Initial dataframe with a missing pattern to be imitated.
+        """
+        df_mask = pd.DataFrame(False, index=X.index, columns=X.columns)
+        patterns_selected = ["_EMPTY_"] + [self.patterns[0]]
+        df_mask.loc[self.df_isna[self.df_isna.isin(patterns_selected)].index] = True
+        df_mask[X.isna()] = False
+
+        return df_mask
+
+    def get_pattern(self, row: pd.Series) -> str:
+        list_col_pattern = [col for col in row.index.to_list() if row[col] == True]
+        if len(list_col_pattern) == 0:
+            return "_EMPTY_"
+        elif len(list_col_pattern) == row.index.size:
+            return "_ALLNAN_"
+        else:
+            return "__".join(list_col_pattern)
