@@ -650,7 +650,7 @@ class GroupedHoleGenerator(_HoleGenerator):
         n_splits: int,
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
-        random_state: Optional[int] = 42,
+        random_state: Union[None, int, np.random.RandomState] = None,
         groups: List[str] = [],
     ):
         super().__init__(
