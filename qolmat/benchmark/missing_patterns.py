@@ -4,6 +4,7 @@ import functools
 import logging
 from typing import Callable, List, Optional, Tuple, Union
 
+import random
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import GroupShuffleSplit
@@ -753,8 +754,8 @@ class PatternHoleGenerator(_HoleGenerator):
         super().fit(X)
         df_isna = X.isna().apply(lambda x: self.get_pattern(x), axis=1).to_frame(name="pattern")
         self.df_isna = df_isna["pattern"]
-
-        patterns = self.df_isna.value_counts().index.to_list()
+        self.patterns_counts = self.df_isna.value_counts()
+        patterns = self.patterns_counts.index.to_list()
         if "_ALLNAN_" in patterns:
             patterns.remove("_ALLNAN_")
         if "_EMPTY_" in patterns:
@@ -772,11 +773,29 @@ class PatternHoleGenerator(_HoleGenerator):
         X : pd.DataFrame
             Initial dataframe with a missing pattern to be imitated.
         """
-        df_mask = pd.DataFrame(False, index=X.index, columns=X.columns)
-        patterns_selected = ["_EMPTY_"] + [self.patterns[0]]
-        df_mask.loc[self.df_isna[self.df_isna.isin(patterns_selected)].index] = True
-        df_mask[X.isna()] = False
+        if self.ngroups is not None:
+            self.fit(X)
 
+        df_mask = pd.DataFrame(False, index=X.index, columns=X.columns)
+        patterns_selected = ["_EMPTY_"]
+        patterns = self.patterns
+        for k in range(len(self.patterns)):
+            pattern = random.choice(patterns)
+            patterns_selected_ = patterns_selected + [pattern]
+            patterns.remove(pattern)
+            df_mask_ = df_mask.copy()
+            X_ = X.copy()
+
+            df_mask_.loc[self.df_isna[self.df_isna.isin(patterns_selected_)].index] = True
+            X_[~df_mask_] = np.nan
+            X_ = X_.dropna(axis=0, how="all").dropna(axis=1, how="any")
+            if X_.size == 0:
+                break
+            patterns_selected.append(pattern)
+            if self.patterns_counts.loc[patterns_selected_].sum() / len(X) > self.ratio_masked:
+                break
+
+        df_mask.loc[self.df_isna[self.df_isna.isin(patterns_selected)].index] = True
         return df_mask
 
     def get_pattern(self, row: pd.Series) -> str:

@@ -384,32 +384,6 @@ def kolmogorov_smirnov_test(
     )
 
 
-def distance_correlation_complement(
-    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
-) -> pd.Series:
-    """Correlation distance between columns of 2 dataframes.
-
-    Parameters
-    ----------
-    df1 : pd.DataFrame
-        true dataframe
-    df2 : pd.DataFrame
-        predicted dataframe
-    df_mask : pd.DataFrame
-        Elements of the dataframes to compute on
-
-    Returns
-    -------
-    pd.Series
-        Correlation distance
-    """
-
-    df1 = df1.fillna(0.0)
-    df2 = df2[["TEMP", "PRES"]].fillna(0.0)
-    print(df1.shape, df2.shape)
-    return 1.0 - pd.Series(dcor.distance_correlation(df1.values, df2.values), index=["All"])
-
-
 def _total_variance_distance_1D(df1: pd.Series, df2: pd.Series) -> float:
     """Compute Total Variance Distance for a categorical feature
     It is based on TVComplement in https://github.com/sdv-dev/SDMetrics
@@ -859,3 +833,31 @@ def frechet_distance(
         return pd.Series((frechet_dist / df_true.shape[0]), index=["All"])
     else:
         return pd.Series(np.repeat(frechet_dist, len(df1.columns)))
+
+
+def distance_correlation_complement(
+    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
+) -> pd.Series:
+    """Correlation distance between columns of 2 dataframes.
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        true dataframe
+    df2 : pd.DataFrame
+        predicted dataframe
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
+
+    Returns
+    -------
+    pd.Series
+        Correlation distance
+    """
+    df1[~df_mask] = np.nan
+    df2[~df_mask] = np.nan
+
+    df1 = df1.dropna(axis=0, how="all").dropna(axis=1, how="any")
+    df2 = df2.dropna(axis=0, how="all").dropna(axis=1, how="any")
+
+    return 1.0 - pd.Series(dcor.distance_correlation(df1.values, df2.values), index=["All"])
