@@ -55,6 +55,15 @@ from qolmat.utils import data, utils, plot
 
 ```
 
+```python
+from qolmat.benchmark.missing_patterns import compute_transition_counts_matrix
+```
+
+```python
+states = pd.Series([False, True, False, False])
+compute_transition_counts_matrix(states)
+```
+
 <!-- #region tags=[] -->
 ### **I. Load data**
 <!-- #endregion -->
@@ -145,7 +154,7 @@ imputer_regressor = imputers.ImputerRegressor(groups=["station"], estimator=Line
 
 dict_imputers = {
     "mean": imputer_mean,
-    # "median": imputer_median,
+    "median": imputer_median,
     # "mode": imputer_mode,
     "interpolation": imputer_interpol,
     # "spline": imputer_spline,
@@ -158,7 +167,7 @@ dict_imputers = {
     "RPCA_opti": imputer_rpca_opti,
     # "locf": imputer_locf,
     # "nocb": imputer_nocb,
-    # "knn": imputer_knn,
+    "knn": imputer_knn,
     "ols": imputer_regressor,
     # "mice_ols": imputer_mice,
 }
@@ -208,6 +217,21 @@ plt.show()
 ```
 
 ```python
+fig = plt.figure(figsize=(16, 6))
+fig.add_subplot(1, 2, 1)
+df_plot = results.loc["mae"].mean().sort_values(ascending=False)
+plt.barh(df_plot.index, df_plot, color=[tab10(0) if i<n_imputers-1 else "red" for i in range(n_imputers)])
+plt.xlabel("Erreur MAE")
+# plt.show()
+
+fig.add_subplot(1, 2, 2)
+df_plot = results.loc["energy"].mean().sort_values(ascending=False)
+plt.barh(df_plot.index, df_plot, color=[tab10(0) if i<n_imputers-1 else "red" for i in range(n_imputers)])
+plt.xlabel("Erreur énergétique")
+plt.show()
+```
+
+```python
 fig = plt.figure(figsize=(24, 8))
 fig.add_subplot(2, 1, 1)
 plot.multibar(results.loc["mae"], decimals=1)
@@ -247,8 +271,9 @@ for col in cols_to_impute:
     values_orig = df_station[col]
 
     plt.plot(values_orig, ".", color='black', label="original")
-
     for ind, (name, model) in enumerate(list(dict_imputers.items())):
+        if name not in ["mean", "TSMLE"]:
+            continue
         values_imp = dfs_imputed_station[name][col].copy()
         values_imp[values_orig.notna()] = np.nan
         plt.plot(values_imp, ".", color=tab10(ind), label=name, alpha=1)
