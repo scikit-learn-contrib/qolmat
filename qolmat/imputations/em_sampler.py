@@ -10,7 +10,7 @@ from sklearn import utils as sku
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import StandardScaler
 
-from qolmat.utils import utils, utils_np
+from qolmat.utils import utils
 
 logger = logging.getLogger(__name__)
 
@@ -224,12 +224,12 @@ class EM(BaseEstimator, TransformerMixin):
             raise AssertionError("Invalid type. X must be a NDArray.")
 
         X = self.scaler.fit_transform(X.T).T
-        X = utils_np._prepare_data(X, self.period)
+        X = utils.prepare_data(X, self.period)
 
         mask_na = np.isnan(X)
 
         # first imputation
-        X_sample_last = utils_np._linear_interpolation(X)
+        X_sample_last = utils.linear_interpolation(X)
         self.fit_distribution(X_sample_last)
 
         for iter_em in range(self.max_iter_em):
@@ -260,9 +260,9 @@ class EM(BaseEstimator, TransformerMixin):
         if hash(X.tobytes()) == self.hash_fit:
             X = self.X_sample_last
         else:
-            X = utils_np._prepare_data(X, self.period)
+            X = utils.prepare_data(X, self.period)
             X = self.scaler.transform(X.T).T
-            X = utils_np._linear_interpolation(X)
+            X = utils.linear_interpolation(X)
 
         mask_na = np.isnan(X)
 
@@ -275,7 +275,7 @@ class EM(BaseEstimator, TransformerMixin):
             raise AssertionError("Result contains NaN. This is a bug.")
 
         X_transformed = self.scaler.inverse_transform(X_transformed.T).T
-        X_transformed = utils_np.get_shape_original(X_transformed, self.shape_original)
+        X_transformed = utils.get_shape_original(X_transformed, self.shape_original)
         return X_transformed
 
 

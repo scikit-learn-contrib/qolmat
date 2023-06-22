@@ -8,8 +8,8 @@ from qolmat.imputations.rpca.rpca_pcp import RPCAPCP
 X_incomplete = np.array([[1, np.nan], [4, 2], [np.nan, 4]])
 X_flat = np.array([2, np.nan, 0, 4, 3, np.nan])
 
-X_exp_nrows_1__prepare_data = np.array([1.0, np.nan, 4.0, 2.0, np.nan, 4.0])
-X_exp_nrows_6__prepare_data = np.concatenate(
+X_exp_nrows_1_prepare_data = np.array([1.0, np.nan, 4.0, 2.0, np.nan, 4.0])
+X_exp_nrows_6_prepare_data = np.concatenate(
     [X_incomplete.reshape(-1, 6).flatten(), np.ones((1, 94)).flatten() * np.nan]
 )
 
@@ -18,34 +18,6 @@ max_iter = 32
 mu = 0.5
 tau = 0.5
 lam = 1
-
-
-@pytest.mark.parametrize("X", [X_incomplete])
-def test_rpca__prepare_data_2D_fail(X: NDArray):
-    rpca_pcp = RPCAPCP(max_iter=max_iter, mu=mu, lam=lam, period=period)
-    np.testing.assert_raises(ValueError, rpca_pcp._prepare_data, X)
-
-
-@pytest.mark.parametrize("X", [X_incomplete])
-def test_rpca__prepare_data_2D_succeed(X: NDArray):
-    rpca_pcp = RPCAPCP(max_iter=max_iter, mu=mu, lam=lam, period=None)
-    result = rpca_pcp._prepare_data(X)
-    np.testing.assert_allclose(result, X)
-
-
-@pytest.mark.parametrize("X", [X_incomplete])
-def test_rpca__prepare_data_1D_fail(X: NDArray):
-    signal = X.reshape(1, -1)  # X.shape[0] * X.shape[1])
-    rpca_pcp = RPCAPCP(max_iter=max_iter, mu=mu, lam=lam, period=None)
-    np.testing.assert_raises(ValueError, rpca_pcp._prepare_data, signal)
-
-
-@pytest.mark.parametrize("X", [X_incomplete])
-def test_rpca__prepare_data_1D_succeed(X: NDArray):
-    signal = X.reshape(1, -1)  # , X.shape[0] * X.shape[1])
-    rpca_pcp = RPCAPCP(max_iter=max_iter, mu=mu, lam=lam, period=3)
-    result = rpca_pcp._prepare_data(signal)
-    np.testing.assert_allclose(result, X)
 
 
 X_exp_nrows_2_pcp_decompose_rpca_signal = np.array([2, 3, 0, 4, 3, 0])

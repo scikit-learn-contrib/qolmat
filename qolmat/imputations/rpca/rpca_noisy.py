@@ -7,9 +7,9 @@ import scipy as scp
 from matplotlib import pyplot as plt
 from numpy.typing import NDArray
 
-from qolmat.imputations.rpca import utils as rpca_utils
+from qolmat.imputations.rpca import rpca_utils as rpca_utils
 from qolmat.imputations.rpca.rpca import RPCA
-from qolmat.utils import utils_np
+from qolmat.utils import utils
 
 
 class RPCANoisy(RPCA):
@@ -108,7 +108,7 @@ class RPCANoisy(RPCA):
         """
         m, n = D.shape
         rho = 1.1
-        mu = 1e-6
+        mu = 1e-2
         mu_bar = mu * 1e10
 
         # init
@@ -241,7 +241,7 @@ class RPCANoisy(RPCA):
         L = np.ones((m, rank))
         Q = np.ones((n, rank))
 
-        mu = 1e-6
+        mu = 1e-2
         mu_bar = mu * 1e10
 
         # matrices for temporal correlation
@@ -257,6 +257,7 @@ class RPCANoisy(RPCA):
         errors_ano = []
         errors_nuclear = []
         errors_noise = []
+        errors_lagrange = []
         self.list_report = []
 
         for iteration in range(self.max_iter):
@@ -303,6 +304,12 @@ class RPCANoisy(RPCA):
             errors_ano.append(np.sum(np.abs(A)))
             errors_nuclear.append(np.sum(values_singular))
             errors_noise.append(np.sum((D - X - A) ** 2))
+            errors_lagrange.append(np.sum((X - L @ Q.T) ** 2))
+            # print(np.sum(np.abs(A)), "+", values_singular, "+", np.sum((D - X - A) ** 2))
+            # print(X)
+            # print(L @ Q.T)
+            # print(Y)
+            # print()
 
             if self.do_report:
                 self.list_report.append((D, X, A))
@@ -314,10 +321,12 @@ class RPCANoisy(RPCA):
             errors_ano_np = np.array(errors_ano)
             errors_nuclear_np = np.array(errors_nuclear)
             errors_noise_np = np.array(errors_noise)
+            errors_lagrange_np = np.array(errors_lagrange)
 
             plt.plot(lam * errors_ano_np, label="Cost (ano)")
             plt.plot(tau * errors_nuclear_np, label="Cost (SV)")
             plt.plot(0.5 * errors_noise_np, label="Cost (noise)")
+            plt.plot(errors_lagrange_np, label="Cost (Lagrange)")
             plt.plot(
                 lam * errors_ano_np + tau * errors_nuclear_np + errors_noise_np,
                 label="Total",
@@ -369,17 +378,16 @@ class RPCANoisy(RPCA):
             "lam": lam,
         }
 
-    def decompose_rpca_signal(
-        self,
-        X: NDArray,
-    ) -> Tuple[NDArray, NDArray]:
+    def decompose_rpca(self, D: NDArray, Omega: NDArray) -> Tuple[NDArray, NDArray]:
         """
         Compute the noisy RPCA with L1 or L2 time penalisation
 
         Parameters
         ----------
         X : NDArray
-            Observations
+            Matrix of the observations
+        Omega: NDArray
+            Matrix of missingness, with boolean data
 
         Returns
         -------
@@ -388,24 +396,15 @@ class RPCANoisy(RPCA):
         A: NDArray
             Anomalies
         """
-        D_init = utils_np._prepare_data(X, self.period)
-        Omega = ~np.isnan(D_init)
-        # D_proj = rpca_utils.impute_nans(D_init, method="median")
-        D_proj = D_init.T
-        D_proj = utils_np._linear_interpolation(D_proj)
 
-        # self.scaler = StandardScaler()
-        # D_proj = self.scaler.fit_transform(D_proj)
-        D_proj = D_proj.T
-
-        params_scale = self.get_params_scale(D_proj)
+        params_scale = self.get_params_scale(D)
 
         lam = params_scale["lam"] if self.lam is None else self.lam
         rank = params_scale["rank"] if self.rank is None else self.rank
         rank = int(rank)
         tau = params_scale["tau"] if self.tau is None else self.tau
 
-        _, n_columns = D_proj.shape
+        _, n_columns = D.shape
         for period in self.list_periods:
             if not period < n_columns:
                 raise ValueError(
@@ -414,13 +413,8 @@ class RPCANoisy(RPCA):
                 )
 
         if self.norm == "L1":
-            M, A, U, V = self.decompose_rpca_L1(D_proj, Omega, lam, tau, rank)
+            M, A, U, V = self.decompose_rpca_L1(D, Omega, lam, tau, rank)
         elif self.norm == "L2":
-            M, A, U, V = self.decompose_rpca_L2(D_proj, Omega, lam, tau, rank)
+            M, A, U, V = self.decompose_rpca_L2(D, Omega, lam, tau, rank)
 
-        # M = self.scaler.inverse_transform(M.T).T
-        # A = self.scaler.inverse_transform(A.T).T
-        M_final = utils_np.get_shape_original(M, X.shape)
-        A_final = utils_np.get_shape_original(A, X.shape)
-
-        return M_final, A_final
+        return M, A

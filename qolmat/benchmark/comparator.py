@@ -4,7 +4,7 @@ from typing import Any, Callable, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
-from qolmat.benchmark import cross_validation, metrics, utils
+from qolmat.benchmark import cross_validation, metrics
 from qolmat.benchmark.missing_patterns import _HoleGenerator
 
 
@@ -16,7 +16,7 @@ class Comparator:
     ----------
     dict_models: Dict[str, any]
         dictionary of imputation methods
-    selected_columns: List[str]
+    selected_columns: List[str]Œ
         list of column's names selected (all with at least one null value will be imputed)
     columnwise_evaluation : Optional[bool], optional
         whether the metric should be calculated column-wise or not, by default False

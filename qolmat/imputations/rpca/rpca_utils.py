@@ -86,45 +86,6 @@ def svd_thresholding(X: NDArray, threshold: float) -> NDArray:
     return U @ (np.diag(s) @ Vh)
 
 
-def impute_nans(M: NDArray, method: str = "zeros") -> NDArray:
-    """
-    Impute the M's nan with the specified method
-
-    Parameters
-    ----------
-    M : NDArray
-        Array to impute
-    method : str
-        'mean', 'median', or 'zeros'
-
-    Returns
-    -------
-    NDArray
-        Imputed Array
-    Raises
-    ------
-        ValueError
-            if ``method`` is not
-            in 'mean', 'median' or 'zeros']
-
-    """
-    if method == "mean":
-        with warnings.catch_warnings(record=True):
-            warnings.simplefilter("always")
-            result = np.where(np.isnan(M), np.resize(np.nanmean(M, axis=0), M.shape), M)
-        result = np.where(np.isnan(result), np.nanmean(result), result)
-    elif method == "median":
-        with warnings.catch_warnings(record=True):
-            warnings.simplefilter("always")
-            result = np.where(np.isnan(M), np.resize(np.nanmedian(M, axis=0), M.shape), M)
-        result = np.where(np.isnan(result), np.nanmedian(result), result)
-    elif method == "zeros":
-        result = np.where(np.isnan(M), 0, M)
-    else:
-        raise ValueError("'method' should be 'mean', 'median' or 'zeros'.")
-    return result
-
-
 def l1_norm(M: NDArray) -> float:
     """
     L1 norm of an array

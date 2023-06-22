@@ -6,11 +6,11 @@ jupyter:
       extension: .md
       format_name: markdown
       format_version: '1.3'
-      jupytext_version: 1.14.4
+      jupytext_version: 1.14.5
   kernelspec:
-    display_name: env_qolmat_dev
+    display_name: Python 3 (ipykernel)
     language: python
-    name: env_qolmat_dev
+    name: python3
 ---
 
 **This notebook aims to present the Qolmat repo through an example of a multivariate time series.
@@ -52,13 +52,11 @@ from qolmat.benchmark import comparator, missing_patterns
 from qolmat.benchmark.metrics import kl_divergence
 from qolmat.imputations import imputers
 from qolmat.utils import data, utils, plot
-# from qolmat.drawing import display_bar_table
 
 ```
 
-<!-- #region tags=[] -->
 ### **I. Load data**
-<!-- #endregion -->
+
 
 The dataset `Beijing` is the Beijing Multi-Site Air-Quality Data Set. It consists in hourly air pollutants data from 12 chinese nationally-controlled air-quality monitoring sites and is available at https://archive.ics.uci.edu/ml/machine-learning-databases/00501/.
 This dataset only contains numerical vairables.
@@ -84,7 +82,7 @@ df_data = data.get_data("SNCF", n_groups_max=2)
 cols_to_impute = ["val_in"]
 ```
 
-```python tags=[]
+```python
 df_data
 ```
 
@@ -113,9 +111,8 @@ for i_station, (station, df) in enumerate(df_data.groupby("station")):
 plt.show()
 ```
 
-<!-- #region tags=[] -->
 ### **II. Imputation methods**
-<!-- #endregion -->
+
 
 This part is devoted to the imputation methods. The idea is to try different algorithms and compare them.
 
@@ -345,7 +342,7 @@ dict_imputers["MLP"] = imputer_mlp = imputers_keras.ImputerRegressorKeras(estima
 
 We can re-run the imputation model benchmark as before.
 
-```python tags=[]
+```python
 generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, subset = cols_to_impute, ratio_masked=ratio_masked)
 
 comparison = comparator.Comparator(

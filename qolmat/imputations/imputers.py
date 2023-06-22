@@ -179,7 +179,6 @@ class Imputer(_BaseImputer):
             raise ValueError("Input has to be a pandas.DataFrame.")
         df = df.copy()
         if self.groups:
-            # groupby = utils.custom_groupby(df, groups)
             groupby = df.groupby(self.ngroups_, group_keys=False)
             if self.shrink:
                 imputation_values = groupby.transform(self.fit_transform_element)

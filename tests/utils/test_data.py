@@ -77,6 +77,7 @@ def test_utils_data_get_data(name_data: str, df: pd.DataFrame, mocker: MockerFix
         "qolmat.utils.data.preprocess_data_beijing_offline", return_value=df_preprocess_offline
     )
     mocker.patch("qolmat.utils.data.preprocess_data_beijing", return_value=df_preprocess_beijing)
+    mock_get = mocker.patch("qolmat.utils.data.get_dataframes_in_folder", return_value=[df])
     try:
         df_result = data.get_data(name_data=name_data)
     except ValueError:
@@ -88,7 +89,8 @@ def test_utils_data_get_data(name_data: str, df: pd.DataFrame, mocker: MockerFix
         assert mock_download.call_count == 1
         pd.testing.assert_frame_equal(df_result, df_preprocess_beijing)
     elif name_data == "Beijing_offline":
-        assert mock_download.call_count == 1
+        assert mock_download.call_count == 0
+        assert mock_get.call_count == 1
         pd.testing.assert_frame_equal(df_result, df_preprocess_offline)
     elif name_data == "Artificial":
         expected_columns = ["signal", "X", "A", "E"]
