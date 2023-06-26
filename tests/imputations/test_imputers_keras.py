@@ -2,15 +2,15 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from qolmat.imputations import imputers_keras
-from qolmat.utils.exceptions import KerasExtraNotInstalled
+from qolmat.imputations import imputers_pytorch
+from qolmat.utils.exceptions import PyTorchExtraNotInstalled
 
 # from __future__ import annotations
 
 try:
     import tensorflow as tf
 except ModuleNotFoundError:
-    raise KerasExtraNotInstalled
+    raise PyTorchExtraNotInstalled
 
 df_incomplete = pd.DataFrame(
     {
@@ -38,7 +38,7 @@ def test_ImputerRegressorKeras_fit_transform(df: pd.DataFrame) -> None:
     estimator.set_weights(weights)
 
     estimator.compile(optimizer="adam", loss="mse")
-    imputer = imputers_keras.ImputerRegressorKeras(
+    imputer = imputers_pytorch.ImputerRegressorPyTorch(
         estimator=estimator, handler_nan="column", epochs=1
     )
 

@@ -6,7 +6,6 @@ import numpy as np
 import pandas as pd
 from sklearn import utils as sku
 from sklearn.base import BaseEstimator
-from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer, KNNImputer
 from sklearn.impute._base import _BaseImputer
 from statsmodels.tsa import seasonal as tsa_seasonal
@@ -800,8 +799,8 @@ class ImputerRegressor(Imputer):
 
     def __init__(
         self,
+        estimator,
         groups: List[str] = [],
-        estimator: Optional[BaseEstimator] = None,
         handler_nan: str = "column",
         random_state: Union[None, int, np.random.RandomState] = None,
         **hyperparams,
@@ -814,6 +813,13 @@ class ImputerRegressor(Imputer):
 
     def get_params_fit(self) -> Dict:
         return {}
+
+    def fit_estimator(self, X, y, **hp):
+        assert not hp
+        return self.estimator.fit(X, y)
+
+    def predict_estimator(self, X):
+        return self.estimator.predict(X)
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -865,8 +871,8 @@ class ImputerRegressor(Imputer):
                 y_imputed = pd.Series(y.mean(), index=y.index)
             else:
                 hp = self.get_params_fit()
-                self.estimator.fit(X[(~is_na) & is_valid], y[(~is_na) & is_valid], **hp)
-                y_imputed = self.estimator.predict(X[is_na & is_valid])
+                self.fit_estimator(X[(~is_na) & is_valid], y[(~is_na) & is_valid], **hp)
+                y_imputed = self.predict_estimator(X[is_na & is_valid])
                 y_imputed = pd.Series(y_imputed.flatten())
 
             # Adds the imputed values
