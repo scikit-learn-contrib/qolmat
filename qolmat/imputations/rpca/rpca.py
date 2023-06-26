@@ -31,7 +31,7 @@ class RPCA(BaseEstimator, TransformerMixin):
 
     def __init__(
         self,
-        period: Optional[int] = None,
+        period: int = 1,
         max_iter: int = int(1e4),
         tol: float = 1e-6,
         random_state: Union[None, int, np.random.RandomState] = None,
@@ -60,20 +60,13 @@ class RPCA(BaseEstimator, TransformerMixin):
         A: NDArray
             Anomalies
         """
-        D_init = utils.prepare_data(X, self.period)
-        Omega = ~np.isnan(D_init)
+        D = utils.prepare_data(X, self.period)
+        Omega = ~np.isnan(D)
         # D_proj = rpca_utils.impute_nans(D_init, method="median")
-        D_proj = D_init.T
-        D_proj = utils.linear_interpolation(D_proj)
+        D = utils.linear_interpolation(D)
 
-        # self.scaler = StandardScaler()
-        # D_proj = self.scaler.fit_transform(D_proj)
-        D_proj = D_proj.T
+        M, A = self.decompose_rpca(D, Omega)
 
-        M, A = self.decompose_rpca(D_proj, Omega)
-
-        # M = self.scaler.inverse_transform(M.T).T
-        # A = self.scaler.inverse_transform(A.T).T
         M_final = utils.get_shape_original(M, X.shape)
         A_final = utils.get_shape_original(A, X.shape)
 

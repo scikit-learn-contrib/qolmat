@@ -51,7 +51,7 @@ class RPCANoisy(RPCA):
 
     def __init__(
         self,
-        period: Optional[int] = None,
+        period: int = 1,
         rank: Optional[int] = None,
         tau: Optional[float] = None,
         lam: Optional[float] = None,

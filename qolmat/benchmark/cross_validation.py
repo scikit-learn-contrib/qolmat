@@ -213,7 +213,7 @@ class CrossValidation:
         Parameters
         ----------
         df : pd.DataFrame
-            DataFrame masked
+            DataFrame with nans
 
         Returns
         -------

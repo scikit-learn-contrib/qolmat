@@ -29,7 +29,7 @@ class RPCAPCP(RPCA):
 
     def __init__(
         self,
-        period: Optional[int] = None,
+        period: int = 1,
         mu: Optional[float] = None,
         lam: Optional[float] = None,
         max_iter: int = int(1e4),

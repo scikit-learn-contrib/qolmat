@@ -64,7 +64,7 @@ class Comparator:
         df_origin: pd.DataFrame,
         df_imputed: pd.DataFrame,
         df_mask: pd.DataFrame,
-    ) -> pd.DataFrame:
+    ) -> pd.Series:
         """Functions evaluating the reconstruction's quality
 
         Parameters

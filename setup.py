@@ -42,7 +42,7 @@ PYTHON_REQUIRES = ">=3.8"
 PACKAGES = find_packages()
 INSTALL_REQUIRES = [
     "scikit-learn",
-    "numpy>=1.21",
+    "numpy>=1.19",
     "packaging",
     "scikit-optimize",
     "scipy",

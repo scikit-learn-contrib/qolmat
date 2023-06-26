@@ -6,6 +6,8 @@ import pandas as pd
 
 from numpy.typing import NDArray
 
+from qolmat.utils.exceptions import SignalTooShort
+
 
 def progress_bar(
     iteration: int,
@@ -155,7 +157,7 @@ def fold_signal(X: NDArray, period: int) -> NDArray:
     n_rows, n_cols = X.shape
     n_rows_new = n_rows * period
     if period >= n_cols:
-        raise ValueError("`period` must be smaller than the signals duration.")
+        raise SignalTooShort(period, n_cols)
 
     X = X.flatten()
     n_required_nans = (-X.size) % n_rows_new
@@ -165,20 +167,17 @@ def fold_signal(X: NDArray, period: int) -> NDArray:
     return X
 
 
-def prepare_data(X: NDArray, period: Optional[int] = None) -> NDArray:
+def prepare_data(X: NDArray, period: int = 1) -> NDArray:
     """
     Transform signal to 2D-array in case of 1D-array.
     """
+    print("before:", X.shape)
     if len(X.shape) == 1:
         X = X.reshape(1, -1)
-    n_rows_X, n_cols_X = X.shape
-    print(period)
-    if period is not None:
-        return fold_signal(X, period)
-    else:
-        if n_rows_X == 1:
-            raise ValueError("`period` must be specified when imputing 1D data.")
-        return X.copy()
+
+    X_fold = fold_signal(X, period)
+    print("after:", X_fold.shape)
+    return X_fold
 
 
 def get_shape_original(M: NDArray, shape: tuple) -> NDArray:

@@ -8,9 +8,9 @@ jupyter:
       format_version: '1.3'
       jupytext_version: 1.14.5
   kernelspec:
-    display_name: Python 3 (ipykernel)
+    display_name: env_qolmat_dev
     language: python
-    name: python3
+    name: env_qolmat_dev
 ---
 
 **This notebook aims to present the Qolmat repo through an example of a multivariate time series.
@@ -62,24 +62,24 @@ The dataset `Beijing` is the Beijing Multi-Site Air-Quality Data Set. It consist
 This dataset only contains numerical vairables.
 
 ```python
-# df_data = data.get_data_corrupted("Beijing", ratio_masked=.2, mean_size=120)
+df_data = data.get_data_corrupted("Beijing", ratio_masked=.2, mean_size=120)
 
 # cols_to_impute = ["TEMP", "PRES", "DEWP", "NO2", "CO", "O3", "WSPM"]
 # cols_to_impute = df_data.columns[df_data.isna().any()]
-# cols_to_impute = ["TEMP", "PRES"]
+cols_to_impute = ["TEMP", "PRES"]
 
 ```
 
 The dataset `Artificial` is designed to have a sum of a periodical signal, a white noise and some outliers.
 
 ```python
-df_data = data.get_data_corrupted("Artificial", ratio_masked=.2, mean_size=10)
-cols_to_impute = ["signal"]
+# df_data = data.get_data_corrupted("Artificial", ratio_masked=.2, mean_size=10)
+# cols_to_impute = ["signal"]
 ```
 
 ```python
-df_data = data.get_data("SNCF", n_groups_max=2)
-cols_to_impute = ["val_in"]
+# df_data = data.get_data("SNCF", n_groups_max=2)
+# cols_to_impute = ["val_in"]
 ```
 
 ```python
@@ -132,14 +132,14 @@ imputer_nocb = imputers.ImputerNOCB(groups=["station"])
 imputer_interpol = imputers.ImputerInterpolation(groups=["station"], method="linear")
 imputer_spline = imputers.ImputerInterpolation(groups=["station"], method="spline", order=2)
 imputer_shuffle = imputers.ImputerShuffle(groups=["station"])
-imputer_residuals = imputers.ImputerResiduals(groups=["station"], period=7, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
+imputer_residuals = imputers.ImputerResiduals(groups=["station"], period=365, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
 
-imputer_rpca = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=7, max_iter=1000, tau=2, lam=1)
+imputer_rpca = imputers.ImputerRPCA(groups=["station"], columnwise=False, max_iter=256, tau=2, lam=1)
 # imputer_rpca_opti = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=7, max_iter=100)
 
 imputer_ou = imputers.ImputerEM(groups=["station"], model="multinormal", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
 imputer_tsou = imputers.ImputerEM(groups=["station"], model="VAR1", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
-imputer_tsmle = imputers.ImputerEM(groups=["station"], model="VAR1", method="mle", max_iter_em=100, n_iter_ou=15, dt=1e-3, period=7)
+imputer_tsmle = imputers.ImputerEM(groups=["station"], model="VAR1", method="mle", max_iter_em=100, n_iter_ou=15, dt=1e-3)
 
 
 imputer_knn = imputers.ImputerKNN(groups=["station"], k=10)
@@ -155,7 +155,7 @@ dict_imputers = {
     "shuffle": imputer_shuffle,
     # "residuals": imputer_residuals,
     # "OU": imputer_ou,
-    # "TSOU": imputer_tsou,
+    "TSOU": imputer_tsou,
     "TSMLE": imputer_tsmle,
     "RPCA": imputer_rpca,
     # "RPCA_opti": imputer_rpca_opti,
@@ -184,9 +184,6 @@ In order to compare the methods, we $i)$ artificially create missing data (for m
 </p>
 
 
-```python
-imputer_tsmle.hyperparams_user
-```
 
 Concretely, the comparator takes as input a dataframe to impute, a proportion of nan to create, a dictionary of imputers (those previously mentioned), a list with the columns names to impute, a generator of holes specifying the type of holes to create and the search dictionary search_params for hyperparameter optimization.
 

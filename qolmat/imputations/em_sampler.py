@@ -165,7 +165,7 @@ class EM(BaseEstimator, TransformerMixin):
         tolerance: float = 1e-4,
         stagnation_threshold: float = 5e-3,
         stagnation_loglik: float = 2,
-        period: Optional[int] = None,
+        period: int = 1,
     ):
         if method not in ["mle", "sample"]:
             raise ValueError(f"`method` must be 'mle' or 'sample', provided value is '{method}'")
@@ -223,8 +223,8 @@ class EM(BaseEstimator, TransformerMixin):
         if not isinstance(X, np.ndarray):
             raise AssertionError("Invalid type. X must be a NDArray.")
 
-        X = self.scaler.fit_transform(X.T).T
         X = utils.prepare_data(X, self.period)
+        X = self.scaler.fit_transform(X.T).T
 
         mask_na = np.isnan(X)
 
@@ -332,7 +332,7 @@ class MultiNormalEM(EM):
         tolerance: float = 1e-4,
         stagnation_threshold: float = 5e-3,
         stagnation_loglik: float = 2,
-        period: Optional[int] = None,
+        period: int = 1,
     ) -> None:
         super().__init__(
             method=method,
@@ -545,7 +545,7 @@ class VAR1EM(EM):
         tolerance: float = 1e-4,
         stagnation_threshold: float = 5e-3,
         stagnation_loglik: float = 2,
-        period: Optional[int] = None,
+        period: int = 1,
     ) -> None:
         super().__init__(
             method=method,
