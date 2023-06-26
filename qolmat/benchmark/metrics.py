@@ -1,4 +1,4 @@
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Dict
 
 import numpy as np
 import pandas as pd
@@ -854,10 +854,62 @@ def distance_correlation_complement(
     pd.Series
         Correlation distance
     """
-    df1[~df_mask] = np.nan
-    df2[~df_mask] = np.nan
-
-    df1 = df1.dropna(axis=0, how="all").dropna(axis=1, how="any")
-    df2 = df2.dropna(axis=0, how="all").dropna(axis=1, how="any")
+    # For the case that we use this function outside pattern_based_metric
+    df1 = df1[df_mask].fillna(0.0)
+    df2 = df2[df_mask].fillna(0.0)
 
     return 1.0 - pd.Series(dcor.distance_correlation(df1.values, df2.values), index=["All"])
+
+
+def pattern_based_metric(
+    df1: pd.DataFrame,
+    df2: pd.DataFrame,
+    df_mask: pd.DataFrame,
+    metric: Callable,
+    min_num_row: int = 10,
+    **kwargs,
+) -> pd.Series:
+    """_summary_
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        true dataframe
+    df2 : pd.DataFrame
+        predicted dataframe
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
+    metric : Callable
+        metric function
+    min_num_row : int, optional
+        minimum number of row allowed for a pattern without nan, by default 10
+
+    Returns
+    -------
+    pd.Series
+        _description_
+    """
+    # Identify all distinct missing data patterns
+    z = 1 + np.log(1 + np.arange(df_mask.shape[1]))
+    c = np.dot(df_mask, z)
+    row_map: Dict = {}
+    for i, v in enumerate(c):
+        if v == 0:
+            # No missing values
+            continue
+        if v not in row_map:
+            row_map[v] = []
+        row_map[v].append(i)
+    patterns = [np.asarray(v) for v in row_map.values()]
+    scores = []
+    for pattern in patterns:
+        df1_pattern = df1.iloc[pattern].dropna(axis=1)
+        if len(df1_pattern.columns) == 0:
+            df1_pattern = df1.iloc[pattern].dropna(axis=0)
+
+        if len(df1_pattern) >= min_num_row:
+            df2_pattern = df2.loc[df1_pattern.index, df1_pattern.columns]
+
+            scores.append(metric(df1_pattern, df2_pattern, ~df1_pattern.isna(), **kwargs))
+
+    return pd.Series(np.mean(scores), index=["All"])
