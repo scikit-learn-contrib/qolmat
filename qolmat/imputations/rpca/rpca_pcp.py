@@ -6,8 +6,8 @@ import numpy as np
 from numpy.typing import NDArray
 
 from qolmat.imputations.rpca import rpca_utils
-from qolmat.utils import utils
 from qolmat.imputations.rpca.rpca import RPCA
+from qolmat.utils import utils
 
 
 class RPCAPCP(RPCA):
@@ -66,7 +66,10 @@ class RPCAPCP(RPCA):
         for iteration in range(self.max_iter):
             M = rpca_utils.svd_thresholding(D - A + Y / mu, 1 / mu)
             A = rpca_utils.soft_thresholding(D - M + Y / mu, lam / mu)
-            A[~Omega] = (D - M)[~Omega]
+            # A[~Omega] = (D - M)[~Omega]
+
+            A[~Omega] = 0  # missing values are not outliers
+
             Y += mu * (D - M - A)
 
             error = np.linalg.norm(D - M - A, "fro") / D_norm
@@ -74,4 +77,16 @@ class RPCAPCP(RPCA):
 
             if error < self.tol:
                 break
+
+        # Check that the functional minimized by the RPCA
+        # is smaller at the end than at the beginning
+        starting_value = np.linalg.norm(D, "nuc")
+        ending_value = np.linalg.norm(M, "nuc") + lam * rpca_utils.l1_norm(A)
+        if starting_value + 1e-9 < ending_value:
+            print(
+                """RPCA algorithm may provide bad results.
+                    ||D||_* + lam ||A||_1 is larger
+                    at the end of the algorithm than at the start. """
+            )
+
         return M, A

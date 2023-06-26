@@ -1,33 +1,44 @@
 import numpy as np
-from numpy.typing import NDArray
 import pytest
+from numpy.typing import NDArray
+
 from qolmat.imputations.rpca.rpca_pcp import RPCAPCP
 
-X_complete = np.array([[1, 2], [4, 4], [4, 3]])
-X_incomplete = np.array([[1, np.nan], [4, 2], [np.nan, 4]])
-
-period = 100
-max_iter = 5
-mu = 0.5
-lam = 1
+X_complete = np.array([[1, 2], [3, 1]], dtype=float)
+X_incomplete = np.array([[1, 2], [3, np.nan], [np.nan, 4]], dtype=float)
+max_iter = 50
+small_mu = 1e-5
+large_mu = 1e5
 
 
 @pytest.mark.parametrize("X", [X_complete])
 def test_rpca_rpca_pcp_get_params_scale(X: NDArray):
-    rpca_pcp = RPCAPCP(period=period, max_iter=max_iter, mu=mu, lam=lam)
+    rpca_pcp = RPCAPCP(max_iter=max_iter, mu=0.5, lam=0.1)
     result_dict = rpca_pcp.get_params_scale(X)
     result = list(result_dict.values())
-    params_expected = [0.08333333333333333, 0.5773502691896258]
+    params_expected = [1 / 7, np.sqrt(2) / 2]
     np.testing.assert_allclose(result, params_expected, rtol=1e-5)
 
 
-@pytest.mark.parametrize("X", [X_incomplete])
-def test_rpca_rpca_pcp_decompose_rpca(X: NDArray):
-    rpca_pcp = RPCAPCP(period=period, max_iter=max_iter, mu=mu, lam=lam)
-    M_result, A_result = rpca_pcp.decompose_rpca(X)
-    M_expected, A_expected = (
-        np.array([[0.94183165, 0.58476157], [4.01157196, 1.99014294], [2.06642095, 3.99619333]]),
-        np.array([[0.0, 2.41523843], [0.0, -0.0], [0.43357905, 0.0]]),
-    )
-    np.testing.assert_allclose(M_result, M_expected, rtol=1e-5)
-    np.testing.assert_allclose(A_result, A_expected, rtol=1e-5)
+@pytest.mark.parametrize("X, mu", [(X_complete, small_mu)])
+def test_rpca_rpca_pcp_zero_lambda_small_mu(X: NDArray, mu: float):
+    rpca_pcp = RPCAPCP(lam=0, mu=mu)
+    M_result, A_result = rpca_pcp.decompose_rpca_signal(X)
+    np.testing.assert_allclose(X, A_result, rtol=1e-5)
+    np.testing.assert_allclose(M_result, np.full_like(X, 0), rtol=1e-5, atol=1e-4)
+
+
+@pytest.mark.parametrize("X, mu", [(X_complete, large_mu)])
+def test_rpca_rpca_pcp_zero_lambda_large_mu(X: NDArray, mu: float):
+    rpca_pcp = RPCAPCP(lam=0, mu=mu)
+    M_result, A_result = rpca_pcp.decompose_rpca_signal(X)
+    np.testing.assert_allclose(X, M_result, rtol=1e-5, atol=1e-4)
+    np.testing.assert_allclose(A_result, np.full_like(X, 0), rtol=1e-5, atol=1e-4)
+
+
+@pytest.mark.parametrize("X, mu", [(X_complete, large_mu)])
+def test_rpca_rpca_pcp_large_lambda_small_mu(X: NDArray, mu: float):
+    rpca_pcp = RPCAPCP(lam=1e3, mu=mu)
+    M_result, A_result = rpca_pcp.decompose_rpca_signal(X)
+    np.testing.assert_allclose(X, M_result, rtol=1e-5, atol=1e-4)
+    np.testing.assert_allclose(A_result, np.full_like(X, 0), rtol=1e-5, atol=1e-4)

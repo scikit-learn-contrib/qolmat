@@ -150,9 +150,11 @@ class RPCANoisy(RPCA):
             ).T
 
             if np.any(np.isnan(D)):
-                A_Omega = rpca_utils.soft_thresholding(D - X, lam)
-                A_Omega_C = D - X
-                A = np.where(Omega, A_Omega, A_Omega_C)
+                # A_Omega = rpca_utils.soft_thresholding(D - X, lam)
+                # A_Omega_C = D - X
+                # A = np.where(Omega, A_Omega, A_Omega_C)
+                A = rpca_utils.soft_thresholding(D - X, lam)
+                A[~Omega] = 0
             else:
                 A = rpca_utils.soft_thresholding(D - X, lam)
 
@@ -200,7 +202,7 @@ class RPCANoisy(RPCA):
         self, D: NDArray, Omega: NDArray, lam: float, tau: float, rank: int
     ) -> Tuple:
         """
-        Compute the noisy RPCA with a L1 time penalisation
+        Compute the noisy RPCA with a L2 time penalisation
 
         Parameters
         ----------
@@ -235,11 +237,15 @@ class RPCANoisy(RPCA):
         m, n = D.shape
 
         # init
-        Y = np.zeros((m, n))
+        Y = np.full_like(D, 0)
         X = D.copy()
-        A = np.zeros((m, n))
-        L = np.ones((m, rank))
-        Q = np.ones((n, rank))
+        A = np.full_like(D, 0)
+        U, S, Vt = np.linalg.svd(X)
+        U = U[:, :rank]
+        S = S[:rank]
+        Vt = Vt[:rank, :]
+        L = U @ np.diag(np.sqrt(S))
+        Q = Vt.transpose() @ np.diag(np.sqrt(S))
 
         mu = 1e-2
         mu_bar = mu * 1e10
@@ -271,12 +277,12 @@ class RPCANoisy(RPCA):
                 b=(D - A + mu * L @ Q.T - Y).T,
             ).T
 
+            A = rpca_utils.soft_thresholding(D - X, lam)
             if np.any(~Omega):
-                A_omega = rpca_utils.soft_thresholding(D - X, lam)
-                A_omega_C = D - X
-                A = np.where(Omega, A_omega, A_omega_C)
-            else:
-                A = rpca_utils.soft_thresholding(D - X, lam)
+                # A_omega = rpca_utils.soft_thresholding(D - X, lam)
+                # A_omega_C = D - X
+                # A = np.where(Omega, A_omega, A_omega_C)
+                A[~Omega] = 0  # not outliers if missing
 
             L = scp.linalg.solve(
                 a=(tau * Ir + mu * (Q.T @ Q)).T,
@@ -305,11 +311,6 @@ class RPCANoisy(RPCA):
             errors_nuclear.append(np.sum(values_singular))
             errors_noise.append(np.sum((D - X - A) ** 2))
             errors_lagrange.append(np.sum((X - L @ Q.T) ** 2))
-            # print(np.sum(np.abs(A)), "+", values_singular, "+", np.sum((D - X - A) ** 2))
-            # print(X)
-            # print(L @ Q.T)
-            # print(Y)
-            # print()
 
             if self.do_report:
                 self.list_report.append((D, X, A))
@@ -414,7 +415,31 @@ class RPCANoisy(RPCA):
 
         if self.norm == "L1":
             M, A, U, V = self.decompose_rpca_L1(D, Omega, lam, tau, rank)
+            # Check that the functional minimized by the RPCA
+            # is smaller at the end than at the beginning
+            starting_value = tau * np.linalg.norm(D, "nuc")
+            ending_value = (
+                np.sum((D - M - A) ** 2) + tau * np.linalg.norm(M, "nuc") + lam * np.sum(np.abs(A))
+            )
+            if starting_value < ending_value:
+                print(
+                    """RPCA algorithm may provide bad results.
+                      ||D-M-A||_2 + tau ||D||_* + lam ||A||_1 is larger
+                      at the end of the algorithm than at the start. """
+                )
         elif self.norm == "L2":
             M, A, U, V = self.decompose_rpca_L2(D, Omega, lam, tau, rank)
+            # Check that the functional minimized by the RPCA
+            # is smaller at the end than at the beginning
+            starting_value = tau * np.linalg.norm(D, "nuc")
+            ending_value = (
+                np.sum((D - M - A) ** 2) + tau * np.linalg.norm(M, "nuc") + lam * np.sum(A**2)
+            )
+            if starting_value + 1e-9 < ending_value:
+                print(
+                    """RPCA algorithm may provide bad results.
+                      ||D-M-A||_2 + tau ||D||_* + lam ||A||_2 is larger
+                      at the end of the algorithm than at the start. """
+                )
 
         return M, A
