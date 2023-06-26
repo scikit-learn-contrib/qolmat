@@ -861,7 +861,7 @@ def distance_correlation_complement(
     return 1.0 - pd.Series(dcor.distance_correlation(df1.values, df2.values), index=["All"])
 
 
-def pattern_based_metric(
+def pattern_based_weighted_mean_metric(
     df1: pd.DataFrame,
     df2: pd.DataFrame,
     df_mask: pd.DataFrame,
@@ -869,7 +869,9 @@ def pattern_based_metric(
     min_num_row: int = 10,
     **kwargs,
 ) -> pd.Series:
-    """_summary_
+    """Compute a mean score based on missing patterns.
+    Note that for each pattern, a score is returned by the function metric.
+    This code is based on https://www.statsmodels.org/
 
     Parameters
     ----------
@@ -889,7 +891,7 @@ def pattern_based_metric(
     pd.Series
         _description_
     """
-    # Identify all distinct missing data patterns
+    # Identify all distinct missing patterns
     z = 1 + np.log(1 + np.arange(df_mask.shape[1]))
     c = np.dot(df_mask, z)
     row_map: Dict = {}
@@ -902,6 +904,7 @@ def pattern_based_metric(
         row_map[v].append(i)
     patterns = [np.asarray(v) for v in row_map.values()]
     scores = []
+    weights = []
     for pattern in patterns:
         df1_pattern = df1.iloc[pattern].dropna(axis=1)
         if len(df1_pattern.columns) == 0:
@@ -909,7 +912,10 @@ def pattern_based_metric(
 
         if len(df1_pattern) >= min_num_row:
             df2_pattern = df2.loc[df1_pattern.index, df1_pattern.columns]
+            weights.append(len(df1_pattern))
+            scores.append(
+                metric(df1_pattern, df2_pattern, ~df1_pattern.isna(), **kwargs).values[0]
+            )
 
-            scores.append(metric(df1_pattern, df2_pattern, ~df1_pattern.isna(), **kwargs))
-
-    return pd.Series(np.mean(scores), index=["All"])
+    weighted_scores = np.array(scores) * np.array(weights)
+    return pd.Series(np.mean(weighted_scores), index=["All"])

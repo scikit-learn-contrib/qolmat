@@ -42,7 +42,8 @@ class Comparator:
         "energy": metrics.sum_energy_distances,
         "frechet": metrics.frechet_distance,
         "dist_corr_pattern": partial(
-            metrics.pattern_based_metric, metric=metrics.distance_correlation_complement
+            metrics.pattern_based_weighted_mean_metric,
+            metric=metrics.distance_correlation_complement,
         ),
     }
 
