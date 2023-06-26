@@ -799,7 +799,7 @@ class ImputerRegressor(Imputer):
 
     def __init__(
         self,
-        estimator,
+        estimator: Optional[BaseEstimator],
         groups: List[str] = [],
         handler_nan: str = "column",
         random_state: Union[None, int, np.random.RandomState] = None,
