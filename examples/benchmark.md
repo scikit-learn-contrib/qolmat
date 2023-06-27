@@ -6,7 +6,7 @@ jupyter:
       extension: .md
       format_name: markdown
       format_version: '1.3'
-      jupytext_version: 1.14.5
+      jupytext_version: 1.14.4
   kernelspec:
     display_name: env_qolmat_dev
     language: python
@@ -32,6 +32,8 @@ import pandas as pd
 from datetime import datetime
 import numpy as np
 import scipy
+import hyperopt as ho
+from hyperopt.pyll.base import Apply as hoApply
 np.random.seed(1234)
 import pprint
 from matplotlib import pyplot as plt
@@ -48,7 +50,7 @@ from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor, HistGra
 
 
 import sys
-from qolmat.benchmark import comparator, missing_patterns
+from qolmat.benchmark import comparator, missing_patterns, hyperparameters
 from qolmat.benchmark.metrics import kl_divergence
 from qolmat.imputations import imputers
 from qolmat.utils import data, utils, plot
@@ -62,7 +64,8 @@ The dataset `Beijing` is the Beijing Multi-Site Air-Quality Data Set. It consist
 This dataset only contains numerical vairables.
 
 ```python
-df_data = data.get_data_corrupted("Beijing", ratio_masked=.2, mean_size=120)
+df_data = data.get_data_corrupted("Beijing_offline", ratio_masked=.2, mean_size=20)
+df_data = df_data.iloc[:256]
 
 # cols_to_impute = ["TEMP", "PRES", "DEWP", "NO2", "CO", "O3", "WSPM"]
 # cols_to_impute = df_data.columns[df_data.isna().any()]
@@ -124,6 +127,10 @@ Some methods require hyperparameters. The user can directly specify them, or rat
 In pratice, we rely on a cross validation to find the best hyperparams values minimizing an error reconstruction.
 
 ```python
+ratio_masked = 0.1
+```
+
+```python
 imputer_mean = imputers.ImputerMean(groups=["station"])
 imputer_median = imputers.ImputerMedian(groups=["station"])
 imputer_mode = imputers.ImputerMode(groups=["station"])
@@ -135,7 +142,6 @@ imputer_shuffle = imputers.ImputerShuffle(groups=["station"])
 imputer_residuals = imputers.ImputerResiduals(groups=["station"], period=365, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
 
 imputer_rpca = imputers.ImputerRPCA(groups=["station"], columnwise=False, max_iter=256, tau=2, lam=1)
-# imputer_rpca_opti = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=7, max_iter=100)
 
 imputer_ou = imputers.ImputerEM(groups=["station"], model="multinormal", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
 imputer_tsou = imputers.ImputerEM(groups=["station"], model="VAR1", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
@@ -145,7 +151,30 @@ imputer_tsmle = imputers.ImputerEM(groups=["station"], model="VAR1", method="mle
 imputer_knn = imputers.ImputerKNN(groups=["station"], k=10)
 imputer_mice = imputers.ImputerMICE(groups=["station"], estimator=LinearRegression(), sample_posterior=False, max_iter=100, missing_values=np.nan)
 imputer_regressor = imputers.ImputerRegressor(groups=["station"], estimator=LinearRegression())
+```
 
+```python
+generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], subset=cols_to_impute, ratio_masked=ratio_masked)
+```
+
+```python
+dict_config_opti = {
+    "tau": ho.hp.uniform("tau", low=.5, high=5),
+    "lam": ho.hp.uniform("lam", low=.1, high=1),
+}
+imputer_rpca_opti = imputers.ImputerRPCA(groups=["station"], columnwise=False, max_iter=256)
+imputer_rpca_opti = hyperparameters.optimize(
+    imputer_rpca_opti,
+    df_data,
+    generator = generator_holes,
+    metric="mae",
+    max_evals=10,
+    dict_config_opti=dict_config_opti
+)
+# imputer_rpca_opti.params_optim = hyperparams_opti
+```
+
+```python
 dict_imputers = {
     # "mean": imputer_mean,
     # "median": imputer_median,
@@ -158,7 +187,7 @@ dict_imputers = {
     "TSOU": imputer_tsou,
     "TSMLE": imputer_tsmle,
     "RPCA": imputer_rpca,
-    # "RPCA_opti": imputer_rpca_opti,
+    "RPCA_opti": imputer_rpca_opti,
     # "locf": imputer_locf,
     # "nocb": imputer_nocb,
     # "knn": imputer_knn,
@@ -166,15 +195,6 @@ dict_imputers = {
     # "mice_ols": imputer_mice,
 }
 n_imputers = len(dict_imputers)
-
-dict_config_opti = {
-    "RPCA_opti": {
-        "tau": {"min": .5, "max": 5, "type":"Real"},
-        "lam": {"min": .1, "max": 1, "type":"Real"},
-    }
-}
-
-ratio_masked = 0.1
 ```
 
 In order to compare the methods, we $i)$ artificially create missing data (for missing data mechanisms, see the docs); $ii)$ then impute it using the different methods chosen and $iii)$ calculate the reconstruction error. These three steps are repeated a number of times equal to `n_splits`. For each method, we calculate the average error and compare the final errors.
@@ -190,14 +210,12 @@ Concretely, the comparator takes as input a dataframe to impute, a proportion of
 Note these metrics compute reconstruction errors; it tells nothing about the distances between the "true" and "imputed" distributions.
 
 ```python
-generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], ratio_masked=ratio_masked)
-
 comparison = comparator.Comparator(
     dict_imputers,
     cols_to_impute,
     generator_holes = generator_holes,
     metrics=["mae", "wmape", "KL_columnwise", "ks_test", "energy"],
-    n_calls_opt=10,
+    max_evals=10,
     dict_config_opti=dict_config_opti,
 )
 results = comparison.compare(df_data)

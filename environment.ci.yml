@@ -9,7 +9,7 @@ dependencies:
           - flake8
           - matplotlib
           - mypy
-          - numpy==1.19
+          - numpy
           - numpydoc
           - pytest
           - pytest-cov

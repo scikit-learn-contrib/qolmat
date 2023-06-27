@@ -9,14 +9,14 @@ dependencies:
     - jupyter=1.0.0
     - jupyterlab=1.2.6
     - jupytext=1.14.4
-    - numpy=1.21
+    - hyperopt=0.2.7
+    - numpy=1.24.4
     - packaging=23.1
     - pandas=2.0.1
     - python=3.8
     - pip=23.0.1
     - scipy=1.10.1
     - scikit-learn=1.2.2
-    - scikit-optimize=0.9
     - sphinx=6.2.1
     - sphinx-gallery=0.13.0
     - sphinx_rtd_theme=1.2.0

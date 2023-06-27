@@ -305,11 +305,6 @@ class RPCANoisy(RPCA):
             errors_nuclear.append(np.sum(values_singular))
             errors_noise.append(np.sum((D - X - A) ** 2))
             errors_lagrange.append(np.sum((X - L @ Q.T) ** 2))
-            # print(np.sum(np.abs(A)), "+", values_singular, "+", np.sum((D - X - A) ** 2))
-            # print(X)
-            # print(L @ Q.T)
-            # print(Y)
-            # print()
 
             if self.do_report:
                 self.list_report.append((D, X, A))

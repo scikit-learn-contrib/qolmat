@@ -171,12 +171,10 @@ def prepare_data(X: NDArray, period: int = 1) -> NDArray:
     """
     Transform signal to 2D-array in case of 1D-array.
     """
-    print("before:", X.shape)
     if len(X.shape) == 1:
         X = X.reshape(1, -1)
 
     X_fold = fold_signal(X, period)
-    print("after:", X_fold.shape)
     return X_fold
 
 
