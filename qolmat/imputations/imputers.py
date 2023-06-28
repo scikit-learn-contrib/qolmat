@@ -49,7 +49,7 @@ class Imputer(_BaseImputer):
         random_state: Union[None, int, np.random.RandomState] = None,
         missing_values=np.nan,
         imputer_params: tuple = (),
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
     ):
         self.columnwise = columnwise
         self.shrink = shrink
@@ -57,17 +57,6 @@ class Imputer(_BaseImputer):
         self.missing_values = missing_values
         self.imputer_params = imputer_params
         self.groups = groups
-
-    def _more_tags(self):
-        """Define tags for scikit-learn"""
-
-        return {
-            "allow_nan": True,
-            "requires_fit": False,
-            "_xfail_checks": {
-                "check_parameters_default_constructible": "The imputer need Dict as a parammeter",
-            },
-        }
 
     def get_hyperparams(self, col: Optional[str] = None):
         """
@@ -133,10 +122,10 @@ class Imputer(_BaseImputer):
 
         cols_with_nans = df.columns[df.isna().any()]
 
-        if self.groups == []:
-            self.ngroups_ = pd.Series(0, index=df.index).rename("_ngroup")
+        if self.groups:
+            self.ngroups_ = df.groupby(list(self.groups)).ngroup().rename("_ngroup")
         else:
-            self.ngroups_ = df.groupby(self.groups).ngroup().rename("_ngroup")
+            self.ngroups_ = pd.Series(0, index=df.index).rename("_ngroup")
 
         if self.columnwise:
             df_imputed = df.copy()
@@ -298,7 +287,7 @@ class ImputerMean(Imputer):
 
     def __init__(
         self,
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
     ) -> None:
         super().__init__(groups=groups, columnwise=True, shrink=True)
 
@@ -338,7 +327,7 @@ class ImputerMedian(Imputer):
 
     def __init__(
         self,
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
     ) -> None:
         super().__init__(groups=groups, columnwise=True, shrink=True)
 
@@ -375,7 +364,7 @@ class ImputerMode(Imputer):
 
     def __init__(
         self,
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
     ) -> None:
         super().__init__(groups=groups, columnwise=True, shrink=True)
 
@@ -414,7 +403,7 @@ class ImputerShuffle(Imputer):
 
     def __init__(
         self,
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
         random_state: Union[None, int, np.random.RandomState] = None,
     ) -> None:
         super().__init__(groups=groups, columnwise=True, random_state=random_state)
@@ -463,7 +452,7 @@ class ImputerLOCF(Imputer):
 
     def __init__(
         self,
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
     ) -> None:
         super().__init__(groups=groups, columnwise=True)
 
@@ -504,7 +493,7 @@ class ImputerNOCB(Imputer):
 
     def __init__(
         self,
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
     ) -> None:
         super().__init__(groups=groups, columnwise=True)
 
@@ -558,7 +547,7 @@ class ImputerInterpolation(Imputer):
 
     def __init__(
         self,
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
         method: str = "linear",
         order: Optional[int] = None,
         col_time: Optional[str] = None,
@@ -631,7 +620,7 @@ class ImputerResiduals(Imputer):
     def __init__(
         self,
         period: int,
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
         model_tsa: Optional[str] = "additive",
         extrapolate_trend: Optional[Union[int, str]] = "freq",
         method_interpolation: Optional[str] = "linear",
@@ -709,7 +698,7 @@ class ImputerKNN(Imputer):
 
     def __init__(
         self,
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
         n_neighbors: int = 5,
         weights: str = "distance",
     ) -> None:
@@ -771,7 +760,7 @@ class ImputerMICE(Imputer):
 
     def __init__(
         self,
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
         estimator: Optional[BaseEstimator] = None,
         random_state: Union[None, int, np.random.RandomState] = None,
         sample_posterior=False,
@@ -840,7 +829,7 @@ class ImputerRegressor(Imputer):
 
     def __init__(
         self,
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
         estimator: Optional[BaseEstimator] = None,
         handler_nan: str = "column",
         random_state: Union[None, int, np.random.RandomState] = None,
@@ -939,7 +928,7 @@ class ImputerRPCA(Imputer):
 
     def __init__(
         self,
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
         method: str = "noisy",
         columnwise: bool = False,
         random_state: Union[None, int, np.random.RandomState] = None,
@@ -1059,7 +1048,7 @@ class ImputerEM(Imputer):
 
     def __init__(
         self,
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
         model: Optional[str] = "multinormal",
         columnwise: bool = False,
         random_state: Union[None, int, np.random.RandomState] = None,

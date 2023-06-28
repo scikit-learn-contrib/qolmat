@@ -37,8 +37,7 @@ def test_hyperparameters_get_hyperparameters() -> None:
     imputer = imputers.ImputerKNN(n_neighbors=3)
     hyperparams = imputer.get_hyperparams("col")
 
-    print(hyperparams)
-    assert hyperparams == {"n_neighbors": 3}
+    assert hyperparams == {"n_neighbors": 3, "weights": "distance"}
 
 
 hyperparams_global = {"lam/col1": 4.7, "lam/col2": 1.5, "tol": 0.07, "max_iter": 100, "norm": "L1"}
@@ -112,7 +111,7 @@ def test_fit_transform_not_on_pandas(df: Any) -> None:
 
 @pytest.mark.parametrize("df", [df_groups])
 def test_fit_transform_on_grouped(df: pd.DataFrame) -> None:
-    imputer = imputers.ImputerMean(groups=["col1"])
+    imputer = imputers.ImputerMean(groups=("col1",))
     result = imputer.fit_transform(df)
     expected = pd.DataFrame(
         {
