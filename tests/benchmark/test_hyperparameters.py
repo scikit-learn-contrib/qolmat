@@ -1,4 +1,4 @@
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -40,7 +40,7 @@ dict_config_opti = {
 class ImputerTest(Imputer):
     def __init__(
         self,
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
         random_state: Union[None, int, np.random.RandomState] = None,
         value: float = 0,
     ) -> None:
@@ -83,7 +83,7 @@ def test_hyperparameters_optimize():
     dict_config_opti = {"value": ho.hp.uniform("value", 0, 10)}
     df = pd.DataFrame({"some_col": [np.nan, 0, 3, 5]})
     imputer_opti = hyperparameters.optimize(
-        imputer, df, generator, metric, dict_config_opti, max_evals=200
+        imputer, df, generator, metric, dict_config_opti, max_evals=500
     )
     assert isinstance(imputer_opti, ImputerTest)
     np.testing.assert_almost_equal(imputer_opti.value, 4, decimal=2)

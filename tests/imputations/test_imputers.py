@@ -125,7 +125,8 @@ def test_fit_transform_on_grouped(df: pd.DataFrame) -> None:
 @pytest.mark.parametrize("df", [df_incomplete])
 @pytest.mark.parametrize("df_oracle", [df_complete])
 def test_ImputerOracle_fit_transform(df: pd.DataFrame, df_oracle: pd.DataFrame) -> None:
-    imputer = imputers.ImputerOracle(df_oracle)
+    imputer = imputers.ImputerOracle()
+    imputer.set_solution(df_oracle)
     result = imputer.fit_transform(df)
     expected = df_oracle
     np.testing.assert_allclose(result, expected)
@@ -285,7 +286,7 @@ def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
 @parametrize_with_checks(
     [
         imputers.Imputer(),
-        imputers.ImputerOracle(df_complete),
+        imputers.ImputerOracle(),
         imputers.ImputerMean(),
         imputers.ImputerMedian(),
         imputers.ImputerMode(),

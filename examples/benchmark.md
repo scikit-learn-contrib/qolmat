@@ -131,30 +131,30 @@ ratio_masked = 0.1
 ```
 
 ```python
-imputer_mean = imputers.ImputerMean(groups=["station"])
-imputer_median = imputers.ImputerMedian(groups=["station"])
-imputer_mode = imputers.ImputerMode(groups=["station"])
-imputer_locf = imputers.ImputerLOCF(groups=["station"])
-imputer_nocb = imputers.ImputerNOCB(groups=["station"])
-imputer_interpol = imputers.ImputerInterpolation(groups=["station"], method="linear")
-imputer_spline = imputers.ImputerInterpolation(groups=["station"], method="spline", order=2)
-imputer_shuffle = imputers.ImputerShuffle(groups=["station"])
-imputer_residuals = imputers.ImputerResiduals(groups=["station"], period=365, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
+imputer_mean = imputers.ImputerMean(groups=("station",))
+imputer_median = imputers.ImputerMedian(groups=("station",))
+imputer_mode = imputers.ImputerMode(groups=("station",))
+imputer_locf = imputers.ImputerLOCF(groups=("station",))
+imputer_nocb = imputers.ImputerNOCB(groups=("station",))
+imputer_interpol = imputers.ImputerInterpolation(groups=("station",), method="linear")
+imputer_spline = imputers.ImputerInterpolation(groups=("station",), method="spline", order=2)
+imputer_shuffle = imputers.ImputerShuffle(groups=("station",))
+imputer_residuals = imputers.ImputerResiduals(groups=("station",), period=365, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
 
-imputer_rpca = imputers.ImputerRPCA(groups=["station"], columnwise=False, max_iter=256, tau=2, lam=1)
+imputer_rpca = imputers.ImputerRPCA(groups=("station",), columnwise=False, max_iter=256, tau=2, lam=1)
 
-imputer_ou = imputers.ImputerEM(groups=["station"], model="multinormal", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
-imputer_tsou = imputers.ImputerEM(groups=["station"], model="VAR1", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
-imputer_tsmle = imputers.ImputerEM(groups=["station"], model="VAR1", method="mle", max_iter_em=100, n_iter_ou=15, dt=1e-3)
+imputer_ou = imputers.ImputerEM(groups=("station",), model="multinormal", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
+imputer_tsou = imputers.ImputerEM(groups=("station",), model="VAR1", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
+imputer_tsmle = imputers.ImputerEM(groups=("station",), model="VAR1", method="mle", max_iter_em=100, n_iter_ou=15, dt=1e-3)
 
 
-imputer_knn = imputers.ImputerKNN(groups=["station"], n_neighbors=10)
-imputer_mice = imputers.ImputerMICE(groups=["station"], estimator=LinearRegression(), sample_posterior=False, max_iter=100, missing_values=np.nan)
-imputer_regressor = imputers.ImputerRegressor(groups=["station"], estimator=LinearRegression())
+imputer_knn = imputers.ImputerKNN(groups=("station",), n_neighbors=10)
+imputer_mice = imputers.ImputerMICE(groups=("station",), estimator=LinearRegression(), sample_posterior=False, max_iter=100, missing_values=np.nan)
+imputer_regressor = imputers.ImputerRegressor(groups=("station",), estimator=LinearRegression())
 ```
 
 ```python
-generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], subset=cols_to_impute, ratio_masked=ratio_masked)
+generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=("station",), subset=cols_to_impute, ratio_masked=ratio_masked)
 ```
 
 ```python
@@ -162,7 +162,7 @@ dict_config_opti = {
     "tau": ho.hp.uniform("tau", low=.5, high=5),
     "lam": ho.hp.uniform("lam", low=.1, high=1),
 }
-imputer_rpca_opti = imputers.ImputerRPCA(groups=["station"], columnwise=False, max_iter=256)
+imputer_rpca_opti = imputers.ImputerRPCA(groups=("station",), columnwise=False, max_iter=256)
 imputer_rpca_opti = hyperparameters.optimize(
     imputer_rpca_opti,
     df_data,
@@ -181,7 +181,7 @@ dict_config_opti2 = {
     "lam/TEMP": ho.hp.uniform("lam/TEMP", low=.1, high=1),
     "lam/PRES": ho.hp.uniform("lam/PRES", low=.1, high=1),
 }
-imputer_rpca_opti2 = imputers.ImputerRPCA(groups=["station"], columnwise=True, max_iter=256)
+imputer_rpca_opti2 = imputers.ImputerRPCA(groups=("station",), columnwise=True, max_iter=256)
 imputer_rpca_opti2 = hyperparameters.optimize(
     imputer_rpca_opti2,
     df_data,

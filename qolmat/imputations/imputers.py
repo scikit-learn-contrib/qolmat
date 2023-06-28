@@ -23,7 +23,7 @@ class Imputer(_BaseImputer):
 
     Parameters
     ----------
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
     columnwise : bool, optional
         If True, the imputer will be computed for each column, else it will be computed on the
@@ -228,16 +228,17 @@ class ImputerOracle(Imputer):
     ----------
     df : pd.DataFrame
         Dataframe containing real values.
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
     """
 
     def __init__(
         self,
-        df: pd.DataFrame,
     ) -> None:
         super().__init__()
-        self.df = df
+
+    def set_solution(self, X: pd.DataFrame):
+        self.df_solution = X
 
     def fit_transform(self, X: pd.DataFrame, y=None) -> pd.DataFrame:
         """Impute df with corresponding known values
@@ -255,7 +256,11 @@ class ImputerOracle(Imputer):
         if not isinstance(X, (pd.DataFrame, np.ndarray)):
             raise ValueError("Input has to be a pandas.DataFrame or numpy.ndarray.")
         df = pd.DataFrame(X)
-        return df.fillna(self.df)
+        if hasattr(self, "df_solution"):
+            return df.fillna(self.df_solution)
+        else:
+            print("OracleImputer not initialized! Returning imputation with zeros")
+            return df.fillna(0)
 
 
 class ImputerMean(Imputer):
@@ -263,7 +268,7 @@ class ImputerMean(Imputer):
 
     Parameters
     ----------
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
 
     Examples
@@ -303,7 +308,7 @@ class ImputerMedian(Imputer):
 
     Parameters
     ----------
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
 
     Examples
@@ -340,7 +345,7 @@ class ImputerMode(Imputer):
 
     Parameters
     ----------
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
 
     Examples
@@ -377,7 +382,7 @@ class ImputerShuffle(Imputer):
 
     Parameters
     ----------
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
     random_state : Union[None, int, np.random.RandomState], optional
         Determine the randomness of the imputer, by default None
@@ -428,7 +433,7 @@ class ImputerLOCF(Imputer):
 
     Parameters
     ----------
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
 
     Examples
@@ -469,7 +474,7 @@ class ImputerNOCB(Imputer):
 
     Parameters
     ----------
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
 
     Examples
@@ -514,7 +519,7 @@ class ImputerInterpolation(Imputer):
 
     Parameters
     ----------
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
     method : Optional[str] = "linear"
         name of the method for interpolation: "linear", "cubic", "spline", "slinear", ...
@@ -577,7 +582,7 @@ class ImputerResiduals(Imputer):
 
     Parameters
     ----------
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
     period : int
         Period of the series. Must be used if x is not a pandas object or if
@@ -619,7 +624,7 @@ class ImputerResiduals(Imputer):
 
     def __init__(
         self,
-        period: int,
+        period: int = 1,
         groups: Tuple[str, ...] = (),
         model_tsa: Optional[str] = "additive",
         extrapolate_trend: Optional[Union[int, str]] = "freq",
@@ -662,7 +667,7 @@ class ImputerKNN(Imputer):
 
     Parameters
     ----------
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
     n_neighbors : int, default=5
         Number of neighbors to use by default for `kneighbors` queries.
@@ -728,7 +733,7 @@ class ImputerMICE(Imputer):
 
     Parameters
     ----------
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
     estimator : Optional[] = LinearRegression()
         Estimator for imputing a column based on the others
@@ -796,7 +801,7 @@ class ImputerRegressor(Imputer):
 
     Parameters
     ----------
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
     estimator : BaseEstimator, optional
         Estimator for imputing a column based on the others
@@ -913,7 +918,7 @@ class ImputerRPCA(Imputer):
 
     Parameters
     ----------
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
     method : str
         Name of the RPCA method:
@@ -1030,7 +1035,7 @@ class ImputerEM(Imputer):
 
     Parameters
     ----------
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
     method : {'multinormal', 'VAR1'}, default='multinormal'
         Method defining the hypothesis made on the data distribution. Possible values:

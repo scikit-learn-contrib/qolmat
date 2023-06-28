@@ -92,10 +92,10 @@ class _HoleGenerator:
         self.dict_ratios = {}
         missing_per_col = X[self.subset].isna().sum()
         self.dict_ratios = (missing_per_col / missing_per_col.sum()).to_dict()
-        if self.groups == []:
-            self.ngroups = None
-        else:
+        if self.groups:
             self.ngroups = X.groupby(list(self.groups)).ngroup().rename("_ngroup")
+        else:
+            self.ngroups = None
 
         return self
 
