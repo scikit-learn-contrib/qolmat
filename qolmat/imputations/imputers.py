@@ -9,6 +9,8 @@ from sklearn.base import BaseEstimator
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer, KNNImputer
 from sklearn.impute._base import _BaseImputer
+from qolmat.benchmark import hyperparameters
+from qolmat.benchmark.hyperparameters import HyperValue
 from statsmodels.tsa import seasonal as tsa_seasonal
 
 from qolmat.imputations import em_sampler
@@ -102,9 +104,6 @@ class Imputer(_BaseImputer):
         if hasattr(self, "estimator") and hasattr(self.estimator, "random_state"):
             self.estimator.random_state = self.rng
 
-        hyperparams = self.hyperparams.copy()
-        if hasattr(self, "hyperparams_optim"):
-            hyperparams.update(self.hyperparams_optim)
         cols_with_nans = df.columns[df.isna().any()]
 
         if self.groups == []:
@@ -116,18 +115,15 @@ class Imputer(_BaseImputer):
             df_imputed = df.copy()
 
             for col in cols_with_nans:
-                self.hyperparams_element = {}
-                for hyperparam, value in hyperparams.items():
-                    if isinstance(value, dict):
-                        value = value[col]
-                    self.hyperparams_element[hyperparam] = value
-
+                self.hyperparams_elt = hyperparameters.get_hyperparams(self.hyperparams, col)
                 df_imputed[col] = self.impute_element(df[[col]])
 
         else:
-            if any(isinstance(value, dict) for value in hyperparams.values()):
-                raise AssertionError("hyperparams contains a dictionary. Columnwise must be True.")
-            self.hyperparams_element = hyperparams
+            if any("/" in value for value in self.hyperparams.keys()):
+                raise AssertionError(
+                    "hyperparams contains a key with a `/`. " "Columnwise must be set to True."
+                )
+            self.hyperparams_elt = self.hyperparams
             df_imputed = self.impute_element(df)
 
         if df_imputed.isna().any().any():
@@ -179,7 +175,6 @@ class Imputer(_BaseImputer):
             raise ValueError("Input has to be a pandas.DataFrame.")
         df = df.copy()
         if self.groups:
-            # groupby = utils.custom_groupby(df, groups)
             groupby = df.groupby(self.ngroups_, group_keys=False)
             if self.shrink:
                 imputation_values = groupby.transform(self.fit_transform_element)
@@ -685,7 +680,6 @@ class ImputerKNN(Imputer):
         super().__init__(groups=groups, columnwise=False, hyperparams=hyperparams)
         self.n_neighbors = n_neighbors
         self.weights = weights
-        self.hyperparams_optim: Dict = {}
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         imputer = KNNImputer(
@@ -751,10 +745,9 @@ class ImputerMICE(Imputer):
             random_state=random_state,
         )
         self.estimator = estimator
-        self.hyperparams_optim: Dict = {}
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
-        iterative_imputer = IterativeImputer(estimator=self.estimator, **self.hyperparams_element)
+        iterative_imputer = IterativeImputer(estimator=self.estimator, **self.hyperparams_elt)
         res = iterative_imputer.fit_transform(df.values)
         imputed = pd.DataFrame(columns=df.columns)
         for ind, col in enumerate(imputed.columns):
@@ -810,7 +803,6 @@ class ImputerRegressor(Imputer):
         self.columnwise = False
         self.estimator = estimator
         self.handler_nan = handler_nan
-        self.hyperparams_optim: Dict = {}
 
     def get_params_fit(self) -> Dict:
         return {}
@@ -834,11 +826,11 @@ class ImputerRegressor(Imputer):
         cols_with_nans = df.columns[df.isna().any()]
 
         for col in cols_with_nans:
-            hyperparams = {}
-            for hyperparam, value in self.hyperparams_element.items():
-                if isinstance(value, dict):
-                    value = value[col]
-                hyperparams[hyperparam] = value
+            # hyperparams = {}
+            # for hyperparam, value in self.hyperparams_elt.items():
+            #     if isinstance(value, dict):
+            #         value = value[col]
+            #     hyperparams[hyperparam] = value
 
             # Define the Train and Test set
             X = df.drop(columns=col, errors="ignore")
@@ -916,16 +908,15 @@ class ImputerRPCA(Imputer):
         )
 
         self.method = method
-        self.hyperparams_optim: Dict = {}
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         if not isinstance(df, pd.DataFrame):
             raise ValueError("Input has to be a pandas.DataFrame.")
 
         if self.method == "PCP":
-            model = RPCAPCP(**self.hyperparams_element)
+            model = RPCAPCP(**self.hyperparams_elt)
         elif self.method == "noisy":
-            model = RPCANoisy(**self.hyperparams_element)
+            model = RPCANoisy(**self.hyperparams_elt)
         else:
             raise ValueError("Argument method must be `PCP` or `noisy`!")
 
@@ -975,18 +966,18 @@ class ImputerEM(Imputer):
             random_state=random_state,
         )
         self.model = model
-        self.hyperparams_optim: Dict = {}
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         if self.model == "multinormal":
-            model = em_sampler.MultiNormalEM(random_state=self.rng, **self.hyperparams_element)
+            model = em_sampler.MultiNormalEM(random_state=self.rng, **self.hyperparams_elt)
         elif self.model == "VAR1":
-            model = em_sampler.VAR1EM(random_state=self.rng, **self.hyperparams_element)
+            model = em_sampler.VAR1EM(random_state=self.rng, **self.hyperparams_elt)
         else:
             raise ValueError(f"Model '{self.model}' is not handled by ImputeEM!")
         X = df.values.T
         model.fit(X)
 
         X_transformed = model.transform(X)
+        X_transformed = X_transformed.T
         df_transformed = pd.DataFrame(X_transformed, columns=df.columns, index=df.index)
         return df_transformed

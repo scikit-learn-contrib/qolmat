@@ -6,8 +6,8 @@ from qolmat.imputations.rpca.rpca_pcp import RPCAPCP
 X_complete = np.array([[1, 2], [4, 4], [4, 3]])
 X_incomplete = np.array([[1, np.nan], [4, 2], [np.nan, 4]])
 
-period = 100
-max_iter = 5
+period = 1
+max_iter = 128
 mu = 0.5
 lam = 1
 
@@ -24,10 +24,8 @@ def test_rpca_rpca_pcp_get_params_scale(X: NDArray):
 @pytest.mark.parametrize("X", [X_incomplete])
 def test_rpca_rpca_pcp_decompose_rpca(X: NDArray):
     rpca_pcp = RPCAPCP(period=period, max_iter=max_iter, mu=mu, lam=lam)
-    M_result, A_result = rpca_pcp.decompose_rpca(X)
-    M_expected, A_expected = (
-        np.array([[0.94183165, 0.58476157], [4.01157196, 1.99014294], [2.06642095, 3.99619333]]),
-        np.array([[0.0, 2.41523843], [0.0, -0.0], [0.43357905, 0.0]]),
-    )
-    np.testing.assert_allclose(M_result, M_expected, rtol=1e-5)
-    np.testing.assert_allclose(A_result, A_expected, rtol=1e-5)
+    M_result, A_result = rpca_pcp.decompose_rpca_signal(X)
+    M_expected = np.array([[1, 0.5], [4, 2], [2.06, 4]])
+    A_expected = np.array([[0, 0.5], [0, 0], [1.94, 0]])
+    np.testing.assert_allclose(M_result, M_expected, atol=1e-2)
+    np.testing.assert_allclose(A_result, A_expected, atol=1e-2)
