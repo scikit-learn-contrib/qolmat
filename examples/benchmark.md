@@ -64,11 +64,7 @@ This dataset only contains numerical vairables.
 
 ```python
 df_data = data.get_data_corrupted("Beijing", ratio_masked=.2, mean_size=120)
-
-# cols_to_impute = ["TEMP", "PRES", "DEWP", "NO2", "CO", "O3", "WSPM"]
-# cols_to_impute = df_data.columns[df_data.isna().any()]
 cols_to_impute = ["TEMP", "PRES"]
-
 ```
 
 The dataset `Artificial` is designed to have a sum of a periodical signal, a white noise and some outliers.
@@ -151,8 +147,8 @@ dict_imputers = {
     # "spline": imputer_spline,
     "shuffle": imputer_shuffle,
     # "residuals": imputer_residuals,
-    # "OU": imputer_ou,
-    # "TSOU": imputer_tsou,
+    "OU": imputer_ou,
+    "TSOU": imputer_tsou,
     # "TSMLE": imputer_tsmle,
     "RPCA": imputer_rpca,
     "RPCA_opti": imputer_rpca_opti,
@@ -193,7 +189,7 @@ comparison = comparator.Comparator(
     dict_imputers,
     cols_to_impute,
     generator_holes = generator_holes,
-    metrics=["mae", "wmape", "KL_columnwise", "ks_test", "energy"],
+    metrics=["mae", "wmape", "KL_columnwise", "ks_test"],
     n_calls_opt=10,
     dict_config_opti=dict_config_opti,
 )
@@ -202,8 +198,18 @@ results
 ```
 
 ```python
-df_plot = results.loc["energy", "All"]
+results.loc["KL_columnwise"]
+```
+
+```python
+df_plot = results.loc["KL_columnwise",'TEMP']
 plt.barh(df_plot.index, df_plot, color=tab10(0))
+plt.title('TEMP')
+plt.show()
+
+df_plot = results.loc["KL_columnwise",'PRES']
+plt.barh(df_plot.index, df_plot, color=tab10(0))
+plt.title('PRES')
 plt.show()
 ```
 
@@ -315,7 +321,6 @@ df = data.get_data("Beijing")
 cols_to_impute = ["TEMP", "PRES"]
 cols_with_nans = list(df.columns[df.isna().any()])
 df_data = data.add_datetime_features(df)
-df_data = data.add_station_features(df_data)
 df_data[cols_with_nans + cols_to_impute] = data.add_holes(pd.DataFrame(df_data[cols_with_nans + cols_to_impute]), ratio_masked=.1, mean_size=120)
 df_data
 ```
@@ -325,18 +330,18 @@ Then we train the model without taking a group on the stations
 
 ```python
 estimator = tf.keras.models.Sequential([
-    tf.keras.layers.Dense(256, activation='sigmoid'),
-    tf.keras.layers.Dense(128, activation='sigmoid'),
-    tf.keras.layers.Dense(64, activation='sigmoid'),
+    tf.keras.layers.Dense(256, activation='relu'),
+    tf.keras.layers.Dense(128, activation='relu'),
+    tf.keras.layers.Dense(64, activation='relu'),
     tf.keras.layers.Dense(1)])
-estimator.compile(optimizer='adam', loss='mse')
-dict_imputers["MLP"] = imputer_mlp = imputers_keras.ImputerRegressorKeras(estimator=estimator, handler_nan = "column")
+estimator.compile(optimizer='adam', loss='mae')
+dict_imputers["MLP"] = imputer_mlp = imputers_keras.ImputerRegressorKeras(estimator=estimator, groups=['station'], handler_nan = "column")
 ```
 
 We can re-run the imputation model benchmark as before.
 
-```python tags=[]
-generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, subset = cols_to_impute, ratio_masked=ratio_masked)
+```python jupyter={"outputs_hidden": true} tags=[]
+generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, subset = cols_to_impute, groups=['station'], ratio_masked=ratio_masked)
 
 comparison = comparator.Comparator(
     dict_imputers,
@@ -356,7 +361,7 @@ plt.ylabel("mae")
 plt.show()
 ```
 
-```python
+```python jupyter={"outputs_hidden": true, "source_hidden": true} tags=[]
 df_plot = df_data
 dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_imputers.items()}
 station = df_plot.index.get_level_values("station")[0]
@@ -364,7 +369,7 @@ df_station = df_plot.loc[station]
 dfs_imputed_station = {name: df_plot.loc[station] for name, df_plot in dfs_imputed.items()}
 ```
 
-```python
+```python jupyter={"source_hidden": true} tags=[]
 for col in cols_to_impute:
     fig, ax = plt.subplots(figsize=(10, 3))
     values_orig = df_station[col]
