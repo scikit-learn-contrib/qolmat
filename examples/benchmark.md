@@ -64,29 +64,11 @@ The dataset `Beijing` is the Beijing Multi-Site Air-Quality Data Set. It consist
 This dataset only contains numerical vairables.
 
 ```python
-<<<<<<< HEAD
 df_data = data.get_data_corrupted("Beijing", ratio_masked=.2, mean_size=120)
-=======
-df_data = data.get_data_corrupted("Beijing_offline", ratio_masked=.2, mean_size=20)
-df_data = df_data.iloc[:256]
-
-# cols_to_impute = ["TEMP", "PRES", "DEWP", "NO2", "CO", "O3", "WSPM"]
-# cols_to_impute = df_data.columns[df_data.isna().any()]
->>>>>>> b88d3e213be41cbb3a3291cec94ff2aa312f48ed
 cols_to_impute = ["TEMP", "PRES"]
 ```
 
 The dataset `Artificial` is designed to have a sum of a periodical signal, a white noise and some outliers.
-
-```python
-# df_data = data.get_data_corrupted("Artificial", ratio_masked=.2, mean_size=10)
-# cols_to_impute = ["signal"]
-```
-
-```python
-# df_data = data.get_data("SNCF", n_groups_max=2)
-# cols_to_impute = ["val_in"]
-```
 
 ```python
 df_data
@@ -186,15 +168,9 @@ dict_imputers = {
     # "spline": imputer_spline,
     "shuffle": imputer_shuffle,
     # "residuals": imputer_residuals,
-<<<<<<< HEAD
-    "OU": imputer_ou,
-    "TSOU": imputer_tsou,
-    # "TSMLE": imputer_tsmle,
-=======
     # "OU": imputer_ou,
     "TSOU": imputer_tsou,
     "TSMLE": imputer_tsmle,
->>>>>>> b88d3e213be41cbb3a3291cec94ff2aa312f48ed
     "RPCA": imputer_rpca,
     "RPCA_opti": imputer_rpca_opti,
     # "locf": imputer_locf,
@@ -223,21 +199,12 @@ comparison = comparator.Comparator(
     dict_imputers,
     cols_to_impute,
     generator_holes = generator_holes,
-<<<<<<< HEAD
     metrics=["mae", "wmape", "KL_columnwise", "ks_test"],
-    n_calls_opt=10,
-=======
-    metrics=["mae", "wmape", "KL_columnwise", "ks_test", "energy"],
     max_evals=10,
->>>>>>> b88d3e213be41cbb3a3291cec94ff2aa312f48ed
     dict_config_opti=dict_config_opti,
 )
 results = comparison.compare(df_data)
 results
-```
-
-```python
-results.loc["KL_columnwise"]
 ```
 
 ```python
@@ -309,14 +276,18 @@ for col in cols_to_impute:
 ```
 
 ```python
+dfs_imputed
+```
+
+```python
 # plot.plot_imputations(df_station, dfs_imputed_station)
 
-n_columns = len(df_plot.columns)
+n_columns = len(cols_to_impute)
 n_imputers = len(dict_imputers)
 
 fig = plt.figure(figsize=(12 * n_imputers, 4 * n_columns))
 i_plot = 1
-for i_col, col in enumerate(df_plot):
+for i_col, col in enumerate(cols_to_impute):
     for name_imputer, df_imp in dfs_imputed_station.items():
 
         fig.add_subplot(n_columns, n_imputers, i_plot)
@@ -337,7 +308,7 @@ for i_col, col in enumerate(df_plot):
         loc = plticker.MultipleLocator(base=2*365)
         ax.xaxis.set_major_locator(loc)
         ax.tick_params(axis='both', which='major')
-        plt.xlim(datetime(2019, 2, 1), datetime(2019, 3, 1))
+        plt.xlim(datetime(2010, 1, 1), datetime(2015, 3, 1))
         i_plot += 1
 plt.savefig("figures/imputations_benchmark.png")
 plt.show()
@@ -379,33 +350,20 @@ dict_imputers["MLP"] = imputer_mlp = imputers_keras.ImputerRegressorKeras(estima
 ```
 
 We can re-run the imputation model benchmark as before.
-
-<<<<<<< HEAD
 ```python jupyter={"outputs_hidden": true} tags=[]
-generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, subset = cols_to_impute, groups=['station'], ratio_masked=ratio_masked)
-=======
-```python
-generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, subset = cols_to_impute, ratio_masked=ratio_masked)
->>>>>>> b88d3e213be41cbb3a3291cec94ff2aa312f48ed
+generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], subset=cols_to_impute, ratio_masked=ratio_masked)
 
 comparison = comparator.Comparator(
     dict_imputers,
-    df_data.columns,
+    cols_to_impute,
     generator_holes = generator_holes,
-    n_calls_opt=10,
+    metrics=["mae", "wmape", "KL_columnwise", "ks_test"],
+    max_evals=10,
     dict_config_opti=dict_config_opti,
 )
 results = comparison.compare(df_data)
 results
 ```
-
-```python
-fig = plt.figure(figsize=(24, 4))
-plot.multibar(results.loc["mae"], decimals=1)
-plt.ylabel("mae")
-plt.show()
-```
-
 ```python jupyter={"outputs_hidden": true, "source_hidden": true} tags=[]
 df_plot = df_data
 dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_imputers.items()}
