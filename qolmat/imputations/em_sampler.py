@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Literal, Union
+from typing import Dict, List, Literal, Optional, Union
 from warnings import WarningMessage
 
 import numpy as np
@@ -9,6 +9,8 @@ from numpy.typing import NDArray
 from sklearn import utils as sku
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import StandardScaler
+
+from qolmat.utils import utils
 
 logger = logging.getLogger(__name__)
 
@@ -163,6 +165,7 @@ class EM(BaseEstimator, TransformerMixin):
         tolerance: float = 1e-4,
         stagnation_threshold: float = 5e-3,
         stagnation_loglik: float = 2,
+        period: int = 1,
     ):
         if method not in ["mle", "sample"]:
             raise ValueError(f"`method` must be 'mle' or 'sample', provided value is '{method}'")
@@ -174,38 +177,13 @@ class EM(BaseEstimator, TransformerMixin):
         self.rng = sku.check_random_state(random_state)
         self.cov = np.array([[]])
         self.dt = dt
-        self.convergence_threshold = tolerance
+        self.tolerance = tolerance
         self.stagnation_threshold = stagnation_threshold
         self.stagnation_loglik = stagnation_loglik
         self.scaler = StandardScaler()
 
         self.dict_criteria_stop: Dict[str, List] = {}
-
-    def _linear_interpolation(self, X: NDArray) -> NDArray:
-        """
-        Impute missing data with a linear interpolation, column-wise
-
-        Parameters
-        ----------
-        X : NDArray
-            array with missing values
-
-        Returns
-        -------
-        X_interpolated : NDArray
-            imputed array, by linear interpolation
-        """
-        n_rows, n_cols = X.shape
-        indices = np.arange(n_cols)
-        X_interpolated = X.copy()
-        for i_row in range(n_rows):
-            values = X[i_row]
-            mask_isna = np.isnan(values)
-            values_interpolated = np.interp(
-                indices[mask_isna], indices[~mask_isna], values[~mask_isna]
-            )
-            X_interpolated[i_row, mask_isna] = values_interpolated
-        return X_interpolated
+        self.period = period
 
     def _convert_numpy(self, X: NDArray) -> NDArray:
         """
@@ -240,16 +218,18 @@ class EM(BaseEstimator, TransformerMixin):
             Numpy array to be imputed
         """
         X = X.copy()
+        self.shape_original = X.shape
         self.hash_fit = hash(X.tobytes())
         if not isinstance(X, np.ndarray):
             raise AssertionError("Invalid type. X must be a NDArray.")
 
+        X = utils.prepare_data(X, self.period)
         X = self.scaler.fit_transform(X.T).T
 
         mask_na = np.isnan(X)
 
         # first imputation
-        X_sample_last = self._linear_interpolation(X)
+        X_sample_last = utils.linear_interpolation(X)
         self.fit_distribution(X_sample_last)
 
         for iter_em in range(self.max_iter_em):
@@ -277,12 +257,14 @@ class EM(BaseEstimator, TransformerMixin):
         NDArray
             Final array after EM sampling.
         """
-        mask_na = np.isnan(X)
         if hash(X.tobytes()) == self.hash_fit:
             X = self.X_sample_last
         else:
+            X = utils.prepare_data(X, self.period)
             X = self.scaler.transform(X.T).T
-            X = self._linear_interpolation(X)
+            X = utils.linear_interpolation(X)
+
+        mask_na = np.isnan(X)
 
         if self.method == "mle":
             X_transformed = self._maximize_likelihood(X, mask_na, self.dt)
@@ -292,8 +274,8 @@ class EM(BaseEstimator, TransformerMixin):
         if np.all(np.isnan(X_transformed)):
             raise AssertionError("Result contains NaN. This is a bug.")
 
-        X_transformed = X_transformed.T
-        X_transformed = self.scaler.inverse_transform(X_transformed)
+        X_transformed = self.scaler.inverse_transform(X_transformed.T).T
+        X_transformed = utils.get_shape_original(X_transformed, self.shape_original)
         return X_transformed
 
 
@@ -350,19 +332,20 @@ class MultiNormalEM(EM):
         tolerance: float = 1e-4,
         stagnation_threshold: float = 5e-3,
         stagnation_loglik: float = 2,
+        period: int = 1,
     ) -> None:
         super().__init__(
-            method,
-            max_iter_em,
-            n_iter_ou,
-            ampli,
-            random_state,
-            dt,
-            stagnation_threshold,
-            stagnation_loglik,
+            method=method,
+            max_iter_em=max_iter_em,
+            n_iter_ou=n_iter_ou,
+            ampli=ampli,
+            random_state=random_state,
+            dt=dt,
+            tolerance=tolerance,
+            stagnation_threshold=stagnation_threshold,
+            stagnation_loglik=stagnation_loglik,
+            period=period,
         )
-        self.tolerance = tolerance
-
         self.dict_criteria_stop = {"logliks": [], "means": [], "covs": []}
 
     def fit_distribution(self, X):
@@ -460,7 +443,7 @@ class MultiNormalEM(EM):
         """
         Check if the EM algorithm has converged. Three criteria:
         1) if the differences between the estimates of the parameters (mean and covariance) is
-        less than a threshold (min_diff_reached - convergence_threshold).
+        less than a threshold (min_diff_reached - tolerance).
         2) if the difference of the consecutive differences of the estimates is less than a
         threshold, i.e. stagnates over the last 5 interactions (min_diff_stable -
         stagnation_threshold).
@@ -481,10 +464,8 @@ class MultiNormalEM(EM):
 
         min_diff_reached = (
             n_iter > 5
-            and scipy.linalg.norm(list_means[-1] - list_means[-2], np.inf)
-            < self.convergence_threshold
-            and scipy.linalg.norm(list_covs[-1] - list_covs[-2], np.inf)
-            < self.convergence_threshold
+            and scipy.linalg.norm(list_means[-1] - list_means[-2], np.inf) < self.tolerance
+            and scipy.linalg.norm(list_covs[-1] - list_covs[-2], np.inf) < self.tolerance
         )
 
         min_diff_stable = (
@@ -564,18 +545,20 @@ class VAR1EM(EM):
         tolerance: float = 1e-4,
         stagnation_threshold: float = 5e-3,
         stagnation_loglik: float = 2,
+        period: int = 1,
     ) -> None:
         super().__init__(
-            method,
-            max_iter_em,
-            n_iter_ou,
-            ampli,
-            random_state,
-            dt,
-            stagnation_threshold,
-            stagnation_loglik,
+            method=method,
+            max_iter_em=max_iter_em,
+            n_iter_ou=n_iter_ou,
+            ampli=ampli,
+            random_state=random_state,
+            dt=dt,
+            tolerance=tolerance,
+            stagnation_threshold=stagnation_threshold,
+            stagnation_loglik=stagnation_loglik,
+            period=period,
         )
-        self.tolerance = tolerance
 
     def fit_parameter_A(self, X):
         n_variables, n_samples = X.shape

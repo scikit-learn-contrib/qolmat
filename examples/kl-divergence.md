@@ -53,7 +53,6 @@ from qolmat.benchmark.metrics import kl_divergence
 from qolmat.benchmark import metrics as qmetrics
 from qolmat.imputations import imputers
 from qolmat.utils import data, utils, plot
-# from qolmat.drawing import display_bar_table
 
 ```
 
