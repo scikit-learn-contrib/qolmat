@@ -1,6 +1,14 @@
 =======
 History
 =======
+
+0.0.15 (2023-??-??)
+-------------------
+
+* Hyperparameters are now optimized in hyperparameters.py, with the maintained module hyperopt
+* The Imputer classes do not possess a dictionary attribute anymore, getting closer to the scikit-learn standard
+* The Imputer hyperparameters are now directly passed in the form Imputer(my_hyperparameter)
+
 0.0.14 (2023-06-14)
 -------------------
 

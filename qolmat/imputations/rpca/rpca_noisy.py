@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import scipy as scp
@@ -9,7 +9,7 @@ from numpy.typing import NDArray
 
 from qolmat.imputations.rpca import rpca_utils as rpca_utils
 from qolmat.imputations.rpca.rpca import RPCA
-from qolmat.utils import utils
+from sklearn import utils as sku
 
 
 class RPCANoisy(RPCA):
@@ -51,6 +51,7 @@ class RPCANoisy(RPCA):
 
     def __init__(
         self,
+        random_state: Union[None, int, np.random.RandomState] = None,
         period: int = 1,
         rank: Optional[int] = None,
         tau: Optional[float] = None,
@@ -63,6 +64,7 @@ class RPCANoisy(RPCA):
         do_report: bool = False,
     ) -> None:
         super().__init__(period=period, max_iter=max_iter, tol=tol)
+        self.rng = sku.check_random_state(random_state)
         self.rank = rank
         self.tau = tau
         self.lam = lam

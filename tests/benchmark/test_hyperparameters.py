@@ -35,40 +35,6 @@ dict_config_opti = {
         "norm": {"categories": ["L1", "L2"], "type": "Categorical"},
     }
 }
-dict_config_opti_imputer = dict_config_opti["rpca"]
-hyperparams_global = {"lam/col1": 4.7, "lam/col2": 1.5, "tol": 0.07, "max_iter": 100, "norm": "L1"}
-
-result_params_expected = {
-    "lam1": (0.1, 6),
-    "lam2": (1, 4),
-    "tol": (1e-6, 0.1),
-    "max_iter": (99, 100),
-    "norm": ("L1", "L2"),
-}
-
-expected1 = {
-    "lam": 4.7,
-    "tol": 0.07,
-    "max_iter": 100,
-    "norm": "L1",
-}
-
-expected2 = {
-    "lam": 1.5,
-    "tol": 0.07,
-    "max_iter": 100,
-    "norm": "L1",
-}
-
-
-@pytest.mark.parametrize("hyperparams_global", [hyperparams_global])
-@pytest.mark.parametrize("col, expected", [("col1", expected1), ("col2", expected2)])
-def test_hyperparameters_get_hyperparameters(
-    hyperparams_global: Dict[str, HyperValue], col: str, expected: Dict[str, HyperValue]
-) -> None:
-    hyperparams = hyperparameters.get_hyperparams(hyperparams_global, col)
-
-    assert hyperparams == expected
 
 
 class ImputerTest(Imputer):

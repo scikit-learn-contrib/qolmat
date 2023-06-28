@@ -1,10 +1,11 @@
-from typing import Any
+from typing import Any, Dict
 
 import numpy as np
 import pandas as pd
 import pytest
 from sklearn.ensemble import ExtraTreesRegressor
 from sklearn.utils.estimator_checks import parametrize_with_checks
+from qolmat.benchmark.hyperparameters import HyperValue
 
 from qolmat.imputations import imputers
 
@@ -30,6 +31,59 @@ df_groups = pd.DataFrame(
         "col2": [1, np.nan, 0, 3],
     }
 )
+
+
+def test_hyperparameters_get_hyperparameters() -> None:
+    imputer = imputers.ImputerKNN(n_neighbors=3)
+    hyperparams = imputer.get_hyperparams("col")
+
+    print(hyperparams)
+    assert hyperparams == {"n_neighbors": 3}
+
+
+hyperparams_global = {"lam/col1": 4.7, "lam/col2": 1.5, "tol": 0.07, "max_iter": 100, "norm": "L1"}
+
+expected1 = {
+    "lam": 4.7,
+    "tau": None,
+    "mu": None,
+    "rank": None,
+    "list_etas": (),
+    "list_periods": (),
+    "tol": 0.07,
+    "norm": "L1",
+    "random_state": None,
+    "max_iter": 100,
+    "period": 1,
+}
+
+expected2 = {
+    "lam": 1.5,
+    "tau": None,
+    "mu": None,
+    "rank": None,
+    "list_etas": (),
+    "list_periods": (),
+    "tol": 0.07,
+    "norm": "L1",
+    "random_state": None,
+    "max_iter": 100,
+    "period": 1,
+}
+
+
+@pytest.mark.parametrize("col, expected", [("col1", expected1), ("col2", expected2)])
+def test_hyperparameters_get_hyperparameters_modified(
+    col: str, expected: Dict[str, HyperValue]
+) -> None:
+    imputer = imputers.ImputerRPCA()
+    for key, val in hyperparams_global.items():
+        setattr(imputer, key, val)
+    imputer.imputer_params = tuple(set(imputer.imputer_params) | set(hyperparams_global.keys()))
+    hyperparams = imputer.get_hyperparams(col)
+
+    print(hyperparams)
+    assert hyperparams == expected
 
 
 @pytest.mark.parametrize(

@@ -1,5 +1,5 @@
 import warnings
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Literal, Optional, Tuple, Union
 from abc import abstractmethod
 
 import numpy as np
@@ -48,15 +48,15 @@ class Imputer(_BaseImputer):
         shrink: bool = False,
         random_state: Union[None, int, np.random.RandomState] = None,
         missing_values=np.nan,
+        imputer_params: tuple = (),
         groups: List[str] = [],
-        hyperparams: Dict = {},
     ):
         self.columnwise = columnwise
         self.shrink = shrink
         self.random_state = random_state
         self.missing_values = missing_values
+        self.imputer_params = imputer_params
         self.groups = groups
-        self.hyperparams = hyperparams
 
     def _more_tags(self):
         """Define tags for scikit-learn"""
@@ -66,10 +66,37 @@ class Imputer(_BaseImputer):
             "requires_fit": False,
             "_xfail_checks": {
                 "check_parameters_default_constructible": "The imputer need Dict as a parammeter",
-                "check_no_attributes_set_in_init": """The imputer can define an attribute
-                modifiable in init""",
             },
         }
+
+    def get_hyperparams(self, col: Optional[str] = None):
+        """
+        Filter hyperparameters based on the specified column, the dictionary keys in the form
+        name_params/column are only relevent for the specified column and are filtered accordingly.
+
+        Parameters
+        ----------
+        col : str
+            The column name to filter hyperparameters.
+
+        Returns
+        -------
+        dict
+            A dictionary containing filtered hyperparameters.
+
+        """
+        hyperparams = {}
+        for key in self.imputer_params:
+            value = getattr(self, key)
+            if "/" not in key:
+                name_param = key
+                if name_param not in hyperparams:
+                    hyperparams[name_param] = value
+            elif col is not None:
+                name_param, col2 = key.split("/")
+                if col2 == col:
+                    hyperparams[name_param] = value
+        return hyperparams
 
     def fit(self, X, y: pd.DataFrame = None):
         X = self._validate_data(X, force_all_finite="allow-nan")
@@ -115,15 +142,21 @@ class Imputer(_BaseImputer):
             df_imputed = df.copy()
 
             for col in cols_with_nans:
-                self.hyperparams_elt = hyperparameters.get_hyperparams(self.hyperparams, col)
+                # self.hyperparams_elt = {}
+                # for hyperparam in self.imputer_params:
+                #     self.hyperparams_elt[hyperparam] = hyperparameters.get_hyperparams(
+                #         self.hyperparams, col
+                #     )
+                self.hyperparams_elt = self.get_hyperparams(col=col)
                 df_imputed[col] = self.impute_element(df[[col]])
 
         else:
-            if any("/" in value for value in self.hyperparams.keys()):
+            if any("/" in value for value in self.imputer_params):
                 raise AssertionError(
                     "hyperparams contains a key with a `/`. " "Columnwise must be set to True."
                 )
-            self.hyperparams_elt = self.hyperparams
+            # self.hyperparams_elt = self.hyperparams
+            self.hyperparams_elt = self.get_hyperparams()
             df_imputed = self.impute_element(df)
 
         if df_imputed.isna().any().any():
@@ -530,7 +563,7 @@ class ImputerInterpolation(Imputer):
         order: Optional[int] = None,
         col_time: Optional[str] = None,
     ) -> None:
-        super().__init__(groups=groups, columnwise=True)
+        super().__init__(imputer_params=("method", "order"), groups=groups, columnwise=True)
         self.method = method
         self.order = order
         self.col_time = col_time
@@ -603,7 +636,11 @@ class ImputerResiduals(Imputer):
         extrapolate_trend: Optional[Union[int, str]] = "freq",
         method_interpolation: Optional[str] = "linear",
     ):
-        super().__init__(groups=groups, columnwise=True)
+        super().__init__(
+            imputer_params=("model_tsa", "extrapolate_trend", "method_interpolation"),
+            groups=groups,
+            columnwise=True,
+        )
         self.model_tsa = model_tsa
         self.period = period
         self.extrapolate_trend = extrapolate_trend
@@ -675,9 +712,10 @@ class ImputerKNN(Imputer):
         groups: List[str] = [],
         n_neighbors: int = 5,
         weights: str = "distance",
-        **hyperparams,
     ) -> None:
-        super().__init__(groups=groups, columnwise=False, hyperparams=hyperparams)
+        super().__init__(
+            imputer_params=("n_neighbors", "weights"), groups=groups, columnwise=False
+        )
         self.n_neighbors = n_neighbors
         self.weights = weights
 
@@ -736,15 +774,20 @@ class ImputerMICE(Imputer):
         groups: List[str] = [],
         estimator: Optional[BaseEstimator] = None,
         random_state: Union[None, int, np.random.RandomState] = None,
-        **hyperparams,
+        sample_posterior=False,
+        max_iter=100,
+        missing_values=np.nan,
     ) -> None:
         super().__init__(
+            imputer_params=("sample_posterior", "max_iter", "missing_values"),
             groups=groups,
             columnwise=False,
-            hyperparams=hyperparams,
             random_state=random_state,
         )
         self.estimator = estimator
+        self.sample_posterior = sample_posterior
+        self.max_iter = max_iter
+        self.missing_values = missing_values
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         iterative_imputer = IterativeImputer(estimator=self.estimator, **self.hyperparams_elt)
@@ -768,8 +811,12 @@ class ImputerRegressor(Imputer):
         List of column names to group by, by default []
     estimator : BaseEstimator, optional
         Estimator for imputing a column based on the others
-    fit_on_nan : bool, optional
-        TODO : merge with GSA
+    handler_nan : str
+        Can be `fit, `row` or `column`:
+        - if `fit`, the estimator is assumed to be fitted on parcelar data,
+        - if `row` all non complete rows will be removed from the train dataset, and will not be
+        used for the inferance,
+        - if `column`all non complete columns will be ignored.
 
     Examples
     --------
@@ -797,10 +844,12 @@ class ImputerRegressor(Imputer):
         estimator: Optional[BaseEstimator] = None,
         handler_nan: str = "column",
         random_state: Union[None, int, np.random.RandomState] = None,
-        **hyperparams,
     ):
-        super().__init__(groups=groups, hyperparams=hyperparams, random_state=random_state)
-        self.columnwise = False
+        super().__init__(
+            imputer_params=("random_state", "handler_nan"),
+            groups=groups,
+            random_state=random_state,
+        )
         self.estimator = estimator
         self.handler_nan = handler_nan
 
@@ -826,12 +875,6 @@ class ImputerRegressor(Imputer):
         cols_with_nans = df.columns[df.isna().any()]
 
         for col in cols_with_nans:
-            # hyperparams = {}
-            # for hyperparam, value in self.hyperparams_elt.items():
-            #     if isinstance(value, dict):
-            #         value = value[col]
-            #     hyperparams[hyperparam] = value
-
             # Define the Train and Test set
             X = df.drop(columns=col, errors="ignore")
             y = df[col]
@@ -900,25 +943,86 @@ class ImputerRPCA(Imputer):
         method: str = "noisy",
         columnwise: bool = False,
         random_state: Union[None, int, np.random.RandomState] = None,
-        **hyperparams,
+        period: int = 1,
+        mu: Optional[float] = None,
+        rank: Optional[int] = None,
+        tau: Optional[float] = None,
+        lam: Optional[float] = None,
+        list_periods: Tuple[int, ...] = (),
+        list_etas: Tuple[float, ...] = (),
+        max_iter: int = int(1e4),
+        tol: float = 1e-6,
+        norm: Optional[str] = "L2",
     ) -> None:
         super().__init__(
+            imputer_params=(
+                "random_state",
+                "period",
+                "mu",
+                "rank",
+                "tau",
+                "lam",
+                "list_periods",
+                "list_etas",
+                "max_iter",
+                "tol",
+                "norm",
+            ),
             groups=groups,
             columnwise=columnwise,
-            hyperparams=hyperparams,
             random_state=random_state,
         )
 
         self.method = method
+        self.period = period
+        self.mu = mu
+        self.rank = rank
+        self.tau = tau
+        self.lam = lam
+        self.list_periods = list_periods
+        self.list_etas = list_etas
+        self.max_iter = max_iter
+        self.tol = tol
+        self.norm = norm
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         if not isinstance(df, pd.DataFrame):
             raise ValueError("Input has to be a pandas.DataFrame.")
 
         if self.method == "PCP":
-            model = RPCAPCP(**self.hyperparams_elt)
+            hyperparams = {
+                key: self.hyperparams_elt[key]
+                for key in [
+                    "random_state",
+                    "period",
+                    "mu",
+                    "rank",
+                    "tau",
+                    "lam",
+                    "max_iter",
+                    "tol",
+                    "norm",
+                ]
+            }
+            model = RPCAPCP(**hyperparams)
         elif self.method == "noisy":
-            model = RPCANoisy(**self.hyperparams_elt)
+            hyperparams = {
+                key: self.hyperparams_elt[key]
+                for key in [
+                    "random_state",
+                    "period",
+                    "rank",
+                    "tau",
+                    "lam",
+                    "list_periods",
+                    "list_etas",
+                    "max_iter",
+                    "tol",
+                    "norm",
+                ]
+            }
+            model = RPCANoisy(**hyperparams)
+
         else:
             raise ValueError("Argument method must be `PCP` or `noisy`!")
 
@@ -959,21 +1063,50 @@ class ImputerEM(Imputer):
         model: Optional[str] = "multinormal",
         columnwise: bool = False,
         random_state: Union[None, int, np.random.RandomState] = None,
-        **hyperparams,
+        method: Literal["mle", "sample"] = "sample",
+        max_iter_em: int = 200,
+        n_iter_ou: int = 50,
+        ampli: float = 1,
+        dt: float = 2e-2,
+        tolerance: float = 1e-4,
+        stagnation_threshold: float = 5e-3,
+        stagnation_loglik: float = 2,
+        period: int = 1,
     ):
         super().__init__(
+            imputer_params=(
+                "random_state",
+                "max_iter_em",
+                "n_iter_ou",
+                "ampli",
+                "random_state",
+                "dt",
+                "tolerance",
+                "stagnation_threshold",
+                "stagnation_loglik",
+                "period",
+            ),
             groups=groups,
             columnwise=columnwise,
-            hyperparams=hyperparams,
             random_state=random_state,
         )
         self.model = model
+        self.method = method
+        self.max_iter_em = max_iter_em
+        self.n_iter_ou = n_iter_ou
+        self.ampli = ampli
+        self.random_state = random_state
+        self.dt = dt
+        self.tolerance = tolerance
+        self.stagnation_threshold = stagnation_threshold
+        self.stagnation_loglik = stagnation_loglik
+        self.period = period
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         if self.model == "multinormal":
-            model = em_sampler.MultiNormalEM(random_state=self.rng, **self.hyperparams_elt)
+            model = em_sampler.MultiNormalEM(**self.hyperparams_elt)
         elif self.model == "VAR1":
-            model = em_sampler.VAR1EM(random_state=self.rng, **self.hyperparams_elt)
+            model = em_sampler.VAR1EM(**self.hyperparams_elt)
         else:
             raise ValueError(f"Model '{self.model}' is not handled by ImputeEM!")
         X = df.values.T

@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import numpy as np
 from numpy.typing import NDArray
 
 from qolmat.imputations.rpca import rpca_utils
-from qolmat.utils import utils
 from qolmat.imputations.rpca.rpca import RPCA
+from sklearn import utils as sku
 
 
 class RPCAPCP(RPCA):
@@ -29,6 +29,7 @@ class RPCAPCP(RPCA):
 
     def __init__(
         self,
+        random_state: Union[None, int, np.random.RandomState] = None,
         period: int = 1,
         mu: Optional[float] = None,
         lam: Optional[float] = None,
@@ -40,6 +41,7 @@ class RPCAPCP(RPCA):
             max_iter=max_iter,
             tol=tol,
         )
+        self.rng = sku.check_random_state(random_state)
         self.mu = mu
         self.lam = lam
 

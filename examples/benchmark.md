@@ -148,7 +148,7 @@ imputer_tsou = imputers.ImputerEM(groups=["station"], model="VAR1", method="samp
 imputer_tsmle = imputers.ImputerEM(groups=["station"], model="VAR1", method="mle", max_iter_em=100, n_iter_ou=15, dt=1e-3)
 
 
-imputer_knn = imputers.ImputerKNN(groups=["station"], k=10)
+imputer_knn = imputers.ImputerKNN(groups=["station"], n_neighbors=10)
 imputer_mice = imputers.ImputerMICE(groups=["station"], estimator=LinearRegression(), sample_posterior=False, max_iter=100, missing_values=np.nan)
 imputer_regressor = imputers.ImputerRegressor(groups=["station"], estimator=LinearRegression())
 ```
@@ -169,7 +169,26 @@ imputer_rpca_opti = hyperparameters.optimize(
     generator = generator_holes,
     metric="mae",
     max_evals=10,
-    dict_config_opti=dict_config_opti
+    dict_spaces=dict_config_opti
+)
+# imputer_rpca_opti.params_optim = hyperparams_opti
+```
+
+```python
+dict_config_opti2 = {
+    "tau/TEMP": ho.hp.uniform("tau/TEMP", low=.5, high=5),
+    "tau/PRES": ho.hp.uniform("tau/PRES", low=.5, high=5),
+    "lam/TEMP": ho.hp.uniform("lam/TEMP", low=.1, high=1),
+    "lam/PRES": ho.hp.uniform("lam/PRES", low=.1, high=1),
+}
+imputer_rpca_opti2 = imputers.ImputerRPCA(groups=["station"], columnwise=True, max_iter=256)
+imputer_rpca_opti2 = hyperparameters.optimize(
+    imputer_rpca_opti2,
+    df_data,
+    generator = generator_holes,
+    metric="mae",
+    max_evals=10,
+    dict_spaces=dict_config_opti2
 )
 # imputer_rpca_opti.params_optim = hyperparams_opti
 ```
@@ -188,6 +207,7 @@ dict_imputers = {
     "TSMLE": imputer_tsmle,
     "RPCA": imputer_rpca,
     "RPCA_opti": imputer_rpca_opti,
+    "RPCA_opti2": imputer_rpca_opti2,
     # "locf": imputer_locf,
     # "nocb": imputer_nocb,
     # "knn": imputer_knn,
