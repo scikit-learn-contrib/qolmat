@@ -120,4 +120,4 @@ def test_hyperparameters_optimize():
         imputer, df, generator, metric, dict_config_opti, max_evals=200
     )
     assert isinstance(imputer_opti, ImputerTest)
-    np.testing.assert_almost_equal(imputer_opti.value, 4, decimal=1)
+    np.testing.assert_almost_equal(imputer_opti.value, 4, decimal=2)
