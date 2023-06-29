@@ -41,14 +41,14 @@ PROJECT_URLS = {
 PYTHON_REQUIRES = ">=3.8"
 PACKAGES = find_packages()
 INSTALL_REQUIRES = [
-    "scikit-learn",
-    "numpy>=1.21",
+    "dcor>=0.6",
+    "hyperopt",
+    "numpy>=1.19",
     "packaging",
-    "scikit-optimize",
+    "pandas>=1.3",
+    "scikit-learn",
     "scipy",
     "statsmodels>=0.14",
-    "pandas>=1.3",
-    "dcor>=0.6",
 ]
 EXTRAS_REQUIRE = {
     "tests": ["flake8", "mypy", "pandas", "pytest", "pytest-cov", "typed-ast"],

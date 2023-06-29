@@ -1,15 +1,14 @@
 import numpy as np
 from numpy.typing import NDArray
 import pytest
-from qolmat.imputations.rpca.utils import (
-    fold_signal,
+from qolmat.imputations.rpca.rpca_utils import (
     approx_rank,
     soft_thresholding,
     svd_thresholding,
-    impute_nans,
     l1_norm,
     toeplitz_matrix,
 )
+from qolmat.utils.utils import fold_signal
 
 X_incomplete = np.array(
     [
@@ -24,33 +23,6 @@ X_complete = np.array(
     [[1, 5, 3, 2, 2], [7, 2, 3, 1, 1], [4, 4, 3, 5, 5], [4, 4, 3, 5, 5], [4, 4, 3, 5, 5]]
 )
 
-X_exp_mean = np.array(
-    [
-        [1.0, 3.5, 3.0, 2.0, 4.0],
-        [7.0, 2.0, 3.0, 1.0, 1.0],
-        [4.0, 4.0, 3.0, 2.66666667, 5.0],
-        [4.0, 4.0, 3.0, 5.0, 5.0],
-        [4.0, 4.0, 3.0, 2.66666667, 5.0],
-    ]
-)
-X_exp_median = np.array(
-    [
-        [1.0, 4.0, 3.0, 2.0, 5.0],
-        [7.0, 2.0, 3.0, 1.0, 1.0],
-        [4.0, 4.0, 3.0, 2.0, 5.0],
-        [4.0, 4.0, 3.0, 5.0, 5.0],
-        [4.0, 4.0, 3.0, 2.0, 5.0],
-    ]
-)
-X_exp_zeros = np.array(
-    [
-        [1.0, 0.0, 3.0, 2.0, 0.0],
-        [7.0, 2.0, 0.0, 1.0, 1.0],
-        [0.0, 4.0, 3.0, 0.0, 5.0],
-        [0.0, 4.0, 3.0, 5.0, 5.0],
-        [4.0, 4.0, 3.0, 0.0, 5.0],
-    ]
-)
 
 X_exp_row = np.array(
     [[1.0, 0.0, -1.0, 0.0, 0.0], [0.0, 1.0, 0.0, -1.0, 0.0], [0.0, 0.0, 1.0, 0.0, -1.0]]
@@ -63,20 +35,6 @@ X_exp_column = np.array(
 threshold = 0.95
 T = 2
 dimension = 5
-
-
-@pytest.mark.parametrize("X", [X_incomplete])
-def test_rpca_utils_fold_signal(X: NDArray):
-    signal = X.reshape(1, -1)
-    result = fold_signal(X=signal, n_rows=3)
-    X_expected = np.array(
-        [
-            [1.0, np.nan, 3.0, 2.0, np.nan, 7.0, 2.0, np.nan, 1.0],
-            [1.0, np.nan, 4.0, 3.0, np.nan, 5.0, np.nan, 4.0, 3.0],
-            [5.0, 5.0, 4.0, 4.0, 3.0, np.nan, 5.0, np.nan, np.nan],
-        ]
-    )
-    np.testing.assert_allclose(result, X_expected)
 
 
 @pytest.mark.parametrize("X", [X_complete])
@@ -115,15 +73,6 @@ def test_rpca_utils_svd_thresholding(X: NDArray, threshold: float):
         ]
     )
     np.testing.assert_allclose(result, X_expected, rtol=1e-5)
-
-
-@pytest.mark.parametrize("X", [X_incomplete])
-@pytest.mark.parametrize(
-    "method, X_expected", [("mean", X_exp_mean), ("median", X_exp_median), ("zeros", X_exp_zeros)]
-)
-def test_rpca_utils_impute_nans(X: NDArray, method: str, X_expected: NDArray):
-    result = impute_nans(M=X, method=method)
-    np.testing.assert_allclose(result, X_expected)
 
 
 @pytest.mark.parametrize("X", [X_incomplete])

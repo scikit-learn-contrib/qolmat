@@ -2,7 +2,7 @@ import os
 import sys
 import zipfile
 from math import pi
-from typing import List, Optional
+from typing import List
 from urllib import request
 
 import numpy as np
@@ -21,10 +21,15 @@ def download_data(zipname: str, urllink: str, datapath: str = "data/") -> List[p
     if not os.path.exists(path_zip):
         with zipfile.ZipFile(path_zip_ext, "r") as zip_ref:
             zip_ref.extractall(path_zip)
+    list_df = get_dataframes_in_folder(path_zip, ".csv")
+    return list_df
+
+
+def get_dataframes_in_folder(path: str, extension: str) -> List[pd.DataFrame]:
     list_df = []
-    for folder, _, files in os.walk(path_zip):
+    for folder, _, files in os.walk(path):
         for file in files:
-            if ".csv" in file:
+            if extension in file:
                 list_df.append(pd.read_csv(os.path.join(folder, file)))
     return list_df
 
@@ -75,10 +80,10 @@ def get_data(
         df = pd.concat(list_df)
         return df
     elif name_data == "Beijing_offline":
-        urllink = "https://archive.ics.uci.edu/dataset/381/beijing+pm2+5+data"
-        zipname = "PRSA2017_Data_20130301-20170228"
-
-        list_df = download_data(zipname, urllink, datapath=datapath)
+        # urllink = "https://archive.ics.uci.edu/dataset/381/beijing+pm2+5+data"
+        folder = "PRSA2017_Data_20130301-20170228"
+        path = os.path.join(datapath, folder)
+        list_df = get_dataframes_in_folder(path, ".csv")
         list_df = [preprocess_data_beijing_offline(df) for df in list_df]
         df = pd.concat(list_df)
         return df

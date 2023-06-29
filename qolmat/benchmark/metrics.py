@@ -1,4 +1,5 @@
-from typing import Callable, List, Optional, Dict
+from functools import partial
+from typing import Callable, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -925,3 +926,25 @@ def pattern_based_weighted_mean_metric(
 
     weighted_scores = np.array(scores) * np.array(weights)
     return pd.Series(np.sum(weighted_scores) / np.sum(weights), index=["All"])
+
+
+def get_metric(name: str) -> Callable:
+    dict_metrics: Dict[str, Callable] = {
+        "mse": mean_squared_error,
+        "rmse": root_mean_squared_error,
+        "mae": mean_absolute_error,
+        "wmape": weighted_mean_absolute_percentage_error,
+        "wasserstein_columnwise": partial(wasserstein_distance, method="columnwise"),
+        "KL_columnwise": partial(kl_divergence, method="columnwise"),
+        "KL_gaussian": partial(kl_divergence, method="gaussian"),
+        "ks_test": kolmogorov_smirnov_test,
+        "correlation_diff": mean_difference_correlation_matrix_numerical_features,
+        "pairwise_dist": sum_pairwise_distances,
+        "energy": sum_energy_distances,
+        "frechet": frechet_distance,
+        "dist_corr_pattern": partial(
+            pattern_based_weighted_mean_metric,
+            metric=distance_correlation_complement,
+        ),
+    }
+    return dict_metrics[name]
