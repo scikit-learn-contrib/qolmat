@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
-from typing import Callable, List, Optional, Union
-from sklearn.base import BaseEstimator
+from typing import Callable, List
 from qolmat.imputations.imputers import ImputerRegressor
 from qolmat.utils.exceptions import PyTorchExtraNotInstalled
 
@@ -17,7 +16,7 @@ def build_mlp_example(
     input_dim: int,
     list_num_neurons: List[int],
     output_dim: int = 1,
-    activation: nn.Module = nn.ReLU(),
+    activation: Callable = nn.ReLU,
 ) -> nn.Sequential:
     """
     Constructs a multi-layer perceptron (MLP) with a custom architecture.
@@ -60,7 +59,7 @@ def build_mlp_example(
     layers = []
     for num_neurons in list_num_neurons:
         layers.append(nn.Linear(input_dim, num_neurons))
-        layers.append(activation)
+        layers.append(activation())
         input_dim = num_neurons
     layers.append(nn.Linear(input_dim, output_dim))
 
