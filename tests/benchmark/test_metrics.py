@@ -352,9 +352,13 @@ def test_distance_correlation_complement(
 def test_pattern_based_weighted_mean_metric(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
 ) -> None:
+    with pytest.raises(Exception):
+        metrics.pattern_based_weighted_mean_metric(
+            df1, df2, df_mask, metric=metrics.distance_correlation_complement, min_num_row=5
+        )
 
-    result = metrics.pattern_based_weighted_mean_metric(
-        df1, df2, df_mask, metric=metrics.distance_correlation_complement, min_num_row=5
-    )
     expected = pd.Series([2 / 3], index=["All"])
+    result = metrics.pattern_based_weighted_mean_metric(
+        df1, df2, df_mask, metric=metrics.distance_correlation_complement, min_num_row=1
+    )
     np.testing.assert_allclose(result, expected, atol=1e-3)
