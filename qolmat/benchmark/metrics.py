@@ -858,7 +858,7 @@ def distance_correlation_complement(
     df1 = df1[df_mask].fillna(0.0)
     df2 = df2[df_mask].fillna(0.0)
 
-    return 1.0 - pd.Series(dcor.distance_correlation(df1.values, df2.values), index=["All"])
+    return 1.0 - pd.Series([dcor.distance_correlation(df1.values, df2.values)], index=["All"])
 
 
 def pattern_based_weighted_mean_metric(
@@ -912,10 +912,16 @@ def pattern_based_weighted_mean_metric(
 
         if len(df1_pattern) >= min_num_row:
             df2_pattern = df2.loc[df1_pattern.index, df1_pattern.columns]
-            weights.append(len(df1_pattern))
+            weights.append(1.0 / len(df1_pattern))
             scores.append(
                 metric(df1_pattern, df2_pattern, ~df1_pattern.isna(), **kwargs).values[0]
             )
 
+    if len(scores) == 0:
+        raise Exception(
+            "Not found enough patterns. "
+            + f"Number of row for each pattern must be larger than min_num_row={min_num_row}."
+        )
+
     weighted_scores = np.array(scores) * np.array(weights)
-    return pd.Series(np.mean(weighted_scores), index=["All"])
+    return pd.Series(np.sum(weighted_scores) / np.sum(weights), index=["All"])

@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import functools
 import logging
-from typing import Callable, List, Optional, Tuple, Union
+from typing import Callable, List, Optional, Tuple
 
-import random
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import GroupShuffleSplit
