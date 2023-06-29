@@ -96,17 +96,16 @@ class ImputerRegressorPyTorch(ImputerRegressor):
         """
         optimizer = optim.Adam(self.estimator.parameters(), lr=self.learning_rate)
         loss_fn = self.loss_fn
-        for epoch in range(self.epochs):
-            self.estimator.train()
-            optimizer.zero_grad()
+        if self.estimator is None:
+            assert AssertionError("Estimator is not provided.")
+        else:
+            for epoch in range(self.epochs):
+                self.estimator.train()
+                optimizer.zero_grad()
 
-            input_data = torch.Tensor(X.values)
-            target_data = torch.Tensor(y.values)
-            target_data = target_data.unsqueeze(1)
-
-            if self.estimator is None:
-                assert ValueError("Estimator is not provided.")
-            else:
+                input_data = torch.Tensor(X.values)
+                target_data = torch.Tensor(y.values)
+                target_data = target_data.unsqueeze(1)
                 outputs = self.estimator(input_data)
                 loss = loss_fn(outputs, target_data)
 
@@ -130,7 +129,7 @@ class ImputerRegressorPyTorch(ImputerRegressor):
             The predicted values.
         """
         if self.estimator is None:
-            assert ValueError("Estimator is not provided.")
+            assert AssertionError("Estimator is not provided.")
         else:
             input_data = torch.Tensor(X.values)
             output_data = self.estimator(input_data)
