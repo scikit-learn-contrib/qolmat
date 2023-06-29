@@ -38,6 +38,62 @@ df_offline = pd.DataFrame(
     columns=columns,
 )
 
+df_monach_weather = pd.DataFrame(
+    {
+        "series_name": ["T1", "T2", "T3", "T4", "T5"],
+        "series_type": ["rain", "preasure", "temperature", "humidity", "sun"],
+        "series_value": [
+            [1.0, 2.0, 3.0],
+            [4.0, 5.0, 6.0],
+            [5.0, 4.0, 3.0],
+            [2.0, 1.0, 4.0],
+            [1.0, 4.0, 6.0],
+        ],
+    }
+)
+
+df_monach_weather_preprocess = pd.DataFrame(
+    [
+        [1.0, 4.0, 5.0, 2.0, 1.0],
+        [2.0, 5.0, 4.0, 1.0, 4.0],
+        [3.0, 6.0, 3.0, 4.0, 6.0],
+    ],
+    columns=["T1 rain", "T2 preasure", "T3 temperature", "T4 humidity", "T5 sun"],
+    index=pd.date_range(start="2010-01-01", periods=3, freq="1D"),
+)
+
+
+df_monach_elec = pd.DataFrame(
+    {
+        "series_name": ["T1", "T2", "T3", "T4", "T5"],
+        "state": ["NSW", "VIC", "QUN", "SA", "TAS"],
+        "start_timestamp": [
+            pd.Timestamp("2002-01-01"),
+            pd.Timestamp("2002-01-01"),
+            pd.Timestamp("2002-01-01"),
+            pd.Timestamp("2002-01-01"),
+            pd.Timestamp("2002-01-01"),
+        ],
+        "series_value": [
+            [5714.0, 5360.0, 5014.0],
+            [3535.0, 3383.0, 3655.0],
+            [3382.0, 3288.0, 3172.0],
+            [1191.0, 1219.0, 1119.0],
+            [315.0, 306.0, 305.0],
+        ],
+    }
+)
+
+df_monach_elec_preprocess = pd.DataFrame(
+    [
+        [5714.0, 3535.0, 3382.0, 1191.0, 315.0],
+        [5360.0, 3383.0, 3288.0, 1219.0, 306.0],
+        [5014.0, 3655.0, 3172.0, 1119.0, 305.0],
+    ],
+    columns=["T1 NSW", "T2 VIC", "T3 QUN", "T4 SA", "T5 TAS"],
+    index=pd.date_range(start="2002-01-01", periods=3, freq="30T"),
+)
+
 index_preprocess_offline = pd.MultiIndex.from_tuples(
     [
         ("Gucheng", datetime.datetime(2013, 3, 1)),
@@ -67,6 +123,8 @@ zipname = "PRSA2017_Data_20130301-20170228"
     [
         ("Beijing", df_beijing),
         ("Beijing_offline", df_offline),
+        ("Monach_weather", df_monach_weather),
+        ("Monach_electricity_australia", df_monach_elec),
         ("Artificial", None),
         ("Bug", None),
     ],
@@ -77,10 +135,17 @@ def test_utils_data_get_data(name_data: str, df: pd.DataFrame, mocker: MockerFix
         "qolmat.utils.data.preprocess_data_beijing_offline", return_value=df_preprocess_offline
     )
     mocker.patch("qolmat.utils.data.preprocess_data_beijing", return_value=df_preprocess_beijing)
+    mock_get = mocker.patch("qolmat.utils.data.get_dataframes_in_folder", return_value=[df])
     try:
         df_result = data.get_data(name_data=name_data)
     except ValueError:
-        assert name_data not in ["Beijing", "Beijing_offline", "Artificial"]
+        assert name_data not in [
+            "Beijing",
+            "Beijing_offline",
+            "Monach_weather",
+            "Monach_electricity_australia",
+            "Artificial",
+        ]
         np.testing.assert_raises(ValueError, data.get_data, name_data)
         return
 
@@ -88,12 +153,21 @@ def test_utils_data_get_data(name_data: str, df: pd.DataFrame, mocker: MockerFix
         assert mock_download.call_count == 1
         pd.testing.assert_frame_equal(df_result, df_preprocess_beijing)
     elif name_data == "Beijing_offline":
-        assert mock_download.call_count == 1
+        assert mock_download.call_count == 0
+        assert mock_get.call_count == 1
         pd.testing.assert_frame_equal(df_result, df_preprocess_offline)
     elif name_data == "Artificial":
         expected_columns = ["signal", "X", "A", "E"]
         assert isinstance(df_result, pd.DataFrame)
         assert df_result.columns.tolist() == expected_columns
+    elif name_data == "Monach_weather":
+        assert mock_download.call_count == 1
+        print(df_result)
+        pd.testing.assert_frame_equal(df_result, df_monach_weather_preprocess)
+    elif name_data == "Monach_electricity_australia":
+        assert mock_download.call_count == 1
+        print(df_result)
+        pd.testing.assert_frame_equal(df_result, df_monach_elec_preprocess)
     else:
         assert False
 
@@ -101,10 +175,6 @@ def test_utils_data_get_data(name_data: str, df: pd.DataFrame, mocker: MockerFix
 @pytest.mark.parametrize("df", [df_offline])
 def test_utils_data_preprocess_data_beijing_offline(df: pd.DataFrame) -> None:
     result = data.preprocess_data_beijing_offline(df)
-    print(result)
-    print(df_preprocess_offline)
-    print(result.dtypes)
-    print(df_preprocess_offline.dtypes)
     pd.testing.assert_frame_equal(result, df_preprocess_offline, atol=1e-3)
 
 

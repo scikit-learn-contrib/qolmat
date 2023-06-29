@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Union
 from sklearn.base import BaseEstimator
 from qolmat.imputations.imputers import ImputerRegressor
 from qolmat.utils.exceptions import PyTorchExtraNotInstalled
@@ -71,7 +71,6 @@ def build_mlp_example(
 class ImputerRegressorPyTorch(ImputerRegressor):
     def __init__(
         self,
-        estimator: Optional[BaseEstimator],
         groups: List[str] = [],
         handler_nan: str = "column",
         epochs: int = 100,
@@ -79,9 +78,7 @@ class ImputerRegressorPyTorch(ImputerRegressor):
         loss_fn: Callable = nn.L1Loss(),
         **hyperparams,
     ):
-        super().__init__(
-            groups=groups, estimator=estimator, handler_nan=handler_nan, **hyperparams
-        )
+        super().__init__(groups=groups, handler_nan=handler_nan, **hyperparams)
         self.epochs = epochs
         self.learning_rate = learning_rate
         self.loss_fn = loss_fn
@@ -107,13 +104,16 @@ class ImputerRegressorPyTorch(ImputerRegressor):
             target_data = torch.Tensor(y.values)
             target_data = target_data.unsqueeze(1)
 
-            outputs = self.estimator(input_data)
-            loss = loss_fn(outputs, target_data)
+            if self.estimator is None:
+                assert ValueError("Estimator is not provided.")
+            else:
+                outputs = self.estimator(input_data)
+                loss = loss_fn(outputs, target_data)
 
-            loss.backward()
-            optimizer.step()
-            if (epoch + 1) % 10 == 0:
-                print(f"Epoch [{epoch+1}/{self.epochs}], Loss: {loss.item():.4f}")
+                loss.backward()
+                optimizer.step()
+                if (epoch + 1) % 10 == 0:
+                    print(f"Epoch [{epoch+1}/{self.epochs}], Loss: {loss.item():.4f}")
 
     def predict_estimator(self, X: pd.DataFrame) -> np.ndarray:
         """
@@ -129,7 +129,10 @@ class ImputerRegressorPyTorch(ImputerRegressor):
         np.ndarray
             The predicted values.
         """
-        input_data = torch.Tensor(X.values)
-        output_data = self.estimator(input_data)
-        y = output_data.detach().numpy()
+        if self.estimator is None:
+            assert ValueError("Estimator is not provided.")
+        else:
+            input_data = torch.Tensor(X.values)
+            output_data = self.estimator(input_data)
+            y = output_data.detach().numpy()
         return y

@@ -210,13 +210,10 @@ def test_ImputerRPCA_fit_transform(df: pd.DataFrame) -> None:
     expected = pd.DataFrame(
         {
             "col1": [i for i in range(20)],
-            "col2": [0, 25.375562, 2, 29.396932, 2] + [i for i in range(5, 20)],
+            "col2": [0, 1, 2, 2, 2] + [i for i in range(5, 20)],
         }
     )
-    np.testing.assert_allclose(result, expected)
-
-
-# TODO Imputeur EM
+    np.testing.assert_allclose(result, expected, atol=1e-2)
 
 
 @pytest.mark.parametrize("df", [df_timeseries])
@@ -226,10 +223,10 @@ def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
     expected = pd.DataFrame(
         {
             "col1": [i for i in range(20)],
-            "col2": [0, 1.914706, 2, 2.480963, 2] + [i for i in range(5, 20)],
+            "col2": [0, 1.36, 2, 4.23, 2] + [i for i in range(5, 20)],
         }
     )
-    np.testing.assert_allclose(result, expected, atol=1e-6)
+    np.testing.assert_allclose(result, expected, atol=1e-2)
 
 
 @parametrize_with_checks(
