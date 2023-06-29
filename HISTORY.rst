@@ -5,7 +5,10 @@ History
 0.0.X (2023-0X-XX)
 -------------------
 * Fix MLP imputer
-
+* Switch tensorflow by pytorch
+* Change Test, environment, benchmark and imputers for pytorch
+* Add new dataset
+* Create a builder for mlp imputer
 
 0.0.14 (2023-06-14)
 -------------------
