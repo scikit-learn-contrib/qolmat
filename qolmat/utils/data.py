@@ -1,7 +1,8 @@
 import os
+import sys
 import zipfile
 from math import pi
-from typing import List, Optional
+from typing import List
 from urllib import request
 
 import numpy as np
@@ -11,23 +12,49 @@ from qolmat.benchmark import missing_patterns
 
 
 def download_data(zipname: str, urllink: str, datapath: str = "data/") -> List[pd.DataFrame]:
-    path_zip = os.path.join(datapath)
-    if not os.path.exists(path_zip + ".zip"):
-        if not os.path.exists(datapath):
-            os.mkdir(datapath)
-        request.urlretrieve(urllink + zipname + ".zip", path_zip + ".zip")
-
-    with zipfile.ZipFile(path_zip + ".zip", "r") as zip_ref:
-        zip_ref.extractall(path_zip)
-    data_folder = os.listdir(path_zip)
-    subfolder = os.path.join(path_zip, data_folder[0])
-    data_files = os.listdir(subfolder)
-    list_df = [pd.read_csv(os.path.join(subfolder, file)) for file in data_files]
+    path_zip = os.path.join(datapath, zipname)
+    path_zip_ext = path_zip + ".zip"
+    url = os.path.join(urllink, zipname) + ".zip"
+    os.makedirs(datapath, exist_ok=True)
+    if not os.path.exists(path_zip_ext) and not os.path.exists(path_zip):
+        request.urlretrieve(url, path_zip_ext)
+    if not os.path.exists(path_zip):
+        with zipfile.ZipFile(path_zip_ext, "r") as zip_ref:
+            zip_ref.extractall(path_zip)
+    list_df = get_dataframes_in_folder(path_zip, ".csv")
     return list_df
 
 
+def get_dataframes_in_folder(path: str, extension: str) -> List[pd.DataFrame]:
+    list_df = []
+    for folder, _, files in os.walk(path):
+        for file in files:
+            if extension in file:
+                list_df.append(pd.read_csv(os.path.join(folder, file)))
+    return list_df
+
+
+def generate_artificial_ts(n_samples, periods, amp_anomalies, ratio_anomalies, amp_noise):
+    mesh = np.arange(n_samples)
+    X = np.ones(n_samples)
+    for p in periods:
+        X += np.sin(2 * pi * mesh / p)
+
+    n_anomalies = int(n_samples * ratio_anomalies)
+    anomalies = np.random.standard_exponential(size=n_anomalies)
+    anomalies *= amp_anomalies * np.random.choice([-1, 1], size=n_anomalies)
+    ind_anomalies = np.random.choice(range(n_samples), size=n_anomalies, replace=False)
+    A = np.zeros(n_samples)
+    A[ind_anomalies] = anomalies
+
+    E = amp_noise * np.random.normal(size=n_samples)
+    return X, A, E
+
+
 def get_data(
-    name_data: str = "Beijing", datapath: str = "data/", download: Optional[bool] = True
+    name_data: str = "Beijing",
+    datapath: str = "data/",
+    n_groups_max: int = sys.maxsize,
 ) -> pd.DataFrame:
     """Download or generate data
 
@@ -45,49 +72,79 @@ def get_data(
         requested data
     """
     if name_data == "Beijing":
-        urllink = "https://archive.ics.uci.edu/ml/machine-learning-databases/00501/"
-        zipname = "PRSA2017_Data_20130301-20170228"
+        urllink = "https://archive.ics.uci.edu/static/public/381/"
+        zipname = "beijing+pm2+5+data"
+
         list_df = download_data(zipname, urllink, datapath=datapath)
-        list_df = [preprocess_data(df) for df in list_df]
+        list_df = [preprocess_data_beijing(df) for df in list_df]
+        df = pd.concat(list_df)
+        return df
+    elif name_data == "Beijing_offline":
+        # urllink = "https://archive.ics.uci.edu/dataset/381/beijing+pm2+5+data"
+        folder = "PRSA2017_Data_20130301-20170228"
+        path = os.path.join(datapath, folder)
+        list_df = get_dataframes_in_folder(path, ".csv")
+        list_df = [preprocess_data_beijing_offline(df) for df in list_df]
         df = pd.concat(list_df)
         return df
     elif name_data == "Artificial":
         city = "Wonderland"
         n_samples = 1000
-        p1 = 100
-        p2 = 20
-        amplitude_A = 0.5
-        freq_A = 0.05
-        amplitude_E = 0.1
+        periods = [100, 20]
+        amp_anomalies = 0.5
+        ratio_anomalies = 0.05
+        amp_noise = 0.1
 
-        mesh = np.arange(n_samples)
-
-        X_true = 1 + np.sin(2 * pi * mesh / p1) + np.sin(2 * pi * mesh / p2)
-
-        noise = np.random.uniform(size=n_samples)
-        A_true = (
-            amplitude_A
-            * np.where(noise < freq_A, -np.log(noise), 0)
-            * (2 * (np.random.uniform(size=n_samples) > 0.5) - 1)
+        X, A, E = generate_artificial_ts(
+            n_samples, periods, amp_anomalies, ratio_anomalies, amp_noise
         )
-
-        E_true = amplitude_E * np.random.normal(size=n_samples)
-
-        signal = X_true + E_true
-        signal[A_true != 0] = A_true[A_true != 0]
-
+        signal = X + A + E
         df = pd.DataFrame({"signal": signal, "index": range(n_samples), "station": city})
         df.set_index(["station", "index"], inplace=True)
 
-        df["X"] = X_true
-        df["A"] = A_true
-        df["E"] = E_true
+        df["X"] = X
+        df["A"] = A
+        df["E"] = E
+        return df
+    elif name_data == "SNCF":
+        path_file = os.path.join(datapath, "validations_idfm_std.parq")
+        df = pd.read_parquet(path_file)
+        sizes_stations = df.groupby("station")["val_in"].mean().sort_values()
+        n_groups_max = min(len(sizes_stations), n_groups_max)
+        stations = sizes_stations.index.get_level_values("station").unique()[-n_groups_max:]
+        df = df.loc[stations]
         return df
     else:
         raise ValueError(f"Data name {name_data} is unknown!")
 
 
-def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
+def preprocess_data_beijing(df: pd.DataFrame) -> pd.DataFrame:
+    """Preprocess data from the "Beijing" datset
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        dataframe with some specific column names
+
+    Returns
+    -------
+    pd.DataFrame
+        preprocessed dataframe
+    """
+    df["datetime"] = pd.to_datetime(df[["year", "month", "day", "hour"]])
+    df["station"] = "Beijing"
+    df.set_index(["station", "datetime"], inplace=True)
+    df.drop(
+        columns=["year", "month", "day", "hour", "No", "cbwd", "Iws", "Is", "Ir"], inplace=True
+    )
+    df.sort_index(inplace=True)
+    df = df.groupby(
+        ["station", df.index.get_level_values("datetime").floor("d")], group_keys=False
+    ).mean()
+    return df
+
+
+def preprocess_data_beijing_offline(df: pd.DataFrame) -> pd.DataFrame:
     """Preprocess data from the "Beijing" datset
 
     Parameters

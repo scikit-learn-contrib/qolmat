@@ -1,15 +1,16 @@
 ---
 jupyter:
   jupytext:
+    formats: ipynb,md
     text_representation:
       extension: .md
       format_name: markdown
       format_version: '1.3'
-      jupytext_version: 1.14.4
+      jupytext_version: 1.14.5
   kernelspec:
-    display_name: env_qolmat
+    display_name: Python 3 (ipykernel)
     language: python
-    name: env_qolmat
+    name: python3
 ---
 
 ```python
@@ -28,33 +29,24 @@ from math import pi
 from qolmat.utils import plot, data
 from qolmat.imputations.rpca.rpca_pcp import RPCAPCP
 from qolmat.imputations.rpca.rpca_noisy import RPCANoisy
+from qolmat.utils.data import generate_artificial_ts
 ```
 
 **Generate synthetic data**
 
 ```python
 n_samples = 1000
+periods = [100, 20]
+amp_anomalies = 0.5
+ratio_anomalies = 0.05
+amp_noise = 0.1
 
-mesh = np.arange(n_samples)
-X_true = np.zeros(n_samples)
-A_true = np.zeros(n_samples)
-E_true = np.zeros(n_samples)
-p1 = 100
-p2 = 20
-X_true = 1 + np.sin(2 * pi * mesh / p1) + np.sin(2 * pi * mesh / p2)
-noise = np.random.uniform(size=n_samples)
-amplitude_A = .5
-freq_A = .05
-A_true = amplitude_A * np.where(noise < freq_A, -np.log(noise), 0) * (2 * (np.random.uniform(size=n_samples) > .5) - 1)
-amplitude_E = .1
-E_true = amplitude_E * np.random.normal(size=n_samples)
+X_true, A_true, E_true = generate_artificial_ts(n_samples, periods, amp_anomalies, ratio_anomalies, amp_noise)
 
-signal = X_true + E_true
-signal[A_true != 0] = A_true[A_true != 0]
-signal = signal.reshape(-1, 1)
+signal = X_true + A_true + E_true
 
 # Adding missing data
-signal[5:20, 0] = np.nan
+signal[5:20] = np.nan
 ```
 
 ```python
@@ -73,7 +65,7 @@ plt.plot(E_true)
 
 ax = fig.add_subplot(4, 1, 4)
 ax.title.set_text("Corrupted signal")
-plt.plot(signal[:, 0])
+plt.plot(signal)
 
 plt.show()
 ```
@@ -82,26 +74,78 @@ plt.show()
 
 ```python
 %%time
-
 rpca_pcp = RPCAPCP(period=100, max_iter=5, mu=.5, lam=1)
-X = rpca_pcp.fit_transform(signal)
-corruptions = signal - X
+X, A = rpca_pcp.decompose_rpca_signal(signal)
+imputed = signal - A
+```
+
+```python
+fig = plt.figure(figsize=(12, 4))
+plt.plot(X, color="black")
+plt.plot(imputed)
 ```
 
 ## Temporal RPCA
 
 ```python
+%%time
 rpca_noisy = RPCANoisy(period=10, tau=2, lam=0.3, list_periods=[10], list_etas=[0.01], norm="L2")
-X = rpca_noisy.fit_transform(signal)
-corruptions = signal - X
-plot.plot_signal([signal[:,0], X[:,0], corruptions[:, 0]])
+X, A = rpca_noisy.decompose_rpca_signal(signal)
 ```
 
 ```python
-rpca_noisy = RPCANoisy(period=10, tau=2, lam=0.3, list_periods=[], list_etas=[], norm="L2")
-X = rpca_noisy.fit_transform(signal)
-corruptions = signal - X
-plot.plot_signal([signal[:,0], X[:,0], corruptions[:, 0]])
+fig = plt.figure(figsize=(12, 4))
+plt.plot(X, color="black")
+plt.plot(imputed)
+```
+
+```python
+
+```
+
+```python
+%%time
+signal_toy = np.array([[1, 2], [np.nan, np.nan]])
+rpca_noisy = RPCANoisy(tau=0, lam=1, norm="L2", do_report=True)
+X, A = rpca_noisy.decompose_rpca_signal(signal_toy)
+```
+
+```python
+print(X)
+print(A)
+```
+
+```python
+%%time
+signal_toy = np.array([[1, 2], [np.nan, np.nan]])
+rpca_pcp = RPCAPCP(lam=1e3)
+X, A = rpca_pcp.decompose_rpca_signal(signal_toy)
+```
+
+```python
+X
+```
+
+```python
+A
+```
+
+```python
+np.log(10) / np.log(1.1)
+```
+
+```python
+X = np.array([[1, 2], [4, 4], [4, 3]])
+# Omega = np.array([[True, False], [True, True], [False, True]])
+Omega = np.array([[True, True], [True, True], [True, True]])
+rpca_noisy = RPCANoisy(period=2, max_iter=200, tau=.5, lam=1, do_report=True)
+M_result, A_result, U_result, V_result = rpca_noisy.decompose_rpca_L2(
+    X, Omega=Omega, lam=1, tau=.5, rank=2
+)
+```
+
+```python
+M_result
 ```
 
 ```python
