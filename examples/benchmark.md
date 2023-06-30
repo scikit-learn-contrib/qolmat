@@ -6,11 +6,11 @@ jupyter:
       extension: .md
       format_name: markdown
       format_version: '1.3'
-      jupytext_version: 1.14.5
+      jupytext_version: 1.14.4
   kernelspec:
-    display_name: Python 3 (ipykernel)
+    display_name: env_qolmat_dev
     language: python
-    name: python3
+    name: env_qolmat_dev
 ---
 
 **This notebook aims to present the Qolmat repo through an example of a multivariate time series.
@@ -32,6 +32,8 @@ import pandas as pd
 from datetime import datetime
 import numpy as np
 import scipy
+import hyperopt as ho
+from hyperopt.pyll.base import Apply as hoApply
 np.random.seed(1234)
 import pprint
 from matplotlib import pyplot as plt
@@ -48,7 +50,7 @@ from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor, HistGra
 
 
 import sys
-from qolmat.benchmark import comparator, missing_patterns
+from qolmat.benchmark import comparator, missing_patterns, hyperparameters
 from qolmat.benchmark.metrics import kl_divergence
 from qolmat.imputations import imputers
 from qolmat.utils import data, utils, plot
@@ -62,25 +64,11 @@ The dataset `Beijing` is the Beijing Multi-Site Air-Quality Data Set. It consist
 This dataset only contains numerical vairables.
 
 ```python
-# df_data = data.get_data_corrupted("Beijing", ratio_masked=.2, mean_size=120)
-
-# cols_to_impute = ["TEMP", "PRES", "DEWP", "NO2", "CO", "O3", "WSPM"]
-# cols_to_impute = df_data.columns[df_data.isna().any()]
-# cols_to_impute = ["TEMP", "PRES"]
-
+df_data = data.get_data_corrupted("Beijing", ratio_masked=.2, mean_size=120)
+cols_to_impute = ["TEMP", "PRES"]
 ```
 
 The dataset `Artificial` is designed to have a sum of a periodical signal, a white noise and some outliers.
-
-```python
-df_data = data.get_data_corrupted("Artificial", ratio_masked=.2, mean_size=10)
-cols_to_impute = ["signal"]
-```
-
-```python
-df_data = data.get_data("SNCF", n_groups_max=2)
-cols_to_impute = ["val_in"]
-```
 
 ```python
 df_data
@@ -124,6 +112,10 @@ Some methods require hyperparameters. The user can directly specify them, or rat
 In pratice, we rely on a cross validation to find the best hyperparams values minimizing an error reconstruction.
 
 ```python
+ratio_masked = 0.1
+```
+
+```python
 imputer_mean = imputers.ImputerMean(groups=["station"])
 imputer_median = imputers.ImputerMedian(groups=["station"])
 imputer_mode = imputers.ImputerMode(groups=["station"])
@@ -132,20 +124,42 @@ imputer_nocb = imputers.ImputerNOCB(groups=["station"])
 imputer_interpol = imputers.ImputerInterpolation(groups=["station"], method="linear")
 imputer_spline = imputers.ImputerInterpolation(groups=["station"], method="spline", order=2)
 imputer_shuffle = imputers.ImputerShuffle(groups=["station"])
-imputer_residuals = imputers.ImputerResiduals(groups=["station"], period=7, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
+imputer_residuals = imputers.ImputerResiduals(groups=["station"], period=365, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
 
-imputer_rpca = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=7, max_iter=1000, tau=2, lam=1)
-# imputer_rpca_opti = imputers.ImputerRPCA(groups=["station"], columnwise=True, period=7, max_iter=100)
+imputer_rpca = imputers.ImputerRPCA(groups=["station"], columnwise=False, max_iter=256, tau=2, lam=1)
 
 imputer_ou = imputers.ImputerEM(groups=["station"], model="multinormal", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
 imputer_tsou = imputers.ImputerEM(groups=["station"], model="VAR1", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
-imputer_tsmle = imputers.ImputerEM(groups=["station"], model="VAR1", method="mle", max_iter_em=100, n_iter_ou=15, dt=1e-3, period=7)
+imputer_tsmle = imputers.ImputerEM(groups=["station"], model="VAR1", method="mle", max_iter_em=100, n_iter_ou=15, dt=1e-3)
 
 
 imputer_knn = imputers.ImputerKNN(groups=["station"], k=10)
 imputer_mice = imputers.ImputerMICE(groups=["station"], estimator=LinearRegression(), sample_posterior=False, max_iter=100, missing_values=np.nan)
 imputer_regressor = imputers.ImputerRegressor(groups=["station"], estimator=LinearRegression())
+```
 
+```python
+generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], subset=cols_to_impute, ratio_masked=ratio_masked)
+```
+
+```python
+dict_config_opti = {
+    "tau": ho.hp.uniform("tau", low=.5, high=5),
+    "lam": ho.hp.uniform("lam", low=.1, high=1),
+}
+imputer_rpca_opti = imputers.ImputerRPCA(groups=["station"], columnwise=False, max_iter=256)
+imputer_rpca_opti = hyperparameters.optimize(
+    imputer_rpca_opti,
+    df_data,
+    generator = generator_holes,
+    metric="mae",
+    max_evals=10,
+    dict_config_opti=dict_config_opti
+)
+# imputer_rpca_opti.params_optim = hyperparams_opti
+```
+
+```python
 dict_imputers = {
     # "mean": imputer_mean,
     # "median": imputer_median,
@@ -155,10 +169,10 @@ dict_imputers = {
     "shuffle": imputer_shuffle,
     # "residuals": imputer_residuals,
     # "OU": imputer_ou,
-    # "TSOU": imputer_tsou,
+    "TSOU": imputer_tsou,
     "TSMLE": imputer_tsmle,
     "RPCA": imputer_rpca,
-    # "RPCA_opti": imputer_rpca_opti,
+    "RPCA_opti": imputer_rpca_opti,
     # "locf": imputer_locf,
     # "nocb": imputer_nocb,
     # "knn": imputer_knn,
@@ -166,15 +180,6 @@ dict_imputers = {
     # "mice_ols": imputer_mice,
 }
 n_imputers = len(dict_imputers)
-
-dict_config_opti = {
-    "RPCA_opti": {
-        "tau": {"min": .5, "max": 5, "type":"Real"},
-        "lam": {"min": .1, "max": 1, "type":"Real"},
-    }
-}
-
-ratio_masked = 0.1
 ```
 
 In order to compare the methods, we $i)$ artificially create missing data (for missing data mechanisms, see the docs); $ii)$ then impute it using the different methods chosen and $iii)$ calculate the reconstruction error. These three steps are repeated a number of times equal to `n_splits`. For each method, we calculate the average error and compare the final errors.
@@ -184,23 +189,18 @@ In order to compare the methods, we $i)$ artificially create missing data (for m
 </p>
 
 
-```python
-imputer_tsmle.hyperparams_user
-```
 
 Concretely, the comparator takes as input a dataframe to impute, a proportion of nan to create, a dictionary of imputers (those previously mentioned), a list with the columns names to impute, a generator of holes specifying the type of holes to create and the search dictionary search_params for hyperparameter optimization.
 
 Note these metrics compute reconstruction errors; it tells nothing about the distances between the "true" and "imputed" distributions.
 
 ```python
-generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], ratio_masked=ratio_masked)
-
 comparison = comparator.Comparator(
     dict_imputers,
     cols_to_impute,
     generator_holes = generator_holes,
-    metrics=["mae", "wmape", "KL_columnwise", "ks_test", "energy"],
-    n_calls_opt=10,
+    metrics=["mae", "wmape", "KL_columnwise", "ks_test"],
+    max_evals=10,
     dict_config_opti=dict_config_opti,
 )
 results = comparison.compare(df_data)
@@ -208,8 +208,14 @@ results
 ```
 
 ```python
-df_plot = results.loc["energy", "All"]
+df_plot = results.loc["KL_columnwise",'TEMP']
 plt.barh(df_plot.index, df_plot, color=tab10(0))
+plt.title('TEMP')
+plt.show()
+
+df_plot = results.loc["KL_columnwise",'PRES']
+plt.barh(df_plot.index, df_plot, color=tab10(0))
+plt.title('PRES')
 plt.show()
 ```
 
@@ -270,14 +276,18 @@ for col in cols_to_impute:
 ```
 
 ```python
+dfs_imputed
+```
+
+```python
 # plot.plot_imputations(df_station, dfs_imputed_station)
 
-n_columns = len(df_plot.columns)
+n_columns = len(cols_to_impute)
 n_imputers = len(dict_imputers)
 
 fig = plt.figure(figsize=(12 * n_imputers, 4 * n_columns))
 i_plot = 1
-for i_col, col in enumerate(df_plot):
+for i_col, col in enumerate(cols_to_impute):
     for name_imputer, df_imp in dfs_imputed_station.items():
 
         fig.add_subplot(n_columns, n_imputers, i_plot)
@@ -298,7 +308,7 @@ for i_col, col in enumerate(df_plot):
         loc = plticker.MultipleLocator(base=2*365)
         ax.xaxis.set_major_locator(loc)
         ax.tick_params(axis='both', which='major')
-        plt.xlim(datetime(2019, 2, 1), datetime(2019, 3, 1))
+        plt.xlim(datetime(2010, 1, 1), datetime(2015, 3, 1))
         i_plot += 1
 plt.savefig("figures/imputations_benchmark.png")
 plt.show()
@@ -322,7 +332,6 @@ df = data.get_data("Beijing")
 cols_to_impute = ["TEMP", "PRES"]
 cols_with_nans = list(df.columns[df.isna().any()])
 df_data = data.add_datetime_features(df)
-df_data = data.add_station_features(df_data)
 df_data[cols_with_nans + cols_to_impute] = data.add_holes(pd.DataFrame(df_data[cols_with_nans + cols_to_impute]), ratio_masked=.1, mean_size=120)
 df_data
 ```
@@ -332,38 +341,30 @@ Then we train the model without taking a group on the stations
 
 ```python
 estimator = tf.keras.models.Sequential([
-    tf.keras.layers.Dense(256, activation='sigmoid'),
-    tf.keras.layers.Dense(128, activation='sigmoid'),
-    tf.keras.layers.Dense(64, activation='sigmoid'),
+    tf.keras.layers.Dense(256, activation='relu'),
+    tf.keras.layers.Dense(128, activation='relu'),
+    tf.keras.layers.Dense(64, activation='relu'),
     tf.keras.layers.Dense(1)])
-estimator.compile(optimizer='adam', loss='mse')
-dict_imputers["MLP"] = imputer_mlp = imputers_keras.ImputerRegressorKeras(estimator=estimator, handler_nan = "column")
+estimator.compile(optimizer='adam', loss='mae')
+dict_imputers["MLP"] = imputer_mlp = imputers_keras.ImputerRegressorKeras(estimator=estimator, groups=['station'], handler_nan = "column")
 ```
 
 We can re-run the imputation model benchmark as before.
-
-```python
-generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, subset = cols_to_impute, ratio_masked=ratio_masked)
+```python jupyter={"outputs_hidden": true} tags=[]
+generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], subset=cols_to_impute, ratio_masked=ratio_masked)
 
 comparison = comparator.Comparator(
     dict_imputers,
-    df_data.columns,
+    cols_to_impute,
     generator_holes = generator_holes,
-    n_calls_opt=10,
+    metrics=["mae", "wmape", "KL_columnwise", "ks_test"],
+    max_evals=10,
     dict_config_opti=dict_config_opti,
 )
 results = comparison.compare(df_data)
 results
 ```
-
-```python
-fig = plt.figure(figsize=(24, 4))
-plot.multibar(results.loc["mae"], decimals=1)
-plt.ylabel("mae")
-plt.show()
-```
-
-```python
+```python jupyter={"outputs_hidden": true, "source_hidden": true} tags=[]
 df_plot = df_data
 dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_imputers.items()}
 station = df_plot.index.get_level_values("station")[0]
@@ -371,7 +372,7 @@ df_station = df_plot.loc[station]
 dfs_imputed_station = {name: df_plot.loc[station] for name, df_plot in dfs_imputed.items()}
 ```
 
-```python
+```python jupyter={"source_hidden": true} tags=[]
 for col in cols_to_impute:
     fig, ax = plt.subplots(figsize=(10, 3))
     values_orig = df_station[col]

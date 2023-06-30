@@ -278,7 +278,7 @@ def multibar(
             plt.xticks(x, df.index)
         ax.bar_label(rect, padding=3, fmt=f"%.{decimals}f")
 
-    plt.legend()
+    plt.legend(loc=(1, 0))
 
 
 def plot_imputations(df: pd.DataFrame, dict_df_imputed: Dict[str, pd.DataFrame]):

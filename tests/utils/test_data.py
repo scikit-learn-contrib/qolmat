@@ -103,10 +103,6 @@ def test_utils_data_get_data(name_data: str, df: pd.DataFrame, mocker: MockerFix
 @pytest.mark.parametrize("df", [df_offline])
 def test_utils_data_preprocess_data_beijing_offline(df: pd.DataFrame) -> None:
     result = data.preprocess_data_beijing_offline(df)
-    print(result)
-    print(df_preprocess_offline)
-    print(result.dtypes)
-    print(df_preprocess_offline.dtypes)
     pd.testing.assert_frame_equal(result, df_preprocess_offline, atol=1e-3)
 
 
