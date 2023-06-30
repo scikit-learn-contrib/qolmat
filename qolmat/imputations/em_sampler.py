@@ -497,6 +497,8 @@ class VAR1EM(EM):
     Imputation of missing values using a vector autoregressive model through EM optimization and
     using a projected Ornstein-Uhlenbeck process.
 
+    (X_n+1 - B) = A @ (X_n - B) + Omega @ G_n
+
     Parameters
     ----------
     method : Literal["mle", "sample"]
