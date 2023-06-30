@@ -28,3 +28,12 @@ class NoMissingValue(Exception):
 class SubsetIsAString(Exception):
     def __init__(self, subset: Any):
         super().__init__(f"Provided subset `{subset}` should be None or a list!")
+
+
+class CostFunctionRPCANotMinimized(Exception):
+    def __init__(self, function: str):
+        super().__init__(
+            "PCA algorithm may provide bad results. "
+            f"{function} is larger at the end "
+            "of the algorithm than at the start."
+        )
