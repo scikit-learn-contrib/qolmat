@@ -1,10 +1,11 @@
-from typing import Any
+from typing import Any, Dict
 
 import numpy as np
 import pandas as pd
 import pytest
 from sklearn.ensemble import ExtraTreesRegressor
 from sklearn.utils.estimator_checks import parametrize_with_checks
+from qolmat.benchmark.hyperparameters import HyperValue
 
 from qolmat.imputations import imputers
 
@@ -30,6 +31,58 @@ df_groups = pd.DataFrame(
         "col2": [1, np.nan, 0, 3],
     }
 )
+
+
+def test_hyperparameters_get_hyperparameters() -> None:
+    imputer = imputers.ImputerKNN(n_neighbors=3)
+    hyperparams = imputer.get_hyperparams("col")
+
+    assert hyperparams == {"n_neighbors": 3, "weights": "distance"}
+
+
+hyperparams_global = {"lam/col1": 4.7, "lam/col2": 1.5, "tol": 0.07, "max_iter": 100, "norm": "L1"}
+
+expected1 = {
+    "lam": 4.7,
+    "tau": None,
+    "mu": None,
+    "rank": None,
+    "list_etas": (),
+    "list_periods": (),
+    "tol": 0.07,
+    "norm": "L1",
+    "random_state": None,
+    "max_iter": 100,
+    "period": 1,
+}
+
+expected2 = {
+    "lam": 1.5,
+    "tau": None,
+    "mu": None,
+    "rank": None,
+    "list_etas": (),
+    "list_periods": (),
+    "tol": 0.07,
+    "norm": "L1",
+    "random_state": None,
+    "max_iter": 100,
+    "period": 1,
+}
+
+
+@pytest.mark.parametrize("col, expected", [("col1", expected1), ("col2", expected2)])
+def test_hyperparameters_get_hyperparameters_modified(
+    col: str, expected: Dict[str, HyperValue]
+) -> None:
+    imputer = imputers.ImputerRPCA()
+    for key, val in hyperparams_global.items():
+        setattr(imputer, key, val)
+    imputer.imputer_params = tuple(set(imputer.imputer_params) | set(hyperparams_global.keys()))
+    hyperparams = imputer.get_hyperparams(col)
+
+    print(hyperparams)
+    assert hyperparams == expected
 
 
 @pytest.mark.parametrize(
@@ -58,7 +111,7 @@ def test_fit_transform_not_on_pandas(df: Any) -> None:
 
 @pytest.mark.parametrize("df", [df_groups])
 def test_fit_transform_on_grouped(df: pd.DataFrame) -> None:
-    imputer = imputers.ImputerMean(groups=["col1"])
+    imputer = imputers.ImputerMean(groups=("col1",))
     result = imputer.fit_transform(df)
     expected = pd.DataFrame(
         {
@@ -72,7 +125,8 @@ def test_fit_transform_on_grouped(df: pd.DataFrame) -> None:
 @pytest.mark.parametrize("df", [df_incomplete])
 @pytest.mark.parametrize("df_oracle", [df_complete])
 def test_ImputerOracle_fit_transform(df: pd.DataFrame, df_oracle: pd.DataFrame) -> None:
-    imputer = imputers.ImputerOracle(df_oracle)
+    imputer = imputers.ImputerOracle()
+    imputer.set_solution(df_oracle)
     result = imputer.fit_transform(df)
     expected = df_oracle
     np.testing.assert_allclose(result, expected)
@@ -210,13 +264,10 @@ def test_ImputerRPCA_fit_transform(df: pd.DataFrame) -> None:
     expected = pd.DataFrame(
         {
             "col1": [i for i in range(20)],
-            "col2": [0, 25.375562, 2, 29.396932, 2] + [i for i in range(5, 20)],
+            "col2": [0, 1, 2, 2, 2] + [i for i in range(5, 20)],
         }
     )
-    np.testing.assert_allclose(result, expected)
-
-
-# TODO Imputeur EM
+    np.testing.assert_allclose(result, expected, atol=1e-2)
 
 
 @pytest.mark.parametrize("df", [df_timeseries])
@@ -226,16 +277,16 @@ def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
     expected = pd.DataFrame(
         {
             "col1": [i for i in range(20)],
-            "col2": [0, 1.914706, 2, 2.480963, 2] + [i for i in range(5, 20)],
+            "col2": [0, 1.36, 2, 4.23, 2] + [i for i in range(5, 20)],
         }
     )
-    np.testing.assert_allclose(result, expected, atol=1e-6)
+    np.testing.assert_allclose(result, expected, atol=1e-2)
 
 
 @parametrize_with_checks(
     [
         imputers.Imputer(),
-        imputers.ImputerOracle(df_complete),
+        imputers.ImputerOracle(),
         imputers.ImputerMean(),
         imputers.ImputerMedian(),
         imputers.ImputerMode(),

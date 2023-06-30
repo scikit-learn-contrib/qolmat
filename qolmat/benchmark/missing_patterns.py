@@ -9,6 +9,8 @@ import pandas as pd
 from sklearn import utils as sku
 from sklearn.utils import resample
 
+from qolmat.utils.exceptions import NoMissingValue, SubsetIsAString
+
 logger = logging.getLogger(__name__)
 
 
@@ -64,7 +66,7 @@ class _HoleGenerator:
         Ratio of values ​​to mask, by default 0.05.
     random_state : Optional[int]
         The seed used by the random number generator, by default 42.
-    groups: Optional[List[str]]
+    groups: Tuple[str, ...]
         Column names used to group the data
     """
 
@@ -77,7 +79,7 @@ class _HoleGenerator:
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
         random_state: Union[None, int, np.random.RandomState] = None,
-        groups: Optional[List[str]] = [],
+        groups: Tuple[str, ...] = (),
     ) -> None:
         self.n_splits = n_splits
         self.subset = subset
@@ -98,10 +100,10 @@ class _HoleGenerator:
         self.dict_ratios = {}
         missing_per_col = X[self.subset].isna().sum()
         self.dict_ratios = (missing_per_col / missing_per_col.sum()).to_dict()
-        if self.groups == []:
-            self.ngroups = None
+        if self.groups:
+            self.ngroups = X.groupby(list(self.groups)).ngroup().rename("_ngroup")
         else:
-            self.ngroups = X.groupby(self.groups).ngroup().rename("_ngroup")
+            self.ngroups = None
 
         return self
 
@@ -133,15 +135,14 @@ class _HoleGenerator:
         columns_with_nans = X.columns[X.isna().any()]
         if self.subset is None:
             self.subset = columns_with_nans
+        elif isinstance(self.subset, str):
+            raise SubsetIsAString(self.subset)
         else:
             subset_without_nans = [
                 column for column in self.subset if column not in columns_with_nans
             ]
             if len(subset_without_nans) > 0:
-                raise Exception(
-                    f"No missing value in the columns {subset_without_nans}!"
-                    "You need to pass the relevant column name in the subset argument!"
-                )
+                raise NoMissingValue(subset_without_nans)
 
 
 class UniformHoleGenerator(_HoleGenerator):
@@ -172,7 +173,7 @@ class UniformHoleGenerator(_HoleGenerator):
             subset=subset,
             random_state=random_state,
             ratio_masked=ratio_masked,
-            groups=[],
+            groups=(),
         )
 
     def generate_mask(self, X: pd.DataFrame) -> pd.DataFrame:
@@ -216,7 +217,7 @@ class _SamplerHoleGenerator(_HoleGenerator):
         Ratio of masked values ​​to add, by default 0.05.
     random_state : Optional[int], optional
         The seed used by the random number generator, by default 42.
-    groups: Optional[List[str]]
+    groups: Tuple[str, ...]
         Column names used to group the data
     """
 
@@ -228,7 +229,7 @@ class _SamplerHoleGenerator(_HoleGenerator):
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
         random_state: Union[None, int, np.random.RandomState] = None,
-        groups: Optional[List[str]] = [],
+        groups: Tuple[str, ...] = (),
     ):
         super().__init__(
             n_splits=n_splits,
@@ -274,8 +275,6 @@ class _SamplerHoleGenerator(_HoleGenerator):
         mask : pd.DataFrame
             masked dataframe with additional missing entries
         """
-        self.fit(X)
-        self._check_subset(X)
         mask = pd.DataFrame(False, columns=X.columns, index=X.index)
         n_masked_col = round(self.ratio_masked * len(X))
         list_failed: List = []
@@ -324,7 +323,7 @@ class GeometricHoleGenerator(_SamplerHoleGenerator):
         Ratio of masked values ​​to add, by default 0.05.
     random_state : Union[None, int, np.random.RandomState], optional
         The seed used by the random number generator, by default 42.
-    groups: Optional[List[str]]
+    groups: Tuple[str, ...]
         Column names used to group the data
     """
 
@@ -334,7 +333,7 @@ class GeometricHoleGenerator(_SamplerHoleGenerator):
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
         random_state: Union[None, int, np.random.RandomState] = None,
-        groups: Optional[List[str]] = [],
+        groups: Tuple[str, ...] = (),
     ):
         super().__init__(
             n_splits=n_splits,
@@ -393,7 +392,7 @@ class EmpiricalHoleGenerator(_SamplerHoleGenerator):
         Ratio of masked values ​​to add, by default 0.05.
     random_state : Optional[int], optional
         The seed used by the random number generator, by default 42.
-    groups: Optional[List[str]]
+    groups: Tuple[str, ...]
         Column names used to group the data
     """
 
@@ -403,7 +402,7 @@ class EmpiricalHoleGenerator(_SamplerHoleGenerator):
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
         random_state: Union[None, int, np.random.RandomState] = None,
-        groups: Optional[List[str]] = [],
+        groups: Tuple[str, ...] = (),
     ):
         super().__init__(
             n_splits=n_splits,
@@ -435,7 +434,6 @@ class EmpiricalHoleGenerator(_SamplerHoleGenerator):
         EmpiricalTimeHoleGenerator
             The model itself
         """
-
         super().fit(X)
 
         self.dict_distributions_holes = {}
@@ -489,7 +487,7 @@ class MultiMarkovHoleGenerator(_HoleGenerator):
         Ratio of masked values ​​to add, by default 0.05.
     random_state : Optional[int], optional
         The seed used by the random number generator, by default 42.
-    groups: Optional[List[str]]
+    groups: Tuple[str, ...]
         Column names used to group the data
     """
 
@@ -499,7 +497,7 @@ class MultiMarkovHoleGenerator(_HoleGenerator):
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
         random_state: Union[None, int, np.random.RandomState] = None,
-        groups: Optional[List[str]] = [],
+        groups: Tuple[str, ...] = (),
     ):
         super().__init__(
             n_splits=n_splits,
@@ -640,7 +638,7 @@ class GroupedHoleGenerator(_HoleGenerator):
         Ratio of masked values ​​to add, by default 0.05.
     random_state : Optional[int], optional
         The seed used by the random number generator, by default 42.
-    groups : List[str]
+    groups : Tuple[str, ...]
         Names of the columns forming the groups, by default []
     """
 
@@ -650,7 +648,7 @@ class GroupedHoleGenerator(_HoleGenerator):
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
         random_state: Union[None, int, np.random.RandomState] = None,
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
     ):
         super().__init__(
             n_splits=n_splits,
@@ -660,8 +658,8 @@ class GroupedHoleGenerator(_HoleGenerator):
             groups=groups,
         )
 
-        if groups == []:
-            raise Exception("Argument groups is an empty list!")
+        if groups == ():
+            raise Exception("Argument groups is an empty tuple!")
 
     def fit(self, X: pd.DataFrame) -> GroupedHoleGenerator:
         """Creare the groups based on the column names (groups attribute)

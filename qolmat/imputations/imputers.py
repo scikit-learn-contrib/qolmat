@@ -1,5 +1,5 @@
 import warnings
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Literal, Optional, Tuple, Union
 from abc import abstractmethod
 
 import numpy as np
@@ -9,6 +9,8 @@ from sklearn.base import BaseEstimator
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer, KNNImputer
 from sklearn.impute._base import _BaseImputer
+from qolmat.benchmark import hyperparameters
+from qolmat.benchmark.hyperparameters import HyperValue
 from statsmodels.tsa import seasonal as tsa_seasonal
 
 from qolmat.imputations import em_sampler
@@ -21,7 +23,7 @@ class Imputer(_BaseImputer):
 
     Parameters
     ----------
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
     columnwise : bool, optional
         If True, the imputer will be computed for each column, else it will be computed on the
@@ -46,28 +48,44 @@ class Imputer(_BaseImputer):
         shrink: bool = False,
         random_state: Union[None, int, np.random.RandomState] = None,
         missing_values=np.nan,
-        groups: List[str] = [],
-        hyperparams: Dict = {},
+        imputer_params: tuple = (),
+        groups: Tuple[str, ...] = (),
     ):
         self.columnwise = columnwise
         self.shrink = shrink
         self.random_state = random_state
         self.missing_values = missing_values
+        self.imputer_params = imputer_params
         self.groups = groups
-        self.hyperparams = hyperparams
 
-    def _more_tags(self):
-        """Define tags for scikit-learn"""
+    def get_hyperparams(self, col: Optional[str] = None):
+        """
+        Filter hyperparameters based on the specified column, the dictionary keys in the form
+        name_params/column are only relevent for the specified column and are filtered accordingly.
 
-        return {
-            "allow_nan": True,
-            "requires_fit": False,
-            "_xfail_checks": {
-                "check_parameters_default_constructible": "The imputer need Dict as a parammeter",
-                "check_no_attributes_set_in_init": """The imputer can define an attribute
-                modifiable in init""",
-            },
-        }
+        Parameters
+        ----------
+        col : str
+            The column name to filter hyperparameters.
+
+        Returns
+        -------
+        dict
+            A dictionary containing filtered hyperparameters.
+
+        """
+        hyperparams = {}
+        for key in self.imputer_params:
+            value = getattr(self, key)
+            if "/" not in key:
+                name_param = key
+                if name_param not in hyperparams:
+                    hyperparams[name_param] = value
+            elif col is not None:
+                name_param, col2 = key.split("/")
+                if col2 == col:
+                    hyperparams[name_param] = value
+        return hyperparams
 
     def fit(self, X, y: pd.DataFrame = None):
         X = self._validate_data(X, force_all_finite="allow-nan")
@@ -102,32 +120,32 @@ class Imputer(_BaseImputer):
         if hasattr(self, "estimator") and hasattr(self.estimator, "random_state"):
             self.estimator.random_state = self.rng
 
-        hyperparams = self.hyperparams.copy()
-        if hasattr(self, "hyperparams_optim"):
-            hyperparams.update(self.hyperparams_optim)
         cols_with_nans = df.columns[df.isna().any()]
 
-        if self.groups == []:
-            self.ngroups_ = pd.Series(0, index=df.index).rename("_ngroup")
+        if self.groups:
+            self.ngroups_ = df.groupby(list(self.groups)).ngroup().rename("_ngroup")
         else:
-            self.ngroups_ = df.groupby(self.groups).ngroup().rename("_ngroup")
+            self.ngroups_ = pd.Series(0, index=df.index).rename("_ngroup")
 
         if self.columnwise:
             df_imputed = df.copy()
 
             for col in cols_with_nans:
-                self.hyperparams_element = {}
-                for hyperparam, value in hyperparams.items():
-                    if isinstance(value, dict):
-                        value = value[col]
-                    self.hyperparams_element[hyperparam] = value
-
+                # self.hyperparams_elt = {}
+                # for hyperparam in self.imputer_params:
+                #     self.hyperparams_elt[hyperparam] = hyperparameters.get_hyperparams(
+                #         self.hyperparams, col
+                #     )
+                self.hyperparams_elt = self.get_hyperparams(col=col)
                 df_imputed[col] = self.impute_element(df[[col]])
 
         else:
-            if any(isinstance(value, dict) for value in hyperparams.values()):
-                raise AssertionError("hyperparams contains a dictionary. Columnwise must be True.")
-            self.hyperparams_element = hyperparams
+            if any("/" in value for value in self.imputer_params):
+                raise AssertionError(
+                    "hyperparams contains a key with a `/`. " "Columnwise must be set to True."
+                )
+            # self.hyperparams_elt = self.hyperparams
+            self.hyperparams_elt = self.get_hyperparams()
             df_imputed = self.impute_element(df)
 
         if df_imputed.isna().any().any():
@@ -179,7 +197,6 @@ class Imputer(_BaseImputer):
             raise ValueError("Input has to be a pandas.DataFrame.")
         df = df.copy()
         if self.groups:
-            # groupby = utils.custom_groupby(df, groups)
             groupby = df.groupby(self.ngroups_, group_keys=False)
             if self.shrink:
                 imputation_values = groupby.transform(self.fit_transform_element)
@@ -211,16 +228,17 @@ class ImputerOracle(Imputer):
     ----------
     df : pd.DataFrame
         Dataframe containing real values.
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
     """
 
     def __init__(
         self,
-        df: pd.DataFrame,
     ) -> None:
         super().__init__()
-        self.df = df
+
+    def set_solution(self, X: pd.DataFrame):
+        self.df_solution = X
 
     def fit_transform(self, X: pd.DataFrame, y=None) -> pd.DataFrame:
         """Impute df with corresponding known values
@@ -238,7 +256,11 @@ class ImputerOracle(Imputer):
         if not isinstance(X, (pd.DataFrame, np.ndarray)):
             raise ValueError("Input has to be a pandas.DataFrame or numpy.ndarray.")
         df = pd.DataFrame(X)
-        return df.fillna(self.df)
+        if hasattr(self, "df_solution"):
+            return df.fillna(self.df_solution)
+        else:
+            print("OracleImputer not initialized! Returning imputation with zeros")
+            return df.fillna(0)
 
 
 class ImputerMean(Imputer):
@@ -246,7 +268,7 @@ class ImputerMean(Imputer):
 
     Parameters
     ----------
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
 
     Examples
@@ -270,7 +292,7 @@ class ImputerMean(Imputer):
 
     def __init__(
         self,
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
     ) -> None:
         super().__init__(groups=groups, columnwise=True, shrink=True)
 
@@ -286,7 +308,7 @@ class ImputerMedian(Imputer):
 
     Parameters
     ----------
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
 
     Examples
@@ -310,7 +332,7 @@ class ImputerMedian(Imputer):
 
     def __init__(
         self,
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
     ) -> None:
         super().__init__(groups=groups, columnwise=True, shrink=True)
 
@@ -323,7 +345,7 @@ class ImputerMode(Imputer):
 
     Parameters
     ----------
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
 
     Examples
@@ -347,7 +369,7 @@ class ImputerMode(Imputer):
 
     def __init__(
         self,
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
     ) -> None:
         super().__init__(groups=groups, columnwise=True, shrink=True)
 
@@ -360,7 +382,7 @@ class ImputerShuffle(Imputer):
 
     Parameters
     ----------
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
     random_state : Union[None, int, np.random.RandomState], optional
         Determine the randomness of the imputer, by default None
@@ -386,7 +408,7 @@ class ImputerShuffle(Imputer):
 
     def __init__(
         self,
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
         random_state: Union[None, int, np.random.RandomState] = None,
     ) -> None:
         super().__init__(groups=groups, columnwise=True, random_state=random_state)
@@ -411,7 +433,7 @@ class ImputerLOCF(Imputer):
 
     Parameters
     ----------
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
 
     Examples
@@ -435,7 +457,7 @@ class ImputerLOCF(Imputer):
 
     def __init__(
         self,
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
     ) -> None:
         super().__init__(groups=groups, columnwise=True)
 
@@ -452,7 +474,7 @@ class ImputerNOCB(Imputer):
 
     Parameters
     ----------
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
 
     Examples
@@ -476,7 +498,7 @@ class ImputerNOCB(Imputer):
 
     def __init__(
         self,
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
     ) -> None:
         super().__init__(groups=groups, columnwise=True)
 
@@ -497,7 +519,7 @@ class ImputerInterpolation(Imputer):
 
     Parameters
     ----------
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
     method : Optional[str] = "linear"
         name of the method for interpolation: "linear", "cubic", "spline", "slinear", ...
@@ -530,12 +552,12 @@ class ImputerInterpolation(Imputer):
 
     def __init__(
         self,
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
         method: str = "linear",
         order: Optional[int] = None,
         col_time: Optional[str] = None,
     ) -> None:
-        super().__init__(groups=groups, columnwise=True)
+        super().__init__(imputer_params=("method", "order"), groups=groups, columnwise=True)
         self.method = method
         self.order = order
         self.col_time = col_time
@@ -560,7 +582,7 @@ class ImputerResiduals(Imputer):
 
     Parameters
     ----------
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
     period : int
         Period of the series. Must be used if x is not a pandas object or if
@@ -602,13 +624,17 @@ class ImputerResiduals(Imputer):
 
     def __init__(
         self,
-        period: int,
-        groups: List[str] = [],
+        period: int = 1,
+        groups: Tuple[str, ...] = (),
         model_tsa: Optional[str] = "additive",
         extrapolate_trend: Optional[Union[int, str]] = "freq",
         method_interpolation: Optional[str] = "linear",
     ):
-        super().__init__(groups=groups, columnwise=True)
+        super().__init__(
+            imputer_params=("model_tsa", "extrapolate_trend", "method_interpolation"),
+            groups=groups,
+            columnwise=True,
+        )
         self.model_tsa = model_tsa
         self.period = period
         self.extrapolate_trend = extrapolate_trend
@@ -641,7 +667,7 @@ class ImputerKNN(Imputer):
 
     Parameters
     ----------
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
     n_neighbors : int, default=5
         Number of neighbors to use by default for `kneighbors` queries.
@@ -677,15 +703,15 @@ class ImputerKNN(Imputer):
 
     def __init__(
         self,
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
         n_neighbors: int = 5,
         weights: str = "distance",
-        **hyperparams,
     ) -> None:
-        super().__init__(groups=groups, columnwise=False, hyperparams=hyperparams)
+        super().__init__(
+            imputer_params=("n_neighbors", "weights"), groups=groups, columnwise=False
+        )
         self.n_neighbors = n_neighbors
         self.weights = weights
-        self.hyperparams_optim: Dict = {}
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         imputer = KNNImputer(
@@ -707,7 +733,7 @@ class ImputerMICE(Imputer):
 
     Parameters
     ----------
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
     estimator : Optional[] = LinearRegression()
         Estimator for imputing a column based on the others
@@ -739,22 +765,26 @@ class ImputerMICE(Imputer):
 
     def __init__(
         self,
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
         estimator: Optional[BaseEstimator] = None,
         random_state: Union[None, int, np.random.RandomState] = None,
-        **hyperparams,
+        sample_posterior=False,
+        max_iter=100,
+        missing_values=np.nan,
     ) -> None:
         super().__init__(
+            imputer_params=("sample_posterior", "max_iter", "missing_values"),
             groups=groups,
             columnwise=False,
-            hyperparams=hyperparams,
             random_state=random_state,
         )
         self.estimator = estimator
-        self.hyperparams_optim: Dict = {}
+        self.sample_posterior = sample_posterior
+        self.max_iter = max_iter
+        self.missing_values = missing_values
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
-        iterative_imputer = IterativeImputer(estimator=self.estimator, **self.hyperparams_element)
+        iterative_imputer = IterativeImputer(estimator=self.estimator, **self.hyperparams_elt)
         res = iterative_imputer.fit_transform(df.values)
         imputed = pd.DataFrame(columns=df.columns)
         for ind, col in enumerate(imputed.columns):
@@ -771,12 +801,16 @@ class ImputerRegressor(Imputer):
 
     Parameters
     ----------
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
     estimator : BaseEstimator, optional
         Estimator for imputing a column based on the others
-    fit_on_nan : bool, optional
-        TODO : merge with GSA
+    handler_nan : str
+        Can be `fit, `row` or `column`:
+        - if `fit`, the estimator is assumed to be fitted on parcelar data,
+        - if `row` all non complete rows will be removed from the train dataset, and will not be
+        used for the inferance,
+        - if `column`all non complete columns will be ignored.
 
     Examples
     --------
@@ -800,17 +834,18 @@ class ImputerRegressor(Imputer):
 
     def __init__(
         self,
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
         estimator: Optional[BaseEstimator] = None,
         handler_nan: str = "column",
         random_state: Union[None, int, np.random.RandomState] = None,
-        **hyperparams,
     ):
-        super().__init__(groups=groups, hyperparams=hyperparams, random_state=random_state)
-        self.columnwise = False
+        super().__init__(
+            imputer_params=("random_state", "handler_nan"),
+            groups=groups,
+            random_state=random_state,
+        )
         self.estimator = estimator
         self.handler_nan = handler_nan
-        self.hyperparams_optim: Dict = {}
 
     def get_params_fit(self) -> Dict:
         return {}
@@ -834,12 +869,6 @@ class ImputerRegressor(Imputer):
         cols_with_nans = df.columns[df.isna().any()]
 
         for col in cols_with_nans:
-            hyperparams = {}
-            for hyperparam, value in self.hyperparams_element.items():
-                if isinstance(value, dict):
-                    value = value[col]
-                hyperparams[hyperparam] = value
-
             # Define the Train and Test set
             X = df.drop(columns=col, errors="ignore")
             y = df[col]
@@ -889,7 +918,7 @@ class ImputerRPCA(Imputer):
 
     Parameters
     ----------
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
     method : str
         Name of the RPCA method:
@@ -904,30 +933,90 @@ class ImputerRPCA(Imputer):
 
     def __init__(
         self,
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
         method: str = "noisy",
         columnwise: bool = False,
         random_state: Union[None, int, np.random.RandomState] = None,
-        **hyperparams,
+        period: int = 1,
+        mu: Optional[float] = None,
+        rank: Optional[int] = None,
+        tau: Optional[float] = None,
+        lam: Optional[float] = None,
+        list_periods: Tuple[int, ...] = (),
+        list_etas: Tuple[float, ...] = (),
+        max_iter: int = int(1e4),
+        tol: float = 1e-6,
+        norm: Optional[str] = "L2",
     ) -> None:
         super().__init__(
+            imputer_params=(
+                "random_state",
+                "period",
+                "mu",
+                "rank",
+                "tau",
+                "lam",
+                "list_periods",
+                "list_etas",
+                "max_iter",
+                "tol",
+                "norm",
+            ),
             groups=groups,
             columnwise=columnwise,
-            hyperparams=hyperparams,
             random_state=random_state,
         )
 
         self.method = method
-        self.hyperparams_optim: Dict = {}
+        self.period = period
+        self.mu = mu
+        self.rank = rank
+        self.tau = tau
+        self.lam = lam
+        self.list_periods = list_periods
+        self.list_etas = list_etas
+        self.max_iter = max_iter
+        self.tol = tol
+        self.norm = norm
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         if not isinstance(df, pd.DataFrame):
             raise ValueError("Input has to be a pandas.DataFrame.")
 
         if self.method == "PCP":
-            model = RPCAPCP(**self.hyperparams_element)
+            hyperparams = {
+                key: self.hyperparams_elt[key]
+                for key in [
+                    "random_state",
+                    "period",
+                    "mu",
+                    "rank",
+                    "tau",
+                    "lam",
+                    "max_iter",
+                    "tol",
+                    "norm",
+                ]
+            }
+            model = RPCAPCP(**hyperparams)
         elif self.method == "noisy":
-            model = RPCANoisy(**self.hyperparams_element)
+            hyperparams = {
+                key: self.hyperparams_elt[key]
+                for key in [
+                    "random_state",
+                    "period",
+                    "rank",
+                    "tau",
+                    "lam",
+                    "list_periods",
+                    "list_etas",
+                    "max_iter",
+                    "tol",
+                    "norm",
+                ]
+            }
+            model = RPCANoisy(**hyperparams)
+
         else:
             raise ValueError("Argument method must be `PCP` or `noisy`!")
 
@@ -946,7 +1035,7 @@ class ImputerEM(Imputer):
 
     Parameters
     ----------
-    groups : List[str], optional
+    groups: Tuple[str, ...]
         List of column names to group by, by default []
     method : {'multinormal', 'VAR1'}, default='multinormal'
         Method defining the hypothesis made on the data distribution. Possible values:
@@ -964,31 +1053,60 @@ class ImputerEM(Imputer):
 
     def __init__(
         self,
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
         model: Optional[str] = "multinormal",
         columnwise: bool = False,
         random_state: Union[None, int, np.random.RandomState] = None,
-        **hyperparams,
+        method: Literal["mle", "sample"] = "sample",
+        max_iter_em: int = 200,
+        n_iter_ou: int = 50,
+        ampli: float = 1,
+        dt: float = 2e-2,
+        tolerance: float = 1e-4,
+        stagnation_threshold: float = 5e-3,
+        stagnation_loglik: float = 2,
+        period: int = 1,
     ):
         super().__init__(
+            imputer_params=(
+                "random_state",
+                "max_iter_em",
+                "n_iter_ou",
+                "ampli",
+                "random_state",
+                "dt",
+                "tolerance",
+                "stagnation_threshold",
+                "stagnation_loglik",
+                "period",
+            ),
             groups=groups,
             columnwise=columnwise,
-            hyperparams=hyperparams,
             random_state=random_state,
         )
         self.model = model
-        self.hyperparams_optim: Dict = {}
+        self.method = method
+        self.max_iter_em = max_iter_em
+        self.n_iter_ou = n_iter_ou
+        self.ampli = ampli
+        self.random_state = random_state
+        self.dt = dt
+        self.tolerance = tolerance
+        self.stagnation_threshold = stagnation_threshold
+        self.stagnation_loglik = stagnation_loglik
+        self.period = period
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         if self.model == "multinormal":
-            model = em_sampler.MultiNormalEM(random_state=self.rng, **self.hyperparams_element)
+            model = em_sampler.MultiNormalEM(**self.hyperparams_elt)
         elif self.model == "VAR1":
-            model = em_sampler.VAR1EM(random_state=self.rng, **self.hyperparams_element)
+            model = em_sampler.VAR1EM(**self.hyperparams_elt)
         else:
             raise ValueError(f"Model '{self.model}' is not handled by ImputeEM!")
         X = df.values.T
         model.fit(X)
 
         X_transformed = model.transform(X)
+        X_transformed = X_transformed.T
         df_transformed = pd.DataFrame(X_transformed, columns=df.columns, index=df.index)
         return df_transformed
