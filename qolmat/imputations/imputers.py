@@ -860,7 +860,8 @@ class ImputerRegressor(Imputer):
                 self.estimator.fit(X[(~is_na) & is_valid], y[(~is_na) & is_valid], **hp)
                 y_imputed = self.estimator.predict(X[is_na & is_valid])
                 y_imputed = pd.Series(
-                    y_imputed.flatten(), index=df_imputed.loc[is_na & is_valid, col].index
+                    y_imputed.flatten(),
+                    index=df_imputed.loc[is_na & is_valid, col].index,
                 )
 
             # Adds the imputed values
