@@ -7,7 +7,6 @@ from numpy.typing import NDArray
 
 from qolmat.imputations.rpca import rpca_utils
 from qolmat.imputations.rpca.rpca import RPCA
-from qolmat.utils import utils
 
 
 class RPCAPCP(RPCA):
@@ -66,7 +65,6 @@ class RPCAPCP(RPCA):
         for iteration in range(self.max_iter):
             M = rpca_utils.svd_thresholding(D - A + Y / mu, 1 / mu)
             A = rpca_utils.soft_thresholding(D - M + Y / mu, lam / mu)
-            # A[~Omega] = (D - M)[~Omega]
 
             A[~Omega] = 0  # missing values are not outliers
 

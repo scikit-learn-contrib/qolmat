@@ -25,6 +25,7 @@ def test_rpca_rpca_pcp_zero_tau_zero_lambda(X: NDArray):
     rpca = RPCANoisy(tau=0, lam=0, norm="L2")
     M_result, A_result = rpca.decompose_rpca_signal(X)
     X_expected = utils.linear_interpolation(X.T).T
+    print(X_expected)
     np.testing.assert_allclose(X_expected, M_result, rtol=1e-5)
     np.testing.assert_allclose(A_result, np.full_like(X, 0), rtol=1e-5, atol=1e-4)
 

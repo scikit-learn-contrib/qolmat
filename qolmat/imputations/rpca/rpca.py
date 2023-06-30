@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from typing import Optional, Tuple, Union
+from typing import Tuple, Union
 
-import matplotlib.pyplot as plt
 import numpy as np
 from numpy.typing import NDArray
 from sklearn.base import BaseEstimator, TransformerMixin
@@ -63,7 +62,7 @@ class RPCA(BaseEstimator, TransformerMixin):
         D = utils.prepare_data(X, self.period)
         Omega = ~np.isnan(D)
         # D_proj = rpca_utils.impute_nans(D_init, method="median")
-        D = utils.linear_interpolation(D)
+        D = utils.linear_interpolation(D.T).T
 
         M, A = self.decompose_rpca(D, Omega)
 

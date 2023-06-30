@@ -4,12 +4,10 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import scipy as scp
-from matplotlib import pyplot as plt
 from numpy.typing import NDArray
 
 from qolmat.imputations.rpca import rpca_utils as rpca_utils
 from qolmat.imputations.rpca.rpca import RPCA
-from qolmat.utils import utils
 
 
 class RPCANoisy(RPCA):
@@ -60,7 +58,6 @@ class RPCANoisy(RPCA):
         max_iter: int = int(1e4),
         tol: float = 1e-6,
         norm: Optional[str] = "L2",
-        do_report: bool = False,
     ) -> None:
         super().__init__(period=period, max_iter=max_iter, tol=tol)
         self.rank = rank
@@ -69,7 +66,6 @@ class RPCANoisy(RPCA):
         self.list_periods = list_periods
         self.list_etas = list_etas
         self.norm = norm
-        self.do_report = do_report
 
     def decompose_rpca_L1(
         self, D: NDArray, Omega: NDArray, lam: float, tau: float, rank: int
@@ -260,11 +256,6 @@ class RPCANoisy(RPCA):
         In = np.eye(n)
 
         increment = np.full((self.max_iter,), np.nan, dtype=float)
-        errors_ano = []
-        errors_nuclear = []
-        errors_noise = []
-        errors_lagrange = []
-        self.list_report = []
 
         for iteration in range(self.max_iter):
             X_temp = X.copy()
@@ -279,9 +270,6 @@ class RPCANoisy(RPCA):
 
             A = rpca_utils.soft_thresholding(D - X, lam)
             if np.any(~Omega):
-                # A_omega = rpca_utils.soft_thresholding(D - X, lam)
-                # A_omega_C = D - X
-                # A = np.where(Omega, A_omega, A_omega_C)
                 A[~Omega] = 0  # not outliers if missing
 
             L = scp.linalg.solve(
@@ -307,39 +295,9 @@ class RPCANoisy(RPCA):
             increment[iteration] = tol
 
             _, values_singular, _ = np.linalg.svd(X, full_matrices=True)
-            errors_ano.append(np.sum(np.abs(A)))
-            errors_nuclear.append(np.sum(values_singular))
-            errors_noise.append(np.sum((D - X - A) ** 2))
-            errors_lagrange.append(np.sum((X - L @ Q.T) ** 2))
-
-            if self.do_report:
-                self.list_report.append((D, X, A))
 
             if tol < self.tol:
                 break
-
-        if self.do_report:
-            errors_ano_np = np.array(errors_ano)
-            errors_nuclear_np = np.array(errors_nuclear)
-            errors_noise_np = np.array(errors_noise)
-            errors_lagrange_np = np.array(errors_lagrange)
-
-            plt.plot(lam * errors_ano_np, label="Cost (ano)")
-            plt.plot(tau * errors_nuclear_np, label="Cost (SV)")
-            plt.plot(0.5 * errors_noise_np, label="Cost (noise)")
-            plt.plot(errors_lagrange_np, label="Cost (Lagrange)")
-            plt.plot(
-                lam * errors_ano_np + tau * errors_nuclear_np + errors_noise_np,
-                label="Total",
-                color="black",
-            )
-            plt.yscale("log")
-            # plt.gca().twinx()
-            # plt.plot(errors_cv, color="black")
-            plt.grid()
-            plt.yscale("log")
-            plt.legend()
-            plt.show()
 
         X = L @ Q.T
 
