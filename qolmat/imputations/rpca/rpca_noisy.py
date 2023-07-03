@@ -55,7 +55,7 @@ def _check_cost_function_minimized(
         + tau * np.linalg.norm(low_rank, "nuc")
         + lam * anomalies_norm
     )
-    if starting_value + 1e-9 < ending_value:
+    if starting_value + 1e-4 < ending_value:
         raise CostFunctionRPCANotMinimized(function_str)
 
 
@@ -420,6 +420,6 @@ class RPCANoisy(RPCA):
         elif self.norm == "L2":
             M, A, U, V = self.decompose_rpca_L2(D, Omega, lam, tau, rank)
 
-        # _check_cost_function_minimized(D, M, A, tau, lam, self.norm)
+        _check_cost_function_minimized(D, M, A, tau, lam, self.norm)
 
         return M, A
