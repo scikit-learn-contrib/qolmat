@@ -7,6 +7,40 @@ from numpy.typing import NDArray
 
 from qolmat.imputations.rpca import rpca_utils
 from qolmat.imputations.rpca.rpca import RPCA
+from qolmat.utils.exceptions import CostFunctionRPCANotMinimized
+
+
+def _check_cost_function_minimized(
+    observations: NDArray,
+    low_rank: NDArray,
+    anomalies: NDArray,
+    lam: float,
+):
+    """Check that the functional minimized by the RPCA
+    is smaller at the end than at the beginning
+
+    Parameters
+    ----------
+    observations : NDArray
+        observations matrix with first linear interpolation
+    low_rank : NDArray
+        low_rank matrix resulting from RPCA
+    anomalies : NDArray
+        sparse matrix resulting from RPCA
+    lam : float
+        parameter penalizing the L1-norm of the anomaly/sparse part
+
+    Raises
+    ------
+    CostFunctionRPCANotMinimized
+        The RPCA does not minimized the cost function:
+        the starting cost is at least equal to the final one.
+    """
+    starting_value = np.linalg.norm(observations, "nuc")
+    ending_value = np.linalg.norm(low_rank, "nuc") + lam * np.sum(np.abs(anomalies))
+    if starting_value + 1e-9 < ending_value:
+        function_str = "||D||_* + lam ||A||_1"
+        raise CostFunctionRPCANotMinimized(function_str)
 
 
 class RPCAPCP(RPCA):
@@ -65,8 +99,7 @@ class RPCAPCP(RPCA):
         for iteration in range(self.max_iter):
             M = rpca_utils.svd_thresholding(D - A + Y / mu, 1 / mu)
             A = rpca_utils.soft_thresholding(D - M + Y / mu, lam / mu)
-
-            A[~Omega] = 0  # missing values are not outliers
+            A[~Omega] = (D - M)[~Omega]
 
             Y += mu * (D - M - A)
 
@@ -76,15 +109,6 @@ class RPCAPCP(RPCA):
             if error < self.tol:
                 break
 
-        # Check that the functional minimized by the RPCA
-        # is smaller at the end than at the beginning
-        starting_value = np.linalg.norm(D, "nuc")
-        ending_value = np.linalg.norm(M, "nuc") + lam * rpca_utils.l1_norm(A)
-        if starting_value + 1e-9 < ending_value:
-            print(
-                """RPCA algorithm may provide bad results.
-                    ||D||_* + lam ||A||_1 is larger
-                    at the end of the algorithm than at the start. """
-            )
+        _check_cost_function_minimized(D, M, A, lam)
 
         return M, A

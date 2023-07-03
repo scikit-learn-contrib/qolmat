@@ -62,7 +62,7 @@ class RPCA(BaseEstimator, TransformerMixin):
         D = utils.prepare_data(X, self.period)
         Omega = ~np.isnan(D)
         # D_proj = rpca_utils.impute_nans(D_init, method="median")
-        D = utils.linear_interpolation(D.T).T
+        D = utils.linear_interpolation(D)
 
         M, A = self.decompose_rpca(D, Omega)
 
