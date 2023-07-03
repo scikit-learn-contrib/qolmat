@@ -4,47 +4,36 @@ from numpy.typing import NDArray
 
 from qolmat.imputations import em_sampler
 
-# from __future__ import annotations
-
-X1 = np.array([[1, 1, 1, 1], [np.nan, np.nan, 4, 2], [1, 3, np.nan, 1]])
-
-# A = np.diag([1, 2, 3])
-# A = np.array([[1, 1, 0], [1, 1, 0], [0, 0, 1]])
 A = np.array([[3, 1, 0], [1, 1, 0], [0, 0, 1]])
-
+X1 = np.array([[1, 1, 1, 1], [np.nan, np.nan, 4, 2], [1, 3, np.nan, 1]])
 mask = np.isnan(X1)
 
 X1_full = np.array(
     [
-        [1.0, 1.0, 1.0, 1.0],
-        [4.0, 4.0, 4.0, 2.0],
-        [1.0, 3.0, 2.0, 1.0],
-    ]
+        [1, 1, 1, 1],
+        [4, 4, 4, 2],
+        [1, 3, 2, 1],
+    ],
+    dtype=float,
 )
 
 X_expected = np.array(
     [
-        [1.0, 1.0, 1.0, 1.0],
-        [-1.0, -1.0, 4.0, 2.0],
-        [1.0, 3.0, 0.0, 1.0],
-    ]
+        [1, 1, 1, 1],
+        [-1, -1, 4, 2],
+        [1, 3, 0, 1],
+    ],
+    dtype=float,
 )
 
 
-@pytest.mark.parametrize("A", [A])
-@pytest.mark.parametrize("X", [X1_full])
-@pytest.mark.parametrize("mask", [mask])
+@pytest.mark.parametrize("A, X, mask", [(A, X1_full, mask)])
 def test__gradient_conjugue(A: NDArray, X: NDArray, mask: NDArray):
-    X_out = em_sampler._gradient_conjugue(A, X, mask)
-    assert X_out.shape == X1.shape
-    print("-----")
-    print(X)
-    print(mask)
-    print(X[~mask])
-    print(X_out[~mask])
-    assert np.allclose(X[~mask], X_out[~mask])
     X0 = X.copy()
     X0[mask] = 0
+    X_out = em_sampler._gradient_conjugue(A, X, mask)
+    assert X_out.shape == X1.shape
+    assert np.allclose(X[~mask], X_out[~mask])
     assert np.sum(X_out * (A @ X_out)) <= np.sum(X0 * (A @ X0))
     assert np.allclose(
         X_out,
@@ -78,16 +67,14 @@ def test__linear_interpolation(X: NDArray):
     )
 
 
-from unittest.mock import patch
-
-
 def test_fit_calls_sample_ou_correct_number_of_times(mocker):
     X1 = np.array([[1, 1, 1, 2], [np.nan, np.nan, 4, 2], [1, 3, np.nan, 1]])
     max_iter_em = 3
     em = em_sampler.MultiNormalEM(max_iter_em=max_iter_em)
     mocker.patch("qolmat.imputations.em_sampler.MultiNormalEM._sample_ou", return_value=X1)
     mocker.patch(
-        "qolmat.imputations.em_sampler.MultiNormalEM._check_convergence", return_value=False
+        "qolmat.imputations.em_sampler.MultiNormalEM._check_convergence",
+        return_value=False,
     )
     mocker.patch("qolmat.imputations.em_sampler.MultiNormalEM.fit_distribution")
     em.fit(X1)

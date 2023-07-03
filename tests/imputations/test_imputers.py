@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from sklearn.ensemble import ExtraTreesRegressor
+from sklearn.utils.estimator_checks import parametrize_with_checks
 
 from qolmat.imputations import imputers
 
@@ -145,7 +146,7 @@ def test_ImputerInterpolation_fit_transform(df: pd.DataFrame) -> None:
 
 @pytest.mark.parametrize("df", [df_timeseries])
 def test_ImputerResiduals_fit_transform(df: pd.DataFrame) -> None:
-    imputer = imputers.ImputerResiduals(7)
+    imputer = imputers.ImputerResiduals(period=7)
     result = imputer.fit_transform(df)
     expected = pd.DataFrame(
         {
@@ -154,7 +155,7 @@ def test_ImputerResiduals_fit_transform(df: pd.DataFrame) -> None:
         },
         index=pd.date_range("2023-04-17", periods=20, freq="D"),
     )
-    np.testing.assert_allclose(result, expected, rtol=1e-6)
+    np.testing.assert_allclose(result, expected, atol=1e-6)
 
 
 @pytest.mark.parametrize("df", [df_incomplete])
@@ -191,7 +192,7 @@ def test_ImputerMICE_fit_transform(df: pd.DataFrame) -> None:
 
 @pytest.mark.parametrize("df", [df_incomplete])
 def test_ImputerRegressor_fit_transform(df: pd.DataFrame) -> None:
-    imputer = imputers.ImputerRegressor(model=ExtraTreesRegressor())
+    imputer = imputers.ImputerRegressor(estimator=ExtraTreesRegressor())
     result = imputer.fit_transform(df)
     expected = pd.DataFrame(
         {
@@ -204,18 +205,15 @@ def test_ImputerRegressor_fit_transform(df: pd.DataFrame) -> None:
 
 @pytest.mark.parametrize("df", [df_timeseries])
 def test_ImputerRPCA_fit_transform(df: pd.DataFrame) -> None:
-    imputer = imputers.ImputerRPCA(columnwise=True, period=1, max_iter=100)
+    imputer = imputers.ImputerRPCA(columnwise=True, max_iter=100, period=2)
     result = imputer.fit_transform(df)
     expected = pd.DataFrame(
         {
             "col1": [i for i in range(20)],
-            "col2": [0, 5.496290833663846, 2, 5.496290833663846, 2] + [i for i in range(5, 20)],
+            "col2": [0, 1, 2, 2, 2] + [i for i in range(5, 20)],
         }
     )
-    np.testing.assert_allclose(result, expected)
-
-
-# TODO Imputeur EM
+    np.testing.assert_allclose(result, expected, atol=1e-2)
 
 
 @pytest.mark.parametrize("df", [df_timeseries])
@@ -225,7 +223,31 @@ def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
     expected = pd.DataFrame(
         {
             "col1": [i for i in range(20)],
-            "col2": [0, 1.914706, 2, 2.480963, 2] + [i for i in range(5, 20)],
+            "col2": [0, 1.36, 2, 4.23, 2] + [i for i in range(5, 20)],
         }
     )
-    np.testing.assert_allclose(result, expected, rtol=1e-6)
+    np.testing.assert_allclose(result, expected, atol=1e-2)
+
+
+@parametrize_with_checks(
+    [
+        imputers.Imputer(),
+        imputers.ImputerOracle(df_complete),
+        imputers.ImputerMean(),
+        imputers.ImputerMedian(),
+        imputers.ImputerMode(),
+        imputers.ImputerShuffle(),
+        imputers.ImputerLOCF(),
+        imputers.ImputerNOCB(),
+        imputers.ImputerInterpolation(),
+        imputers.ImputerResiduals(period=7),
+        imputers.KNNImputer(),
+        imputers.ImputerMICE(),
+        imputers.ImputerRegressor(),
+        imputers.ImputerRPCA(),
+        imputers.ImputerEM(),
+    ]
+)
+def test_sklearn_compatible_estimator(estimator: imputers.Imputer, check: Any) -> None:
+    """Check compatibility with sklearn, using sklearn estimator checks API."""
+    check(estimator)

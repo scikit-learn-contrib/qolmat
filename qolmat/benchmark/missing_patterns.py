@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import functools
 import logging
-from typing import List, Optional, Tuple, Callable
+from typing import Callable, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import GroupShuffleSplit
 from sklearn.utils import resample
+
+from qolmat.utils.exceptions import NoMissingValue, SubsetIsAString
 
 logger = logging.getLogger(__name__)
 
@@ -125,15 +127,14 @@ class _HoleGenerator:
         columns_with_nans = X.columns[X.isna().any()]
         if self.subset is None:
             self.subset = columns_with_nans
+        elif isinstance(self.subset, str):
+            raise SubsetIsAString(self.subset)
         else:
             subset_without_nans = [
                 column for column in self.subset if column not in columns_with_nans
             ]
             if len(subset_without_nans) > 0:
-                raise Exception(
-                    f"No missing value in the columns {subset_without_nans}!"
-                    "You need to pass the relevant column name in the subset argument!"
-                )
+                raise NoMissingValue(subset_without_nans)
 
 
 class UniformHoleGenerator(_HoleGenerator):
@@ -424,7 +425,6 @@ class EmpiricalHoleGenerator(_SamplerHoleGenerator):
         EmpiricalTimeHoleGenerator
             The model itself
         """
-
         super().fit(X)
 
         self.dict_distributions_holes = {}
@@ -694,6 +694,7 @@ class GroupedHoleGenerator(_HoleGenerator):
                 index=X.index,
             )
             df_mask.loc[observed_indices, self.subset] = True
+            df_mask[X.isna()] = False
             list_masks.append(df_mask)
 
         return list_masks

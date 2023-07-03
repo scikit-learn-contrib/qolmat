@@ -6,7 +6,8 @@ import numpy as np
 from numpy.typing import NDArray
 from sklearn.base import BaseEstimator, TransformerMixin
 
-from qolmat.imputations.rpca import utils
+from qolmat.imputations.rpca import rpca_utils
+from qolmat.utils import utils
 
 
 class RPCA(BaseEstimator, TransformerMixin):
@@ -15,7 +16,7 @@ class RPCA(BaseEstimator, TransformerMixin):
 
     Parameters
     ----------
-    n_rows: Optional[int]
+    period: Optional[int]
         Number of rows of the array if the array is
         1D and reshaped into a 2D array, by default `None`.
     max_iter: int
@@ -30,24 +31,43 @@ class RPCA(BaseEstimator, TransformerMixin):
 
     def __init__(
         self,
-        period: Optional[int] = None,
+        period: int = 1,
         max_iter: int = int(1e4),
         tol: float = 1e-6,
+        random_state: Union[None, int, np.random.RandomState] = None,
     ) -> None:
-        self.n_rows = period
+        self.period = period
         self.max_iter = max_iter
         self.tol = tol
+        self.random_state = random_state
 
-    def _prepare_data(self, X: NDArray) -> NDArray:
+    def decompose_rpca_signal(
+        self,
+        X: NDArray,
+    ) -> Tuple[NDArray, NDArray]:
         """
-        Transform signal to 2D-array in case of 1D-array.
-        """
-        n_rows_X, n_cols_X = X.shape
-        if n_rows_X == 1:
-            if self.n_rows is None:
-                raise ValueError("`n_rows`must be specified when imputing 1D data.")
-            D_init = utils.fold_signal(X, self.n_rows)
-        else:
-            D_init = X.copy()
+        Compute the noisy RPCA with L1 or L2 time penalisation
 
-        return D_init
+        Parameters
+        ----------
+        X : NDArray
+            Observations
+
+        Returns
+        -------
+        M: NDArray
+            Low-rank signal
+        A: NDArray
+            Anomalies
+        """
+        D = utils.prepare_data(X, self.period)
+        Omega = ~np.isnan(D)
+        # D_proj = rpca_utils.impute_nans(D_init, method="median")
+        D = utils.linear_interpolation(D)
+
+        M, A = self.decompose_rpca(D, Omega)
+
+        M_final = utils.get_shape_original(M, X.shape)
+        A_final = utils.get_shape_original(A, X.shape)
+
+        return M_final, A_final

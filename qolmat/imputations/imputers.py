@@ -1,5 +1,6 @@
 import warnings
 from typing import Dict, List, Optional, Union
+from abc import abstractmethod
 
 import numpy as np
 import pandas as pd
@@ -8,6 +9,8 @@ from sklearn.base import BaseEstimator
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer, KNNImputer
 from sklearn.impute._base import _BaseImputer
+from qolmat.benchmark import hyperparameters
+from qolmat.benchmark.hyperparameters import HyperValue
 from statsmodels.tsa import seasonal as tsa_seasonal
 
 from qolmat.imputations import em_sampler
@@ -41,21 +44,38 @@ class Imputer(_BaseImputer):
 
     def __init__(
         self,
-        groups: List[str] = [],
         columnwise: bool = False,
         shrink: bool = False,
-        hyperparams: Dict = {},
         random_state: Union[None, int, np.random.RandomState] = None,
+        missing_values=np.nan,
+        groups: List[str] = [],
+        hyperparams: Dict = {},
     ):
-        self.hyperparams_user = hyperparams
-        self.hyperparams_optim: Dict = {}
-        self.hyperparams_local: Dict = {}
-        self.groups = groups
         self.columnwise = columnwise
         self.shrink = shrink
         self.random_state = random_state
+        self.missing_values = missing_values
+        self.groups = groups
+        self.hyperparams = hyperparams
 
-    def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _more_tags(self):
+        """Define tags for scikit-learn"""
+
+        return {
+            "allow_nan": True,
+            "requires_fit": False,
+            "_xfail_checks": {
+                "check_parameters_default_constructible": "The imputer need Dict as a parammeter",
+                "check_no_attributes_set_in_init": """The imputer can define an attribute
+                modifiable in init""",
+            },
+        }
+
+    def fit(self, X, y: pd.DataFrame = None):
+        X = self._validate_data(X, force_all_finite="allow-nan")
+        return self
+
+    def fit_transform(self, X: pd.DataFrame, y=None) -> pd.DataFrame:
         """
         Returns a dataframe with same shape as `df`, unchanged values, where all nans are replaced
         by non-nan values.
@@ -72,39 +92,38 @@ class Imputer(_BaseImputer):
         pd.DataFrame
             Imputed dataframe.
         """
-        if not isinstance(df, pd.DataFrame):
-            raise ValueError("Input has to be a pandas.DataFrame.")
+        self.fit(X)
+
+        if not isinstance(X, (pd.DataFrame, np.ndarray)):
+            raise ValueError("Input has to be a pandas.DataFrame or numpy.ndarray.")
+        df = pd.DataFrame(X)
         for column in df:
             if df[column].isnull().all():
                 raise ValueError("Input contains a column full of NaN")
-
         self.rng = sku.check_random_state(self.random_state)
         if hasattr(self, "estimator") and hasattr(self.estimator, "random_state"):
             self.estimator.random_state = self.rng
 
-        hyperparams = self.hyperparams_user.copy()
-        hyperparams.update(self.hyperparams_optim)
         cols_with_nans = df.columns[df.isna().any()]
 
         if self.groups == []:
-            self.ngroups = pd.Series(0, index=df.index).rename("_ngroup")
+            self.ngroups_ = pd.Series(0, index=df.index).rename("_ngroup")
         else:
-            self.ngroups = df.groupby(self.groups).ngroup().rename("_ngroup")
+            self.ngroups_ = df.groupby(self.groups).ngroup().rename("_ngroup")
 
         if self.columnwise:
             df_imputed = df.copy()
 
             for col in cols_with_nans:
-                self.hyperparams_element = {}
-                for hyperparam, value in hyperparams.items():
-                    if isinstance(value, dict):
-                        value = value[col]
-                    self.hyperparams_element[hyperparam] = value
-
+                self.hyperparams_elt = hyperparameters.get_hyperparams(self.hyperparams, col)
                 df_imputed[col] = self.impute_element(df[[col]])
 
         else:
-            self.hyperparams_element = hyperparams
+            if any("/" in value for value in self.hyperparams.keys()):
+                raise AssertionError(
+                    "hyperparams contains a key with a `/`. " "Columnwise must be set to True."
+                )
+            self.hyperparams_elt = self.hyperparams
             df_imputed = self.impute_element(df)
 
         if df_imputed.isna().any().any():
@@ -156,8 +175,7 @@ class Imputer(_BaseImputer):
             raise ValueError("Input has to be a pandas.DataFrame.")
         df = df.copy()
         if self.groups:
-            # groupby = utils.custom_groupby(df, self.groups)
-            groupby = df.groupby(self.ngroups, group_keys=False)
+            groupby = df.groupby(self.ngroups_, group_keys=False)
             if self.shrink:
                 imputation_values = groupby.transform(self.fit_transform_element)
             else:
@@ -171,6 +189,10 @@ class Imputer(_BaseImputer):
             imputation_values = self.fit_transform_fallback(df)
             df = df.fillna(imputation_values)
 
+        return df
+
+    @abstractmethod
+    def fit_transform_element(self, df: pd.DataFrame):
         return df
 
 
@@ -195,7 +217,7 @@ class ImputerOracle(Imputer):
         super().__init__()
         self.df = df
 
-    def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+    def fit_transform(self, X: pd.DataFrame, y=None) -> pd.DataFrame:
         """Impute df with corresponding known values
 
         Parameters
@@ -207,8 +229,10 @@ class ImputerOracle(Imputer):
         pd.DataFrame
             dataframe imputed with premasked values
         """
-        if not isinstance(df, pd.DataFrame):
-            raise ValueError("Input has to be a pandas.DataFrame.")
+        self.fit(X)
+        if not isinstance(X, (pd.DataFrame, np.ndarray)):
+            raise ValueError("Input has to be a pandas.DataFrame or numpy.ndarray.")
+        df = pd.DataFrame(X)
         return df.fillna(self.df)
 
 
@@ -244,7 +268,12 @@ class ImputerMean(Imputer):
         groups: List[str] = [],
     ) -> None:
         super().__init__(groups=groups, columnwise=True, shrink=True)
-        self.fit_transform_element = pd.DataFrame.mean
+
+    def _more_tags(self):
+        return {"allow_nan": True, "requires_fit": False}
+
+    def fit_transform_element(self, df: pd.DataFrame):
+        return pd.DataFrame.mean(df)
 
 
 class ImputerMedian(Imputer):
@@ -279,7 +308,9 @@ class ImputerMedian(Imputer):
         groups: List[str] = [],
     ) -> None:
         super().__init__(groups=groups, columnwise=True, shrink=True)
-        self.fit_transform_element = pd.DataFrame.median
+
+    def fit_transform_element(self, df: pd.DataFrame):
+        return pd.DataFrame.median(df)
 
 
 class ImputerMode(Imputer):
@@ -314,7 +345,9 @@ class ImputerMode(Imputer):
         groups: List[str] = [],
     ) -> None:
         super().__init__(groups=groups, columnwise=True, shrink=True)
-        self.fit_transform_element = lambda df: df.mode().iloc[0]
+
+    def fit_transform_element(self, df: pd.DataFrame):
+        return df.mode().iloc[0]
 
 
 class ImputerShuffle(Imputer):
@@ -663,7 +696,8 @@ class ImputerMICE(Imputer):
     This class implements an iterative imputer in the multivariate case.
     It imputes each Series within a DataFrame multiple times using an iteration of fits
     and transformations to reach a stable state of imputation each time.
-    It uses sklearn.impute.IterativeImputer, see the docs for more information about the arguments.
+    It uses sklearn.impute.IterativeImputer, see the docs for more information about the
+    arguments.
 
     Parameters
     ----------
@@ -713,7 +747,7 @@ class ImputerMICE(Imputer):
         self.estimator = estimator
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
-        iterative_imputer = IterativeImputer(estimator=self.estimator, **self.hyperparams_element)
+        iterative_imputer = IterativeImputer(estimator=self.estimator, **self.hyperparams_elt)
         res = iterative_imputer.fit_transform(df.values)
         imputed = pd.DataFrame(columns=df.columns)
         for ind, col in enumerate(imputed.columns):
@@ -792,11 +826,11 @@ class ImputerRegressor(Imputer):
         cols_with_nans = df.columns[df.isna().any()]
 
         for col in cols_with_nans:
-            hyperparams = {}
-            for hyperparam, value in self.hyperparams_element.items():
-                if isinstance(value, dict):
-                    value = value[col]
-                hyperparams[hyperparam] = value
+            # hyperparams = {}
+            # for hyperparam, value in self.hyperparams_elt.items():
+            #     if isinstance(value, dict):
+            #         value = value[col]
+            #     hyperparams[hyperparam] = value
 
             # Define the Train and Test set
             X = df.drop(columns=col, errors="ignore")
@@ -825,14 +859,12 @@ class ImputerRegressor(Imputer):
                 hp = self.get_params_fit()
                 self.estimator.fit(X[(~is_na) & is_valid], y[(~is_na) & is_valid], **hp)
                 y_imputed = self.estimator.predict(X[is_na & is_valid])
-                y_imputed = pd.Series(y_imputed.flatten())
+                y_imputed = pd.Series(
+                    y_imputed.flatten(), index=df_imputed.loc[is_na & is_valid, col].index
+                )
 
             # Adds the imputed values
             df_imputed.loc[~is_na, col] = y[~is_na]
-            # if isinstance(y_imputed, pd.Series):
-            #     y_reshaped = y_imputed
-            # else:
-            #     y_reshaped = y_imputed.flatten()
             df_imputed.loc[is_na & is_valid, col] = y_imputed
 
         return df_imputed
@@ -842,8 +874,8 @@ class ImputerRPCA(Imputer):
     """
     This class implements the Robust Principal Component Analysis imputation.
 
-    The imputation minimizes a loss function combining a low-rank criterium on the dataframe and a
-    L1 penalization on the residuals.
+    The imputation minimizes a loss function combining a low-rank criterium on the dataframe and
+    a L1 penalization on the residuals.
 
     Parameters
     ----------
@@ -852,10 +884,11 @@ class ImputerRPCA(Imputer):
     method : str
         Name of the RPCA method:
             "PCP" for basic RPCA, bad at imputing
-            "noisy" for noisy RPCA, with possible regularisations, wihch is recommended since it is
-            more stable
+            "noisy" for noisy RPCA, with possible regularisations, wihch is recommended since
+            it is more stable
     columnwise : bool
-        For the RPCA method to be applied columnwise (with reshaping of each column into an array)
+        For the RPCA method to be applied columnwise (with reshaping of
+        each column into an array)
         or to be applied directly on the dataframe. By default, the value is set to False.
     """
 
@@ -864,9 +897,15 @@ class ImputerRPCA(Imputer):
         groups: List[str] = [],
         method: str = "noisy",
         columnwise: bool = False,
+        random_state: Union[None, int, np.random.RandomState] = None,
         **hyperparams,
     ) -> None:
-        super().__init__(groups=groups, columnwise=columnwise, hyperparams=hyperparams)
+        super().__init__(
+            groups=groups,
+            columnwise=columnwise,
+            hyperparams=hyperparams,
+            random_state=random_state,
+        )
 
         self.method = method
 
@@ -875,14 +914,16 @@ class ImputerRPCA(Imputer):
             raise ValueError("Input has to be a pandas.DataFrame.")
 
         if self.method == "PCP":
-            model = RPCAPCP(**self.hyperparams_element)
+            model = RPCAPCP(**self.hyperparams_elt)
         elif self.method == "noisy":
-            model = RPCANoisy(**self.hyperparams_element)
+            model = RPCANoisy(**self.hyperparams_elt)
         else:
             raise ValueError("Argument method must be `PCP` or `noisy`!")
 
-        X_imputed = model.fit_transform(df.values)
-        df_imputed = pd.DataFrame(X_imputed, index=df.index, columns=df.columns)
+        X = df.values.T
+        M, A = model.decompose_rpca_signal(X)
+        df_imputed = pd.DataFrame((M + A).T, index=df.index, columns=df.columns)
+        df_imputed = df.where(~df.isna(), df_imputed)
 
         return df_imputed
 
@@ -928,14 +969,15 @@ class ImputerEM(Imputer):
 
     def fit_transform_element(self, df: pd.DataFrame) -> pd.DataFrame:
         if self.model == "multinormal":
-            model = em_sampler.MultiNormalEM(random_state=self.rng, **self.hyperparams_element)
+            model = em_sampler.MultiNormalEM(random_state=self.rng, **self.hyperparams_elt)
         elif self.model == "VAR1":
-            model = em_sampler.VAR1EM(random_state=self.rng, **self.hyperparams_element)
+            model = em_sampler.VAR1EM(random_state=self.rng, **self.hyperparams_elt)
         else:
             raise ValueError(f"Model '{self.model}' is not handled by ImputeEM!")
         X = df.values.T
         model.fit(X)
 
         X_transformed = model.transform(X)
+        X_transformed = X_transformed.T
         df_transformed = pd.DataFrame(X_transformed, columns=df.columns, index=df.index)
         return df_transformed

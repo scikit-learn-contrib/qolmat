@@ -28,7 +28,7 @@ from sklearn.linear_model import LinearRegression
 from qolmat.utils import data, plot, utils
 from qolmat.imputations import imputers
 from qolmat.benchmark import comparator, missing_patterns
-from qolmat.benchmark.utils import wasser_distance, kl_divergence, frechet_distance
+from qolmat.benchmark.utils import wasser_distance_columnwise, kl_divergence, frechet_distance
 ```
 
 ```python
@@ -106,7 +106,7 @@ ratio_masked = 0.1
 ```python
 # Métriques
 metrics = {
-    "wasser": wasser_distance,
+    "wasserstein_columnwise": wasserstein_distance_columnwise,
     "KL": kl_divergence
     #"frechet": frechet_distance
 }

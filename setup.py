@@ -3,7 +3,7 @@ import codecs
 from setuptools import find_packages, setup
 
 DISTNAME = "qolmat"
-VERSION = "0.0.10"
+VERSION = "0.0.12"
 DESCRIPTION = "Tools to impute"
 LONG_DESCRIPTION_CONTENT_TYPE = "text/x-rst"
 with codecs.open("README.rst", encoding="utf-8-sig") as f:
@@ -41,14 +41,14 @@ PROJECT_URLS = {
 PYTHON_REQUIRES = ">=3.8"
 PACKAGES = find_packages()
 INSTALL_REQUIRES = [
-    "scikit-learn",
-    "numpy>=1.21",
+    "dcor>=0.6",
+    "hyperopt",
+    "numpy>=1.19",
     "packaging",
-    "scikit-optimize",
+    "pandas>=1.3",
+    "scikit-learn",
     "scipy",
     "statsmodels>=0.14",
-    "pandas>=2.0",
-    "dcor>=0.6",
 ]
 EXTRAS_REQUIRE = {
     "tests": ["flake8", "mypy", "pandas", "pytest", "pytest-cov", "typed-ast"],
@@ -74,7 +74,6 @@ CLASSIFIERS = [
     "Operating System :: POSIX",
     "Operating System :: Unix",
     "Operating System :: MacOS",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
