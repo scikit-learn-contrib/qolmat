@@ -134,13 +134,13 @@ def build_autoencoder_example(
     encoder = build_mlp_example(
         input_dim=input_dim,
         output_dim=latent_dim,
-        list_num_neurons=np.sort(list_num_neurons)[::-1],
+        list_num_neurons=np.sort(list_num_neurons)[::-1].tolist(),
         activation=activation,
     )
     decoder = build_mlp_example(
         input_dim=latent_dim,
         output_dim=output_dim,
-        list_num_neurons=np.sort(list_num_neurons),
+        list_num_neurons=np.sort(list_num_neurons).tolist(),
         activation=activation,
     )
     return encoder, decoder
