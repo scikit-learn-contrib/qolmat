@@ -60,8 +60,8 @@ class RPCA(BaseEstimator, TransformerMixin):
         A: NDArray
             Anomalies
         """
+
         D = utils.prepare_data(X, self.period)
-        print(D)
         Omega = ~np.isnan(D)
         # D_proj = rpca_utils.impute_nans(D_init, method="median")
         D = utils.linear_interpolation(D)

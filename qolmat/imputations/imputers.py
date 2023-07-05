@@ -157,7 +157,6 @@ class Imputer(_BaseImputer):
         pd.DataFrame
             Imputed dataframe.
         """
-        print("trasnform")
 
         df = self._check_input(X)
 
@@ -241,7 +240,6 @@ class Imputer(_BaseImputer):
             else:
                 return groupby.apply(fun_on_col)
         else:
-            print("no groups")
             return fun_on_col(df)
 
     def transform_allgroups(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:

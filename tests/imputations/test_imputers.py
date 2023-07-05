@@ -277,7 +277,6 @@ def test_ImputerRPCA_fit_transform(df: pd.DataFrame) -> None:
 def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
     imputer = imputers.ImputerEM(method="sample", random_state=42)
     result = imputer.fit_transform(df)
-    print(result)
     expected = pd.DataFrame(
         {
             "col1": [i for i in range(20)],

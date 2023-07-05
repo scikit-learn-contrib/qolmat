@@ -41,12 +41,6 @@ def get_objective(imputer, df, generator, metric, names_hyperparams) -> Callable
             df_corrupted[df_mask] = np.nan
 
             df_imputed = imputer.fit_transform(df_corrupted)
-            print(imputer.__dict__)
-            print("df_corrupted")
-            print(df_corrupted)
-            print("df_imputed")
-            print(df_imputed)
-            print()
             subset = generator.subset
             fun_metric = metrics.get_metric(metric)
             errors = fun_metric(df_origin[subset], df_imputed[subset], df_mask[subset])

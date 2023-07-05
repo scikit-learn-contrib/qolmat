@@ -167,7 +167,6 @@ class EM(BaseEstimator, TransformerMixin):
         X : NDArray
             Numpy array to be imputed
         """
-        print(f"fitting on X of shape {X.shape}")
         X = X.copy()
         self.hash_fit = hash(X.tobytes())
         if not isinstance(X, np.ndarray):
@@ -214,7 +213,6 @@ class EM(BaseEstimator, TransformerMixin):
             X = utils.prepare_data(X, self.period)
             X = self.scaler.transform(X.T).T
             X = utils.linear_interpolation(X)
-        print(f"changed to shape {X.shape}")
 
         mask_na = np.isnan(X)
 

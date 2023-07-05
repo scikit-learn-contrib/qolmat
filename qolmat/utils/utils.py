@@ -122,13 +122,17 @@ def linear_interpolation(X: NDArray) -> NDArray:
     n_rows, n_cols = X.shape
     indices = np.arange(n_cols)
     X_interpolated = X.copy()
+    median = np.nanmedian(X)
     for i_row in range(n_rows):
         values = X[i_row]
         mask_isna = np.isnan(values)
-        values_interpolated = np.interp(
-            indices[mask_isna], indices[~mask_isna], values[~mask_isna]
-        )
-        X_interpolated[i_row, mask_isna] = values_interpolated
+        if np.all(mask_isna):
+            X_interpolated[i_row] = median
+        elif np.any(mask_isna):
+            values_interpolated = np.interp(
+                indices[mask_isna], indices[~mask_isna], values[~mask_isna]
+            )
+            X_interpolated[i_row, mask_isna] = values_interpolated
     return X_interpolated
 
 

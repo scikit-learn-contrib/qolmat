@@ -57,19 +57,6 @@ from qolmat.utils import data, utils, plot
 
 ```
 
-```python
-from qolmat.imputations.em_sampler import invert_robust
-```
-
-```python
-M[np.array([0, 1]), np.array([0, 1])]
-```
-
-```python
-M = np.array([[0, 0], [0, 1]])
-invert_robust(M)
-```
-
 ### **I. Load data**
 
 
@@ -174,7 +161,7 @@ dict_config_opti = {
     "tau": ho.hp.uniform("tau", low=.5, high=5),
     "lam": ho.hp.uniform("lam", low=.1, high=1),
 }
-imputer_rpca_opti = imputers.ImputerRPCA(groups=("station",), columnwise=False, max_iter=256)
+imputer_rpca_opti = imputers.ImputerRPCA(groups=("station",), columnwise=False, max_iterations=256)
 imputer_rpca_opti = hyperparameters.optimize(
     imputer_rpca_opti,
     df_data,
@@ -193,7 +180,7 @@ dict_config_opti2 = {
     "lam/TEMP": ho.hp.uniform("lam/TEMP", low=.1, high=1),
     "lam/PRES": ho.hp.uniform("lam/PRES", low=.1, high=1),
 }
-imputer_rpca_opti2 = imputers.ImputerRPCA(groups=("station",), columnwise=True, max_iter=256)
+imputer_rpca_opti2 = imputers.ImputerRPCA(groups=("station",), columnwise=True, max_iterations=256)
 imputer_rpca_opti2 = hyperparameters.optimize(
     imputer_rpca_opti2,
     df_data,
@@ -202,7 +189,6 @@ imputer_rpca_opti2 = hyperparameters.optimize(
     max_evals=10,
     dict_spaces=dict_config_opti2
 )
-# imputer_rpca_opti.params_optim = hyperparams_opti
 ```
 
 ```python
@@ -285,10 +271,6 @@ df_plot = df_data[cols_to_impute]
 
 ```python
 dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_imputers.items()}
-```
-
-```python
-df_data.mode().iloc[0]
 ```
 
 ```python
