@@ -9,7 +9,7 @@ from qolmat.utils.exceptions import CostFunctionRPCANotMinimized
 
 X_complete = np.array([[1, 2], [3, 1]], dtype=float)
 X_incomplete = np.array([[1, 2], [3, np.nan], [np.nan, 4]], dtype=float)
-max_iter = 50
+max_iterations = 50
 small_mu = 1e-5
 large_mu = 1e5
 # synthetic temporal data
@@ -52,7 +52,7 @@ def test_check_cost_function_minimized_raise_expection(
 
 @pytest.mark.parametrize("X", [X_complete])
 def test_rpca_rpca_pcp_get_params_scale(X: NDArray):
-    rpca_pcp = RPCAPCP(max_iter=max_iter, mu=0.5, lam=0.1)
+    rpca_pcp = RPCAPCP(max_iterations=max_iterations, mu=0.5, lam=0.1)
     result_dict = rpca_pcp.get_params_scale(X)
     result = list(result_dict.values())
     params_expected = [1 / 7, np.sqrt(2) / 2]

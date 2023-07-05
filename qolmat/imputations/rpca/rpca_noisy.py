@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import scipy as scp
 from numpy.typing import NDArray
+from sklearn import utils as sku
 
 from qolmat.imputations.rpca import rpca_utils as rpca_utils
 from qolmat.imputations.rpca.rpca import RPCA
@@ -43,20 +44,20 @@ def _check_cost_function_minimized(
         The RPCA does not minimized the cost function:
         the starting cost is at least equal to the final one.
     """
-    starting_value = tau * np.linalg.norm(observations, "nuc")
+    value_start = tau * np.linalg.norm(observations, "nuc")
     if norm == "L1":
         anomalies_norm = np.sum(np.abs(anomalies))
         function_str = "||D-M-A||_2 + tau ||D||_* + lam ||A||_1"
     elif norm == "L2":
         anomalies_norm = np.sum(anomalies**2)
         function_str = "||D-M-A||_2 + tau ||D||_* + lam ||A||_2"
-    ending_value = (
+    value_end = (
         np.sum((observations - low_rank - anomalies) ** 2)
         + tau * np.linalg.norm(low_rank, "nuc")
         + lam * anomalies_norm
     )
-    if starting_value + 1e-4 < ending_value:
-        raise CostFunctionRPCANotMinimized(function_str)
+    if value_start + 1e-4 < value_end:
+        raise CostFunctionRPCANotMinimized(function_str, value_start, value_end)
 
 
 class RPCANoisy(RPCA):
@@ -87,7 +88,7 @@ class RPCANoisy(RPCA):
         list of periods, linked to the Toeplitz matrices
     list_etas: Optional[List[float]]
         list of penalizing parameters for the corresponding period in list_periods
-    max_iter: Optional[int]
+    max_iterations: Optional[int]
         stopping criteria, maximum number of iterations. By default, the value is set to 10_000
     tol: Optional[float]
         stoppign critera, minimum difference between 2 consecutive iterations. By default,
@@ -98,6 +99,7 @@ class RPCANoisy(RPCA):
 
     def __init__(
         self,
+        random_state: Union[None, int, np.random.RandomState] = None,
         period: int = 1,
         rank: Optional[int] = None,
         mu: Optional[float] = None,
@@ -105,11 +107,12 @@ class RPCANoisy(RPCA):
         lam: Optional[float] = None,
         list_periods: List[int] = [],
         list_etas: List[float] = [],
-        max_iter: int = int(1e4),
+        max_iterations: int = int(1e4),
         tol: float = 1e-6,
         norm: str = "L2",
     ) -> None:
-        super().__init__(period=period, max_iter=max_iter, tol=tol)
+        super().__init__(period=period, max_iterations=max_iterations, tol=tol)
+        self.rng = sku.check_random_state(random_state)
         self.rank = rank
         self.mu = mu
         self.tau = tau
@@ -177,7 +180,7 @@ class RPCANoisy(RPCA):
         Ir = np.eye(rank)
         In = np.eye(n)
 
-        for _ in range(self.max_iter):
+        for _ in range(self.max_iterations):
             X_temp = X.copy()
             A_temp = A.copy()
             L_temp = L.copy()
@@ -300,7 +303,7 @@ class RPCANoisy(RPCA):
         Ir = np.eye(rank)
         In = np.eye(n)
 
-        for _ in range(self.max_iter):
+        for _ in range(self.max_iterations):
             X_temp = X.copy()
             A_temp = A.copy()
             L_temp = L.copy()
@@ -420,6 +423,12 @@ class RPCANoisy(RPCA):
         elif self.norm == "L2":
             M, A, U, V = self.decompose_rpca_L2(D, Omega, lam, tau, rank)
 
+        print("D")
+        print(D)
+        print("M")
+        print(M)
+        print("A")
+        print(A)
         _check_cost_function_minimized(D, M, A, tau, lam, self.norm)
 
         return M, A

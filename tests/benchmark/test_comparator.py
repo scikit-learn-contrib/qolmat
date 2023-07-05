@@ -15,7 +15,7 @@
 
 # cols_to_impute = ["col1", "col2"]
 # generator_holes = EmpiricalHoleGenerator(n_splits=1, ratio_masked=0.5)
-# dict_imputers = {"rpca": ImputerRPCA(max_iter=100, tau=2)}
+# dict_imputers = {"rpca": ImputerRPCA(max_iterations=100, tau=2)}
 # dict_config_opti = {"rpca": {"lam": ho.hp.uniform("lam", low=0.1, high=1)}}
 
 # comparison_rpca = comparator.Comparator(

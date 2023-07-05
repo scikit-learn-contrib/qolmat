@@ -11,7 +11,7 @@ X_complete = np.array([[1, 2], [3, 1]], dtype=float)
 X_incomplete = np.array([[1, 2], [3, np.nan]], dtype=float)
 X_interpolated = np.array([[1, 2], [3, 3]], dtype=float)
 omega = np.array([[True, True], [True, False]])
-max_iter = 100
+max_iterations = 100
 # synthetic temporal data
 n_samples = 1000
 periods = [100, 20]
@@ -42,19 +42,13 @@ signal[mask] = np.nan
 def test_check_cost_function_minimized_raise_expection(
     obs: NDArray, lr: NDArray, ano: NDArray, lam: float, tau: float, norm: str
 ):
-    function_str = "||D-M-A||_2 + tau ||D||_* + lam ||A||_2"
-    with pytest.raises(
-        CostFunctionRPCANotMinimized,
-        match="PCA algorithm may provide bad results. "
-        f"{function_str} is larger at the end "
-        "of the algorithm than at the start.",
-    ):
+    with pytest.raises(CostFunctionRPCANotMinimized):
         _check_cost_function_minimized(obs, lr, ano, lam, tau, norm)
 
 
 @pytest.mark.parametrize("X", [X_complete])
 def test_rpca_noisy_get_params_scale(X: NDArray):
-    rpca = RPCANoisy(max_iter=max_iter, tau=0.5, lam=0.1)
+    rpca = RPCANoisy(max_iterations=max_iterations, tau=0.5, lam=0.1)
     result_dict = rpca.get_params_scale(X)
     result = list(result_dict.values())
     params_expected = [2, np.sqrt(2) / 2, np.sqrt(2) / 2]
