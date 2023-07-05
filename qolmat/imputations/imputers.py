@@ -48,7 +48,6 @@ class Imputer(_BaseImputer):
         columnwise: bool = False,
         shrink: bool = False,
         random_state: Union[None, int, np.random.RandomState] = None,
-        rng_: Optional[np.random.RandomState] = None,
         missing_values=np.nan,
         imputer_params: tuple = (),
         groups: Tuple[str, ...] = (),
@@ -56,7 +55,6 @@ class Imputer(_BaseImputer):
         self.columnwise = columnwise
         self.shrink = shrink
         self.random_state = random_state
-        self.rng_ = rng_
         self.missing_values = missing_values
         self.imputer_params = imputer_params
         self.groups = groups
@@ -159,6 +157,7 @@ class Imputer(_BaseImputer):
         pd.DataFrame
             Imputed dataframe.
         """
+        print("trasnform")
 
         df = self._check_input(X)
 
@@ -242,6 +241,7 @@ class Imputer(_BaseImputer):
             else:
                 return groupby.apply(fun_on_col)
         else:
+            print("no groups")
             return fun_on_col(df)
 
     def transform_allgroups(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
@@ -1203,7 +1203,6 @@ class ImputerRPCA(Imputer):
         return model
 
     def transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
-        super().fit(df)
 
         if self.method not in ["PCP", "noisy"]:
             raise ValueError("Argument method must be `PCP` or `noisy`!")

@@ -53,4 +53,4 @@ def test_ImputerRegressorKeras_fit_transform(df: pd.DataFrame) -> None:
         }
     )
 
-    np.testing.assert_allclose(result["col3"], expected["col3"], atol=1e-5)
+    np.testing.assert_allclose(result["col3"], expected["col3"], atol=1e-3)

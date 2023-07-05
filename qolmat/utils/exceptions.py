@@ -1,4 +1,5 @@
-from typing import Any, List
+from typing import Any, List, Tuple
+from numpy.typing import NDArray
 
 
 class KerasExtraNotInstalled(Exception):
@@ -28,3 +29,8 @@ class NoMissingValue(Exception):
 class SubsetIsAString(Exception):
     def __init__(self, subset: Any):
         super().__init__(f"Provided subset `{subset}` should be None or a list!")
+
+
+class NotDimension2(Exception):
+    def __init__(self, shape: Tuple[int, ...]):
+        super().__init__(f"Provided matrix is of shape {shape}, which is not of dimension 2!")

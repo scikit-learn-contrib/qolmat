@@ -47,7 +47,7 @@ class ImputerTest(Imputer):
         super().__init__(groups=groups, columnwise=True, random_state=random_state)
         self.value = value
 
-    def fit_transform_element(self, df: pd.DataFrame):
+    def transform_element(self, df: pd.DataFrame, col: str = "__all__"):
         df_out = df.copy()
         df_out = df_out.fillna(self.value)
         return df_out

@@ -6,7 +6,7 @@ import pandas as pd
 
 from numpy.typing import NDArray
 
-from qolmat.utils.exceptions import SignalTooShort
+from qolmat.utils.exceptions import NotDimension2, SignalTooShort
 
 
 def progress_bar(
@@ -153,7 +153,7 @@ def fold_signal(X: NDArray, period: int) -> NDArray:
         if X is not a 1D array
     """
     if len(X.shape) != 2:
-        raise ValueError("'X' should be of dimension 2")
+        raise NotDimension2(X.shape)
     n_rows, n_cols = X.shape
     n_rows_new = n_rows * period
 

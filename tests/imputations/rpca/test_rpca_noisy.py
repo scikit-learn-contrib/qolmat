@@ -8,7 +8,7 @@ X_complete = np.array([[1, 2], [4, 4], [4, 3]])
 X_incomplete = np.array([[1, np.nan], [4, 2], [np.nan, 4]])
 Omega_1 = ~np.isnan(X_incomplete)
 period = 100
-max_iter = 5
+max_iterations = 5
 tau = 0.5
 lam = 1
 rank = 1
@@ -17,7 +17,7 @@ rank = 1
 # @pytest.mark.parametrize("X", [X_complete])
 # @pytest.mark.parametrize("Omega", [Omega_1])
 # def test_rpca_noisy_decompose_rpca_L1(X: NDArray, Omega: NDArray):
-#     rpca_noisy = RPCANoisy(period=period, max_iter=max_iter, tau=tau, lam=lam)
+#     rpca_noisy = RPCANoisy(period=period, max_iterations=max_iterations, tau=tau, lam=lam)
 #     M_result, A_result, U_result, V_result = rpca_noisy.decompose_rpca_L1(
 #         X, Omega=Omega, lam=lam, tau=tau, rank=rank
 #     )
@@ -36,7 +36,7 @@ rank = 1
 # @pytest.mark.parametrize("X", [X_complete])
 # @pytest.mark.parametrize("Omega", [Omega_1])
 # def test_rpca_noisy_decompose_rpca_L2(X: NDArray, Omega: NDArray):
-#     rpca_noisy = RPCANoisy(period=period, max_iter=max_iter, tau=tau, lam=lam)
+#     rpca_noisy = RPCANoisy(period=period, max_iterations=max_iterations, tau=tau, lam=lam)
 #     M_result, A_result, U_result, V_result = rpca_noisy.decompose_rpca_L2(
 #         X, Omega=Omega, lam=lam, tau=tau, rank=rank
 #     )
@@ -60,7 +60,7 @@ rank = 1
 
 @pytest.mark.parametrize("X", [X_complete])
 def test_rpca_noisy_get_params_scale(X: NDArray):
-    rpca_noisy = RPCANoisy(period=period, max_iter=max_iter, tau=tau, lam=lam)
+    rpca_noisy = RPCANoisy(period=period, max_iterations=max_iterations, tau=tau, lam=lam)
     result_dict = rpca_noisy.get_params_scale(X)
     result = list(result_dict.values())
     params_expected = [2, 1 / np.sqrt(3), 1 / np.sqrt(3)]
