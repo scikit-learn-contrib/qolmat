@@ -179,10 +179,6 @@ class EM(BaseEstimator, TransformerMixin):
 
         # first imputation
         X_sample_last = utils.linear_interpolation(X)
-        print("X_sample_last")
-        print(X_sample_last)
-        print("x")
-        print(X)
         self.fit_distribution(X_sample_last)
 
         for iter_em in range(self.max_iter_em):
@@ -309,8 +305,6 @@ class MultiNormalEM(EM):
             self.cov = np.eye(n_rows)
         else:
             self.cov = np.cov(X).reshape(n_rows, -1)
-        print("cov")
-        print(self.cov)
         self.cov_inv = np.linalg.pinv(self.cov, rcond=1e-2)
 
     def get_loglikelihood(self, X: NDArray) -> float:

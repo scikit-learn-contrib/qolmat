@@ -43,14 +43,22 @@ def test_ImputerRegressorKeras_fit_transform(df: pd.DataFrame) -> None:
     )
 
     result = imputer.fit_transform(df)
+    # expected = pd.DataFrame(
+    #     {
+    #         "col1": [0.002, 15.0, 0.002, 23.0, 33.0],
+    #         "col2": [69.0, 76.0, 74.0, 80.0, 78.0],
+    #         "col3": [174.0, 166.0, 182.0, 177.0, 0.003714],
+    #         "col4": [9.0, 12.0, 11.0, 12.0, 8.0],
+    #         "col5": [93.0, 75.0, 0.005459, 12.0, 0.005461],
+    #     }
+    # )
     expected = pd.DataFrame(
         {
-            "col1": [38.362286, 15.0, 38.365032, 23.0, 33.0],
+            "col1": [38.363, 15.0, 38.365, 23.0, 33.0],
             "col2": [69.0, 76.0, 74.0, 80.0, 78.0],
-            "col3": [174.0, 166.0, 182.0, 177.0, 38.365231],
+            "col3": [174.0, 166.0, 182.0, 177.0, 38.365],
             "col4": [9.0, 12.0, 11.0, 12.0, 8.0],
-            "col5": [93.0, 75.0, 38.365032, 12.0, 38.365269],
+            "col5": [93.0, 75.0, 38.365, 12.0, 38.365],
         }
     )
-
-    np.testing.assert_allclose(result["col3"], expected["col3"], atol=1e-3)
+    pd.testing.assert_frame_equal(result, expected, atol=1e-3)

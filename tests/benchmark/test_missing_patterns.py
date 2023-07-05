@@ -24,7 +24,7 @@ list_generators = {
     "unif": mp.UniformHoleGenerator(n_splits=2, ratio_masked=0.1, random_state=42),
     "multi": mp.MultiMarkovHoleGenerator(n_splits=2, ratio_masked=0.1, random_state=42),
     "group": mp.GroupedHoleGenerator(
-        n_splits=2, ratio_masked=0.1, random_state=42, groups=["group"]
+        n_splits=2, ratio_masked=0.1, random_state=42, groups=("group",)
     ),
 }
 

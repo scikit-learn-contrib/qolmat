@@ -9,6 +9,7 @@ History
 * The Imputer classes do not possess a dictionary attribute anymore, and all list attributes have
 been changed into tuple attributes so that all are not immutable
 * All the tests from scikit-learn's check_estimator now pass for the class Imputer
+* Fix MLP imputer
 
 0.0.14 (2023-06-14)
 -------------------

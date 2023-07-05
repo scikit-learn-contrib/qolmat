@@ -76,25 +76,11 @@ The dataset `Beijing` is the Beijing Multi-Site Air-Quality Data Set. It consist
 This dataset only contains numerical vairables.
 
 ```python
-df_data = data.get_data_corrupted("Beijing", ratio_masked=.2, mean_size=20)
-
-# cols_to_impute = ["TEMP", "PRES", "DEWP", "NO2", "CO", "O3", "WSPM"]
-# cols_to_impute = df_data.columns[df_data.isna().any()]
+df_data = data.get_data_corrupted("Beijing", ratio_masked=.2, mean_size=120)
 cols_to_impute = ["TEMP", "PRES"]
-
 ```
 
 The dataset `Artificial` is designed to have a sum of a periodical signal, a white noise and some outliers.
-
-```python
-# df_data = data.get_data_corrupted("Artificial", ratio_masked=.2, mean_size=10)
-# cols_to_impute = ["signal"]
-```
-
-```python
-# df_data = data.get_data("SNCF", n_groups_max=2)
-# cols_to_impute = ["val_in"]
-```
 
 ```python
 df_data
@@ -244,7 +230,7 @@ comparison = comparator.Comparator(
     dict_imputers,
     cols_to_impute,
     generator_holes = generator_holes,
-    metrics=["mae", "wmape", "KL_columnwise", "ks_test", "energy"],
+    metrics=["mae", "wmape", "KL_columnwise", "ks_test"],
     max_evals=10,
     dict_config_opti=dict_config_opti,
 )
@@ -253,8 +239,14 @@ results
 ```
 
 ```python
-df_plot = results.loc["energy", "All"]
+df_plot = results.loc["KL_columnwise",'TEMP']
 plt.barh(df_plot.index, df_plot, color=tab10(0))
+plt.title('TEMP')
+plt.show()
+
+df_plot = results.loc["KL_columnwise",'PRES']
+plt.barh(df_plot.index, df_plot, color=tab10(0))
+plt.title('PRES')
 plt.show()
 ```
 
@@ -315,14 +307,18 @@ for col in cols_to_impute:
 ```
 
 ```python
+dfs_imputed
+```
+
+```python
 # plot.plot_imputations(df_station, dfs_imputed_station)
 
-n_columns = len(df_plot.columns)
+n_columns = len(cols_to_impute)
 n_imputers = len(dict_imputers)
 
 fig = plt.figure(figsize=(12 * n_imputers, 4 * n_columns))
 i_plot = 1
-for i_col, col in enumerate(df_plot):
+for i_col, col in enumerate(cols_to_impute):
     for name_imputer, df_imp in dfs_imputed_station.items():
 
         fig.add_subplot(n_columns, n_imputers, i_plot)
@@ -367,7 +363,6 @@ df = data.get_data("Beijing")
 cols_to_impute = ["TEMP", "PRES"]
 cols_with_nans = list(df.columns[df.isna().any()])
 df_data = data.add_datetime_features(df)
-df_data = data.add_station_features(df_data)
 df_data[cols_with_nans + cols_to_impute] = data.add_holes(pd.DataFrame(df_data[cols_with_nans + cols_to_impute]), ratio_masked=.1, mean_size=120)
 df_data
 ```
@@ -377,38 +372,30 @@ Then we train the model without taking a group on the stations
 
 ```python
 estimator = tf.keras.models.Sequential([
-    tf.keras.layers.Dense(256, activation='sigmoid'),
-    tf.keras.layers.Dense(128, activation='sigmoid'),
-    tf.keras.layers.Dense(64, activation='sigmoid'),
+    tf.keras.layers.Dense(256, activation='relu'),
+    tf.keras.layers.Dense(128, activation='relu'),
+    tf.keras.layers.Dense(64, activation='relu'),
     tf.keras.layers.Dense(1)])
-estimator.compile(optimizer='adam', loss='mse')
-dict_imputers["MLP"] = imputer_mlp = imputers_keras.ImputerRegressorKeras(estimator=estimator, handler_nan = "column")
+estimator.compile(optimizer='adam', loss='mae')
+dict_imputers["MLP"] = imputer_mlp = imputers_keras.ImputerRegressorKeras(estimator=estimator, groups=['station'], handler_nan = "column")
 ```
 
 We can re-run the imputation model benchmark as before.
-
-```python
-generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, subset = cols_to_impute, ratio_masked=ratio_masked)
+```python jupyter={"outputs_hidden": true} tags=[]
+generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], subset=cols_to_impute, ratio_masked=ratio_masked)
 
 comparison = comparator.Comparator(
     dict_imputers,
-    df_data.columns,
+    cols_to_impute,
     generator_holes = generator_holes,
-    n_calls_opt=10,
+    metrics=["mae", "wmape", "KL_columnwise", "ks_test"],
+    max_evals=10,
     dict_config_opti=dict_config_opti,
 )
 results = comparison.compare(df_data)
 results
 ```
-
-```python
-fig = plt.figure(figsize=(24, 4))
-plot.multibar(results.loc["mae"], decimals=1)
-plt.ylabel("mae")
-plt.show()
-```
-
-```python
+```python jupyter={"outputs_hidden": true, "source_hidden": true} tags=[]
 df_plot = df_data
 dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_imputers.items()}
 station = df_plot.index.get_level_values("station")[0]
@@ -416,7 +403,7 @@ df_station = df_plot.loc[station]
 dfs_imputed_station = {name: df_plot.loc[station] for name, df_plot in dfs_imputed.items()}
 ```
 
-```python
+```python jupyter={"source_hidden": true} tags=[]
 for col in cols_to_impute:
     fig, ax = plt.subplots(figsize=(10, 3))
     values_orig = df_station[col]

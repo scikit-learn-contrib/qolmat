@@ -206,6 +206,7 @@ class _Imputer(_BaseImputer):
         if df_imputed.isna().any().any():
             raise AssertionError("Result of imputation contains NaN!")
 
+        df_imputed = df_imputed.astype(float)
         if isinstance(X, (np.ndarray)):
             df_imputed = df_imputed.to_numpy()
 
@@ -1528,16 +1529,22 @@ class ImputerRegressor(_Imputer):
             if col not in self.estimators_:
                 y_imputed = pd.Series(y.mean(), index=y.index)
             else:
-                y_imputed = self.estimators_[col].predict(X[is_na & is_valid])
-                y_imputed = pd.Series(y_imputed.flatten())
+                X_select = X[is_na & is_valid]
+                y_imputed = self.estimators_[col].predict(X_select)
+                y_imputed = y_imputed.flatten().astype(float)
+                print("y_imputed")
+                print(y_imputed)
+
+                y_imputed = pd.Series(y_imputed, index=X_select.index)
 
             # Adds the imputed values
-            df_imputed.loc[~is_na, col] = y[~is_na]
+            # df_imputed.loc[~is_na, col] = y[~is_na]
             # if isinstance(y_imputed, pd.Series):
             #     y_reshaped = y_imputed
             # else:
             #     y_reshaped = y_imputed.flatten()
-            df_imputed.loc[is_na & is_valid, col] = y_imputed.values[: sum(is_na & is_valid)]
+            # df_imputed.loc[is_na & is_valid, col] = y_imputed.values[: sum(is_na & is_valid)]
+            df_imputed[col] = y_imputed.where(is_valid & is_na, y)
 
         return df_imputed
 
