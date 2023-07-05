@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import numpy as np
 from numpy.typing import NDArray
 
 from qolmat.imputations.rpca import rpca_utils
-from qolmat.utils import utils
 from qolmat.imputations.rpca.rpca import RPCA
+from sklearn import utils as sku
 
 
 class RPCAPCP(RPCA):
@@ -29,17 +29,19 @@ class RPCAPCP(RPCA):
 
     def __init__(
         self,
+        random_state: Union[None, int, np.random.RandomState] = None,
         period: int = 1,
         mu: Optional[float] = None,
         lam: Optional[float] = None,
-        max_iter: int = int(1e4),
+        max_iterations: int = int(1e4),
         tol: float = 1e-6,
     ) -> None:
         super().__init__(
             period=period,
-            max_iter=max_iter,
+            max_iterations=max_iterations,
             tol=tol,
         )
+        self.rng = sku.check_random_state(random_state)
         self.mu = mu
         self.lam = lam
 
@@ -60,10 +62,10 @@ class RPCAPCP(RPCA):
         A: NDArray = np.full_like(D, 0)
         Y: NDArray = np.full_like(D, 0)
 
-        errors: NDArray = np.full((self.max_iter,), fill_value=np.nan)
+        errors: NDArray = np.full((self.max_iterations,), fill_value=np.nan)
 
         M: NDArray = D - A
-        for iteration in range(self.max_iter):
+        for iteration in range(self.max_iterations):
             M = rpca_utils.svd_thresholding(D - A + Y / mu, 1 / mu)
             A = rpca_utils.soft_thresholding(D - M + Y / mu, lam / mu)
             A[~Omega] = (D - M)[~Omega]

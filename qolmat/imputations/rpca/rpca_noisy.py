@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import scipy as scp
@@ -9,7 +9,7 @@ from numpy.typing import NDArray
 
 from qolmat.imputations.rpca import rpca_utils as rpca_utils
 from qolmat.imputations.rpca.rpca import RPCA
-from qolmat.utils import utils
+from sklearn import utils as sku
 
 
 class RPCANoisy(RPCA):
@@ -40,7 +40,7 @@ class RPCANoisy(RPCA):
         list of periods, linked to the Toeplitz matrices
     list_etas: Optional[List[float]]
         list of penalizing parameters for the corresponding period in list_periods
-    max_iter: Optional[int]
+    max_iterations: Optional[int]
         stopping criteria, maximum number of iterations. By default, the value is set to 10_000
     tol: Optional[float]
         stoppign critera, minimum difference between 2 consecutive iterations. By default,
@@ -51,18 +51,20 @@ class RPCANoisy(RPCA):
 
     def __init__(
         self,
+        random_state: Union[None, int, np.random.RandomState] = None,
         period: int = 1,
         rank: Optional[int] = None,
         tau: Optional[float] = None,
         lam: Optional[float] = None,
         list_periods: List[int] = [],
         list_etas: List[float] = [],
-        max_iter: int = int(1e4),
+        max_iterations: int = int(1e4),
         tol: float = 1e-6,
         norm: Optional[str] = "L2",
         do_report: bool = False,
     ) -> None:
-        super().__init__(period=period, max_iter=max_iter, tol=tol)
+        super().__init__(period=period, max_iterations=max_iterations, tol=tol)
+        self.rng = sku.check_random_state(random_state)
         self.rank = rank
         self.tau = tau
         self.lam = lam
@@ -131,9 +133,9 @@ class RPCANoisy(RPCA):
         Ir = np.eye(rank)
         In = np.eye(n)
 
-        increments = np.full((self.max_iter,), np.nan, dtype=float)
+        increments = np.full((self.max_iterations,), np.nan, dtype=float)
 
-        for iteration in range(self.max_iter):
+        for iteration in range(self.max_iterations):
             X_temp = X.copy()
             A_temp = A.copy()
             L_temp = L.copy()
@@ -253,14 +255,14 @@ class RPCANoisy(RPCA):
         Ir = np.eye(rank)
         In = np.eye(n)
 
-        increment = np.full((self.max_iter,), np.nan, dtype=float)
+        increment = np.full((self.max_iterations,), np.nan, dtype=float)
         errors_ano = []
         errors_nuclear = []
         errors_noise = []
         errors_lagrange = []
         self.list_report = []
 
-        for iteration in range(self.max_iter):
+        for iteration in range(self.max_iterations):
             X_temp = X.copy()
             A_temp = A.copy()
             L_temp = L.copy()

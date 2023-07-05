@@ -198,10 +198,10 @@ def add_holes(df: pd.DataFrame, ratio_masked: float, mean_size: int) -> pd.DataF
 
     generator.dict_probas_out = {column: 1 / mean_size for column in df.columns}
     generator.dict_ratios = {column: 1 / len(df.columns) for column in df.columns}
-    if generator.groups == []:
-        mask = generator.generate_mask(df)
-    else:
+    if generator.groups:
         mask = df.groupby(groups, group_keys=False).apply(generator.generate_mask)
+    else:
+        mask = generator.generate_mask(df)
 
     X_with_nans = df.copy()
     X_with_nans[mask] = np.nan
