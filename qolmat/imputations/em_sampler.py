@@ -62,56 +62,6 @@ def _gradient_conjugue(A: NDArray, X: NDArray, mask_na: NDArray) -> NDArray:
     return X_final
 
 
-def invert_robust(M, epsilon=1e-2):
-    """
-    Compute the inverse of a matrix `M`, with robustness checks.
-
-    In case of singularity or near-singularity of the input matrix, this function applies
-    a penalty term to the diagonal elements of `M` to make it more invertible. If the matrix
-    still fails to meet certain quality criteria, an error is raised.
-
-    Parameters
-    ----------
-    M : array_like
-        The matrix to invert. Should be square.
-    epsilon : float, optional
-        The penalty parameter to add to the diagonal elements of `M`. Default is 1e-2.
-
-    Returns
-    -------
-    invM : ndarray
-        The inverse of `M` after applying the penalty term.
-
-    Raises
-    ------
-    WarningMessage
-        If `M` has negative eigenvalues, indicating that some variables may be constant
-        or collinear, or if `M` has extremely large eigenvalues, indicating that the imputation
-        may be inflated.
-
-    Examples
-    --------
-    >>> M = np.array([[1, 2], [3, 4]])
-    >>> invert_robust(M)
-    array([[-2,  1],
-           [ 1.5   , -0.5  ]])
-    """
-    Meps = M - epsilon * (M - np.diag(M.diagonal()))
-    if scipy.linalg.eigh(M)[0].min() < 0:
-        print("---------------- FAILURE -------------")
-        print(M.shape)
-        print(M)
-        print(scipy.linalg.eigh(M)[0].min())
-        raise WarningMessage(
-            f"Negative eigenvalue, some variables may be constant or colinear, "
-            f"min value of {scipy.linalg.eigh(M)[0].min():.3g} found."
-        )
-    if np.abs(scipy.linalg.eigh(M)[0].min()) > 1e20:
-        raise WarningMessage("Large eigenvalues, imputation may be inflated.")
-
-    return scipy.linalg.inv(Meps)
-
-
 class EM(BaseEstimator, TransformerMixin):
     """
     Generic class for missing values imputation through EM optimization and
@@ -217,8 +167,8 @@ class EM(BaseEstimator, TransformerMixin):
         X : NDArray
             Numpy array to be imputed
         """
+        print(f"fitting on X of shape {X.shape}")
         X = X.copy()
-        self.shape_original = X.shape
         self.hash_fit = hash(X.tobytes())
         if not isinstance(X, np.ndarray):
             raise AssertionError("Invalid type. X must be a NDArray.")
@@ -257,12 +207,14 @@ class EM(BaseEstimator, TransformerMixin):
         NDArray
             Final array after EM sampling.
         """
+        shape_original = X.shape
         if hash(X.tobytes()) == self.hash_fit:
             X = self.X_sample_last
         else:
             X = utils.prepare_data(X, self.period)
             X = self.scaler.transform(X.T).T
             X = utils.linear_interpolation(X)
+        print(f"changed to shape {X.shape}")
 
         mask_na = np.isnan(X)
 
@@ -275,7 +227,7 @@ class EM(BaseEstimator, TransformerMixin):
             raise AssertionError("Result contains NaN. This is a bug.")
 
         X_transformed = self.scaler.inverse_transform(X_transformed.T).T
-        X_transformed = utils.get_shape_original(X_transformed, self.shape_original)
+        X_transformed = utils.get_shape_original(X_transformed, shape_original)
         return X_transformed
 
 
@@ -351,7 +303,13 @@ class MultiNormalEM(EM):
     def fit_distribution(self, X):
         self.means = np.mean(X, axis=1)
         self.cov = np.cov(X).reshape(len(X), -1)
-        self.cov_inv = invert_robust(self.cov, epsilon=1e-2)
+        self.cov_inv = np.linalg.pinv(self.cov, rcond=1e-2)
+
+    def get_loglikelihood(self, X: NDArray) -> float:
+        if np.all(np.isclose(self.cov, 0)):
+            return 0
+        else:
+            return scipy.stats.multivariate_normal.logpdf(X.T, self.means, self.cov).mean()
 
     def _maximize_likelihood(self, X: NDArray, mask_na: NDArray, dt: float = np.nan) -> NDArray:
         """
@@ -428,10 +386,10 @@ class MultiNormalEM(EM):
         self.means = np.mean(means_stack, axis=1)
         cov_stack = np.stack(list_cov, axis=2)
         self.cov = np.mean(cov_stack, axis=2) + np.cov(means_stack, bias=True)
-        self.cov_inv = invert_robust(self.cov, epsilon=1e-2)
+        self.cov_inv = np.linalg.pinv(self.cov, rcond=1e-2)
 
         # Stop criteria
-        self.loglik = scipy.stats.multivariate_normal.logpdf(X.T, self.means, self.cov).mean()
+        self.loglik = self.get_loglikelihood(X)
 
         self.dict_criteria_stop["means"].append(self.means)
         self.dict_criteria_stop["covs"].append(self.cov)
@@ -567,7 +525,8 @@ class VAR1EM(EM):
         Xc = X - self.B[:, None]
         XX_lag = Xc[:, 1:] @ Xc[:, :-1].T
         XX = Xc @ Xc.T
-        self.A = XX_lag @ invert_robust(XX, epsilon=1e-2)
+        XX_inv = np.linalg.pinv(XX, rcond=1e-2)
+        self.A = XX_lag @ XX_inv
 
     def fit_parameter_B(self, X):
         n_variables, n_samples = X.shape
@@ -581,7 +540,7 @@ class VAR1EM(EM):
         Z_back = Xc - self.A @ Xc_lag
         Z_back[:, 0] = 0
         self.omega = (Z_back @ Z_back.T) / n_samples
-        self.omega_inv = invert_robust(self.omega, epsilon=1e-2)
+        self.omega_inv = np.linalg.pinv(self.omega, rcond=1e-2)
 
     def fit_distribution(self, X):
         n_variables, n_samples = X.shape

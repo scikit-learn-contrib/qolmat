@@ -33,12 +33,12 @@ class RPCAPCP(RPCA):
         period: int = 1,
         mu: Optional[float] = None,
         lam: Optional[float] = None,
-        max_iter: int = int(1e4),
+        max_iterations: int = int(1e4),
         tol: float = 1e-6,
     ) -> None:
         super().__init__(
             period=period,
-            max_iter=max_iter,
+            max_iterations=max_iterations,
             tol=tol,
         )
         self.rng = sku.check_random_state(random_state)
@@ -62,10 +62,10 @@ class RPCAPCP(RPCA):
         A: NDArray = np.full_like(D, 0)
         Y: NDArray = np.full_like(D, 0)
 
-        errors: NDArray = np.full((self.max_iter,), fill_value=np.nan)
+        errors: NDArray = np.full((self.max_iterations,), fill_value=np.nan)
 
         M: NDArray = D - A
-        for iteration in range(self.max_iter):
+        for iteration in range(self.max_iterations):
             M = rpca_utils.svd_thresholding(D - A + Y / mu, 1 / mu)
             A = rpca_utils.soft_thresholding(D - M + Y / mu, lam / mu)
             A[~Omega] = (D - M)[~Omega]

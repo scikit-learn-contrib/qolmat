@@ -156,8 +156,6 @@ def fold_signal(X: NDArray, period: int) -> NDArray:
         raise ValueError("'X' should be of dimension 2")
     n_rows, n_cols = X.shape
     n_rows_new = n_rows * period
-    if period >= n_cols:
-        raise SignalTooShort(period, n_cols)
 
     X = X.flatten()
     n_required_nans = (-X.size) % n_rows_new

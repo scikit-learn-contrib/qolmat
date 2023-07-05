@@ -57,6 +57,19 @@ from qolmat.utils import data, utils, plot
 
 ```
 
+```python
+from qolmat.imputations.em_sampler import invert_robust
+```
+
+```python
+M[np.array([0, 1]), np.array([0, 1])]
+```
+
+```python
+M = np.array([[0, 0], [0, 1]])
+invert_robust(M)
+```
+
 ### **I. Load data**
 
 
@@ -140,7 +153,7 @@ imputer_spline = imputers.ImputerInterpolation(groups=("station",), method="spli
 imputer_shuffle = imputers.ImputerShuffle(groups=("station",))
 imputer_residuals = imputers.ImputerResiduals(groups=("station",), period=365, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
 
-imputer_rpca = imputers.ImputerRPCA(groups=("station",), columnwise=False, max_iter=256, tau=2, lam=1)
+imputer_rpca = imputers.ImputerRPCA(groups=("station",), columnwise=False, max_iterations=256, tau=2, lam=1)
 
 imputer_ou = imputers.ImputerEM(groups=("station",), model="multinormal", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
 imputer_tsou = imputers.ImputerEM(groups=("station",), model="VAR1", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
@@ -194,7 +207,7 @@ imputer_rpca_opti2 = hyperparameters.optimize(
 
 ```python
 dict_imputers = {
-    # "mean": imputer_mean,
+    "mean": imputer_mean,
     # "median": imputer_median,
     # "mode": imputer_mode,
     "interpolation": imputer_interpol,
@@ -204,9 +217,9 @@ dict_imputers = {
     # "OU": imputer_ou,
     "TSOU": imputer_tsou,
     "TSMLE": imputer_tsmle,
-    "RPCA": imputer_rpca,
-    "RPCA_opti": imputer_rpca_opti,
-    "RPCA_opti2": imputer_rpca_opti2,
+    # "RPCA": imputer_rpca,
+    # "RPCA_opti": imputer_rpca_opti,
+    # "RPCA_opti2": imputer_rpca_opti2,
     # "locf": imputer_locf,
     # "nocb": imputer_nocb,
     # "knn": imputer_knn,
@@ -275,6 +288,10 @@ dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_imputers.i
 ```
 
 ```python
+df_data.mode().iloc[0]
+```
+
+```python
 station = df_plot.index.get_level_values("station")[0]
 df_station = df_plot.loc[station]
 dfs_imputed_station = {name: df_plot.loc[station] for name, df_plot in dfs_imputed.items()}
@@ -332,7 +349,7 @@ for i_col, col in enumerate(df_plot):
         loc = plticker.MultipleLocator(base=2*365)
         ax.xaxis.set_major_locator(loc)
         ax.tick_params(axis='both', which='major')
-        plt.xlim(datetime(2019, 2, 1), datetime(2019, 3, 1))
+        # plt.xlim(datetime(2019, 2, 1), datetime(2019, 3, 1))
         i_plot += 1
 plt.savefig("figures/imputations_benchmark.png")
 plt.show()

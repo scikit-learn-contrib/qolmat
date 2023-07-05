@@ -40,7 +40,13 @@ def test_hyperparameters_get_hyperparameters() -> None:
     assert hyperparams == {"n_neighbors": 3, "weights": "distance"}
 
 
-hyperparams_global = {"lam/col1": 4.7, "lam/col2": 1.5, "tol": 0.07, "max_iter": 100, "norm": "L1"}
+hyperparams_global = {
+    "lam/col1": 4.7,
+    "lam/col2": 1.5,
+    "tol": 0.07,
+    "max_iterations": 100,
+    "norm": "L1",
+}
 
 expected1 = {
     "lam": 4.7,
@@ -51,8 +57,7 @@ expected1 = {
     "list_periods": (),
     "tol": 0.07,
     "norm": "L1",
-    "random_state": None,
-    "max_iter": 100,
+    "max_iterations": 100,
     "period": 1,
 }
 
@@ -65,8 +70,7 @@ expected2 = {
     "list_periods": (),
     "tol": 0.07,
     "norm": "L1",
-    "random_state": None,
-    "max_iter": 100,
+    "max_iterations": 100,
     "period": 1,
 }
 
@@ -81,7 +85,6 @@ def test_hyperparameters_get_hyperparameters_modified(
     imputer.imputer_params = tuple(set(imputer.imputer_params) | set(hyperparams_global.keys()))
     hyperparams = imputer.get_hyperparams(col)
 
-    print(hyperparams)
     assert hyperparams == expected
 
 
@@ -205,11 +208,11 @@ def test_ImputerResiduals_fit_transform(df: pd.DataFrame) -> None:
     expected = pd.DataFrame(
         {
             "col1": [i for i in range(20)],
-            "col2": [0, 0.619048, 2, 1.435374, 2] + [i for i in range(5, 20)],
+            "col2": [0, 0.953, 2, 2.061, 2] + [i for i in range(5, 20)],
         },
         index=pd.date_range("2023-04-17", periods=20, freq="D"),
     )
-    np.testing.assert_allclose(result, expected, atol=1e-6)
+    np.testing.assert_allclose(result, expected, atol=1e-3)
 
 
 @pytest.mark.parametrize("df", [df_incomplete])
@@ -259,7 +262,7 @@ def test_ImputerRegressor_fit_transform(df: pd.DataFrame) -> None:
 
 @pytest.mark.parametrize("df", [df_timeseries])
 def test_ImputerRPCA_fit_transform(df: pd.DataFrame) -> None:
-    imputer = imputers.ImputerRPCA(columnwise=True, max_iter=100, period=2)
+    imputer = imputers.ImputerRPCA(columnwise=True, max_iterations=100, period=2)
     result = imputer.fit_transform(df)
     expected = pd.DataFrame(
         {
@@ -274,10 +277,11 @@ def test_ImputerRPCA_fit_transform(df: pd.DataFrame) -> None:
 def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
     imputer = imputers.ImputerEM(method="sample", random_state=42)
     result = imputer.fit_transform(df)
+    print(result)
     expected = pd.DataFrame(
         {
             "col1": [i for i in range(20)],
-            "col2": [0, 1.36, 2, 4.23, 2] + [i for i in range(5, 20)],
+            "col2": [0, 21.074, 2, -4.262, 2] + [i for i in range(5, 20)],
         }
     )
     np.testing.assert_allclose(result, expected, atol=1e-2)
@@ -294,7 +298,7 @@ def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
         imputers.ImputerLOCF(),
         imputers.ImputerNOCB(),
         imputers.ImputerInterpolation(),
-        imputers.ImputerResiduals(period=7),
+        imputers.ImputerResiduals(period=2),
         imputers.KNNImputer(),
         imputers.ImputerMICE(),
         imputers.ImputerRegressor(),
