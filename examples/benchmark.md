@@ -20,6 +20,18 @@ In Qolmat, a few data imputation methods are implemented as well as a way to eva
 First, import some useful librairies
 
 ```python
+X= np.array([[0], [1], [2]])
+```
+
+```python
+np.cov(X)
+```
+
+```python
+
+```
+
+```python
 import warnings
 # warnings.filterwarnings('error')
 ```

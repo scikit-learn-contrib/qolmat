@@ -1222,9 +1222,10 @@ class ImputerKNN(_Imputer):
             Returns self.
         """
         super().fit(X)
+        df = self._check_input(X)
         hyperparameters = self.get_hyperparams()
         self.imputer_ = KNNImputer(metric="nan_euclidean", **hyperparameters)
-        self.imputer_.fit(X)
+        self.imputer_.fit(df)
         return self
 
     def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
@@ -1327,10 +1328,9 @@ class ImputerMICE(_Imputer):
         """
         hyperparams = self.get_hyperparams()
         super().fit(X)
-        if not isinstance(X, (pd.DataFrame)):
-            X = pd.DataFrame(np.array(X), columns=[i for i in range(np.array(X).shape[1])])
+        df = self._check_input(X)
         self.imputer_ = IterativeImputer(estimator=self.estimator, **hyperparams)
-        self.imputer_.fit(X)
+        self.imputer_.fit(df)
         self.n_iter_ = self.imputer_.n_iter_
         return self
 
@@ -1444,18 +1444,17 @@ class ImputerRegressor(_Imputer):
         """
 
         super().fit(X)
-        if not isinstance(X, (pd.DataFrame)):
-            X = pd.DataFrame(np.array(X), columns=[i for i in range(np.array(X).shape[1])])
+        df = self._check_input(X)
 
-        cols_with_nans = X.columns[X.isna().any()]
+        cols_with_nans = df.columns[df.isna().any()]
         self.estimators_ = {}
         for col in cols_with_nans:
             # Define the Train and Test set
-            X_ = X.drop(columns=col, errors="ignore")
-            y_ = X[col]
+            X_ = df.drop(columns=col, errors="ignore")
+            y_ = df[col]
 
             # Selects only the valid values in the Train Set according to the chosen method
-            is_valid = pd.Series(True, index=X.index)
+            is_valid = pd.Series(True, index=df.index)
             if self.handler_nan == "fit":
                 pass
             elif self.handler_nan == "row":
@@ -1787,10 +1786,11 @@ class ImputerEM(_Imputer):
             Returns self.
         """
         super().fit(X)
+        df = self._check_input(X)
 
-        n_rows, n_cols = X.shape
-        if n_rows == 1:
-            raise ValueError("n_samples=1 is not allowed!")
+        # n_rows, n_cols = df.shape
+        # if n_rows == 1:
+        #     raise ValueError("n_samples=1 is not allowed!")
 
         if self.model not in ["multinormal", "VAR1"]:
             raise ValueError(
@@ -1798,19 +1798,19 @@ class ImputerEM(_Imputer):
                 " Valid values are `multinormal`and `VAR`."
             )
 
-        cols_with_nans = X.columns[X.isna().any()]
+        cols_with_nans = df.columns[df.isna().any()]
 
         self._models = {}
         if self.columnwise:
             for col in cols_with_nans:
                 hyperparams = self.get_hyperparams(col=col)
                 model = self.get_model(random_state=self.rng_, **hyperparams)
-                model.fit(X[col].values)
+                model.fit(df[col].values)
                 self._models[col] = model
         else:
             hyperparams = self.get_hyperparams()
             model = self.get_model(random_state=self.rng_, **hyperparams)
-            model.fit(X.values.T)
+            model.fit(df.values.T)
             self._models["__all__"] = model
         return self
 
