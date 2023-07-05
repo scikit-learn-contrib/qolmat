@@ -102,7 +102,7 @@ def test_hyperparameters_get_hyperparameters_modified(
 @pytest.mark.parametrize(
     "df", [pd.DataFrame({"col1": [np.nan, np.nan, np.nan], "col2": [1, 2, 3]})]
 )
-def test_Imputer_fit_transform_on_nan_column(df: pd.DataFrame, imputer: imputers.Imputer) -> None:
+def test_Imputer_fit_transform_on_nan_column(df: pd.DataFrame, imputer: imputers._Imputer) -> None:
     np.testing.assert_raises(ValueError, imputer.fit_transform, df)
 
 
@@ -221,8 +221,8 @@ def test_ImputerKNN_fit_transform(df: pd.DataFrame) -> None:
     result = imputer.fit_transform(df)
     expected = pd.DataFrame(
         {
-            "col1": [0, 1.6666666666666667, 2, 3, 1.4285714285714286],
-            "col2": [-1, 0.3333333333333333, 0.5, 0.12499999999999994, 1.5],
+            "col1": [0, 5 / 3, 2, 3, 1.4285714285714286],
+            "col2": [-1, 1 / 3, 0.5, 1 / 8, 1.5],
         }
     )
     np.testing.assert_allclose(result, expected)
@@ -235,7 +235,6 @@ def test_ImputerMICE_fit_transform(df: pd.DataFrame) -> None:
         random_state=42,
         sample_posterior=False,
         max_iter=100,
-        missing_values=np.nan,
     )
     result = imputer.fit_transform(df)
     expected = pd.DataFrame(
@@ -253,8 +252,8 @@ def test_ImputerRegressor_fit_transform(df: pd.DataFrame) -> None:
     result = imputer.fit_transform(df)
     expected = pd.DataFrame(
         {
-            "col1": [0, 1.6666666666666667, 2, 3, 1.6666666666666667],
-            "col2": [-1, 0.3333333333333333, 0.5, 0.3333333333333333, 1.5],
+            "col1": [0, 5 / 3, 2, 3, 5 / 3],
+            "col2": [-1, 1 / 3, 0.5, 1 / 3, 1.5],
         }
     )
     np.testing.assert_allclose(result, expected)
@@ -288,7 +287,7 @@ def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
 
 @parametrize_with_checks(
     [
-        imputers.Imputer(),
+        imputers._Imputer(),
         imputers.ImputerOracle(),
         imputers.ImputerMean(),
         imputers.ImputerMedian(),
@@ -305,6 +304,6 @@ def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
         imputers.ImputerEM(),
     ]
 )
-def test_sklearn_compatible_estimator(estimator: imputers.Imputer, check: Any) -> None:
+def test_sklearn_compatible_estimator(estimator: imputers._Imputer, check: Any) -> None:
     """Check compatibility with sklearn, using sklearn estimator checks API."""
     check(estimator)

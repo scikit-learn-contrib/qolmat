@@ -1,4 +1,4 @@
-from typing import Any, List, Tuple
+from typing import Any, List, Tuple, Type
 from numpy.typing import NDArray
 
 
@@ -34,3 +34,8 @@ class SubsetIsAString(Exception):
 class NotDimension2(Exception):
     def __init__(self, shape: Tuple[int, ...]):
         super().__init__(f"Provided matrix is of shape {shape}, which is not of dimension 2!")
+
+
+class NotDataFrame(Exception):
+    def __init__(self, X_type: Type[Any]):
+        super().__init__(f"Input musr be a dataframe, not a {X_type}")

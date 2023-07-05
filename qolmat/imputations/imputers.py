@@ -17,30 +17,25 @@ from statsmodels.tsa import seasonal as tsa_seasonal
 
 from qolmat.imputations import em_sampler
 from qolmat.imputations.rpca import rpca, rpca_noisy, rpca_pcp
+from qolmat.utils.exceptions import NotDataFrame
 
 
-class Imputer(_BaseImputer):
+class _Imputer(_BaseImputer):
     """Base class for all imputers.
 
     Parameters
     ----------
-    groups: Tuple[str, ...]
-        List of column names to group by, by default []
     columnwise : bool, optional
         If True, the imputer will be computed for each column, else it will be computed on the
         whole dataframe, by default False
     shrink : bool, optional
         Indicates if the elementwise imputation method returns a single value, by default False
-    hyperparams : Dict, optional
-        Hyperparameters to be passed to the imputer, for example in the case when the imputer
-        requires a regression model.
-        If a dictionary of values is provided, each value is a global hyperparameter.
-        If a nested dictionary of dictionaries is provided and `columnwise` is True, it should be
-        indexed by the dataset column names.
-        This allows to provide different hyperparameters for each column.
-        By default {}
     random_state : Union[None, int, np.random.RandomState], optional
         Controls the randomness of the fit_transform, by default None
+    imputer_params: Tuple[str, ...]
+        List of parameters of the imputer, which can be specified globally or columnwise
+    groups: Tuple[str, ...]
+        List of column names to group by, by default []
     """
 
     def __init__(
@@ -48,16 +43,15 @@ class Imputer(_BaseImputer):
         columnwise: bool = False,
         shrink: bool = False,
         random_state: Union[None, int, np.random.RandomState] = None,
-        missing_values=np.nan,
-        imputer_params: tuple = (),
+        imputer_params: Tuple[str, ...] = (),
         groups: Tuple[str, ...] = (),
     ):
         self.columnwise = columnwise
         self.shrink = shrink
         self.random_state = random_state
-        self.missing_values = missing_values
         self.imputer_params = imputer_params
         self.groups = groups
+        self.missing_values = np.nan
 
     def get_hyperparams(self, col: Optional[str] = None):
         """
@@ -113,7 +107,36 @@ class Imputer(_BaseImputer):
             df = X
         return df
 
+    def _check_dataframe(self, X: NDArray):
+        """
+        Checks that the input X is a dataframe, otherwise raises an error.
+
+        Parameters
+        ----------
+        X : NDArray
+            Array-like to process
+
+        Raises
+        ------
+        ValueError
+            Input has to be a pandas.DataFrame.
+        """
+        if not isinstance(X, (pd.DataFrame)):
+            raise NotDataFrame(type(X))
+
     def fit(self, X: pd.DataFrame, y=None) -> Self:
+        """Fit the imputer on X.
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            Data matrix on which the Imputer must be fitted.
+
+        Returns
+        -------
+        self : Self
+            Returns self.
+        """
         _ = self._validate_data(X, force_all_finite="allow-nan")
         df = self._check_input(X)
         for column in df:
@@ -131,25 +154,26 @@ class Imputer(_BaseImputer):
             self.ngroups_ = pd.Series(0, index=df.index).rename("_ngroup")
 
         cols_with_nans = df.columns[df.isna().any()]
-        self.setup_fit()
+        self._setup_fit()
         if self.columnwise:
             for col in cols_with_nans:
-                self.fit_allgroups(df[[col]], col=col)
+                self._fit_allgroups(df[[col]], col=col)
         else:
-            self.fit_allgroups(df)
+            self._fit_allgroups(df)
 
         return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         """
-        Returns a dataframe with same shape as `df`, unchanged values, where all nans are replaced
-        by non-nan values.
-        Depending on the imputer parameters, the dataframe can be imputed with columnwise and/or
-        groupwise methods.
+        Returns a dataframe with same shape as `X`, unchanged values, where all nans are replaced
+        by non-nan values. Depending on the imputer parameters, the dataframe can be imputed with
+        columnwise and/or groupwise methods.
+        Also works for numpy arrays, returning numpy arrays, but the use of pandas dataframe is
+        advised.
 
         Parameters
         ----------
-        df : pd.DataFrame
+        X : pd.DataFrame
             Dataframe to impute.
 
         Returns
@@ -175,9 +199,9 @@ class Imputer(_BaseImputer):
         if self.columnwise:
             df_imputed = df.copy()
             for col in cols_with_nans:
-                df_imputed[col] = self.transform_allgroups(df[[col]], col=col)
+                df_imputed[col] = self._transform_allgroups(df[[col]], col=col)
         else:
-            df_imputed = self.transform_allgroups(df)
+            df_imputed = self._transform_allgroups(df)
 
         if df_imputed.isna().any().any():
             raise AssertionError("Result of imputation contains NaN!")
@@ -189,14 +213,14 @@ class Imputer(_BaseImputer):
 
     def fit_transform(self, X: pd.DataFrame, y=None) -> pd.DataFrame:
         """
-        Returns a dataframe with same shape as `df`, unchanged values, where all nans are replaced
+        Returns a dataframe with same shape as `X`, unchanged values, where all nans are replaced
         by non-nan values.
         Depending on the imputer parameters, the dataframe can be imputed with columnwise and/or
         groupwise methods.
 
         Parameters
         ----------
-        df : pd.DataFrame
+        X : pd.DataFrame
             Dataframe to impute.
 
         Returns
@@ -207,10 +231,10 @@ class Imputer(_BaseImputer):
         self.fit(X)
         return self.transform(X)
 
-    def fit_transform_fallback(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _fit_transform_fallback(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Impute `df` by the median of each column if it still contains missing values.
-        This can introduce data leakage if unchecked.
+        This can introduce data leakage for forward imputers if unchecked.
 
         Parameters
         ----------
@@ -222,16 +246,57 @@ class Imputer(_BaseImputer):
         pd.DataFrame
             Dataframe df imputed by the median of each column.
         """
+        self._check_dataframe(df)
         return df.fillna(df.median())
 
-    def fit_allgroups(self, df: pd.DataFrame, col: str = "__all__") -> Self:
-        self.apply_groupwise(self.fit_element, df, col=col)
+    def _fit_allgroups(self, df: pd.DataFrame, col: str = "__all__") -> Self:
+        """Fits the Imputer either on a column, for a columnwise setting, on or all columns.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Input dataframe
+        col : str, optional
+            Column on which the imputer is fitted, by default "__all__"
+
+        Returns
+        -------
+        Self
+            Returns self.
+
+        Raises
+        ------
+        ValueError
+            Input has to be a pandas.DataFrame.
+        """
+        self._check_dataframe(df)
+        self._apply_groupwise(self._fit_element, df, col=col)
         return self
 
-    def setup_fit(self) -> None:
+    def _setup_fit(self) -> None:
+        """
+        Setup step of the fit function, before looping over the columns.
+        """
         return
 
-    def apply_groupwise(self, fun: Callable, df: pd.DataFrame, **kwargs) -> Any:
+    def _apply_groupwise(self, fun: Callable, df: pd.DataFrame, **kwargs) -> Any:
+        """
+        Applies the function `fun`in a groupwise manner to the dataframe `df`.
+
+
+        Parameters
+        ----------
+        fun : Callable
+            Function applied groupwise to the dataframe with arguments kwargs
+        df : pd.DataFrame
+            Dataframe on which the function is applied
+
+        Returns
+        -------
+        Any
+            Depends on the function signature
+        """
+        self._check_dataframe(df)
         fun_on_col = partial(fun, **kwargs)
         if self.groups:
             groupby = df.groupby(self.ngroups_, group_keys=False)
@@ -242,7 +307,7 @@ class Imputer(_BaseImputer):
         else:
             return fun_on_col(df)
 
-    def transform_allgroups(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+    def _transform_allgroups(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
         """
         Impute `df` by applying the specialized method `transform_element` on each group, if
         groups have been given. If the method leaves nan, `fit_transform_fallback` is called in
@@ -252,6 +317,8 @@ class Imputer(_BaseImputer):
         ----------
         df : pd.DataFrame
             Dataframe or column to impute
+        col : str, optional
+            Column transformed by the imputer, by default "__all__"
 
         Returns
         -------
@@ -260,34 +327,75 @@ class Imputer(_BaseImputer):
 
         Raises
         ------
-        ValueError
+        NotDataFrame
             Input has to be a pandas.DataFrame.
         """
-        # Impute `df` by applying the specialized method `transform_element` on each group, if
-        # groups have been given.
-        if not isinstance(df, pd.DataFrame):
-            raise ValueError("Input has to be a pandas.DataFrame.")
+        self._check_dataframe(df)
         df = df.copy()
-        imputation_values = self.apply_groupwise(self.transform_element, df, col=col)
+        imputation_values = self._apply_groupwise(self._transform_element, df, col=col)
 
         df = df.fillna(imputation_values)
         # fill na by applying imputation method without groups
         if df.isna().any().any():
-            imputation_values = self.fit_transform_fallback(df)
+            imputation_values = self._fit_transform_fallback(df)
             df = df.fillna(imputation_values)
 
         return df
 
     @abstractmethod
-    def fit_element(self, df: pd.DataFrame, col: str = "__all__") -> Self:
+    def _fit_element(self, df: pd.DataFrame, col: str = "__all__") -> Self:
+        """
+        Fits the imputer on `df`, at the group and/or column level depending onself.groups and
+        self.columnwise.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe on which the imputer is fitted
+        col : str, optional
+            Column on which the imputer is fitted, by default "__all__"
+
+        Returns
+        -------
+        Self
+            Return Self.
+
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
+        """
+        self._check_dataframe(df)
         return self
 
     @abstractmethod
-    def transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+    def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+        """
+        Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
+        self.columnwise.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe or column to impute
+        col : str, optional
+            Column transformed by the imputer, by default "__all__"
+
+        Returns
+        -------
+        Self
+            Return Self.
+
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
+        """
+        self._check_dataframe(df)
         return df
 
 
-class ImputerOracle(Imputer):
+class ImputerOracle(_Imputer):
     """
     Perfect imputer, requires to know real values.
 
@@ -306,8 +414,15 @@ class ImputerOracle(Imputer):
     ) -> None:
         super().__init__()
 
-    def set_solution(self, X: pd.DataFrame):
-        self.df_solution = X
+    def set_solution(self, df: pd.DataFrame):
+        """Sets the true values to be returned by the oracle.
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            True dataset with mask
+        """
+        self.df_solution = df
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         """Impute df with corresponding known values
@@ -339,7 +454,7 @@ class ImputerOracle(Imputer):
         return df_imputed
 
 
-class ImputerMean(Imputer):
+class ImputerMean(_Imputer):
     """Impute by the mean of the column.
 
     Parameters
@@ -372,17 +487,66 @@ class ImputerMean(Imputer):
     ) -> None:
         super().__init__(groups=groups, columnwise=True, shrink=True)
 
-    def setup_fit(self):
+    def _setup_fit(self):
+        """
+        Setup step of the fit function, before looping over the columns.
+        """
         self._means = {}
 
-    def fit_allgroups(self, df: pd.DataFrame, col: str = "__all__") -> Self:
+    def _fit_allgroups(self, df: pd.DataFrame, col: str = "__all__") -> Self:
+        """
+        Impute `df` by applying the specialized method `transform_element` on each group, if
+        groups have been given. If the method leaves nan, `fit_transform_fallback` is called in
+        order to return a dataframe without nan.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe or column to impute
+        col : str, optional
+            Column transformed by the imputer, by default "__all__"
+
+        Returns
+        -------
+        pd.DataFrame
+            Imputed dataframe or column
+
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
+        """
+        self._check_dataframe(df)
         if self.groups:
             self._means[col] = df[col].groupby(self.ngroups_).mean()
         else:
             self._means[col] = df[col].mean()
         return self
 
-    def transform_allgroups(self, df: pd.DataFrame, col: str = "__all__"):
+    def _transform_allgroups(self, df: pd.DataFrame, col: str = "__all__"):
+        """
+        Impute `df` by applying the specialized method `transform_element` on each group, if
+        groups have been given. If the method leaves nan, `fit_transform_fallback` is called in
+        order to return a dataframe without nan.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe or column to impute
+        col : str, optional
+            Column transformed by the imputer, by default "__all__"
+
+        Returns
+        -------
+        pd.DataFrame
+            Imputed dataframe or column
+
+        Raises
+        ------
+        ValueError
+            Input has to be a pandas.DataFrame.
+        """
+        self._check_dataframe(df)
         if self.groups:
             imputed = self.ngroups_.map(self._means[col]).rename(col).to_frame()
         else:
@@ -391,7 +555,7 @@ class ImputerMean(Imputer):
         return df
 
 
-class ImputerMedian(Imputer):
+class ImputerMedian(_Imputer):
     """Impute by the median of the column.
 
     Parameters
@@ -424,17 +588,66 @@ class ImputerMedian(Imputer):
     ) -> None:
         super().__init__(groups=groups, columnwise=True, shrink=True)
 
-    def setup_fit(self):
+    def _setup_fit(self):
+        """
+        Setup step of the fit function, before looping over the columns.
+        """
         self._medians = {}
 
-    def fit_allgroups(self, df: pd.DataFrame, col: str = "__all__") -> Self:
+    def _fit_allgroups(self, df: pd.DataFrame, col: str = "__all__") -> Self:
+        """
+        Impute `df` by applying the specialized method `transform_element` on each group, if
+        groups have been given. If the method leaves nan, `fit_transform_fallback` is called in
+        order to return a dataframe without nan.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe or column to impute
+        col : str, optional
+            Column transformed by the imputer, by default "__all__"
+
+        Returns
+        -------
+        pd.DataFrame
+            Imputed dataframe or column
+
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
+        """
+        self._check_dataframe(df)
         if self.groups:
             self._medians[col] = df[col].groupby(self.ngroups_).median()
         else:
             self._medians[col] = df[col].median()
         return self
 
-    def transform_allgroups(self, df: pd.DataFrame, col: str = "__all__"):
+    def _transform_allgroups(self, df: pd.DataFrame, col: str = "__all__"):
+        """
+        Impute `df` by applying the specialized method `transform_element` on each group, if
+        groups have been given. If the method leaves nan, `fit_transform_fallback` is called in
+        order to return a dataframe without nan.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe or column to impute
+        col : str, optional
+            Column transformed by the imputer, by default "__all__"
+
+        Returns
+        -------
+        pd.DataFrame
+            Imputed dataframe or column
+
+        Raises
+        ------
+        ValueError
+            Input has to be a pandas.DataFrame.
+        """
+        self._check_dataframe(df)
         if self.groups:
             imputed = self.ngroups_.map(self._medians[col]).rename(col).to_frame()
         else:
@@ -443,7 +656,7 @@ class ImputerMedian(Imputer):
         return df
 
 
-class ImputerMode(Imputer):
+class ImputerMode(_Imputer):
     """Impute by the mode of the column, which is the most represented value.
 
     Parameters
@@ -476,17 +689,66 @@ class ImputerMode(Imputer):
     ) -> None:
         super().__init__(groups=groups, columnwise=True, shrink=True)
 
-    def setup_fit(self):
+    def _setup_fit(self):
+        """
+        Setup step of the fit function, before looping over the columns.
+        """
         self._modes = {}
 
-    def fit_allgroups(self, df: pd.DataFrame, col: str = "__all__") -> Self:
+    def _fit_allgroups(self, df: pd.DataFrame, col: str = "__all__") -> Self:
+        """
+        Impute `df` by applying the specialized method `transform_element` on each group, if
+        groups have been given. If the method leaves nan, `fit_transform_fallback` is called in
+        order to return a dataframe without nan.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe or column to impute
+        col : str, optional
+            Column transformed by the imputer, by default "__all__"
+
+        Returns
+        -------
+        pd.DataFrame
+            Imputed dataframe or column
+
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
+        """
+        self._check_dataframe(df)
         if self.groups:
             self._modes[col] = df[col].groupby(self.ngroups_).apply(lambda x: x.mode().iloc[0])
         else:
             self._modes[col] = df[col].mode().iloc[0]
         return self
 
-    def transform_allgroups(self, df: pd.DataFrame, col: str = "__all__"):
+    def _transform_allgroups(self, df: pd.DataFrame, col: str = "__all__"):
+        """
+        Impute `df` by applying the specialized method `transform_element` on each group, if
+        groups have been given. If the method leaves nan, `fit_transform_fallback` is called in
+        order to return a dataframe without nan.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe or column to impute
+        col : str, optional
+            Column transformed by the imputer, by default "__all__"
+
+        Returns
+        -------
+        pd.DataFrame
+            Imputed dataframe or column
+
+        Raises
+        ------
+        ValueError
+            Input has to be a pandas.DataFrame.
+        """
+        self._check_dataframe(df)
         if self.groups:
             imputed = self.ngroups_.map(self._modes[col]).rename(col).to_frame()
         else:
@@ -495,7 +757,7 @@ class ImputerMode(Imputer):
         return df
 
 
-class ImputerShuffle(Imputer):
+class ImputerShuffle(_Imputer):
     """Impute using random samples from the considered column.
 
     Parameters
@@ -531,7 +793,29 @@ class ImputerShuffle(Imputer):
     ) -> None:
         super().__init__(groups=groups, columnwise=True, random_state=random_state)
 
-    def transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+    def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+        """
+        Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
+        self.columnwise.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe or column to impute
+        col : str, optional
+            Column transformed by the imputer, by default "__all__"
+
+        Returns
+        -------
+        Self
+            Return Self.
+
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
+        """
+        self._check_dataframe(df)
         n_missing = df.isna().sum().sum()
         if df.isna().all().all():
             return df
@@ -544,7 +828,7 @@ class ImputerShuffle(Imputer):
         return df_imputed
 
 
-class ImputerLOCF(Imputer):
+class ImputerLOCF(_Imputer):
     """Impute by the last available value of the column. Relevent for time series.
 
     If the first observations are missing, it is imputed by a NOCB
@@ -579,14 +863,36 @@ class ImputerLOCF(Imputer):
     ) -> None:
         super().__init__(groups=groups, columnwise=True)
 
-    def transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+    def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+        """
+        Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
+        self.columnwise.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe or column to impute
+        col : str, optional
+            Column transformed by the imputer, by default "__all__"
+
+        Returns
+        -------
+        Self
+            Return Self.
+
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
+        """
+        self._check_dataframe(df)
         df_out = df.copy()
         for col in df:
             df_out[col] = df[col].ffill().bfill()
         return df_out
 
 
-class ImputerNOCB(Imputer):
+class ImputerNOCB(_Imputer):
     """Impute by the next available value of the column. Relevent for time series.
     If the last observation is missing, it is imputed by a LOCF.
 
@@ -620,14 +926,36 @@ class ImputerNOCB(Imputer):
     ) -> None:
         super().__init__(groups=groups, columnwise=True)
 
-    def transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+    def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+        """
+        Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
+        self.columnwise.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe or column to impute
+        col : str, optional
+            Column transformed by the imputer, by default "__all__"
+
+        Returns
+        -------
+        Self
+            Return Self.
+
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
+        """
+        self._check_dataframe(df)
         df_out = df.copy()
         for col in df:
             df_out[col] = df[col].bfill().ffill()
         return df_out
 
 
-class ImputerInterpolation(Imputer):
+class ImputerInterpolation(_Imputer):
     """
     This class implements a way to impute time series using some interpolation strategies
     suppoted by pd.Series.interpolate, such as "linear", "slinear", "quadratic", ...
@@ -680,7 +1008,29 @@ class ImputerInterpolation(Imputer):
         self.order = order
         self.col_time = col_time
 
-    def transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+    def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+        """
+        Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
+        self.columnwise.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe or column to impute
+        col : str, optional
+            Column transformed by the imputer, by default "__all__"
+
+        Returns
+        -------
+        Self
+            Return Self.
+
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
+        """
+        self._check_dataframe(df)
         hyperparams = self.get_hyperparams(col=col)
         index = df.index
         if self.col_time is None:
@@ -693,7 +1043,7 @@ class ImputerInterpolation(Imputer):
         return df_imputed
 
 
-class ImputerResiduals(Imputer):
+class ImputerResiduals(_Imputer):
     """
     This class implements an imputation method based on a STL decomposition.
     The series are de-seasonalised, de-trended, residuals are imputed, then residuals are
@@ -759,7 +1109,29 @@ class ImputerResiduals(Imputer):
         self.extrapolate_trend = extrapolate_trend
         self.method_interpolation = method_interpolation
 
-    def transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+    def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+        """
+        Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
+        self.columnwise.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe or column to impute
+        col : str, optional
+            Column transformed by the imputer, by default "__all__"
+
+        Returns
+        -------
+        Self
+            Return Self.
+
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
+        """
+        self._check_dataframe(df)
         hyperparams = self.get_hyperparams(col=col)
         name = df.columns[0]
         values = df[df.columns[0]]
@@ -784,7 +1156,7 @@ class ImputerResiduals(Imputer):
         return df_result
 
 
-class ImputerKNN(Imputer):
+class ImputerKNN(_Imputer):
     """
     This class implements an imputation by the k-nearest neighbors.
 
@@ -837,18 +1209,52 @@ class ImputerKNN(Imputer):
         self.weights = weights
 
     def fit(self, X: pd.DataFrame, y=None):
+        """Fit the imputer on X.
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            Data matrix on which the Imputer must be fitted.
+
+        Returns
+        -------
+        self : Self
+            Returns self.
+        """
         super().fit(X)
         hyperparameters = self.get_hyperparams()
         self.imputer_ = KNNImputer(metric="nan_euclidean", **hyperparameters)
         self.imputer_.fit(X)
         return self
 
-    def transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+    def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+        """
+        Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
+        self.columnwise.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe or column to impute
+        col : str, optional
+            Column transformed by the imputer, by default "__all__"
+
+        Returns
+        -------
+        Self
+            Return Self.
+
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
+        """
+        self._check_dataframe(df)
         results = self.imputer_.transform(df)
         return pd.DataFrame(data=results, columns=df.columns, index=df.index)
 
 
-class ImputerMICE(Imputer):
+class ImputerMICE(_Imputer):
     """
     This class implements an iterative imputer in the multivariate case.
     It imputes each Series within a DataFrame multiple times using an iteration of fits
@@ -874,7 +1280,7 @@ class ImputerMICE(Imputer):
     >>> imputer = imputers.ImputerMICE(estimator=ExtraTreesRegressor(),
     ...                                random_state=42,
     ...                                sample_posterior=False,
-    ...                                max_iter=100, missing_values=np.nan)
+    ...                                max_iter=100)
     >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
     ...                        [np.nan, np.nan, np.nan, np.nan],
     ...                        [1, 2, 2, 5],
@@ -895,10 +1301,9 @@ class ImputerMICE(Imputer):
         random_state: Union[None, int, np.random.RandomState] = None,
         sample_posterior=False,
         max_iter=100,
-        missing_values=np.nan,
     ) -> None:
         super().__init__(
-            imputer_params=("sample_posterior", "max_iter", "missing_values"),
+            imputer_params=("sample_posterior", "max_iter"),
             groups=groups,
             columnwise=False,
             random_state=random_state,
@@ -906,9 +1311,20 @@ class ImputerMICE(Imputer):
         self.estimator = estimator
         self.sample_posterior = sample_posterior
         self.max_iter = max_iter
-        self.missing_values = missing_values
 
     def fit(self, X: pd.DataFrame, y=None):
+        """Fit the imputer on X.
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            Data matrix on which the Imputer must be fitted.
+
+        Returns
+        -------
+        self : Self
+            Returns self.
+        """
         hyperparams = self.get_hyperparams()
         super().fit(X)
         if not isinstance(X, (pd.DataFrame)):
@@ -918,7 +1334,29 @@ class ImputerMICE(Imputer):
         self.n_iter_ = self.imputer_.n_iter_
         return self
 
-    def transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+    def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+        """
+        Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
+        self.columnwise.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe or column to impute
+        col : str, optional
+            Column transformed by the imputer, by default "__all__"
+
+        Returns
+        -------
+        Self
+            Return Self.
+
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
+        """
+        self._check_dataframe(df)
         res = self.imputer_.transform(df)
         imputed = pd.DataFrame(columns=df.columns)
         for ind, col in enumerate(imputed.columns):
@@ -927,7 +1365,7 @@ class ImputerMICE(Imputer):
         return imputed
 
 
-class ImputerRegressor(Imputer):
+class ImputerRegressor(_Imputer):
     """
     This class implements a regression imputer in the multivariate case.
     It imputes each column using a single fit-predict for a given estimator, based on the colunms
@@ -981,28 +1419,28 @@ class ImputerRegressor(Imputer):
         self.estimator = estimator
         self.handler_nan = handler_nan
 
-    def get_params_fit(self) -> Dict:
+    def _get_params_fit(self) -> Dict:
+        """Get the parameters required for the fit, only used for neural networks.
+
+        Returns
+        -------
+        Dict
+            Dictionary of fit parameters.
+        """
         return {}
 
-    def fit(self, X: pd.DataFrame, y: pd.DataFrame = None) -> Imputer:
-        """Fit regressor model
+    def fit(self, X: pd.DataFrame, y: pd.DataFrame = None) -> _Imputer:
+        """Fit the imputer on X.
 
         Parameters
         ----------
         X : pd.DataFrame
-            dataframe for training
-        y : pd.DataFrame, optional
-            by default None
+            Data matrix on which the Imputer must be fitted.
 
         Returns
         -------
-        Imputer
-            imputer fit
-
-        Raises
-        ------
-        ValueError
-            the handler is not correct
+        self : Self
+            Returns self.
         """
 
         super().fit(X)
@@ -1034,27 +1472,35 @@ class ImputerRegressor(Imputer):
 
             # Train the model according to an ML or DL method and after predict the imputation
             if not X_.empty:
-                hp = self.get_params_fit()
+                hp = self._get_params_fit()
                 self.estimators_[col] = self.estimator
                 self.estimators_[col].fit(X_[(~is_na) & is_valid], y_[(~is_na) & is_valid], **hp)
 
         return self
 
-    def transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+    def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
         """
-        Transform using a (specified) regression model
+        Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
+        self.columnwise.
 
         Parameters
         ----------
         df : pd.DataFrame
-            dataframe to impute
+            Dataframe or column to impute
+        col : str, optional
+            Column transformed by the imputer, by default "__all__"
 
         Returns
         -------
-        pd.DataFrame
-            imputed dataframe
-        """
+        Self
+            Return Self.
 
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
+        """
+        self._check_dataframe(df)
         df_imputed = df.apply(pd.DataFrame.median, result_type="broadcast", axis=0)
         cols_with_nans = df.columns[df.isna().any()]
 
@@ -1097,7 +1543,7 @@ class ImputerRegressor(Imputer):
         return df_imputed
 
 
-class ImputerRPCA(Imputer):
+class ImputerRPCA(_Imputer):
     """
     This class implements the Robust Principal Component Analysis imputation.
 
@@ -1167,6 +1613,13 @@ class ImputerRPCA(Imputer):
         self.norm = norm
 
     def get_model(self, **hyperparams) -> rpca.RPCA:
+        """Get the underlying model of the imputer based on its attributes.
+
+        Returns
+        -------
+        rpca.RPCA
+            RPCA model to be used in the fit and transform methods.
+        """
         if self.method == "PCP":
             hyperparams = {
                 key: hyperparams[key]
@@ -1200,20 +1653,31 @@ class ImputerRPCA(Imputer):
             model = rpca_noisy.RPCANoisy(random_state=self.rng_, **hyperparams)
         return model
 
-    def transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+    def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+        """
+        Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
+        self.columnwise.
 
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe or column to impute
+        col : str, optional
+            Column transformed by the imputer, by default "__all__"
+
+        Returns
+        -------
+        Self
+            Return Self.
+
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
+        """
+        self._check_dataframe(df)
         if self.method not in ["PCP", "noisy"]:
             raise ValueError("Argument method must be `PCP` or `noisy`!")
-        # self.shape_ = df.shape
-        # n_rows, n_cols = df.shape
-        # if n_rows == 1:
-        #     raise ValueError(
-        #         "Since n_samples=1, `period` must be specified when imputing 1D data."
-        #     )
-        # if n_cols == 1:
-        #     raise ValueError(
-        #         "Since n_features=1, `period` must be specified when imputing 1D data."
-        #     )
 
         hyperparams = self.get_hyperparams(col=col)
         model = self.get_model(random_state=self.rng_, **hyperparams)
@@ -1226,7 +1690,7 @@ class ImputerRPCA(Imputer):
         return df_imputed
 
 
-class ImputerEM(Imputer):
+class ImputerEM(_Imputer):
     """
     This class implements an imputation method based on joint modelling and an inference using a
     Expectation-Minimization algorithm.
@@ -1292,6 +1756,13 @@ class ImputerEM(Imputer):
         self.period = period
 
     def get_model(self, **hyperparams) -> em_sampler.EM:
+        """Get the underlying model of the imputer based on its attributes.
+
+        Returns
+        -------
+        em_sampler.EM
+            EM model to be used in the fit and transform methods.
+        """
         if self.model == "multinormal":
             return em_sampler.MultiNormalEM(**hyperparams)
         elif self.model == "VAR1":
@@ -1303,9 +1774,19 @@ class ImputerEM(Imputer):
             )
 
     def fit(self, X: pd.DataFrame, y=None):
+        """Fit the imputer on X.
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            Data matrix on which the Imputer must be fitted.
+
+        Returns
+        -------
+        self : Self
+            Returns self.
+        """
         super().fit(X)
-        if not isinstance(X, (pd.DataFrame)):
-            X = pd.DataFrame(np.array(X), columns=[i for i in range(np.array(X).shape[1])])
 
         n_rows, n_cols = X.shape
         if n_rows == 1:
@@ -1333,7 +1814,29 @@ class ImputerEM(Imputer):
             self._models["__all__"] = model
         return self
 
-    def transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+    def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+        """
+        Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
+        self.columnwise.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe or column to impute
+        col : str, optional
+            Column transformed by the imputer, by default "__all__"
+
+        Returns
+        -------
+        Self
+            Return Self.
+
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
+        """
+        self._check_dataframe(df)
         model = self._models[col]
 
         X = df.values.T.astype(float)

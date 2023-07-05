@@ -9,7 +9,7 @@ from qolmat.benchmark.hyperparameters import HyperValue
 
 # from hyperparameters import HyperValue
 from qolmat.benchmark.missing_patterns import _HoleGenerator, EmpiricalHoleGenerator
-from qolmat.imputations.imputers import Imputer, ImputerRPCA
+from qolmat.imputations.imputers import _Imputer, ImputerRPCA
 
 import hyperopt as ho
 
@@ -37,7 +37,7 @@ dict_config_opti = {
 }
 
 
-class ImputerTest(Imputer):
+class ImputerTest(_Imputer):
     def __init__(
         self,
         groups: Tuple[str, ...] = (),
@@ -47,7 +47,7 @@ class ImputerTest(Imputer):
         super().__init__(groups=groups, columnwise=True, random_state=random_state)
         self.value = value
 
-    def transform_element(self, df: pd.DataFrame, col: str = "__all__"):
+    def _transform_element(self, df: pd.DataFrame, col: str = "__all__"):
         df_out = df.copy()
         df_out = df_out.fillna(self.value)
         return df_out
