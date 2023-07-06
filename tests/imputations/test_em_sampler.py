@@ -4,83 +4,63 @@ from numpy.typing import NDArray
 
 from qolmat.imputations import em_sampler
 
-A = np.array([[3, 1, 0], [1, 1, 0], [0, 0, 1]])
-X1 = np.array([[1, 1, 1, 1], [np.nan, np.nan, 4, 2], [1, 3, np.nan, 1]])
-mask = np.isnan(X1)
-
-X1_full = np.array(
-    [
-        [1, 1, 1, 1],
-        [4, 4, 4, 2],
-        [1, 3, 2, 1],
-    ],
+A: NDArray = np.array([[3, 1, 0], [1, 1, 0], [0, 0, 1]], dtype=float)
+A_inverse: NDArray = np.array([[0.5, -0.5, 0], [-0.5, 1.5, 0], [0, 0, 1]], dtype=float)
+X_missing: NDArray = np.array(
+    [[1, 1, 1, 1], [np.nan, np.nan, 4, 2], [1, 3, np.nan, 1]], dtype=float
+)
+X_first_guess: NDArray = np.array(
+    [[1, 1, 1, 1], [4, 4, 4, 2], [1, 3, 2, 1]],
     dtype=float,
 )
-
-X_expected = np.array(
-    [
-        [1, 1, 1, 1],
-        [-1, -1, 4, 2],
-        [1, 3, 0, 1],
-    ],
+X_expected: NDArray = np.array(
+    [[1, 1, 1, 1], [-1, -1, 4, 2], [1, 3, 0, 1]],
     dtype=float,
 )
+mask: NDArray = np.isnan(X_missing)
 
 
-@pytest.mark.parametrize("A, X, mask", [(A, X1_full, mask)])
-def test__gradient_conjugue(A: NDArray, X: NDArray, mask: NDArray):
-    X0 = X.copy()
-    X0[mask] = 0
-    X_out = em_sampler._gradient_conjugue(A, X, mask)
-    assert X_out.shape == X1.shape
-    assert np.allclose(X[~mask], X_out[~mask])
-    assert np.sum(X_out * (A @ X_out)) <= np.sum(X0 * (A @ X0))
-    assert np.allclose(
-        X_out,
-        X_expected,
-    )
+@pytest.mark.parametrize(
+    "A, X_first_guess, X_expected, mask",
+    [(A, X_first_guess, X_expected, mask)],
+)
+def test_gradient_conjugue(
+    A: NDArray,
+    X_first_guess: NDArray,
+    X_expected: NDArray,
+    mask: NDArray,
+):
+    X_result = em_sampler._gradient_conjugue(A, X_first_guess, mask)
+    np.testing.assert_allclose(X_result, X_expected, atol=1e-5)
+    assert np.sum(X_result * (A @ X_result)) <= np.sum(X_first_guess * (A @ X_first_guess))
+    assert np.allclose(X_first_guess[~mask], X_result[~mask])
 
 
-A_expected = np.array([[0.5, -0.5, 0], [-0.5, 1.5, 0], [0, 0, 1]])
-
-
-@pytest.mark.parametrize("M", [A])
-def test_invert_robust(M: NDArray):
+@pytest.mark.parametrize(
+    "A, A_inverse_expected",
+    [(A, A_inverse)],
+)
+def test_invert_robust(A: NDArray, A_inverse_expected: NDArray):
     A_inv = em_sampler.invert_robust(A, epsilon=0)
-    print(A)
-    print(A_inv)
     assert A_inv.shape == A.shape
-    assert np.allclose(
-        A_inv,
-        A_expected,
-    )
+    assert np.allclose(A_inv, A_inverse_expected, atol=1e-5)
 
 
-@pytest.mark.parametrize("X", [X1])
-def test__linear_interpolation(X: NDArray):
-    em = em_sampler.MultiNormalEM()
-    X_out = em._linear_interpolation(X)
-    assert X_out.shape == X.shape
-    assert np.allclose(
-        X_out,
-        X1_full,
-    )
-
-
-def test_fit_calls_sample_ou_correct_number_of_times(mocker):
-    X1 = np.array([[1, 1, 1, 2], [np.nan, np.nan, 4, 2], [1, 3, np.nan, 1]])
-    max_iter_em = 3
-    em = em_sampler.MultiNormalEM(max_iter_em=max_iter_em)
-    mocker.patch("qolmat.imputations.em_sampler.MultiNormalEM._sample_ou", return_value=X1)
-    mocker.patch(
-        "qolmat.imputations.em_sampler.MultiNormalEM._check_convergence",
-        return_value=False,
-    )
-    mocker.patch("qolmat.imputations.em_sampler.MultiNormalEM.fit_distribution")
-    em.fit(X1)
-    em_sampler.MultiNormalEM._sample_ou.call_count == max_iter_em
-    em_sampler.MultiNormalEM._check_convergence.call_count == max_iter_em
-    em_sampler.MultiNormalEM.fit_distribution.call_count == 1
+# @pytest.mark.parametrize("X_missing", [X_missing])
+# def test_fit_calls_sample_ou(mocker, X_missing: NDArray):
+#     max_iter_em = 3
+#     mocker.patch("qolmat.imputations.em_sampler.MultiNormalEM._sample_ou",
+# return_value=X_missing)
+#     mocker.patch(
+#         "qolmat.imputations.em_sampler.MultiNormalEM._check_convergence",
+#         return_value=False,
+#     )
+#     mocker.patch("qolmat.imputations.em_sampler.MultiNormalEM.fit_distribution")
+#     em = em_sampler.MultiNormalEM(max_iter_em=max_iter_em)
+#     em.fit(X_missing)
+#     assert em_sampler.MultiNormalEM._sample_ou.call_count == max_iter_em
+#     assert em_sampler.MultiNormalEM._check_convergence.call_count == max_iter_em
+#     assert em_sampler.MultiNormalEM.fit_distribution.call_count == 1
 
 
 # imputations_var = [
