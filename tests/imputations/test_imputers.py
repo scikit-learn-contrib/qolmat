@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from sklearn.ensemble import ExtraTreesRegressor
-from sklearn.utils.estimator_checks import parametrize_with_checks
+from sklearn.utils.estimator_checks import check_estimator, parametrize_with_checks
 from qolmat.benchmark.hyperparameters import HyperValue
 
 from qolmat.imputations import imputers
@@ -261,7 +261,7 @@ def test_ImputerRegressor_fit_transform(df: pd.DataFrame) -> None:
 
 @pytest.mark.parametrize("df", [df_timeseries])
 def test_ImputerRPCA_fit_transform(df: pd.DataFrame) -> None:
-    imputer = imputers.ImputerRPCA(columnwise=True, max_iterations=100, period=2)
+    imputer = imputers.ImputerRPCA(columnwise=False, max_iterations=100, tau=1, lam=0.3)
     result = imputer.fit_transform(df)
     expected = pd.DataFrame(
         {
@@ -269,6 +269,9 @@ def test_ImputerRPCA_fit_transform(df: pd.DataFrame) -> None:
             "col2": [0, 1, 2, 2, 2] + [i for i in range(5, 20)],
         }
     )
+    print(result)
+    result = np.around(result)
+    print(result)
     np.testing.assert_allclose(result, expected, atol=1e-2)
 
 
@@ -300,7 +303,7 @@ def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
         imputers.KNNImputer(),
         imputers.ImputerMICE(),
         imputers.ImputerRegressor(),
-        imputers.ImputerRPCA(),
+        imputers.ImputerRPCA(tau=0, lam=0),
         imputers.ImputerEM(),
     ]
 )

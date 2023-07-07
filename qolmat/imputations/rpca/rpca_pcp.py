@@ -4,10 +4,11 @@ from typing import Optional, Tuple, Union
 
 import numpy as np
 from numpy.typing import NDArray
+from sklearn import utils as sku
 
 from qolmat.imputations.rpca import rpca_utils
 from qolmat.imputations.rpca.rpca import RPCA
-from sklearn import utils as sku
+from qolmat.utils.exceptions import CostFunctionRPCANotMinimized
 
 
 class RPCAPCP(RPCA):
@@ -69,6 +70,7 @@ class RPCAPCP(RPCA):
             M = rpca_utils.svd_thresholding(D - A + Y / mu, 1 / mu)
             A = rpca_utils.soft_thresholding(D - M + Y / mu, lam / mu)
             A[~Omega] = (D - M)[~Omega]
+
             Y += mu * (D - M - A)
 
             error = np.linalg.norm(D - M - A, "fro") / D_norm
@@ -76,4 +78,40 @@ class RPCAPCP(RPCA):
 
             if error < self.tol:
                 break
+
+        self._check_cost_function_minimized(D, M, A, lam)
+
         return M, A
+
+    @staticmethod
+    def _check_cost_function_minimized(
+        observations: NDArray,
+        low_rank: NDArray,
+        anomalies: NDArray,
+        lam: float,
+    ):
+        """Check that the functional minimized by the RPCA
+        is smaller at the end than at the beginning
+
+        Parameters
+        ----------
+        observations : NDArray
+            observations matrix with first linear interpolation
+        low_rank : NDArray
+            low_rank matrix resulting from RPCA
+        anomalies : NDArray
+            sparse matrix resulting from RPCA
+        lam : float
+            parameter penalizing the L1-norm of the anomaly/sparse part
+
+        Raises
+        ------
+        CostFunctionRPCANotMinimized
+            The RPCA does not minimized the cost function:
+            the starting cost is at least equal to the final one.
+        """
+        value_start = np.linalg.norm(observations, "nuc")
+        value_end = np.linalg.norm(low_rank, "nuc") + lam * np.sum(np.abs(anomalies))
+        if value_start + 1e-4 <= value_end:
+            function_str = "||D||_* + lam ||A||_1"
+            raise CostFunctionRPCANotMinimized(function_str, float(value_start), float(value_end))

@@ -1532,8 +1532,6 @@ class ImputerRegressor(_Imputer):
                 X_select = X[is_na & is_valid]
                 y_imputed = self.estimators_[col].predict(X_select)
                 y_imputed = y_imputed.flatten().astype(float)
-                print("y_imputed")
-                print(y_imputed)
 
                 y_imputed = pd.Series(y_imputed, index=X_select.index)
 

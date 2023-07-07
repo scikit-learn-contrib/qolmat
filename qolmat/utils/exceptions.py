@@ -31,6 +31,14 @@ class SubsetIsAString(Exception):
         super().__init__(f"Provided subset `{subset}` should be None or a list!")
 
 
+class CostFunctionRPCANotMinimized(Exception):
+    def __init__(self, name_fct: str, value_start: float, value_end: float):
+        super().__init__(
+            f"RPCA algorithm may provide bad results. Function {name_fct} increased from"
+            f" {value_start} to {value_end} instead of decreasing!"
+        )
+
+
 class NotDimension2(Exception):
     def __init__(self, shape: Tuple[int, ...]):
         super().__init__(f"Provided matrix is of shape {shape}, which is not of dimension 2!")

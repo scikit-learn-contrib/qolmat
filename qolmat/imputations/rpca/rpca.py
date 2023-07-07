@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from typing import Optional, Tuple, Union
+from typing import Tuple, Union
 
 import numpy as np
 from numpy.typing import NDArray
 from sklearn.base import BaseEstimator, TransformerMixin
 
-from qolmat.imputations.rpca import rpca_utils
 from qolmat.utils import utils
 
 

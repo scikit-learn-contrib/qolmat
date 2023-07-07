@@ -1,31 +1,102 @@
 import numpy as np
-from numpy.typing import NDArray
 import pytest
+from numpy.typing import NDArray
+
 from qolmat.imputations.rpca.rpca_pcp import RPCAPCP
+from qolmat.utils import utils
+from qolmat.utils.data import generate_artificial_ts
+from qolmat.utils.exceptions import CostFunctionRPCANotMinimized
 
-X_complete = np.array([[1, 2], [4, 4], [4, 3]])
-X_incomplete = np.array([[1, np.nan], [4, 2], [np.nan, 4]])
+X_complete = np.array([[1, 2], [3, 1]], dtype=float)
+X_incomplete = np.array([[1, 2], [3, np.nan], [np.nan, 4]], dtype=float)
+max_iterations = 50
+small_mu = 1e-5
+large_mu = 1e5
 
-period = 1
-max_iterations = 128
-mu = 0.5
-lam = 1
+
+@pytest.fixture
+def synthetic_temporal_data():
+    n_samples = 1000
+    periods = [100, 20]
+    amp_anomalies = 0.5
+    ratio_anomalies = 0.05
+    amp_noise = 0.1
+    X_true, A_true, E_true = generate_artificial_ts(
+        n_samples, periods, amp_anomalies, ratio_anomalies, amp_noise
+    )
+    signal = X_true + A_true + E_true
+    mask = np.random.choice(len(signal), round(len(signal) / 20))
+    signal[mask] = np.nan
+    return signal
+
+
+@pytest.mark.parametrize(
+    "obs, lr, ano, lam",
+    [
+        (
+            np.array([[1, 1], [1, 1]], dtype=float),
+            np.array([[2, 2], [2, 2]], dtype=float),
+            np.array([[2, 2], [2, 2]], dtype=float),
+            2,
+        )
+    ],
+)
+def test_check_cost_function_minimized_raise_expection(
+    obs: NDArray, lr: NDArray, ano: NDArray, lam: float
+):
+    function_str = "||D||_* + lam ||A||_1"
+    rpca = RPCAPCP()
+    with pytest.raises(
+        CostFunctionRPCANotMinimized,
+        match="PCA algorithm may provide bad results. "
+        f"{function_str} is larger at the end "
+        "of the algorithm than at the start.",
+    ):
+        rpca._check_cost_function_minimized(obs, lr, ano, lam)
 
 
 @pytest.mark.parametrize("X", [X_complete])
 def test_rpca_rpca_pcp_get_params_scale(X: NDArray):
-    rpca_pcp = RPCAPCP(period=period, max_iterations=max_iterations, mu=mu, lam=lam)
+    rpca_pcp = RPCAPCP(max_iterations=max_iterations, mu=0.5, lam=0.1)
     result_dict = rpca_pcp.get_params_scale(X)
     result = list(result_dict.values())
-    params_expected = [0.08333333333333333, 0.5773502691896258]
-    np.testing.assert_allclose(result, params_expected, rtol=1e-5)
+    params_expected = [1 / 7, np.sqrt(2) / 2]
+    np.testing.assert_allclose(result, params_expected, atol=1e-4)
 
 
-@pytest.mark.parametrize("X", [X_incomplete])
-def test_rpca_rpca_pcp_decompose_rpca(X: NDArray):
-    rpca_pcp = RPCAPCP(period=period, max_iterations=max_iterations, mu=mu, lam=lam)
-    M_result, A_result = rpca_pcp.decompose_rpca_signal(X)
-    M_expected = np.array([[1, 0.5], [4, 2], [2.06, 4]])
-    A_expected = np.array([[0, 0.5], [0, 0], [1.94, 0]])
-    np.testing.assert_allclose(M_result, M_expected, atol=1e-2)
-    np.testing.assert_allclose(A_result, A_expected, atol=1e-2)
+# The problem is ill-conditioned and the result depends on the parameter mu
+@pytest.mark.parametrize("X, mu", [(X_complete, small_mu)])
+def test_rpca_rpca_pcp_zero_lambda_small_mu(X: NDArray, mu: float):
+    rpca_pcp = RPCAPCP(lam=0, mu=mu)
+    X_result, A_result = rpca_pcp.decompose_rpca_signal(X)
+    np.testing.assert_allclose(X_result, np.full_like(X, 0), atol=1e-4)
+    np.testing.assert_allclose(A_result, X, atol=1e-4)
+
+
+# The problem is ill-conditioned and the result depends on the parameter mu
+@pytest.mark.parametrize("X, mu", [(X_complete, large_mu)])
+def test_rpca_rpca_pcp_zero_lambda_large_mu(X: NDArray, mu: float):
+    rpca_pcp = RPCAPCP(lam=0, mu=mu)
+    X_result, A_result = rpca_pcp.decompose_rpca_signal(X)
+    np.testing.assert_allclose(X_result, X, atol=1e-4)
+    np.testing.assert_allclose(A_result, np.full_like(X, 0), atol=1e-4)
+
+
+@pytest.mark.parametrize("X, mu", [(X_complete, large_mu)])
+def test_rpca_rpca_pcp_large_lambda_small_mu(X: NDArray, mu: float):
+    rpca_pcp = RPCAPCP(lam=1e3, mu=mu)
+    X_result, A_result = rpca_pcp.decompose_rpca_signal(X)
+    np.testing.assert_allclose(X_result, X, atol=1e-4)
+    np.testing.assert_allclose(A_result, np.full_like(X, 0), atol=1e-4)
+
+
+def test_rpca_temporal_signal(synthetic_temporal_data):
+    signal = synthetic_temporal_data
+    period = 100
+    lam = 0.1
+    rpca = RPCAPCP(period=period, lam=lam, mu=0.01)
+    X_result, A_result = rpca.decompose_rpca_signal(signal)
+    X_input_rpca = utils.linear_interpolation(signal.reshape(period, -1))
+    assert np.linalg.norm(X_input_rpca, "nuc") >= np.linalg.norm(
+        X_result.reshape(period, -1), "nuc"
+    ) + lam * np.sum(np.abs(A_result.reshape(period, -1)))
