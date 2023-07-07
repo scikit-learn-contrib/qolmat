@@ -114,4 +114,4 @@ class RPCAPCP(RPCA):
         value_end = np.linalg.norm(low_rank, "nuc") + lam * np.sum(np.abs(anomalies))
         if value_start + 1e-4 <= value_end:
             function_str = "||D||_* + lam ||A||_1"
-            raise CostFunctionRPCANotMinimized(function_str, value_start, value_end)
+            raise CostFunctionRPCANotMinimized(function_str, float(value_start), float(value_end))
