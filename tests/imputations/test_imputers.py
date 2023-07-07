@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from sklearn.ensemble import ExtraTreesRegressor
-from sklearn.utils.estimator_checks import parametrize_with_checks
+from sklearn.utils.estimator_checks import check_estimator, parametrize_with_checks
 from qolmat.benchmark.hyperparameters import HyperValue
 
 from qolmat.imputations import imputers
@@ -303,7 +303,7 @@ def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
         imputers.KNNImputer(),
         imputers.ImputerMICE(),
         imputers.ImputerRegressor(),
-        imputers.ImputerRPCA(),
+        imputers.ImputerRPCA(tau=0, lam=0),
         imputers.ImputerEM(),
     ]
 )

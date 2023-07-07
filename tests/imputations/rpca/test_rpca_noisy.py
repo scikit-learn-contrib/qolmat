@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from numpy.typing import NDArray
 
-from qolmat.imputations.rpca.rpca_noisy import RPCANoisy, _check_cost_function_minimized
+from qolmat.imputations.rpca.rpca_noisy import RPCANoisy
 from qolmat.utils import utils
 from qolmat.utils.data import generate_artificial_ts
 from qolmat.utils.exceptions import CostFunctionRPCANotMinimized
@@ -12,18 +12,22 @@ X_incomplete = np.array([[1, 2], [3, np.nan]], dtype=float)
 X_interpolated = np.array([[1, 2], [3, 3]], dtype=float)
 omega = np.array([[True, True], [True, False]])
 max_iterations = 100
-# synthetic temporal data
-n_samples = 1000
-periods = [100, 20]
-amp_anomalies = 0.5
-ratio_anomalies = 0.05
-amp_noise = 0.1
-X_true, A_true, E_true = generate_artificial_ts(
-    n_samples, periods, amp_anomalies, ratio_anomalies, amp_noise
-)
-signal = X_true + A_true + E_true
-mask = np.random.choice(len(signal), round(len(signal) / 20))
-signal[mask] = np.nan
+
+
+@pytest.fixture
+def synthetic_temporal_data():
+    n_samples = 1000
+    periods = [100, 20]
+    amp_anomalies = 0.5
+    ratio_anomalies = 0.05
+    amp_noise = 0.1
+    X_true, A_true, E_true = generate_artificial_ts(
+        n_samples, periods, amp_anomalies, ratio_anomalies, amp_noise
+    )
+    signal = X_true + A_true + E_true
+    mask = np.random.choice(len(signal), round(len(signal) / 20))
+    signal[mask] = np.nan
+    return signal
 
 
 @pytest.mark.parametrize(
@@ -42,8 +46,9 @@ signal[mask] = np.nan
 def test_check_cost_function_minimized_raise_expection(
     obs: NDArray, lr: NDArray, ano: NDArray, lam: float, tau: float, norm: str
 ):
+    rpca = RPCANoisy()
     with pytest.raises(CostFunctionRPCANotMinimized):
-        _check_cost_function_minimized(obs, lr, ano, lam, tau, norm)
+        rpca._check_cost_function_minimized(obs, lr, ano, lam, tau, norm)
 
 
 @pytest.mark.parametrize("X", [X_complete])
@@ -85,8 +90,8 @@ def test_rpca_pcp_zero_lambda(X: NDArray, tau: float, X_interpolated: NDArray):
     np.testing.assert_allclose(A_result, X_interpolated, atol=1e-4)
 
 
-@pytest.mark.parametrize("signal", [signal])
-def test_rpca_temporal_signal(signal: NDArray):
+def test_rpca_temporal_signal(synthetic_temporal_data):
+    signal = synthetic_temporal_data
     period = 100
     tau = 1
     lam = 0.1

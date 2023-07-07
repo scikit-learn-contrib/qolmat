@@ -12,54 +12,6 @@ from qolmat.imputations.rpca.rpca import RPCA
 from qolmat.utils.exceptions import CostFunctionRPCANotMinimized
 
 
-def _check_cost_function_minimized(
-    observations: NDArray,
-    low_rank: NDArray,
-    anomalies: NDArray,
-    tau: float,
-    lam: float,
-    norm: str,
-):
-    """Check that the functional minimized by the RPCA
-    is smaller at the end than at the beginning
-
-    Parameters
-    ----------
-    observations : NDArray
-        observations matrix with first linear interpolation
-    low_rank : NDArray
-        low_rank matrix resulting from RPCA
-    anomalies : NDArray
-        sparse matrix resulting from RPCA
-    tau : float
-        parameter penalizing the nuclear norm of the low rank part
-    lam : float
-        parameter penalizing the L1-norm of the anomaly/sparse part
-    norm : str
-        norm of the temporal penalisation. Has to be `L1` or `L2`
-
-    Raises
-    ------
-    CostFunctionRPCANotMinimized
-        The RPCA does not minimized the cost function:
-        the starting cost is at least equal to the final one.
-    """
-    value_start = tau * np.linalg.norm(observations, "nuc")
-    if norm == "L1":
-        anomalies_norm = np.sum(np.abs(anomalies))
-        function_str = "||D-M-A||_2 + tau ||D||_* + lam ||A||_1"
-    elif norm == "L2":
-        anomalies_norm = np.sum(anomalies**2)
-        function_str = "||D-M-A||_2 + tau ||D||_* + lam ||A||_2"
-    value_end = (
-        np.sum((observations - low_rank - anomalies) ** 2)
-        + tau * np.linalg.norm(low_rank, "nuc")
-        + lam * anomalies_norm
-    )
-    if value_start + 1e-4 < value_end:
-        raise CostFunctionRPCANotMinimized(function_str, value_start, value_end)
-
-
 class RPCANoisy(RPCA):
     """
     This class implements a noisy version of the so-called 'improved RPCA'
@@ -423,12 +375,54 @@ class RPCANoisy(RPCA):
         elif self.norm == "L2":
             M, A, U, V = self.decompose_rpca_L2(D, Omega, lam, tau, rank)
 
-        print("D")
-        print(D)
-        print("M")
-        print(M)
-        print("A")
-        print(A)
-        _check_cost_function_minimized(D, M, A, tau, lam, self.norm)
+        self._check_cost_function_minimized(D, M, A, tau, lam, self.norm)
 
         return M, A
+
+    @staticmethod
+    def _check_cost_function_minimized(
+        observations: NDArray,
+        low_rank: NDArray,
+        anomalies: NDArray,
+        tau: float,
+        lam: float,
+        norm: str,
+    ):
+        """Check that the functional minimized by the RPCA
+        is smaller at the end than at the beginning
+
+        Parameters
+        ----------
+        observations : NDArray
+            observations matrix with first linear interpolation
+        low_rank : NDArray
+            low_rank matrix resulting from RPCA
+        anomalies : NDArray
+            sparse matrix resulting from RPCA
+        tau : float
+            parameter penalizing the nuclear norm of the low rank part
+        lam : float
+            parameter penalizing the L1-norm of the anomaly/sparse part
+        norm : str
+            norm of the temporal penalisation. Has to be `L1` or `L2`
+
+        Raises
+        ------
+        CostFunctionRPCANotMinimized
+            The RPCA does not minimized the cost function:
+            the starting cost is at least equal to the final one.
+        """
+        value_start = tau * np.linalg.norm(observations, "nuc")
+        if norm == "L1":
+            anomalies_norm = np.sum(np.abs(anomalies))
+            function_str = "||D-M-A||_2 + tau ||D||_* + lam ||A||_1"
+        elif norm == "L2":
+            anomalies_norm = np.sum(anomalies**2)
+            function_str = "||D-M-A||_2 + tau ||D||_* + lam ||A||_2"
+        value_end = (
+            np.sum((observations - low_rank - anomalies) ** 2)
+            + tau * np.linalg.norm(low_rank, "nuc")
+            + lam * anomalies_norm
+        )
+        if value_start + 1e-4 <= value_end:
+            raise CostFunctionRPCANotMinimized(function_str, value_start, value_end)

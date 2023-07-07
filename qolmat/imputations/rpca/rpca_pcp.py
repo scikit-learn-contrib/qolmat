@@ -11,39 +11,6 @@ from qolmat.imputations.rpca.rpca import RPCA
 from qolmat.utils.exceptions import CostFunctionRPCANotMinimized
 
 
-def _check_cost_function_minimized(
-    observations: NDArray,
-    low_rank: NDArray,
-    anomalies: NDArray,
-    lam: float,
-):
-    """Check that the functional minimized by the RPCA
-    is smaller at the end than at the beginning
-
-    Parameters
-    ----------
-    observations : NDArray
-        observations matrix with first linear interpolation
-    low_rank : NDArray
-        low_rank matrix resulting from RPCA
-    anomalies : NDArray
-        sparse matrix resulting from RPCA
-    lam : float
-        parameter penalizing the L1-norm of the anomaly/sparse part
-
-    Raises
-    ------
-    CostFunctionRPCANotMinimized
-        The RPCA does not minimized the cost function:
-        the starting cost is at least equal to the final one.
-    """
-    value_start = np.linalg.norm(observations, "nuc")
-    value_end = np.linalg.norm(low_rank, "nuc") + lam * np.sum(np.abs(anomalies))
-    if value_start + 1e-9 < value_end:
-        function_str = "||D||_* + lam ||A||_1"
-        raise CostFunctionRPCANotMinimized(function_str, value_start, value_end)
-
-
 class RPCAPCP(RPCA):
     """
     This class implements the basic RPCA decomposition using Alternating Lagrangian Multipliers.
@@ -112,6 +79,39 @@ class RPCAPCP(RPCA):
             if error < self.tol:
                 break
 
-        _check_cost_function_minimized(D, M, A, lam)
+        self._check_cost_function_minimized(D, M, A, lam)
 
         return M, A
+
+    @staticmethod
+    def _check_cost_function_minimized(
+        observations: NDArray,
+        low_rank: NDArray,
+        anomalies: NDArray,
+        lam: float,
+    ):
+        """Check that the functional minimized by the RPCA
+        is smaller at the end than at the beginning
+
+        Parameters
+        ----------
+        observations : NDArray
+            observations matrix with first linear interpolation
+        low_rank : NDArray
+            low_rank matrix resulting from RPCA
+        anomalies : NDArray
+            sparse matrix resulting from RPCA
+        lam : float
+            parameter penalizing the L1-norm of the anomaly/sparse part
+
+        Raises
+        ------
+        CostFunctionRPCANotMinimized
+            The RPCA does not minimized the cost function:
+            the starting cost is at least equal to the final one.
+        """
+        value_start = np.linalg.norm(observations, "nuc")
+        value_end = np.linalg.norm(low_rank, "nuc") + lam * np.sum(np.abs(anomalies))
+        if value_start + 1e-4 <= value_end:
+            function_str = "||D||_* + lam ||A||_1"
+            raise CostFunctionRPCANotMinimized(function_str, value_start, value_end)

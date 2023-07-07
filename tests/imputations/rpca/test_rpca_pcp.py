@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from numpy.typing import NDArray
 
-from qolmat.imputations.rpca.rpca_pcp import RPCAPCP, _check_cost_function_minimized
+from qolmat.imputations.rpca.rpca_pcp import RPCAPCP
 from qolmat.utils import utils
 from qolmat.utils.data import generate_artificial_ts
 from qolmat.utils.exceptions import CostFunctionRPCANotMinimized
@@ -12,18 +12,22 @@ X_incomplete = np.array([[1, 2], [3, np.nan], [np.nan, 4]], dtype=float)
 max_iterations = 50
 small_mu = 1e-5
 large_mu = 1e5
-# synthetic temporal data
-n_samples = 1000
-periods = [100, 20]
-amp_anomalies = 0.5
-ratio_anomalies = 0.05
-amp_noise = 0.1
-X_true, A_true, E_true = generate_artificial_ts(
-    n_samples, periods, amp_anomalies, ratio_anomalies, amp_noise
-)
-signal = X_true + A_true + E_true
-mask = np.random.choice(len(signal), round(len(signal) / 20))
-signal[mask] = np.nan
+
+
+@pytest.fixture
+def synthetic_temporal_data():
+    n_samples = 1000
+    periods = [100, 20]
+    amp_anomalies = 0.5
+    ratio_anomalies = 0.05
+    amp_noise = 0.1
+    X_true, A_true, E_true = generate_artificial_ts(
+        n_samples, periods, amp_anomalies, ratio_anomalies, amp_noise
+    )
+    signal = X_true + A_true + E_true
+    mask = np.random.choice(len(signal), round(len(signal) / 20))
+    signal[mask] = np.nan
+    return signal
 
 
 @pytest.mark.parametrize(
@@ -41,13 +45,14 @@ def test_check_cost_function_minimized_raise_expection(
     obs: NDArray, lr: NDArray, ano: NDArray, lam: float
 ):
     function_str = "||D||_* + lam ||A||_1"
+    rpca = RPCAPCP()
     with pytest.raises(
         CostFunctionRPCANotMinimized,
         match="PCA algorithm may provide bad results. "
         f"{function_str} is larger at the end "
         "of the algorithm than at the start.",
     ):
-        _check_cost_function_minimized(obs, lr, ano, lam)
+        rpca._check_cost_function_minimized(obs, lr, ano, lam)
 
 
 @pytest.mark.parametrize("X", [X_complete])
@@ -85,8 +90,8 @@ def test_rpca_rpca_pcp_large_lambda_small_mu(X: NDArray, mu: float):
     np.testing.assert_allclose(A_result, np.full_like(X, 0), atol=1e-4)
 
 
-@pytest.mark.parametrize("signal", [signal])
-def test_rpca_temporal_signal(signal: NDArray):
+def test_rpca_temporal_signal(synthetic_temporal_data):
+    signal = synthetic_temporal_data
     period = 100
     lam = 0.1
     rpca = RPCAPCP(period=period, lam=lam, mu=0.01)
