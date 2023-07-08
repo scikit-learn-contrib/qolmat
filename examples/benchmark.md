@@ -20,18 +20,6 @@ In Qolmat, a few data imputation methods are implemented as well as a way to eva
 First, import some useful librairies
 
 ```python
-X= np.array([[0], [1], [2]])
-```
-
-```python
-np.cov(X)
-```
-
-```python
-
-```
-
-```python
 import warnings
 # warnings.filterwarnings('error')
 ```
@@ -146,8 +134,12 @@ imputer_tsmle = imputers.ImputerEM(groups=("station",), model="VAR1", method="ml
 
 
 imputer_knn = imputers.ImputerKNN(groups=("station",), n_neighbors=10)
-imputer_mice = imputers.ImputerMICE(groups=("station",), estimator=LinearRegression(), sample_posterior=False, max_iter=100, missing_values=np.nan)
+imputer_mice = imputers.ImputerMICE(groups=("station",), estimator=LinearRegression(), sample_posterior=False, max_iter=100)
 imputer_regressor = imputers.ImputerRegressor(groups=("station",), estimator=LinearRegression())
+```
+
+```python
+imputer_rpca.fit_transform(df_data)
 ```
 
 ```python
@@ -201,7 +193,7 @@ dict_imputers = {
     # "OU": imputer_ou,
     "TSOU": imputer_tsou,
     "TSMLE": imputer_tsmle,
-    # "RPCA": imputer_rpca,
+    "RPCA": imputer_rpca,
     # "RPCA_opti": imputer_rpca_opti,
     # "RPCA_opti2": imputer_rpca_opti2,
     # "locf": imputer_locf,
@@ -230,7 +222,7 @@ comparison = comparator.Comparator(
     dict_imputers,
     cols_to_impute,
     generator_holes = generator_holes,
-    metrics=["mae", "wmape", "KL_columnwise", "ks_test"],
+    metrics=["mae", "wmape", "KL_columnwise", "ks_test", "dist_corr_pattern"],
     max_evals=10,
     dict_config_opti=dict_config_opti,
 )
@@ -381,7 +373,7 @@ dict_imputers["MLP"] = imputer_mlp = imputers_keras.ImputerRegressorKeras(estima
 ```
 
 We can re-run the imputation model benchmark as before.
-```python jupyter={"outputs_hidden": true} tags=[]
+```python tags=[]
 generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], subset=cols_to_impute, ratio_masked=ratio_masked)
 
 comparison = comparator.Comparator(
@@ -395,7 +387,7 @@ comparison = comparator.Comparator(
 results = comparison.compare(df_data)
 results
 ```
-```python jupyter={"outputs_hidden": true, "source_hidden": true} tags=[]
+```python jupyter={"source_hidden": true} tags=[]
 df_plot = df_data
 dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_imputers.items()}
 station = df_plot.index.get_level_values("station")[0]

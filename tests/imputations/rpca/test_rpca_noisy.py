@@ -31,12 +31,13 @@ def synthetic_temporal_data():
 
 
 @pytest.mark.parametrize(
-    "obs, lr, ano, lam, tau, norm",
+    "obs, lr, ano, omega, lam, tau, norm",
     [
         (
             np.array([[1, 1], [1, 1]], dtype=float),
             np.array([[2, 2], [2, 2]], dtype=float),
             np.array([[2, 2], [2, 2]], dtype=float),
+            True * np.ones((2, 2)),
             2,
             2,
             "L2",
@@ -44,11 +45,11 @@ def synthetic_temporal_data():
     ],
 )
 def test_check_cost_function_minimized_raise_expection(
-    obs: NDArray, lr: NDArray, ano: NDArray, lam: float, tau: float, norm: str
+    obs: NDArray, lr: NDArray, ano: NDArray, omega: NDArray, lam: float, tau: float, norm: str
 ):
     rpca = RPCANoisy()
     with pytest.raises(CostFunctionRPCANotMinimized):
-        rpca._check_cost_function_minimized(obs, lr, ano, lam, tau, norm)
+        rpca._check_cost_function_minimized(obs, lr, ano, omega, lam, tau)
 
 
 @pytest.mark.parametrize("X", [X_complete])

@@ -256,6 +256,7 @@ class RPCANoisy(RPCA):
         In = np.eye(n)
 
         for _ in range(self.max_iterations):
+            print("Cost function", self.cost_function(D, X, A, Omega, tau, lam))
             X_temp = X.copy()
             A_temp = A.copy()
             L_temp = L.copy()
@@ -375,18 +376,38 @@ class RPCANoisy(RPCA):
         elif self.norm == "L2":
             M, A, U, V = self.decompose_rpca_L2(D, Omega, lam, tau, rank)
 
-        self._check_cost_function_minimized(D, M, A, tau, lam, self.norm)
+        self._check_cost_function_minimized(D, M, A, Omega, tau, lam)
 
         return M, A
 
-    @staticmethod
-    def _check_cost_function_minimized(
+    def cost_function(
+        self,
         observations: NDArray,
         low_rank: NDArray,
         anomalies: NDArray,
+        Omega: NDArray,
         tau: float,
         lam: float,
-        norm: str,
+    ):
+        if self.norm == "L1":
+            anomalies_norm = (anomalies * Omega).abs().sum()
+        elif self.norm == "L2":
+            anomalies_norm = ((anomalies * Omega) ** 2).sum()
+        cost = (
+            ((Omega * (observations - low_rank - anomalies)) ** 2).sum()
+            + tau * np.linalg.norm(low_rank, "nuc")
+            + lam * anomalies_norm
+        )
+        return cost
+
+    def _check_cost_function_minimized(
+        self,
+        observations: NDArray,
+        low_rank: NDArray,
+        anomalies: NDArray,
+        Omega: NDArray,
+        tau: float,
+        lam: float,
     ):
         """Check that the functional minimized by the RPCA
         is smaller at the end than at the beginning
@@ -399,6 +420,8 @@ class RPCANoisy(RPCA):
             low_rank matrix resulting from RPCA
         anomalies : NDArray
             sparse matrix resulting from RPCA
+        Omega: NDArrau
+            boolean matrix indicating the observed values
         tau : float
             parameter penalizing the nuclear norm of the low rank part
         lam : float
@@ -412,17 +435,11 @@ class RPCANoisy(RPCA):
             The RPCA does not minimized the cost function:
             the starting cost is at least equal to the final one.
         """
-        value_start = tau * np.linalg.norm(observations, "nuc")
-        if norm == "L1":
-            anomalies_norm = np.sum(np.abs(anomalies))
-            function_str = "||D-M-A||_2 + tau ||D||_* + lam ||A||_1"
-        elif norm == "L2":
-            anomalies_norm = np.sum(anomalies**2)
-            function_str = "||D-M-A||_2 + tau ||D||_* + lam ||A||_2"
-        value_end = (
-            np.sum((observations - low_rank - anomalies) ** 2)
-            + tau * np.linalg.norm(low_rank, "nuc")
-            + lam * anomalies_norm
+        cost_start = self.cost_function(
+            observations, observations, np.full_like(observations, 0), Omega, tau, lam
         )
-        if value_start + 1e-4 <= value_end:
-            raise CostFunctionRPCANotMinimized(function_str, float(value_start), float(value_end))
+        cost_end = self.cost_function(observations, low_rank, anomalies, Omega, tau, lam)
+        function_str = f"||D-M-A||_2 + tau ||D||_* + lam ||A||_{self.norm}"
+
+        if cost_start + 1e-4 <= cost_end:
+            raise CostFunctionRPCANotMinimized(function_str, float(cost_end), float(cost_end))
