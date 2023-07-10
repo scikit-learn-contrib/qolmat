@@ -155,7 +155,7 @@ class EM(BaseEstimator, TransformerMixin):
     def __init__(
         self,
         method: Literal["mle", "sample"] = "sample",
-        max_iter_em: int = 200,
+        max_iter_em: int = 500,
         n_iter_ou: int = 50,
         ampli: float = 1,
         random_state: Union[None, int, np.random.RandomState] = None,
@@ -213,7 +213,7 @@ class EM(BaseEstimator, TransformerMixin):
         for iter_em in range(self.max_iter_em):
             X_sample_last = self._sample_ou(X_sample_last, mask_na)
             if self._check_convergence():
-                # print(f"EM converged after {iter_em} iterations.")
+                print(f"EM converged after {iter_em} iterations.")
                 break
 
         self.dict_criteria_stop = {key: [] for key in self.dict_criteria_stop}
@@ -539,20 +539,47 @@ class VAR1EM(EM):
             period=period,
         )
 
-    def fit_parameter_A(self, X):
-        n_variables, n_samples = X.shape
-        Xc = X - self.B[:, None]
+    def fit_parameter_A(self, X: NDArray) -> None:
+        """
+        The function `fit_parameter_A` calculates the parameter `A`
+        using the input `X` and the previously calculated parameter `B`.
+
+        Parameters
+        ----------
+        X : NDArray
+            Input data.
+        """
+        Xc = X - self.B[:, None] # type: ignore #noqa
         XX_lag = Xc[:, 1:] @ Xc[:, :-1].T
         XX = Xc @ Xc.T
         self.A = XX_lag @ invert_robust(XX, epsilon=1e-2)
 
-    def fit_parameter_B(self, X):
-        n_variables, n_samples = X.shape
+    def fit_parameter_B(self, X) -> None:
+        """
+        The function `fit_parameter_B` calculates the value of parameter `B`
+        based on the input matrix `X` and the existing parameter `A`.
+
+        Parameters
+        ----------
+        X : NDArray
+            Input data
+        """
+        n_variables, _ = X.shape
         D = np.mean(X - self.A @ X, axis=1)
         self.B = scipy.linalg.inv(np.eye(n_variables) - self.A) @ D
 
-    def fit_parameter_omega(self, X):
-        n_variables, n_samples = X.shape
+    def fit_parameter_omega(self, X: NDArray) -> None:
+        """
+        The function `fit_parameter_omega` calculates the covariance
+        matrix `omega` and its inverse `omega_inv` based on the input matrix `X`.
+
+        Parameters
+        ----------
+        X : NDArray
+            X is a numpy array representing the input data. It has shape (m, n),
+            where m is the number of features and n is the number of samples.
+        """
+        _, n_samples = X.shape
         Xc = X - self.B[:, None]
         Xc_lag = np.roll(Xc, 1)
         Z_back = Xc - self.A @ Xc_lag
@@ -560,8 +587,17 @@ class VAR1EM(EM):
         self.omega = (Z_back @ Z_back.T) / n_samples
         self.omega_inv = invert_robust(self.omega, epsilon=1e-2)
 
-    def fit_distribution(self, X):
-        n_variables, n_samples = X.shape
+    def fit_distribution(self, X: NDArray) -> None:
+        """
+        The function "fit_distribution" fits the parameters `A`, `B`,
+        and `omega` of a distribution using the input data `X`.
+
+        Parameters
+        ----------
+        X : NDArray
+            Input data for which the distribution is being fitted.
+        """
+        n_variables, _ = X.shape
 
         self.A = np.zeros((n_variables, n_variables))
 
@@ -570,7 +606,21 @@ class VAR1EM(EM):
             self.fit_parameter_A(X)
         self.fit_parameter_omega(X)
 
-    def gradient_X_centered_loglik(self, Xc):
+    def gradient_X_centered_loglik(self, Xc: NDArray) -> NDArray:
+        """
+        The function calculates the gradient of a centered
+        log-likelihood function using a given matrix.
+
+        Parameters
+        ----------
+        Xc : NDArray
+            Xc is a numpy array representing the centered input data.
+
+        Returns
+        -------
+        NDArray
+            The gradient of the centered log-likelihood with respect to the input variable `Xc`.
+        """
         Xc_back = np.roll(Xc, 1, axis=1)
         Xc_back[:, 0] = 0
         Z_back = Xc - self.A @ Xc_back
@@ -580,8 +630,7 @@ class VAR1EM(EM):
         return -self.omega_inv @ Z_back + self.A.T @ self.omega_inv @ Z_fore
 
     def _maximize_likelihood(self, X: NDArray, mask_na: NDArray, dt=1e-2) -> NDArray:
-        """
-        Get the argmax of a posterior distribution.
+        """Get the argmax of a posterior distribution.
 
         Parameters
         ----------
@@ -594,7 +643,7 @@ class VAR1EM(EM):
             DataFrame with imputed values.
         """
         Xc = X - self.B[:, None]
-        for n_optim in range(1000):
+        for _ in range(1000):
             grad = self.gradient_X_centered_loglik(Xc)
             grad[~mask_na] = 0
             Xc += dt * grad

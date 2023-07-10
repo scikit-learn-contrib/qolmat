@@ -1,7 +1,9 @@
 from typing import List
+
 import numpy as np
 import pytest
 from numpy.typing import NDArray
+from sklearn.datasets import make_spd_matrix
 
 from qolmat.imputations import em_sampler
 
@@ -19,6 +21,24 @@ X_expected: NDArray = np.array(
     dtype=float,
 )
 mask: NDArray = np.isnan(X_missing)
+
+
+@pytest.fixture
+def generate_multinormal_predefined_mean_cov():
+    n, d = 500, 20
+    r = np.random.RandomState(28)
+    mean = np.array([r.uniform(d) for _ in range(d)])
+    covariance = make_spd_matrix(n_dim=d, random_state=28)
+    X = np.random.multivariate_normal(mean=mean, cov=covariance, size=n)
+    mask = np.array(np.full_like(X, False), dtype=bool)
+    for j in range(X.shape[1]):
+        ind = np.random.choice(
+            np.arange(X.shape[0]), size=np.int64(np.ceil(X.shape[0] * 0.1)), replace=False
+        )
+        mask[ind, j] = True
+    X_missing = X.copy()
+    X_missing[mask] = np.nan
+    return {"mean": mean, "covariance": covariance, "X": X.T, "X_missing": X_missing.T}
 
 
 @pytest.mark.parametrize(
@@ -145,3 +165,33 @@ def test_no_more_nan_var1em() -> None:
     X = np.array([[1, np.nan, 8, 10], [13, 1, 4, 20], [1, 3, np.nan, 1]], dtype=float)
     assert np.sum(np.isnan(X)) > 0
     assert np.sum(np.isnan(em_sampler.VAR1EM().fit_transform(X))) == 0
+
+
+def test_mean_covariance_multinormalem(generate_multinormal_predefined_mean_cov):
+    """Test the MultiNormalEM provides good mean and covariance estimations."""
+    data = generate_multinormal_predefined_mean_cov
+    em = em_sampler.MultiNormalEM()
+    X_imputed = em.fit_transform(data["X_missing"])
+    covariance_imputed = np.cov(X_imputed, rowvar=True)
+    mean_imputed = np.mean(X_imputed, axis=1)
+    assert np.sum(np.abs(data["mean"] - mean_imputed)) / np.sum(np.abs(data["mean"])) < 1e-1
+    assert (
+        np.sum(np.abs(data["covariance"] - covariance_imputed))
+        / np.sum(np.abs(data["covariance"]))
+        < 1e-1
+    )
+
+
+def test_mean_covariance_var1em(generate_multinormal_predefined_mean_cov):
+    """Test the MultiNormalEM provides good mean and covariance estimations."""
+    data = generate_multinormal_predefined_mean_cov
+    em = em_sampler.VAR1EM()
+    X_imputed = em.fit_transform(data["X_missing"])
+    covariance_imputed = np.cov(X_imputed, rowvar=True)
+    mean_imputed = np.mean(X_imputed, axis=1)
+    assert np.sum(np.abs(data["mean"] - mean_imputed)) / np.sum(np.abs(data["mean"])) < 1e-1
+    assert (
+        np.sum(np.abs(data["covariance"] - covariance_imputed))
+        / np.sum(np.abs(data["covariance"]))
+        < 1e-1
+    )
