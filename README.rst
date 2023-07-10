@@ -62,7 +62,7 @@ To install directly from the github repository :
 
 Let us start with a basic imputation problem. Here, we generate one-dimensional noisy time series.
 
-.. code:: sh
+.. code-block:: python
 
     import matplotlib.pyplot as plt
     import numpy as np
@@ -75,7 +75,7 @@ Let us start with a basic imputation problem. Here, we generate one-dimensional 
 
 For this demonstration, let us create artificial holes in our dataset.
 
-.. code:: sh
+.. code-block:: python
 
     from qolmat.utils.data import add_holes
     plt.rcParams.update({'font.size': 18})
@@ -101,7 +101,7 @@ For this demonstration, let us create artificial holes in our dataset.
 To impute missing data, there are several methods that can be imported with ``from qolmat.imputations import imputers``.
 The creation of an imputation dictionary will enable us to benchmark the various imputations.
 
-.. code:: sh
+.. code-block:: python
 
     from sklearn.linear_model import LinearRegression
     from qolmat.imputations import imputers
@@ -146,7 +146,7 @@ The creation of an imputation dictionary will enable us to benchmark the various
 
 It is possible to define a parameter dictionary for an imputer with three pieces of information: min, max and type. The aim of the dictionary is to determine the optimal parameters for data imputation. Here, we call this dictionary ``dict_config_opti``.
 
-.. code:: sh
+.. code-block:: python
 
     search_params = {
         "RPCA_opti": {
@@ -157,7 +157,7 @@ It is possible to define a parameter dictionary for an imputer with three pieces
 
 Then with the comparator function in ``from qolmat.benchmark import comparator``, we can compare the different imputation methods. This **does not use knowledge on missing values**, but it relies data masking instead. For more details on how imputors and comparator work, please see the following `link <https://qolmat.readthedocs.io/en/latest/explanation.html>`_.
 
-.. code:: sh
+.. code-block:: python
 
     from qolmat.benchmark import comparator
 
@@ -175,7 +175,7 @@ Then with the comparator function in ``from qolmat.benchmark import comparator``
 
 We can observe the benchmark results.
 
-.. code:: sh
+.. code-block:: python
 
     dfs_imputed =  imputer_tsmle.fit_transform(df_with_nan)
 
@@ -196,7 +196,7 @@ We can observe the benchmark results.
 
 Finally, we keep the best ``TSMLE`` imputor we represent.
 
-.. code:: sh
+.. code-block:: python
 
     dfs_imputed =  imputer_tsmle.fit_transform(df_with_nan)
 

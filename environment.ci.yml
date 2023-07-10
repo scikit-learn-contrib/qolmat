@@ -14,5 +14,5 @@ dependencies:
           - pytest
           - pytest-cov
           - pytest-mock
-          - tensorflow
+          - torch==2.0.1
           - -e .

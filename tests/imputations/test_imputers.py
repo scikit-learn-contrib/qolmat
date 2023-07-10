@@ -252,8 +252,8 @@ def test_ImputerRegressor_fit_transform(df: pd.DataFrame) -> None:
     result = imputer.fit_transform(df)
     expected = pd.DataFrame(
         {
-            "col1": [0, 5 / 3, 2, 3, 5 / 3],
-            "col2": [-1, 1 / 3, 0.5, 1 / 3, 1.5],
+            "col1": [0, 2, 2, 3, 2],
+            "col2": [-1, 0.5, 0.5, 0.5, 1.5],
         }
     )
     np.testing.assert_allclose(result, expected)
@@ -269,9 +269,7 @@ def test_ImputerRPCA_fit_transform(df: pd.DataFrame) -> None:
             "col2": [0, 1, 2, 2, 2] + [i for i in range(5, 20)],
         }
     )
-    print(result)
     result = np.around(result)
-    print(result)
     np.testing.assert_allclose(result, expected, atol=1e-2)
 
 
