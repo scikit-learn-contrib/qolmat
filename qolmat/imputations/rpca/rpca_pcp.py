@@ -4,9 +4,11 @@ from typing import Optional, Tuple, Union
 
 import numpy as np
 from numpy.typing import NDArray
+from sklearn import utils as sku
 
-from qolmat.imputations.rpca import utils
+from qolmat.imputations.rpca import rpca_utils
 from qolmat.imputations.rpca.rpca import RPCA
+from qolmat.utils.exceptions import CostFunctionRPCANotMinimized
 
 
 class RPCAPCP(RPCA):
@@ -28,77 +30,88 @@ class RPCAPCP(RPCA):
 
     def __init__(
         self,
-        period: Optional[int] = None,
+        random_state: Union[None, int, np.random.RandomState] = None,
+        period: int = 1,
         mu: Optional[float] = None,
         lam: Optional[float] = None,
-        max_iter: int = int(1e4),
+        max_iterations: int = int(1e4),
         tol: float = 1e-6,
     ) -> None:
         super().__init__(
             period=period,
-            max_iter=max_iter,
+            max_iterations=max_iterations,
             tol=tol,
         )
+        self.rng = sku.check_random_state(random_state)
         self.mu = mu
         self.lam = lam
 
     def get_params_scale(self, D: NDArray):
-        mu = D.size / (4.0 * utils.l1_norm(D))
+        mu = D.size / (4.0 * rpca_utils.l1_norm(D))
         lam = 1 / np.sqrt(np.max(D.shape))
         dict_params = {"mu": mu, "lam": lam}
         return dict_params
 
-    def decompose_rpca(self, D: NDArray) -> Tuple[NDArray, NDArray]:
-        D_proj = utils.impute_nans(D, method="median")
-
-        params_scale = self.get_params_scale(D_proj)
+    def decompose_rpca(self, D: NDArray, Omega: NDArray) -> Tuple[NDArray, NDArray]:
+        params_scale = self.get_params_scale(D)
 
         mu = params_scale["mu"] if self.mu is None else self.mu
         lam = params_scale["lam"] if self.lam is None else self.lam
-        Omega = ~np.isnan(D)
 
         D_norm = np.linalg.norm(D, "fro")
 
         A: NDArray = np.full_like(D, 0)
         Y: NDArray = np.full_like(D, 0)
 
-        errors: NDArray = np.full((self.max_iter,), fill_value=np.nan)
+        errors: NDArray = np.full((self.max_iterations,), fill_value=np.nan)
 
-        M: NDArray = D_proj - A
-        for iteration in range(self.max_iter):
-            M = utils.svd_thresholding(D_proj - A + Y / mu, 1 / mu)
-            A = utils.soft_thresholding(D_proj - M + Y / mu, lam / mu)
-            A[~Omega] = (D_proj - M)[~Omega]
-            Y += mu * (D_proj - M - A)
+        M: NDArray = D - A
+        for iteration in range(self.max_iterations):
+            M = rpca_utils.svd_thresholding(D - A + Y / mu, 1 / mu)
+            A = rpca_utils.soft_thresholding(D - M + Y / mu, lam / mu)
+            A[~Omega] = (D - M)[~Omega]
+
+            Y += mu * (D - M - A)
 
             error = np.linalg.norm(D - M - A, "fro") / D_norm
             errors[iteration] = error
 
             if error < self.tol:
                 break
+
+        self._check_cost_function_minimized(D, M, A, lam)
+
         return M, A
 
-    def decompose_rpca_signal(
-        self,
-        X: NDArray,
-    ) -> Tuple[NDArray, NDArray]:
-        """
-        Compute the RPCA decomposition of a matrix based on PCP method
+    @staticmethod
+    def _check_cost_function_minimized(
+        observations: NDArray,
+        low_rank: NDArray,
+        anomalies: NDArray,
+        lam: float,
+    ):
+        """Check that the functional minimized by the RPCA
+        is smaller at the end than at the beginning
 
         Parameters
         ----------
-        X : NDArray
+        observations : NDArray
+            observations matrix with first linear interpolation
+        low_rank : NDArray
+            low_rank matrix resulting from RPCA
+        anomalies : NDArray
+            sparse matrix resulting from RPCA
+        lam : float
+            parameter penalizing the L1-norm of the anomaly/sparse part
 
-        Returns
-        -------
-        M: NDArray
-            Low-rank signal
-        A: NDArray
-            Anomalies
+        Raises
+        ------
+        CostFunctionRPCANotMinimized
+            The RPCA does not minimized the cost function:
+            the starting cost is at least equal to the final one.
         """
-        D = self._prepare_data(X)
-        M, A = self.decompose_rpca(D)
-
-        M_final = self.get_shape_original(M, X)
-        A_final = self.get_shape_original(A, X)
-        return M_final, A_final
+        value_start = np.linalg.norm(observations, "nuc")
+        value_end = np.linalg.norm(low_rank, "nuc") + lam * np.sum(np.abs(anomalies))
+        if value_start + 1e-4 <= value_end:
+            function_str = "||D||_* + lam ||A||_1"
+            raise CostFunctionRPCANotMinimized(function_str, float(value_start), float(value_end))

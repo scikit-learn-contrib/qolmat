@@ -3,69 +3,104 @@ import pytest
 from numpy.typing import NDArray
 
 from qolmat.imputations.rpca.rpca_noisy import RPCANoisy
+from qolmat.utils import utils
+from qolmat.utils.data import generate_artificial_ts
+from qolmat.utils.exceptions import CostFunctionRPCANotMinimized
 
-X_complete = np.array([[1, 2], [4, 4], [4, 3]])
-X_incomplete = np.array([[1, np.nan], [4, 2], [np.nan, 4]])
-Omega_1 = ~np.isnan(X_incomplete)
-period = 100
-max_iter = 5
-tau = 0.5
-lam = 1
-rank = 1
+X_complete = np.array([[1, 2], [3, 1]], dtype=float)
+X_incomplete = np.array([[1, 2], [3, np.nan]], dtype=float)
+X_interpolated = np.array([[1, 2], [3, 3]], dtype=float)
+omega = np.array([[True, True], [True, False]])
+max_iterations = 100
 
 
-@pytest.mark.parametrize("X", [X_complete])
-@pytest.mark.parametrize("Omega", [Omega_1])
-def test_rpca_noisy_decompose_rpca_L1(X: NDArray, Omega: NDArray):
-    rpca_noisy = RPCANoisy(period=period, max_iter=max_iter, tau=tau, lam=lam)
-    M_result, A_result, U_result, V_result, errors_result = rpca_noisy.decompose_rpca_L1(
-        X, Omega=Omega, lam=lam, tau=tau, rank=rank
+@pytest.fixture
+def synthetic_temporal_data():
+    n_samples = 1000
+    periods = [100, 20]
+    amp_anomalies = 0.5
+    ratio_anomalies = 0.05
+    amp_noise = 0.1
+    X_true, A_true, E_true = generate_artificial_ts(
+        n_samples, periods, amp_anomalies, ratio_anomalies, amp_noise
     )
-    M_expected, A_expected, U_expected, V_expected, errors_expected = (
-        np.array([[0.8769033, 1.8768972], [3.87689287, 3.87689287], [3.87689129, 2.8768974]]),
-        np.array([[0.0, 0.0], [0.0, 0.0], [0.0, 0.0]]),
-        np.array([[49.51236273], [49.51516756], [49.5146066]]),
-        np.array([[40.31557351], [40.31557349]]),
-        np.array([22.99769623, 517.6202431, 748.420655, 731.25616855, 63.38889854]),
-    )
-    np.testing.assert_allclose(M_result, M_expected, rtol=1e-5)
-    np.testing.assert_allclose(A_result, A_expected, rtol=1e-5)
-    np.testing.assert_allclose(U_result, U_expected, rtol=1e-5)
-    np.testing.assert_allclose(V_result, V_expected, rtol=1e-5)
-    np.testing.assert_allclose(errors_result, errors_expected, rtol=1e-5)
+    signal = X_true + A_true + E_true
+    mask = np.random.choice(len(signal), round(len(signal) / 20))
+    signal[mask] = np.nan
+    return signal
 
 
-@pytest.mark.parametrize("X", [X_complete])
-@pytest.mark.parametrize("Omega", [Omega_1])
-def test_rpca_noisy_decompose_rpca_L2(X: NDArray, Omega: NDArray):
-    rpca_noisy = RPCANoisy(period=period, max_iter=max_iter, tau=tau, lam=lam)
-    M_result, A_result, U_result, V_result, errors_result = rpca_noisy.decompose_rpca_L2(
-        X, Omega=Omega, lam=lam, tau=tau, rank=rank
-    )
-    M_expected, A_expected, U_expected, V_expected, errors_expected = (
-        np.array(
-            [
-                [1995.97050193, 1995.97050301],
-                [1996.13508552, 1996.13508659],
-                [1996.06095969, 1996.06096077],
-            ]
-        ),
-        np.array([[0.0, 2.28659352], [0.0, 0.0], [2.28660955, 0.0]]),
-        np.array([[49.51062306], [49.51470561], [49.5128669]]),
-        np.array([[40.31398472], [40.31398475]]),
-        np.array([22.99769623, 517.61986854, 748.4207916, 731.25607245, 63.38959319]),
-    )
-    np.testing.assert_allclose(M_result, M_expected, rtol=1e-5)
-    np.testing.assert_allclose(A_result, A_expected, rtol=1e-5)
-    np.testing.assert_allclose(U_result, U_expected, rtol=1e-5)
-    np.testing.assert_allclose(V_result, V_expected, rtol=1e-5)
-    np.testing.assert_allclose(errors_result, errors_expected, rtol=1e-5)
+@pytest.mark.parametrize(
+    "obs, lr, ano, lam, tau, norm",
+    [
+        (
+            np.array([[1, 1], [1, 1]], dtype=float),
+            np.array([[2, 2], [2, 2]], dtype=float),
+            np.array([[2, 2], [2, 2]], dtype=float),
+            2,
+            2,
+            "L2",
+        )
+    ],
+)
+def test_check_cost_function_minimized_raise_expection(
+    obs: NDArray, lr: NDArray, ano: NDArray, lam: float, tau: float, norm: str
+):
+    rpca = RPCANoisy()
+    with pytest.raises(CostFunctionRPCANotMinimized):
+        rpca._check_cost_function_minimized(obs, lr, ano, lam, tau, norm)
 
 
 @pytest.mark.parametrize("X", [X_complete])
 def test_rpca_noisy_get_params_scale(X: NDArray):
-    rpca_noisy = RPCANoisy(period=period, max_iter=max_iter, tau=tau, lam=lam)
-    result_dict = rpca_noisy.get_params_scale(X)
+    rpca = RPCANoisy(max_iterations=max_iterations, tau=0.5, lam=0.1)
+    result_dict = rpca.get_params_scale(X)
     result = list(result_dict.values())
-    params_expected = [2, 1 / np.sqrt(3), 1 / np.sqrt(3)]
+    params_expected = [2, np.sqrt(2) / 2, np.sqrt(2) / 2]
     np.testing.assert_allclose(result, params_expected, rtol=1e-5)
+
+
+@pytest.mark.parametrize("X, X_interpolated", [(X_incomplete, X_interpolated)])
+def test_rpca_pcp_zero_tau_zero_lambda(X: NDArray, X_interpolated: NDArray):
+    rpca = RPCANoisy(tau=0, lam=0, norm="L2")
+    X_result, A_result = rpca.decompose_rpca_signal(X)
+    np.testing.assert_allclose(X_result, X_interpolated, atol=1e-4)
+    np.testing.assert_allclose(A_result, np.full_like(X, 0), atol=1e-4)
+
+
+@pytest.mark.parametrize(
+    "X, lam, X_interpolated",
+    [(X_incomplete, 1, X_interpolated), (X_incomplete, 1e3, X_interpolated)],
+)
+def test_rpca_pcp_zero_tau(X: NDArray, lam: float, X_interpolated: NDArray):
+    rpca = RPCANoisy(tau=0, lam=lam, norm="L2")
+    X_result, A_result = rpca.decompose_rpca_signal(X)
+    np.testing.assert_allclose(X_result, X_interpolated, atol=1e-4)
+    np.testing.assert_allclose(A_result, np.full_like(X, 0), atol=1e-4)
+
+
+@pytest.mark.parametrize(
+    "X, tau, X_interpolated",
+    [(X_incomplete, 0.4, X_interpolated), (X_incomplete, 2.4, X_interpolated)],
+)
+def test_rpca_pcp_zero_lambda(X: NDArray, tau: float, X_interpolated: NDArray):
+    rpca = RPCANoisy(tau=tau, lam=0, norm="L2")
+    X_result, A_result = rpca.decompose_rpca_signal(X)
+    np.testing.assert_allclose(X_result, np.full_like(X, 0), atol=1e-4)
+    np.testing.assert_allclose(A_result, X_interpolated, atol=1e-4)
+
+
+def test_rpca_temporal_signal(synthetic_temporal_data):
+    signal = synthetic_temporal_data
+    period = 100
+    tau = 1
+    lam = 0.1
+    rpca = RPCANoisy(period=period, tau=tau, lam=lam, norm="L2")
+    X_result, A_result = rpca.decompose_rpca_signal(signal)
+    X_input_rpca = utils.linear_interpolation(signal.reshape(period, -1))
+    assert np.linalg.norm(X_input_rpca, "nuc") >= 1 / 2 * np.linalg.norm(
+        X_input_rpca - X_result.reshape(period, -1) - A_result.reshape(period, -1),
+        "fro",
+    ) ** 2 + tau * np.linalg.norm(X_result.reshape(period, -1), "nuc") + lam * np.sum(
+        np.abs(A_result.reshape(period, -1))
+    )

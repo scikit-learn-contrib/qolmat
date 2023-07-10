@@ -1,4 +1,5 @@
-from typing import Callable, List, Optional
+from functools import partial
+from typing import Callable, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -7,6 +8,7 @@ import sklearn
 from sklearn import metrics as skm
 from sklearn.ensemble import BaseEnsemble
 from sklearn.preprocessing import StandardScaler
+import dcor
 
 EPS = np.finfo(float).eps
 
@@ -832,3 +834,117 @@ def frechet_distance(
         return pd.Series((frechet_dist / df_true.shape[0]), index=["All"])
     else:
         return pd.Series(np.repeat(frechet_dist, len(df1.columns)))
+
+
+def distance_correlation_complement(
+    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
+) -> pd.Series:
+    """Correlation distance between columns of 2 dataframes.
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        true dataframe
+    df2 : pd.DataFrame
+        predicted dataframe
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
+
+    Returns
+    -------
+    pd.Series
+        Correlation distance
+    """
+    # For the case that we use this function outside pattern_based_metric
+    df1 = df1[df_mask].fillna(0.0)
+    df2 = df2[df_mask].fillna(0.0)
+
+    return 1.0 - pd.Series([dcor.distance_correlation(df1.values, df2.values)], index=["All"])
+
+
+def pattern_based_weighted_mean_metric(
+    df1: pd.DataFrame,
+    df2: pd.DataFrame,
+    df_mask: pd.DataFrame,
+    metric: Callable,
+    min_num_row: int = 10,
+    **kwargs,
+) -> pd.Series:
+    """Compute a mean score based on missing patterns.
+    Note that for each pattern, a score is returned by the function metric.
+    This code is based on https://www.statsmodels.org/
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        true dataframe
+    df2 : pd.DataFrame
+        predicted dataframe
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
+    metric : Callable
+        metric function
+    min_num_row : int, optional
+        minimum number of row allowed for a pattern without nan, by default 10
+
+    Returns
+    -------
+    pd.Series
+        _description_
+    """
+    # Identify all distinct missing patterns
+    z = 1 + np.log(1 + np.arange(df_mask.shape[1]))
+    c = np.dot(df_mask, z)
+    row_map: Dict = {}
+    for i, v in enumerate(c):
+        if v == 0:
+            # No missing values
+            continue
+        if v not in row_map:
+            row_map[v] = []
+        row_map[v].append(i)
+    patterns = [np.asarray(v) for v in row_map.values()]
+    scores = []
+    weights = []
+    for pattern in patterns:
+        df1_pattern = df1.iloc[pattern].dropna(axis=1)
+        if len(df1_pattern.columns) == 0:
+            df1_pattern = df1.iloc[pattern].dropna(axis=0)
+
+        if len(df1_pattern) >= min_num_row:
+            df2_pattern = df2.loc[df1_pattern.index, df1_pattern.columns]
+            weights.append(1.0 / len(df1_pattern))
+            scores.append(
+                metric(df1_pattern, df2_pattern, ~df1_pattern.isna(), **kwargs).values[0]
+            )
+
+    if len(scores) == 0:
+        raise Exception(
+            "Not found enough patterns. "
+            + f"Number of row for each pattern must be larger than min_num_row={min_num_row}."
+        )
+
+    weighted_scores = np.array(scores) * np.array(weights)
+    return pd.Series(np.sum(weighted_scores) / np.sum(weights), index=["All"])
+
+
+def get_metric(name: str) -> Callable:
+    dict_metrics: Dict[str, Callable] = {
+        "mse": mean_squared_error,
+        "rmse": root_mean_squared_error,
+        "mae": mean_absolute_error,
+        "wmape": weighted_mean_absolute_percentage_error,
+        "wasserstein_columnwise": partial(wasserstein_distance, method="columnwise"),
+        "KL_columnwise": partial(kl_divergence, method="columnwise"),
+        "KL_gaussian": partial(kl_divergence, method="gaussian"),
+        "ks_test": kolmogorov_smirnov_test,
+        "correlation_diff": mean_difference_correlation_matrix_numerical_features,
+        "pairwise_dist": sum_pairwise_distances,
+        "energy": sum_energy_distances,
+        "frechet": frechet_distance,
+        "dist_corr_pattern": partial(
+            pattern_based_weighted_mean_metric,
+            metric=distance_correlation_complement,
+        ),
+    }
+    return dict_metrics[name]
