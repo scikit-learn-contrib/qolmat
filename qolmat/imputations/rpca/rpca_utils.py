@@ -2,15 +2,10 @@
 Modular utility functions for RPCA
 """
 
-import warnings
-from typing import List, Optional, Tuple
 
 import numpy as np
-import pandas as pd
-import scipy
 from numpy.typing import NDArray
 from scipy.linalg import toeplitz
-from sklearn.neighbors import kneighbors_graph
 
 
 def approx_rank(

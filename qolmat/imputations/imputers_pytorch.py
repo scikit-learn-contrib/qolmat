@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
-from typing import Callable, List
+from typing import Callable, List, Optional, Tuple
+
+from sklearn.base import BaseEstimator
 from qolmat.imputations.imputers import ImputerRegressor
 from qolmat.utils.exceptions import PyTorchExtraNotInstalled
 
@@ -70,19 +72,24 @@ def build_mlp_example(
 class ImputerRegressorPyTorch(ImputerRegressor):
     def __init__(
         self,
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
+        estimator: Optional[BaseEstimator] = None,
         handler_nan: str = "column",
         epochs: int = 100,
         learning_rate: float = 0.01,
         loss_fn: Callable = nn.L1Loss(),
-        **hyperparams,
     ):
-        super().__init__(groups=groups, handler_nan=handler_nan, **hyperparams)
+        super().__init__(
+            imputer_params=("handler_nan", "epochs", "monitor", "patience"),
+            groups=groups,
+            handler_nan=handler_nan,
+        )
         self.epochs = epochs
         self.learning_rate = learning_rate
         self.loss_fn = loss_fn
+        self.estimator = estimator
 
-    def fit_estimator(self, X: pd.DataFrame, y: pd.DataFrame, **hp):
+    def _fit_estimator(self, X: pd.DataFrame, y: pd.DataFrame, **hp):
         """
         Fit the PyTorch estimator using the provided input and target data.
 
@@ -113,7 +120,7 @@ class ImputerRegressorPyTorch(ImputerRegressor):
                 if (epoch + 1) % 10 == 0:
                     print(f"Epoch [{epoch+1}/{self.epochs}], Loss: {loss.item():.4f}")
 
-    def predict_estimator(self, X: pd.DataFrame) -> np.ndarray:
+    def _predict_estimator(self, X: pd.DataFrame) -> pd.Series:
         """
         Perform predictions using the trained PyTorch estimator.
 
@@ -124,13 +131,14 @@ class ImputerRegressorPyTorch(ImputerRegressor):
 
         Returns
         -------
-        np.ndarray
+        pd.Series
             The predicted values.
         """
-        if self.estimator is None:
-            assert AssertionError("Estimator is not provided.")
-        else:
+        if self.estimator:
             input_data = torch.Tensor(X.values)
             output_data = self.estimator(input_data)
-            y = output_data.detach().numpy()
-        return y
+            pred = output_data.detach().numpy().flatten()
+            print("pred")
+            print(pred)
+            return pd.Series(pred, index=X.index, dtype=float)
+        assert AssertionError("Estimator is not provided.")

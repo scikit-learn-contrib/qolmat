@@ -20,6 +20,18 @@ In Qolmat, a few data imputation methods are implemented as well as a way to eva
 First, import some useful librairies
 
 ```python
+X= np.array([[0], [1], [2]])
+```
+
+```python
+np.cov(X)
+```
+
+```python
+
+```
+
+```python
 import warnings
 # warnings.filterwarnings('error')
 ```
@@ -116,30 +128,30 @@ ratio_masked = 0.1
 ```
 
 ```python
-imputer_mean = imputers.ImputerMean(groups=["station"])
-imputer_median = imputers.ImputerMedian(groups=["station"])
-imputer_mode = imputers.ImputerMode(groups=["station"])
-imputer_locf = imputers.ImputerLOCF(groups=["station"])
-imputer_nocb = imputers.ImputerNOCB(groups=["station"])
-imputer_interpol = imputers.ImputerInterpolation(groups=["station"], method="linear")
-imputer_spline = imputers.ImputerInterpolation(groups=["station"], method="spline", order=2)
-imputer_shuffle = imputers.ImputerShuffle(groups=["station"])
-imputer_residuals = imputers.ImputerResiduals(groups=["station"], period=365, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
+imputer_mean = imputers.ImputerMean(groups=("station",))
+imputer_median = imputers.ImputerMedian(groups=("station",))
+imputer_mode = imputers.ImputerMode(groups=("station",))
+imputer_locf = imputers.ImputerLOCF(groups=("station",))
+imputer_nocb = imputers.ImputerNOCB(groups=("station",))
+imputer_interpol = imputers.ImputerInterpolation(groups=("station",), method="linear")
+imputer_spline = imputers.ImputerInterpolation(groups=("station",), method="spline", order=2)
+imputer_shuffle = imputers.ImputerShuffle(groups=("station",))
+imputer_residuals = imputers.ImputerResiduals(groups=("station",), period=365, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
 
-imputer_rpca = imputers.ImputerRPCA(groups=["station"], columnwise=False, max_iter=256, tau=2, lam=1)
+imputer_rpca = imputers.ImputerRPCA(groups=("station",), columnwise=False, max_iterations=256, tau=2, lam=1)
 
-imputer_ou = imputers.ImputerEM(groups=["station"], model="multinormal", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
-imputer_tsou = imputers.ImputerEM(groups=["station"], model="VAR1", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
-imputer_tsmle = imputers.ImputerEM(groups=["station"], model="VAR1", method="mle", max_iter_em=100, n_iter_ou=15, dt=1e-3)
+imputer_ou = imputers.ImputerEM(groups=("station",), model="multinormal", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
+imputer_tsou = imputers.ImputerEM(groups=("station",), model="VAR1", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
+imputer_tsmle = imputers.ImputerEM(groups=("station",), model="VAR1", method="mle", max_iter_em=100, n_iter_ou=15, dt=1e-3)
 
 
-imputer_knn = imputers.ImputerKNN(groups=["station"], k=10)
-imputer_mice = imputers.ImputerMICE(groups=["station"], estimator=LinearRegression(), sample_posterior=False, max_iter=100, missing_values=np.nan)
-imputer_regressor = imputers.ImputerRegressor(groups=["station"], estimator=LinearRegression())
+imputer_knn = imputers.ImputerKNN(groups=("station",), n_neighbors=10)
+imputer_mice = imputers.ImputerMICE(groups=("station",), estimator=LinearRegression(), sample_posterior=False, max_iter=100, missing_values=np.nan)
+imputer_regressor = imputers.ImputerRegressor(groups=("station",), estimator=LinearRegression())
 ```
 
 ```python
-generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], subset=cols_to_impute, ratio_masked=ratio_masked)
+generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=("station",), subset=cols_to_impute, ratio_masked=ratio_masked)
 ```
 
 ```python
@@ -147,21 +159,39 @@ dict_config_opti = {
     "tau": ho.hp.uniform("tau", low=.5, high=5),
     "lam": ho.hp.uniform("lam", low=.1, high=1),
 }
-imputer_rpca_opti = imputers.ImputerRPCA(groups=["station"], columnwise=False, max_iter=256)
+imputer_rpca_opti = imputers.ImputerRPCA(groups=("station",), columnwise=False, max_iterations=256)
 imputer_rpca_opti = hyperparameters.optimize(
     imputer_rpca_opti,
     df_data,
     generator = generator_holes,
     metric="mae",
     max_evals=10,
-    dict_config_opti=dict_config_opti
+    dict_spaces=dict_config_opti
 )
 # imputer_rpca_opti.params_optim = hyperparams_opti
 ```
 
 ```python
+dict_config_opti2 = {
+    "tau/TEMP": ho.hp.uniform("tau/TEMP", low=.5, high=5),
+    "tau/PRES": ho.hp.uniform("tau/PRES", low=.5, high=5),
+    "lam/TEMP": ho.hp.uniform("lam/TEMP", low=.1, high=1),
+    "lam/PRES": ho.hp.uniform("lam/PRES", low=.1, high=1),
+}
+imputer_rpca_opti2 = imputers.ImputerRPCA(groups=("station",), columnwise=True, max_iterations=256)
+imputer_rpca_opti2 = hyperparameters.optimize(
+    imputer_rpca_opti2,
+    df_data,
+    generator = generator_holes,
+    metric="mae",
+    max_evals=10,
+    dict_spaces=dict_config_opti2
+)
+```
+
+```python
 dict_imputers = {
-    # "mean": imputer_mean,
+    "mean": imputer_mean,
     # "median": imputer_median,
     # "mode": imputer_mode,
     "interpolation": imputer_interpol,
@@ -171,8 +201,9 @@ dict_imputers = {
     # "OU": imputer_ou,
     "TSOU": imputer_tsou,
     "TSMLE": imputer_tsmle,
-    "RPCA": imputer_rpca,
-    "RPCA_opti": imputer_rpca_opti,
+    # "RPCA": imputer_rpca,
+    # "RPCA_opti": imputer_rpca_opti,
+    # "RPCA_opti2": imputer_rpca_opti2,
     # "locf": imputer_locf,
     # "nocb": imputer_nocb,
     # "knn": imputer_knn,
@@ -308,7 +339,7 @@ for i_col, col in enumerate(cols_to_impute):
         loc = plticker.MultipleLocator(base=2*365)
         ax.xaxis.set_major_locator(loc)
         ax.tick_params(axis='both', which='major')
-        plt.xlim(datetime(2010, 1, 1), datetime(2015, 3, 1))
+        # plt.xlim(datetime(2019, 2, 1), datetime(2019, 3, 1))
         i_plot += 1
 plt.savefig("figures/imputations_benchmark.png")
 plt.show()

@@ -7,7 +7,7 @@ from qolmat.utils import utils
 from pytest_mock.plugin import MockerFixture
 from io import StringIO
 
-from qolmat.utils.exceptions import SignalTooShort
+from qolmat.utils.exceptions import NotDimension2, SignalTooShort
 
 
 df = pd.DataFrame({"A": [1, 2, 3], "B": [4, 5, 6], "C": [7, 8, 9]})
@@ -77,7 +77,7 @@ X_exp_zeros = np.array(
 @pytest.mark.parametrize(
     "method, X_expected", [("mean", X_exp_mean), ("median", X_exp_median), ("zeros", X_exp_zeros)]
 )
-def test_rpca_utils_impute_nans(X: NDArray, method: str, X_expected: NDArray):
+def test_utils_utils_impute_nans(X: NDArray, method: str, X_expected: NDArray):
     result = utils.impute_nans(M=X, method=method)
     np.testing.assert_allclose(result, X_expected)
 
@@ -114,32 +114,32 @@ X_expected2 = np.array(
 
 
 @pytest.mark.parametrize("X", [X_incomplete])
-def test_rpca_prepare_data_2D_succeed(X: NDArray):
+def test_utils_prepare_data_2D_succeed(X: NDArray):
     result = utils.prepare_data(X, 1)
     np.testing.assert_allclose(result, X_incomplete)
 
 
 @pytest.mark.parametrize("X", [X_incomplete])
-def test_rpca_prepare_data_1D_succeed(X: NDArray):
+def test_utils_prepare_data_1D_succeed(X: NDArray):
     X = X.flatten()
     result = utils.prepare_data(X, 5)
     np.testing.assert_allclose(result, X_incomplete)
 
 
 @pytest.mark.parametrize("X", [X_incomplete])
-def test_rpca_prepare_data_2D_uneven(X: NDArray):
+def test_utils_prepare_data_2D_uneven(X: NDArray):
     result = utils.prepare_data(X, 3)
     np.testing.assert_allclose(result.shape, (15, 2))
 
 
 @pytest.mark.parametrize("X", [X_incomplete])
-def test_rpca_prepare_data_consistant(X: NDArray):
+def test_utils_prepare_data_consistant(X: NDArray):
     result1 = utils.prepare_data(X, 1)
     result2 = utils.prepare_data(result1, 2)
     result3 = utils.prepare_data(X, 2)
     np.testing.assert_allclose(result2, result3)
 
 
-@pytest.mark.parametrize("X", [X_incomplete])
-def test_rpca_prepare_data_2D_fail(X: NDArray):
-    np.testing.assert_raises(SignalTooShort, utils.prepare_data, X, 100)
+@pytest.mark.parametrize("X", [signal])
+def test_utils_fold_signal_1D_fail(X: NDArray):
+    np.testing.assert_raises(NotDimension2, utils.fold_signal, X, 100)
