@@ -138,7 +138,5 @@ class ImputerRegressorPyTorch(ImputerRegressor):
             input_data = torch.Tensor(X.values)
             output_data = self.estimator(input_data)
             pred = output_data.detach().numpy().flatten()
-            print("pred")
-            print(pred)
             return pd.Series(pred, index=X.index, dtype=float)
         assert AssertionError("Estimator is not provided.")

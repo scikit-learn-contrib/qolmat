@@ -1422,10 +1422,6 @@ class ImputerRegressor(_Imputer):
         self.handler_nan = handler_nan
 
     def _fit_estimator(self, X, y) -> Self:
-        print("Xy")
-        print(X)
-        print(y)
-
         return self.estimator.fit(X, y)
 
     def _predict_estimator(self, X) -> pd.Series:
