@@ -46,7 +46,10 @@ X_true, A_true, E_true = generate_artificial_ts(n_samples, periods, amp_anomalie
 signal = X_true + A_true + E_true
 
 # Adding missing data
-signal[5:20] = np.nan
+#signal[5:20] = np.nan
+mask = np.random.choice(len(signal), round(len(signal) / 20))
+signal[mask] = np.nan
+
 ```
 
 ```python
@@ -74,7 +77,7 @@ plt.show()
 
 ```python
 %%time
-rpca_pcp = RPCAPCP(period=100, max_iterations=5, mu=.5, lam=1)
+rpca_pcp = RPCAPCP(period=100, max_iterations=100, mu=.5, lam=0.1)
 X, A = rpca_pcp.decompose_rpca_signal(signal)
 imputed = signal - A
 ```
@@ -89,7 +92,7 @@ plt.plot(imputed)
 
 ```python
 %%time
-rpca_noisy = RPCANoisy(period=10, tau=2, lam=0.3, list_periods=[10], list_etas=[0.01], norm="L2")
+rpca_noisy = RPCANoisy(period=10, tau=1, lam=0.4, list_periods=[10], list_etas=[0.01], norm="L2")
 X, A = rpca_noisy.decompose_rpca_signal(signal)
 ```
 

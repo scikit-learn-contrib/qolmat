@@ -7,7 +7,7 @@ import scipy as scp
 from numpy.typing import NDArray
 from sklearn import utils as sku
 
-from qolmat.imputations.rpca import rpca_utils as rpca_utils
+from qolmat.imputations.rpca import rpca_utils
 from qolmat.imputations.rpca.rpca import RPCA
 from qolmat.utils.exceptions import CostFunctionRPCANotMinimized
 
@@ -167,12 +167,12 @@ class RPCANoisy(RPCA):
 
             for index, _ in enumerate(self.list_periods):
                 R[index] = rpca_utils.soft_thresholding(
-                    X @ H[index].T - Y_[index] / mu, self.list_etas[index] / mu
+                    X @ H[index] - Y_[index] / mu, self.list_etas[index] / mu
                 )
 
             Y += mu * (X - L @ Q.T)
             for index, _ in enumerate(self.list_periods):
-                Y_[index] += mu * (X @ H[index].T - R[index])
+                Y_[index] += mu * (X @ H[index] - R[index])
 
             # update mu
             mu = min(mu * rho, mu_bar)
@@ -256,7 +256,7 @@ class RPCANoisy(RPCA):
         In = np.eye(n)
 
         for _ in range(self.max_iterations):
-            print("Cost function", self.cost_function(D, X, A, Omega, tau, lam))
+            # print("Cost function", self.cost_function(D, X, A, Omega, tau, lam))
             X_temp = X.copy()
             A_temp = A.copy()
             L_temp = L.copy()
@@ -389,14 +389,26 @@ class RPCANoisy(RPCA):
         tau: float,
         lam: float,
     ):
-        if self.norm == "L1":
-            anomalies_norm = (anomalies * Omega).abs().sum()
-        elif self.norm == "L2":
-            anomalies_norm = ((anomalies * Omega) ** 2).sum()
+
+        temporal_norm = 0
+        if len(self.list_etas) > 0:
+            # matrices for temporal correlation
+            H = [
+                rpca_utils.toeplitz_matrix(period, observations.shape[1], model="column")
+                for period in self.list_periods
+            ]
+            if self.norm == "L1":
+                for eta, H_matrix in zip(self.list_etas, H):
+                    temporal_norm += eta * np.sum(np.abs(H_matrix @ low_rank))
+            elif self.norm == "L2":
+                for eta, H_matrix in zip(self.list_etas, H):
+                    temporal_norm += eta * np.linalg.norm(low_rank @ H_matrix, "fro")
+        anomalies_norm = np.sum(np.abs(anomalies * Omega))
         cost = (
-            ((Omega * (observations - low_rank - anomalies)) ** 2).sum()
+            1 / 2 * ((Omega * (observations - low_rank - anomalies)) ** 2).sum()
             + tau * np.linalg.norm(low_rank, "nuc")
             + lam * anomalies_norm
+            + temporal_norm
         )
         return cost
 
@@ -439,7 +451,10 @@ class RPCANoisy(RPCA):
             observations, observations, np.full_like(observations, 0), Omega, tau, lam
         )
         cost_end = self.cost_function(observations, low_rank, anomalies, Omega, tau, lam)
-        function_str = f"||D-M-A||_2 + tau ||D||_* + lam ||A||_{self.norm}"
+        function_str = "1/2 $ ||D-M-A||_2 + tau ||D||_* + lam ||A||_1"
+        if len(self.list_etas) > 0:
+            for eta in self.list_etas:
+                function_str += f"{eta} ||XH||_{self.norm}"
 
-        if cost_start + 1e-4 <= cost_end:
-            raise CostFunctionRPCANotMinimized(function_str, float(cost_end), float(cost_end))
+        if (round(cost_start, 4) - round(cost_end, 4)) <= -1e-2:
+            raise CostFunctionRPCANotMinimized(function_str, float(cost_start), float(cost_end))

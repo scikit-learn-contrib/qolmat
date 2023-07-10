@@ -126,7 +126,7 @@ imputer_spline = imputers.ImputerInterpolation(groups=("station",), method="spli
 imputer_shuffle = imputers.ImputerShuffle(groups=("station",))
 imputer_residuals = imputers.ImputerResiduals(groups=("station",), period=365, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
 
-imputer_rpca = imputers.ImputerRPCA(groups=("station",), columnwise=False, max_iterations=256, tau=2, lam=1)
+imputer_rpca = imputers.ImputerRPCA(groups=("station",), columnwise=False, max_iterations=500, tau=2, lam=0.05)
 
 imputer_ou = imputers.ImputerEM(groups=("station",), model="multinormal", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
 imputer_tsou = imputers.ImputerEM(groups=("station",), model="VAR1", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)

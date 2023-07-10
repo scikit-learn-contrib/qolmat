@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 from numpy.typing import NDArray
 
+from qolmat.imputations.rpca import rpca_utils
 from qolmat.imputations.rpca.rpca_noisy import RPCANoisy
 from qolmat.utils import utils
 from qolmat.utils.data import generate_artificial_ts
@@ -47,6 +48,7 @@ def synthetic_temporal_data():
 def test_check_cost_function_minimized_raise_expection(
     obs: NDArray, lr: NDArray, ano: NDArray, omega: NDArray, lam: float, tau: float, norm: str
 ):
+    """Test if exception is raised when the cost function is not minimized."""
     rpca = RPCANoisy()
     with pytest.raises(CostFunctionRPCANotMinimized):
         rpca._check_cost_function_minimized(obs, lr, ano, omega, lam, tau)
@@ -54,6 +56,7 @@ def test_check_cost_function_minimized_raise_expection(
 
 @pytest.mark.parametrize("X", [X_complete])
 def test_rpca_noisy_get_params_scale(X: NDArray):
+    """Test the parameters are well scaled."""
     rpca = RPCANoisy(max_iterations=max_iterations, tau=0.5, lam=0.1)
     result_dict = rpca.get_params_scale(X)
     result = list(result_dict.values())
@@ -62,7 +65,8 @@ def test_rpca_noisy_get_params_scale(X: NDArray):
 
 
 @pytest.mark.parametrize("X, X_interpolated", [(X_incomplete, X_interpolated)])
-def test_rpca_pcp_zero_tau_zero_lambda(X: NDArray, X_interpolated: NDArray):
+def test_rpca_noisy_zero_tau_zero_lambda(X: NDArray, X_interpolated: NDArray):
+    """Test RPCA noisy results if tau and lambda equal zero."""
     rpca = RPCANoisy(tau=0, lam=0, norm="L2")
     X_result, A_result = rpca.decompose_rpca_signal(X)
     np.testing.assert_allclose(X_result, X_interpolated, atol=1e-4)
@@ -73,7 +77,8 @@ def test_rpca_pcp_zero_tau_zero_lambda(X: NDArray, X_interpolated: NDArray):
     "X, lam, X_interpolated",
     [(X_incomplete, 1, X_interpolated), (X_incomplete, 1e3, X_interpolated)],
 )
-def test_rpca_pcp_zero_tau(X: NDArray, lam: float, X_interpolated: NDArray):
+def test_rpca_noisy_zero_tau(X: NDArray, lam: float, X_interpolated: NDArray):
+    """Test RPCA noisy results if tau equals zero."""
     rpca = RPCANoisy(tau=0, lam=lam, norm="L2")
     X_result, A_result = rpca.decompose_rpca_signal(X)
     np.testing.assert_allclose(X_result, X_interpolated, atol=1e-4)
@@ -84,14 +89,17 @@ def test_rpca_pcp_zero_tau(X: NDArray, lam: float, X_interpolated: NDArray):
     "X, tau, X_interpolated",
     [(X_incomplete, 0.4, X_interpolated), (X_incomplete, 2.4, X_interpolated)],
 )
-def test_rpca_pcp_zero_lambda(X: NDArray, tau: float, X_interpolated: NDArray):
+def test_rpca_noisy_zero_lambda(X: NDArray, tau: float, X_interpolated: NDArray):
+    """Test RPCA noisy results if lambda equals zero."""
     rpca = RPCANoisy(tau=tau, lam=0, norm="L2")
     X_result, A_result = rpca.decompose_rpca_signal(X)
     np.testing.assert_allclose(X_result, np.full_like(X, 0), atol=1e-4)
     np.testing.assert_allclose(A_result, X_interpolated, atol=1e-4)
 
 
-def test_rpca_temporal_signal(synthetic_temporal_data):
+def test_rpca_noisy_temporal_signal(synthetic_temporal_data):
+    """Test RPCA noisy results for time series data.
+    Check if the cost function is smaller at the end than at the start."""
     signal = synthetic_temporal_data
     period = 100
     tau = 1
@@ -104,4 +112,41 @@ def test_rpca_temporal_signal(synthetic_temporal_data):
         "fro",
     ) ** 2 + tau * np.linalg.norm(X_result.reshape(period, -1), "nuc") + lam * np.sum(
         np.abs(A_result.reshape(period, -1))
+    )
+
+
+def test_rpca_noisy_temporal_signal_temporal_regularisations(synthetic_temporal_data):
+    """Test RPCA noisy results for time series data with temporal regularisations.
+    Check if the cost function is smaller at the end than at the start."""
+    signal = synthetic_temporal_data
+    period = 10
+    tau = 1
+    lam = 0.3
+    list_periods = [10]
+    list_etas = [0.01]
+    rpca = RPCANoisy(
+        period=period, tau=tau, lam=lam, list_periods=list_periods, list_etas=list_etas, norm="L2"
+    )
+    X_result, A_result = rpca.decompose_rpca_signal(signal)
+    X_input_rpca = utils.linear_interpolation(signal.reshape(period, -1))
+    temporal_norm = 0
+    H = [
+        rpca_utils.toeplitz_matrix(period, X_input_rpca.shape[1], model="column")
+        for period in list_periods
+    ]
+    for eta, H_matrix in zip(list_etas, H):
+        temporal_norm += eta * np.linalg.norm(X_result.reshape(period, -1) @ H_matrix, "fro")
+    Omega = np.isnan(X_input_rpca)
+    assert (
+        np.linalg.norm(X_input_rpca, "nuc")
+        >= 1
+        / 2
+        * np.linalg.norm(
+            X_input_rpca - X_result.reshape(period, -1) - A_result.reshape(period, -1),
+            "fro",
+        )
+        ** 2
+        + tau * np.linalg.norm(X_result.reshape(period, -1), "nuc")
+        + lam * np.sum(np.abs(A_result.reshape(period, -1) * Omega))
+        + temporal_norm
     )

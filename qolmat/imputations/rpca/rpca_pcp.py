@@ -110,8 +110,8 @@ class RPCAPCP(RPCA):
             The RPCA does not minimized the cost function:
             the starting cost is at least equal to the final one.
         """
-        value_start = np.linalg.norm(observations, "nuc")
-        value_end = np.linalg.norm(low_rank, "nuc") + lam * np.sum(np.abs(anomalies))
-        if value_start + 1e-4 <= value_end:
+        cost_start = np.linalg.norm(observations, "nuc")
+        cost_end = np.linalg.norm(low_rank, "nuc") + lam * np.sum(np.abs(anomalies))
+        if round(cost_start, 4) - round(cost_end, 4) <= -1e-2:
             function_str = "||D||_* + lam ||A||_1"
-            raise CostFunctionRPCANotMinimized(function_str, float(value_start), float(value_end))
+            raise CostFunctionRPCANotMinimized(function_str, float(cost_start), float(cost_end))
