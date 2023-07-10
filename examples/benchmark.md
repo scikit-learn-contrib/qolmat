@@ -20,18 +20,6 @@ In Qolmat, a few data imputation methods are implemented as well as a way to eva
 First, import some useful librairies
 
 ```python
-X= np.array([[0], [1], [2]])
-```
-
-```python
-np.cov(X)
-```
-
-```python
-
-```
-
-```python
 import warnings
 # warnings.filterwarnings('error')
 ```
@@ -146,7 +134,7 @@ imputer_tsmle = imputers.ImputerEM(groups=("station",), model="VAR1", method="ml
 
 
 imputer_knn = imputers.ImputerKNN(groups=("station",), n_neighbors=10)
-imputer_mice = imputers.ImputerMICE(groups=("station",), estimator=LinearRegression(), sample_posterior=False, max_iter=100, missing_values=np.nan)
+imputer_mice = imputers.ImputerMICE(groups=("station",), estimator=LinearRegression(), sample_posterior=False, max_iter=100)
 imputer_regressor = imputers.ImputerRegressor(groups=("station",), estimator=LinearRegression())
 ```
 
@@ -154,7 +142,7 @@ imputer_regressor = imputers.ImputerRegressor(groups=("station",), estimator=Lin
 generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=("station",), subset=cols_to_impute, ratio_masked=ratio_masked)
 ```
 
-```python
+```python jupyter={"outputs_hidden": true}
 dict_config_opti = {
     "tau": ho.hp.uniform("tau", low=.5, high=5),
     "lam": ho.hp.uniform("lam", low=.1, high=1),
@@ -226,11 +214,12 @@ Concretely, the comparator takes as input a dataframe to impute, a proportion of
 Note these metrics compute reconstruction errors; it tells nothing about the distances between the "true" and "imputed" distributions.
 
 ```python
+metrics = ["mae", "wmape", "KL_columnwise", "ks_test", "dist_corr_pattern"]
 comparison = comparator.Comparator(
     dict_imputers,
     cols_to_impute,
     generator_holes = generator_holes,
-    metrics=["mae", "wmape", "KL_columnwise", "ks_test"],
+    metrics=metrics,
     max_evals=10,
     dict_config_opti=dict_config_opti,
 )
@@ -239,26 +228,16 @@ results
 ```
 
 ```python
-df_plot = results.loc["KL_columnwise",'TEMP']
-plt.barh(df_plot.index, df_plot, color=tab10(0))
-plt.title('TEMP')
-plt.show()
-
-df_plot = results.loc["KL_columnwise",'PRES']
-plt.barh(df_plot.index, df_plot, color=tab10(0))
-plt.title('PRES')
-plt.show()
-```
-
-```python
-fig = plt.figure(figsize=(24, 8))
-fig.add_subplot(2, 1, 1)
-plot.multibar(results.loc["mae"], decimals=1)
-plt.ylabel("mae")
-
-fig.add_subplot(2, 1, 2)
-plot.multibar(results.loc["KL_columnwise"], decimals=1)
-plt.ylabel("KL")
+n_metrics = len(metrics)
+fig = plt.figure(figsize=(24, 4 * n_metrics))
+for i, metric in enumerate(metrics):
+    fig.add_subplot(n_metrics, 1, i + 1)
+    df = results.loc[metric]
+    if "All" in df.index:
+        plt.bar(df.loc["All"].index, height=df.loc["All"])
+    else:
+        plot.multibar(df, decimals=1)
+    plt.ylabel(metric)
 
 plt.savefig("figures/imputations_benchmark_errors.png")
 plt.show()
@@ -304,10 +283,6 @@ for col in cols_to_impute:
     ax.tick_params(axis='both', which='major', labelsize=17)
     plt.show()
 
-```
-
-```python
-dfs_imputed
 ```
 
 ```python
@@ -381,7 +356,7 @@ dict_imputers["MLP"] = imputer_mlp = imputers_keras.ImputerRegressorKeras(estima
 ```
 
 We can re-run the imputation model benchmark as before.
-```python jupyter={"outputs_hidden": true} tags=[]
+```python tags=[]
 generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], subset=cols_to_impute, ratio_masked=ratio_masked)
 
 comparison = comparator.Comparator(
@@ -395,7 +370,7 @@ comparison = comparator.Comparator(
 results = comparison.compare(df_data)
 results
 ```
-```python jupyter={"outputs_hidden": true, "source_hidden": true} tags=[]
+```python jupyter={"source_hidden": true} tags=[]
 df_plot = df_data
 dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_imputers.items()}
 station = df_plot.index.get_level_values("station")[0]
