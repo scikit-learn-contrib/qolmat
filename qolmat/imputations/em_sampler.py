@@ -98,8 +98,7 @@ def invert_robust(M, epsilon=1e-2):
            [ 1.5   , -0.5  ]])
     """
     Meps = M - epsilon * (M - np.diag(M.diagonal()))
-    print("matrice a inverser :")
-    print(Meps)
+
     if scipy.linalg.eigh(M)[0].min() < 0:
         warnings.warn(
             f"Negative eigenvalue, some variables may be constant or colinear, "
@@ -213,7 +212,6 @@ class EM(BaseEstimator, TransformerMixin):
 
         for iter_em in range(self.max_iter_em):
             X_sample_last = self._sample_ou(X_sample_last, mask_na)
-
             if self._check_convergence():
                 # print(f"EM converged after {iter_em} iterations.")
                 break
@@ -410,7 +408,9 @@ class MultiNormalEM(EM):
         self.cov_inv = invert_robust(self.cov, epsilon=1e-2)
 
         # Stop criteria
-        self.loglik = scipy.stats.multivariate_normal.logpdf(X.T, self.means, self.cov).mean()
+        self.loglik = scipy.stats.multivariate_normal.logpdf(
+            X.T, self.means, self.cov, allow_singular=True
+        ).mean()
 
         self.dict_criteria_stop["means"].append(self.means)
         self.dict_criteria_stop["covs"].append(self.cov)
