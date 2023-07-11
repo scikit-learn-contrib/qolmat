@@ -1407,76 +1407,26 @@ class ImputerRegressor(_Imputer):
 
     def __init__(
         self,
+        imputer_params: Tuple[str, ...] = ("handler_nan",),
         groups: Tuple[str, ...] = (),
         estimator: Optional[BaseEstimator] = None,
         handler_nan: str = "column",
         random_state: Union[None, int, np.random.RandomState] = None,
     ):
         super().__init__(
-            imputer_params=("handler_nan",),
+            imputer_params=imputer_params,
             groups=groups,
             random_state=random_state,
         )
         self.estimator = estimator
         self.handler_nan = handler_nan
 
-    def _get_params_fit(self) -> Dict:
-        """Get the parameters required for the fit, only used for neural networks.
+    def _fit_estimator(self, X, y) -> Self:
+        return self.estimator.fit(X, y)
 
-        Returns
-        -------
-        Dict
-            Dictionary of fit parameters.
-        """
-        return {}
-
-    def fit(self, X: pd.DataFrame, y: pd.DataFrame = None) -> _Imputer:
-        """Fit the imputer on X.
-
-        Parameters
-        ----------
-        X : pd.DataFrame
-            Data matrix on which the Imputer must be fitted.
-
-        Returns
-        -------
-        self : Self
-            Returns self.
-        """
-
-        super().fit(X)
-        df = self._check_input(X)
-
-        cols_with_nans = df.columns[df.isna().any()]
-        self.estimators_ = {}
-        for col in cols_with_nans:
-            # Define the Train and Test set
-            X_ = df.drop(columns=col, errors="ignore")
-            y_ = df[col]
-
-            # Selects only the valid values in the Train Set according to the chosen method
-            is_valid = pd.Series(True, index=df.index)
-            if self.handler_nan == "fit":
-                pass
-            elif self.handler_nan == "row":
-                is_valid = ~X_.isna().any(axis=1)
-            elif self.handler_nan == "column":
-                X_ = X_.dropna(how="any", axis=1)
-            else:
-                raise ValueError(
-                    f"Value '{self.handler_nan}' is not correct for argument `handler_nan'"
-                )
-
-            # Selects only non-NaN values for the Test Set
-            is_na = y_.isna()
-
-            # Train the model according to an ML or DL method and after predict the imputation
-            if not X_.empty:
-                hp = self._get_params_fit()
-                self.estimators_[col] = self.estimator
-                self.estimators_[col].fit(X_[(~is_na) & is_valid], y_[(~is_na) & is_valid], **hp)
-
-        return self
+    def _predict_estimator(self, X) -> pd.Series:
+        pred = self.estimator.predict(X)
+        return pd.Series(pred, index=X.index, dtype=float)
 
     def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
         """
@@ -1501,7 +1451,8 @@ class ImputerRegressor(_Imputer):
             Input has to be a pandas.DataFrame.
         """
         self._check_dataframe(df)
-        df_imputed = df.apply(pd.DataFrame.median, result_type="broadcast", axis=0)
+        # df_imputed = df.apply(pd.DataFrame.median, result_type="broadcast", axis=0)
+        df_imputed = df.copy()
         cols_with_nans = df.columns[df.isna().any()]
 
         for col in cols_with_nans:
@@ -1526,24 +1477,15 @@ class ImputerRegressor(_Imputer):
             is_na = y.isna()
 
             # Train the model according to an ML or DL method and after predict the imputation
-            if col not in self.estimators_:
-                y_imputed = pd.Series(y.mean(), index=y.index)
-            else:
-                X_select = X[is_na & is_valid]
-                y_imputed = self.estimators_[col].predict(X_select)
-                y_imputed = y_imputed.flatten().astype(float)
+            is_in_fit = (~is_na) & is_valid
+            is_in_pred = is_na & is_valid
+            if is_in_fit.any() and is_in_pred.any() and not X.empty:
+                self._fit_estimator(X[is_in_fit], y[is_in_fit])
+                X_pred = X[is_in_pred]
+                y_imputed = self._predict_estimator(X_pred)
 
-                y_imputed = pd.Series(y_imputed, index=X_select.index)
-
-            # Adds the imputed values
-            # df_imputed.loc[~is_na, col] = y[~is_na]
-            # if isinstance(y_imputed, pd.Series):
-            #     y_reshaped = y_imputed
-            # else:
-            #     y_reshaped = y_imputed.flatten()
-            # df_imputed.loc[is_na & is_valid, col] = y_imputed.values[: sum(is_na & is_valid)]
-            df_imputed[col] = y_imputed.where(is_valid & is_na, y)
-
+                df_imputed[col] = y_imputed.where(is_in_pred, y)
+        # df_imputed = df_imputed.fillna(df_imputed.median())
         return df_imputed
 
 
