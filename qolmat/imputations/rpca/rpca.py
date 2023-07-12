@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from typing import Optional, Tuple, Union
+from typing import Tuple, Union
 
 import numpy as np
 from numpy.typing import NDArray
 from sklearn.base import BaseEstimator, TransformerMixin
 
-from qolmat.imputations.rpca import rpca_utils
 from qolmat.utils import utils
 
 
@@ -32,12 +31,12 @@ class RPCA(BaseEstimator, TransformerMixin):
     def __init__(
         self,
         period: int = 1,
-        max_iter: int = int(1e4),
+        max_iterations: int = int(1e4),
         tol: float = 1e-6,
         random_state: Union[None, int, np.random.RandomState] = None,
     ) -> None:
         self.period = period
-        self.max_iter = max_iter
+        self.max_iterations = max_iterations
         self.tol = tol
         self.random_state = random_state
 
@@ -60,10 +59,14 @@ class RPCA(BaseEstimator, TransformerMixin):
         A: NDArray
             Anomalies
         """
+
         D = utils.prepare_data(X, self.period)
         Omega = ~np.isnan(D)
         # D_proj = rpca_utils.impute_nans(D_init, method="median")
         D = utils.linear_interpolation(D)
+        n_rows, n_cols = D.shape
+        if n_rows == 1 or n_cols == 1:
+            return D, np.full_like(D, 0)
 
         M, A = self.decompose_rpca(D, Omega)
 

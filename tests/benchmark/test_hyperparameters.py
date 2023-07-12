@@ -1,4 +1,4 @@
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -9,7 +9,7 @@ from qolmat.benchmark.hyperparameters import HyperValue
 
 # from hyperparameters import HyperValue
 from qolmat.benchmark.missing_patterns import _HoleGenerator, EmpiricalHoleGenerator
-from qolmat.imputations.imputers import Imputer, ImputerRPCA
+from qolmat.imputations.imputers import _Imputer, ImputerRPCA
 
 import hyperopt as ho
 
@@ -35,53 +35,19 @@ dict_config_opti = {
         "norm": {"categories": ["L1", "L2"], "type": "Categorical"},
     }
 }
-dict_config_opti_imputer = dict_config_opti["rpca"]
-hyperparams_global = {"lam/col1": 4.7, "lam/col2": 1.5, "tol": 0.07, "max_iter": 100, "norm": "L1"}
-
-result_params_expected = {
-    "lam1": (0.1, 6),
-    "lam2": (1, 4),
-    "tol": (1e-6, 0.1),
-    "max_iter": (99, 100),
-    "norm": ("L1", "L2"),
-}
-
-expected1 = {
-    "lam": 4.7,
-    "tol": 0.07,
-    "max_iter": 100,
-    "norm": "L1",
-}
-
-expected2 = {
-    "lam": 1.5,
-    "tol": 0.07,
-    "max_iter": 100,
-    "norm": "L1",
-}
 
 
-@pytest.mark.parametrize("hyperparams_global", [hyperparams_global])
-@pytest.mark.parametrize("col, expected", [("col1", expected1), ("col2", expected2)])
-def test_hyperparameters_get_hyperparameters(
-    hyperparams_global: Dict[str, HyperValue], col: str, expected: Dict[str, HyperValue]
-) -> None:
-    hyperparams = hyperparameters.get_hyperparams(hyperparams_global, col)
-
-    assert hyperparams == expected
-
-
-class ImputerTest(Imputer):
+class ImputerTest(_Imputer):
     def __init__(
         self,
-        groups: List[str] = [],
+        groups: Tuple[str, ...] = (),
         random_state: Union[None, int, np.random.RandomState] = None,
         value: float = 0,
     ) -> None:
         super().__init__(groups=groups, columnwise=True, random_state=random_state)
         self.value = value
 
-    def fit_transform_element(self, df: pd.DataFrame):
+    def _transform_element(self, df: pd.DataFrame, col: str = "__all__"):
         df_out = df.copy()
         df_out = df_out.fillna(self.value)
         return df_out
@@ -117,7 +83,7 @@ def test_hyperparameters_optimize():
     dict_config_opti = {"value": ho.hp.uniform("value", 0, 10)}
     df = pd.DataFrame({"some_col": [np.nan, 0, 3, 5]})
     imputer_opti = hyperparameters.optimize(
-        imputer, df, generator, metric, dict_config_opti, max_evals=200
+        imputer, df, generator, metric, dict_config_opti, max_evals=500
     )
     assert isinstance(imputer_opti, ImputerTest)
     np.testing.assert_almost_equal(imputer_opti.value, 4, decimal=1)

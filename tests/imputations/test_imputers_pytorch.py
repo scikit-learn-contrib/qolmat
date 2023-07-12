@@ -24,7 +24,7 @@ df_incomplete = pd.DataFrame(
 
 
 @pytest.mark.parametrize("df", [df_incomplete])
-def test_ImputerRegressorPytorch_fit_transform(df: pd.DataFrame) -> None:
+def test_ImputerRegressorTorch_fit_transform(df: pd.DataFrame) -> None:
     nn.manual_seed(42)
     if nn.cuda.is_available():
         nn.cuda.manual_seed(42)
