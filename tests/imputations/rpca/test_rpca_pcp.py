@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import pytest
 from numpy.typing import NDArray
@@ -5,7 +7,6 @@ from numpy.typing import NDArray
 from qolmat.imputations.rpca.rpca_pcp import RPCAPCP
 from qolmat.utils import utils
 from qolmat.utils.data import generate_artificial_ts
-from qolmat.utils.exceptions import CostFunctionRPCANotMinimized
 
 X_complete = np.array([[1, 2], [3, 1]], dtype=float)
 X_incomplete = np.array([[1, 2], [3, np.nan], [np.nan, 4]], dtype=float)
@@ -41,22 +42,37 @@ def synthetic_temporal_data():
         )
     ],
 )
-def test_check_cost_function_minimized_raise_expection(
+def test_check_cost_function_minimized_warning(
     obs: NDArray, lr: NDArray, ano: NDArray, lam: float
 ):
-    function_str = "||D||_* + lam ||A||_1"
-    rpca = RPCAPCP()
-    with pytest.raises(
-        CostFunctionRPCANotMinimized,
-        match="PCA algorithm may provide bad results. "
-        f"{function_str} is larger at the end "
-        "of the algorithm than at the start.",
-    ):
-        rpca._check_cost_function_minimized(obs, lr, ano, lam)
+    """Test warning when the cost function is minimized."""
+    with pytest.warns(UserWarning):
+        RPCAPCP()._check_cost_function_minimized(obs, lr, ano, lam)
+
+
+@pytest.mark.parametrize(
+    "obs, lr, ano, lam",
+    [
+        (
+            np.array([[1, 1], [1, 1]], dtype=float),
+            np.array([[0, 0], [0, 0]], dtype=float),
+            np.array([[2, 2], [2, 2]], dtype=float),
+            0,
+        )
+    ],
+)
+def test_check_cost_function_minimized_no_warning(
+    obs: NDArray, lr: NDArray, ano: NDArray, lam: float
+):
+    """Test no warning when the cost function is minimized."""
+    with warnings.catch_warnings(record=True) as record:
+        RPCAPCP()._check_cost_function_minimized(obs, lr, ano, lam)
+    assert len(record) == 0
 
 
 @pytest.mark.parametrize("X", [X_complete])
 def test_rpca_rpca_pcp_get_params_scale(X: NDArray):
+    """Test the parameters are well scaled."""
     rpca_pcp = RPCAPCP(max_iterations=max_iterations, mu=0.5, lam=0.1)
     result_dict = rpca_pcp.get_params_scale(X)
     result = list(result_dict.values())
@@ -64,18 +80,24 @@ def test_rpca_rpca_pcp_get_params_scale(X: NDArray):
     np.testing.assert_allclose(result, params_expected, atol=1e-4)
 
 
-# The problem is ill-conditioned and the result depends on the parameter mu
 @pytest.mark.parametrize("X, mu", [(X_complete, small_mu)])
 def test_rpca_rpca_pcp_zero_lambda_small_mu(X: NDArray, mu: float):
+    """Test RPCA PCP results if lambda equals zero.
+    The problem is ill-conditioned and the result depends
+    on the parameter mu; case when mu is small.
+    """
     rpca_pcp = RPCAPCP(lam=0, mu=mu)
     X_result, A_result = rpca_pcp.decompose_rpca_signal(X)
     np.testing.assert_allclose(X_result, np.full_like(X, 0), atol=1e-4)
     np.testing.assert_allclose(A_result, X, atol=1e-4)
 
 
-# The problem is ill-conditioned and the result depends on the parameter mu
 @pytest.mark.parametrize("X, mu", [(X_complete, large_mu)])
 def test_rpca_rpca_pcp_zero_lambda_large_mu(X: NDArray, mu: float):
+    """Test RPCA PCP results if lambda equals zero.
+    The problem is ill-conditioned and the result depends
+    on the parameter mu; case when mu is large.
+    """
     rpca_pcp = RPCAPCP(lam=0, mu=mu)
     X_result, A_result = rpca_pcp.decompose_rpca_signal(X)
     np.testing.assert_allclose(X_result, X, atol=1e-4)
@@ -84,6 +106,7 @@ def test_rpca_rpca_pcp_zero_lambda_large_mu(X: NDArray, mu: float):
 
 @pytest.mark.parametrize("X, mu", [(X_complete, large_mu)])
 def test_rpca_rpca_pcp_large_lambda_small_mu(X: NDArray, mu: float):
+    """Test RPCA PCP results with large lambda and small mu."""
     rpca_pcp = RPCAPCP(lam=1e3, mu=mu)
     X_result, A_result = rpca_pcp.decompose_rpca_signal(X)
     np.testing.assert_allclose(X_result, X, atol=1e-4)
@@ -91,6 +114,8 @@ def test_rpca_rpca_pcp_large_lambda_small_mu(X: NDArray, mu: float):
 
 
 def test_rpca_temporal_signal(synthetic_temporal_data):
+    """Test RPCA PCP results for time series data.
+    Check if the cost function is smaller at the end than at the start."""
     signal = synthetic_temporal_data
     period = 100
     lam = 0.1

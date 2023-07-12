@@ -234,11 +234,13 @@ results
 df_plot = results.loc["KL_columnwise",'TEMP']
 plt.barh(df_plot.index, df_plot, color=tab10(0))
 plt.title('TEMP')
+plt.xlabel("KL")
 plt.show()
 
 df_plot = results.loc["KL_columnwise",'PRES']
 plt.barh(df_plot.index, df_plot, color=tab10(0))
 plt.title('PRES')
+plt.xlabel("KL")
 plt.show()
 ```
 

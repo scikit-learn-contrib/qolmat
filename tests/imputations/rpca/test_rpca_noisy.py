@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import pytest
 from numpy.typing import NDArray
@@ -6,7 +8,6 @@ from qolmat.imputations.rpca import rpca_utils
 from qolmat.imputations.rpca.rpca_noisy import RPCANoisy
 from qolmat.utils import utils
 from qolmat.utils.data import generate_artificial_ts
-from qolmat.utils.exceptions import CostFunctionRPCANotMinimized
 
 X_complete = np.array([[1, 2], [3, 1]], dtype=float)
 X_incomplete = np.array([[1, 2], [3, np.nan]], dtype=float)
@@ -45,13 +46,35 @@ def synthetic_temporal_data():
         )
     ],
 )
-def test_check_cost_function_minimized_raise_expection(
+def test_check_cost_function_minimized_warning(
     obs: NDArray, lr: NDArray, ano: NDArray, omega: NDArray, lam: float, tau: float, norm: str
 ):
-    """Test if exception is raised when the cost function is not minimized."""
-    rpca = RPCANoisy()
-    with pytest.raises(CostFunctionRPCANotMinimized):
-        rpca._check_cost_function_minimized(obs, lr, ano, omega, lam, tau)
+    """Test warning when the cost function is not minimized."""
+    with pytest.warns(UserWarning):
+        RPCANoisy()._check_cost_function_minimized(obs, lr, ano, omega, lam, tau)
+
+
+@pytest.mark.parametrize(
+    "obs, lr, ano, omega, lam, tau, norm",
+    [
+        (
+            np.array([[1, 1], [1, 1]], dtype=float),
+            np.array([[0, 0], [0, 0]], dtype=float),
+            np.array([[0, 0], [0, 0]], dtype=float),
+            True * np.ones((2, 2)),
+            5,
+            0,
+            "L2",
+        )
+    ],
+)
+def test_check_cost_function_minimized_no_warning(
+    obs: NDArray, lr: NDArray, ano: NDArray, omega: NDArray, lam: float, tau: float, norm: str
+):
+    """Test no warning when the cost function is minimized."""
+    with warnings.catch_warnings(record=True) as record:
+        RPCANoisy()._check_cost_function_minimized(obs, lr, ano, omega, lam, tau)
+    assert len(record) == 0
 
 
 @pytest.mark.parametrize("X", [X_complete])

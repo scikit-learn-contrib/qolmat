@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -9,7 +10,6 @@ from sklearn import utils as sku
 
 from qolmat.imputations.rpca import rpca_utils
 from qolmat.imputations.rpca.rpca import RPCA
-from qolmat.utils.exceptions import CostFunctionRPCANotMinimized
 
 
 class RPCANoisy(RPCA):
@@ -457,4 +457,7 @@ class RPCANoisy(RPCA):
                 function_str += f"{eta} ||XH||_{self.norm}"
 
         if (round(cost_start, 4) - round(cost_end, 4)) <= -1e-2:
-            raise CostFunctionRPCANotMinimized(function_str, float(cost_start), float(cost_end))
+            warnings.warn(
+                f"RPCA algorithm may provide bad results. Function {function_str} increased from"
+                f" {cost_start} to {cost_end} instead of decreasing!"
+            )
