@@ -217,7 +217,7 @@ class ImputerRegressorPyTorch(ImputerRegressor):
         if self.estimator:
             input_data = torch.Tensor(X.values)
             output_data = self.estimator(input_data)
-            y = output_data.detach().numpy()
+            y = pd.Series(output_data.detach().numpy().flatten())
         return y
 
 

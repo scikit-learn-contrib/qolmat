@@ -1482,9 +1482,11 @@ class ImputerRegressor(_Imputer):
             if is_in_fit.any() and is_in_pred.any() and not X.empty:
                 self._fit_estimator(X[is_in_fit], y[is_in_fit])
                 X_pred = X[is_in_pred]
-                y_imputed = self._predict_estimator(X_pred)
-
-                df_imputed[col] = y_imputed.where(is_in_pred, y)
+                y_pred = self._predict_estimator(X_pred)
+                y_imputed = y.copy()
+                y_imputed[is_in_pred] = y_pred.values
+                df_imputed[col] = y_imputed
+                # df_imputed[col] = y.where(~is_in_pred, y_imputed)
         # df_imputed = df_imputed.fillna(df_imputed.median())
         return df_imputed
 
