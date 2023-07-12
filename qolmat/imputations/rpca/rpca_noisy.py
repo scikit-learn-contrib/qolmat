@@ -389,8 +389,7 @@ class RPCANoisy(RPCA):
         tau: float,
         lam: float,
     ):
-
-        temporal_norm = 0
+        temporal_norm: float = 0
         if len(self.list_etas) > 0:
             # matrices for temporal correlation
             H = [
@@ -402,7 +401,7 @@ class RPCANoisy(RPCA):
                     temporal_norm += eta * np.sum(np.abs(H_matrix @ low_rank))
             elif self.norm == "L2":
                 for eta, H_matrix in zip(self.list_etas, H):
-                    temporal_norm += eta * np.linalg.norm(low_rank @ H_matrix, "fro")
+                    temporal_norm += eta * float(np.linalg.norm(low_rank @ H_matrix, "fro"))
         anomalies_norm = np.sum(np.abs(anomalies * Omega))
         cost = (
             1 / 2 * ((Omega * (observations - low_rank - anomalies)) ** 2).sum()

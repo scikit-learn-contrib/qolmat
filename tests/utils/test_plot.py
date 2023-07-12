@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import Any, List, Tuple
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
@@ -45,7 +45,7 @@ def test_utils_plot_plot_matrices(list_matrices: List[np.ndarray], mocker: Mocke
 
 
 @pytest.mark.parametrize("list_signals", [list_signals])
-def test_utils_plot_plot_signal(list_signals: List[np.ndarray], mocker: MockerFixture) -> None:
+def test_utils_plot_plot_signal(list_signals: List[List[Any]], mocker: MockerFixture) -> None:
     mocker.patch("matplotlib.pyplot.savefig")
     mocker.patch("matplotlib.pyplot.show")
     plot.plot_signal(list_signals=list_signals, ylabel="ylabel", title="title")
