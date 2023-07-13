@@ -44,3 +44,30 @@ def test_ImputerRegressorPyTorch_fit_transform(df: pd.DataFrame) -> None:
         }
     )
     np.testing.assert_allclose(result, expected, atol=1e-3)
+
+
+@pytest.mark.parametrize("df", [df_incomplete])
+def test_imputers_pytorch_Autoencoder(df: pd.DataFrame) -> None:
+    nn.manual_seed(42)
+    if nn.cuda.is_available():
+        nn.cuda.manual_seed(42)
+    input = df.values.shape[1]
+    latent = 4
+    encoder, decoder = imputers_pytorch.build_autoencoder_example(
+        input_dim=input,
+        latent_dim=latent,
+        output_dim=input,
+        list_num_neurons=[4 * latent, 2 * latent],
+    )
+    autoencoder = imputers_pytorch.Autoencoder(encoder, decoder, epochs=10)
+    result = autoencoder.imputation_data(df=df, mask=df.isna(), lamb=0.01, iterations=5)
+    expected = pd.DataFrame(
+        {
+            "col1": [23.681, 15.0, 23.678, 23.0, 33.0],
+            "col2": [69.0, 76.0, 74.0, 80.0, 78.0],
+            "col3": [174.0, 166.0, 182.0, 177.0, 176.319],
+            "col4": [9.0, 12.0, 11.0, 12.0, 8.0],
+            "col5": [93.0, 75.0, 60.509, 12.0, 60.243],
+        }
+    )
+    np.testing.assert_allclose(result, expected, atol=1e-3)

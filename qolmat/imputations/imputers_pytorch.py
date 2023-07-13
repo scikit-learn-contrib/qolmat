@@ -268,21 +268,30 @@ class Autoencoder(nn.Module):
     def imputation_data(
         self, df: pd.DataFrame, mask: pd.DataFrame, lamb: float, iterations: int
     ) -> pd.DataFrame:
-        df_itt = df.copy()
+        df_train = df.copy()
+        df_train = df_train.fillna(df_train.mean())
+        scaler = StandardScaler()
+        df_train_scaler = pd.DataFrame(
+            scaler.fit_transform(df_train), index=df_train.index, columns=df_train.columns
+        )
+        df_itt = df_train_scaler
 
         for _ in range(iterations):
             self.fit(df_itt, df_itt)
             encode_tensor = self.encoder(torch.Tensor(df_itt.values))
             encode = encode_tensor.detach().numpy()
 
-            scaler = StandardScaler()
-            encode_scaler = scaler.fit_transform(encode)
+            scaler_encode = StandardScaler()
+            encode_scaler = scaler_encode.fit_transform(encode)
             W = np.sqrt(lamb) * torch.randn(encode.shape).detach().numpy()
             Z_itt = (1 - lamb) * encode_scaler + W
-            Z_itt = scaler.inverse_transform(Z_itt)
+            Z_itt = scaler_encode.inverse_transform(Z_itt)
             y_itt_tensor = self.decoder(torch.Tensor(Z_itt))
             y_itt = pd.DataFrame(
                 y_itt_tensor.detach().numpy(), index=df_itt.index, columns=df_itt.columns
             )
             df_itt[mask] = y_itt[mask]
-        return df_itt
+        df_imputed = pd.DataFrame(
+            scaler.inverse_transform(df_itt), index=df_train.index, columns=df_train.columns
+        )
+        return df_imputed
