@@ -1,5 +1,4 @@
 import copy
-import logging
 from typing import Any, Callable, Dict, List, Union
 
 import numpy as np
@@ -12,9 +11,6 @@ from hyperopt.pyll.base import Apply as hoApply
 from qolmat.benchmark import metrics
 
 from qolmat.benchmark.missing_patterns import _HoleGenerator
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 HyperValue = Union[int, float, str]
 
@@ -39,7 +35,6 @@ def get_objective(imputer, df, generator, metric, names_hyperparams) -> Callable
             df_origin = df.copy()
             df_corrupted = df_origin.copy()
             df_corrupted[df_mask] = np.nan
-
             df_imputed = imputer.fit_transform(df_corrupted)
             subset = generator.subset
             fun_metric = metrics.get_metric(metric)

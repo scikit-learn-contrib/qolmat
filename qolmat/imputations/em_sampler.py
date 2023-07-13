@@ -1,4 +1,3 @@
-import logging
 from typing import Dict, List, Literal, Optional, Union
 from warnings import WarningMessage
 
@@ -11,8 +10,6 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import StandardScaler
 
 from qolmat.utils import utils
-
-logger = logging.getLogger(__name__)
 
 
 def _gradient_conjugue(A: NDArray, X: NDArray, mask_na: NDArray) -> NDArray:

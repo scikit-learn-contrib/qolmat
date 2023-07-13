@@ -139,10 +139,6 @@ imputer_regressor = imputers.ImputerRegressor(groups=("station",), estimator=Lin
 ```
 
 ```python
-imputer_rpca.fit_transform(df_data)
-```
-
-```python
 generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=("station",), subset=cols_to_impute, ratio_masked=ratio_masked)
 ```
 
@@ -160,10 +156,9 @@ imputer_rpca_opti = hyperparameters.optimize(
     max_evals=10,
     dict_spaces=dict_config_opti
 )
-# imputer_rpca_opti.params_optim = hyperparams_opti
 ```
 
-```python
+```python jupyter={"source_hidden": true}
 dict_config_opti2 = {
     "tau/TEMP": ho.hp.uniform("tau/TEMP", low=.5, high=5),
     "tau/PRES": ho.hp.uniform("tau/PRES", low=.5, high=5),
@@ -194,7 +189,7 @@ dict_imputers = {
     "TSOU": imputer_tsou,
     "TSMLE": imputer_tsmle,
     "RPCA": imputer_rpca,
-    # "RPCA_opti": imputer_rpca_opti,
+    "RPCA_opti": imputer_rpca_opti,
     # "RPCA_opti2": imputer_rpca_opti2,
     # "locf": imputer_locf,
     # "nocb": imputer_nocb,
@@ -230,7 +225,7 @@ results = comparison.compare(df_data)
 results
 ```
 
-```python
+```python jupyter={"source_hidden": true}
 df_plot = results.loc["KL_columnwise",'TEMP']
 plt.barh(df_plot.index, df_plot, color=tab10(0))
 plt.title('TEMP')
@@ -251,8 +246,8 @@ plot.multibar(results.loc["mae"], decimals=1)
 plt.ylabel("mae")
 
 fig.add_subplot(2, 1, 2)
-plot.multibar(results.loc["KL_columnwise"], decimals=1)
-plt.ylabel("KL")
+plot.multibar(results.loc["dist_corr_pattern"], decimals=1)
+plt.ylabel("dist_corr_pattern")
 
 plt.savefig("figures/imputations_benchmark_errors.png")
 plt.show()
@@ -298,10 +293,6 @@ for col in cols_to_impute:
     ax.tick_params(axis='both', which='major', labelsize=17)
     plt.show()
 
-```
-
-```python
-dfs_imputed
 ```
 
 ```python
