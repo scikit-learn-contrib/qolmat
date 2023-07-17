@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 import warnings
 
 import numpy as np
@@ -7,6 +7,8 @@ import pandas as pd
 from numpy.typing import NDArray
 
 from qolmat.utils.exceptions import NotDimension2, SignalTooShort
+
+HyperValue = Union[int, float, str]
 
 
 def progress_bar(

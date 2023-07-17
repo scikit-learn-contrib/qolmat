@@ -116,6 +116,8 @@ ratio_masked = 0.1
 ```
 
 ```python
+dict_config_opti = {}
+
 imputer_mean = imputers.ImputerMean(groups=("station",))
 imputer_median = imputers.ImputerMedian(groups=("station",))
 imputer_mode = imputers.ImputerMode(groups=("station",))
@@ -126,7 +128,19 @@ imputer_spline = imputers.ImputerInterpolation(groups=("station",), method="spli
 imputer_shuffle = imputers.ImputerShuffle(groups=("station",))
 imputer_residuals = imputers.ImputerResiduals(groups=("station",), period=365, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
 
-imputer_rpca = imputers.ImputerRPCA(groups=("station",), columnwise=False, max_iterations=256, tau=2, lam=1)
+imputer_rpca = imputers.ImputerRPCA(groups=("station",), columnwise=False, max_iterations=500, tau=2, lam=0.05)
+imputer_rpca_opti = imputers.ImputerRPCA(groups=("station",), columnwise=False, max_iterations=256)
+dict_config_opti["RPCA_opti"] = {
+    "tau": ho.hp.uniform("tau", low=.5, high=5),
+    "lam": ho.hp.uniform("lam", low=.1, high=1),
+}
+imputer_rpca_opticw = imputers.ImputerRPCA(groups=("station",), columnwise=False, max_iterations=256)
+dict_config_opti["RPCA_opticw"] = {
+    "tau/TEMP": ho.hp.uniform("tau/TEMP", low=.5, high=5),
+    "tau/PRES": ho.hp.uniform("tau/PRES", low=.5, high=5),
+    "lam/TEMP": ho.hp.uniform("lam/TEMP", low=.1, high=1),
+    "lam/PRES": ho.hp.uniform("lam/PRES", low=.1, high=1),
+}
 
 imputer_ou = imputers.ImputerEM(groups=("station",), model="multinormal", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
 imputer_tsou = imputers.ImputerEM(groups=("station",), model="VAR1", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
@@ -189,9 +203,9 @@ dict_imputers = {
     # "OU": imputer_ou,
     "TSOU": imputer_tsou,
     "TSMLE": imputer_tsmle,
-    # "RPCA": imputer_rpca,
-    # "RPCA_opti": imputer_rpca_opti,
-    # "RPCA_opti2": imputer_rpca_opti2,
+    "RPCA": imputer_rpca,
+    "RPCA_opti": imputer_rpca_opti,
+    # "RPCA_opticw": imputer_rpca_opti2,
     # "locf": imputer_locf,
     # "nocb": imputer_nocb,
     # "knn": imputer_knn,
@@ -327,8 +341,11 @@ plt.show()
 In this section, we present an MLP model of data imputation using Keras, which can be installed using a "pip install tensorflow".
 
 ```python
-from qolmat.imputations import imputers_keras
-import tensorflow as tf
+from qolmat.imputations import imputers_pytorch
+try:
+    import torch.nn as nn
+except ModuleNotFoundError:
+    raise PyTorchExtraNotInstalled
 ```
 
 For the MLP model, we work on a dataset that corresponds to weather data with missing values. We add missing MCAR values on the features "TEMP", "PRES" and other features with NaN values. The goal is impute the missing values for the features "TEMP" and "PRES" by a Deep Learning method. We add features to take into account the seasonality of the data set and a feature for the station name
@@ -346,13 +363,17 @@ For the example, we use a simple MLP model with 3 layers of neurons.
 Then we train the model without taking a group on the stations
 
 ```python
-estimator = tf.keras.models.Sequential([
-    tf.keras.layers.Dense(256, activation='relu'),
-    tf.keras.layers.Dense(128, activation='relu'),
-    tf.keras.layers.Dense(64, activation='relu'),
-    tf.keras.layers.Dense(1)])
-estimator.compile(optimizer='adam', loss='mae')
-dict_imputers["MLP"] = imputer_mlp = imputers_keras.ImputerRegressorKeras(estimator=estimator, groups=['station'], handler_nan = "column")
+estimator = nn.Sequential(
+        nn.Linear(np.sum(df_data.isna().sum()==0), 256),
+        nn.ReLU(),
+        nn.Linear(256, 128),
+        nn.ReLU(),
+        nn.Linear(128, 64),
+        nn.ReLU(),
+        nn.Linear(64, 1)
+    )
+# imputers_pytorch.build_mlp_example(input_dim=np.sum(df_data.isna().sum()==0), list_num_neurons=[256,128,64])
+dict_imputers["MLP"] = imputer_mlp = imputers_pytorch.ImputerRegressorPyTorch(estimator=estimator, groups=['station'], handler_nan = "column", epochs=500)
 ```
 
 We can re-run the imputation model benchmark as before.

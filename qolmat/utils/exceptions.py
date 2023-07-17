@@ -1,12 +1,11 @@
 from typing import Any, List, Tuple, Type
-from numpy.typing import NDArray
 
 
-class KerasExtraNotInstalled(Exception):
+class PyTorchExtraNotInstalled(Exception):
     def __init__(self):
         super().__init__(
-            """Please install keras xx.xx.xx
-        pip install qolmat[keras]"""
+            """Please install torch xx.xx.xx
+        pip install qolmat[pytorch]"""
         )
 
 
@@ -29,14 +28,6 @@ class NoMissingValue(Exception):
 class SubsetIsAString(Exception):
     def __init__(self, subset: Any):
         super().__init__(f"Provided subset `{subset}` should be None or a list!")
-
-
-class CostFunctionRPCANotMinimized(Exception):
-    def __init__(self, name_fct: str, value_start: float, value_end: float):
-        super().__init__(
-            f"RPCA algorithm may provide bad results. Function {name_fct} increased from"
-            f" {value_start} to {value_end} instead of decreasing!"
-        )
 
 
 class NotDimension2(Exception):

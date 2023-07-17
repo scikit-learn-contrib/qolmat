@@ -1,4 +1,3 @@
-import logging
 from typing import Dict, List, Literal, Optional, Union
 from warnings import WarningMessage
 
@@ -11,8 +10,6 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import StandardScaler
 
 from qolmat.utils import utils
-
-logger = logging.getLogger(__name__)
 
 
 def _gradient_conjugue(A: NDArray, X: NDArray, mask_na: NDArray) -> NDArray:
@@ -116,6 +113,7 @@ class EM(BaseEstimator, TransformerMixin):
         stagnation_threshold: float = 5e-3,
         stagnation_loglik: float = 2,
         period: int = 1,
+        verbose: bool = False,
     ):
         if method not in ["mle", "sample"]:
             raise ValueError(f"`method` must be 'mle' or 'sample', provided value is '{method}'")
@@ -134,6 +132,7 @@ class EM(BaseEstimator, TransformerMixin):
 
         self.dict_criteria_stop: Dict[str, List] = {}
         self.period = period
+        self.verbose = verbose
 
     def _convert_numpy(self, X: NDArray) -> NDArray:
         """
@@ -251,6 +250,8 @@ class MultiNormalEM(EM):
     dt : float
         Process integration time step, a large value increases the sample bias and can make
         the algorithm unstable, but compensates for a smaller n_iter_ou. By default, 2e-2.
+    verbose: bool
+        default `False`
 
     Attributes
     ----------
@@ -283,6 +284,7 @@ class MultiNormalEM(EM):
         stagnation_threshold: float = 5e-3,
         stagnation_loglik: float = 2,
         period: int = 1,
+        verbose: bool = False,
     ) -> None:
         super().__init__(
             method=method,
@@ -295,6 +297,7 @@ class MultiNormalEM(EM):
             stagnation_threshold=stagnation_threshold,
             stagnation_loglik=stagnation_loglik,
             period=period,
+            verbose=verbose,
         )
         self.dict_criteria_stop = {"logliks": [], "means": [], "covs": []}
 
@@ -476,6 +479,8 @@ class VAR1EM(EM):
     dt : float
         Process integration time step, a large value increases the sample bias and can make
         the algorithm unstable, but compensates for a smaller n_iter_ou. By default, 2e-2.
+    verbose: bool
+        default `False`
 
     Attributes
     ----------
@@ -508,6 +513,7 @@ class VAR1EM(EM):
         stagnation_threshold: float = 5e-3,
         stagnation_loglik: float = 2,
         period: int = 1,
+        verbose: bool = False,
     ) -> None:
         super().__init__(
             method=method,
@@ -520,6 +526,7 @@ class VAR1EM(EM):
             stagnation_threshold=stagnation_threshold,
             stagnation_loglik=stagnation_loglik,
             period=period,
+            verbose=verbose,
         )
 
     def fit_parameter_A(self, X):
