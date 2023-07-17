@@ -2,11 +2,11 @@ from typing import Any, List, Tuple, Type
 from numpy.typing import NDArray
 
 
-class KerasExtraNotInstalled(Exception):
+class PyTorchExtraNotInstalled(Exception):
     def __init__(self):
         super().__init__(
-            """Please install keras xx.xx.xx
-        pip install qolmat[keras]"""
+            """Please install torch xx.xx.xx
+        pip install qolmat[pytorch]"""
         )
 
 

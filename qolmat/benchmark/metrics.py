@@ -892,40 +892,22 @@ def pattern_based_weighted_mean_metric(
     pd.Series
         _description_
     """
-    # Identify all distinct missing patterns
-    z = 1 + np.log(1 + np.arange(df_mask.shape[1]))
-    c = np.dot(df_mask, z)
-    row_map: Dict = {}
-    for i, v in enumerate(c):
-        if v == 0:
-            # No missing values
-            continue
-        if v not in row_map:
-            row_map[v] = []
-        row_map[v].append(i)
-    patterns = [np.asarray(v) for v in row_map.values()]
     scores = []
     weights = []
-    for pattern in patterns:
-        df1_pattern = df1.iloc[pattern].dropna(axis=1)
-        if len(df1_pattern.columns) == 0:
-            df1_pattern = df1.iloc[pattern].dropna(axis=0)
-
-        if len(df1_pattern) >= min_num_row:
-            df2_pattern = df2.loc[df1_pattern.index, df1_pattern.columns]
-            weights.append(1.0 / len(df1_pattern))
-            scores.append(
-                metric(df1_pattern, df2_pattern, ~df1_pattern.isna(), **kwargs).values[0]
-            )
-
+    for tup_pattern, df_mask_pattern in df_mask.groupby(df_mask.columns.tolist()):
+        ind_pattern = df_mask_pattern.index
+        df1_pattern = df1.loc[ind_pattern, list(tup_pattern)]
+        if not any(tup_pattern) or len(df1_pattern) < min_num_row:
+            continue
+        df2_pattern = df2.loc[ind_pattern, list(tup_pattern)]
+        weights.append(1.0 / len(df1_pattern))
+        scores.append(metric(df1_pattern, df2_pattern, ~df1_pattern.isna(), **kwargs))
     if len(scores) == 0:
         raise Exception(
             "Not found enough patterns. "
-            + f"Number of row for each pattern must be larger than min_num_row={min_num_row}."
+            f"Number of row for each pattern must be larger than min_num_row={min_num_row}."
         )
-
-    weighted_scores = np.array(scores) * np.array(weights)
-    return pd.Series(np.sum(weighted_scores) / np.sum(weights), index=["All"])
+    return pd.Series(sum([s * w for s, w in zip(scores, weights)]) / sum(weights), index=["All"])
 
 
 def get_metric(name: str) -> Callable:

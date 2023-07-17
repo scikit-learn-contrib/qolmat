@@ -20,18 +20,6 @@ In Qolmat, a few data imputation methods are implemented as well as a way to eva
 First, import some useful librairies
 
 ```python
-X= np.array([[0], [1], [2]])
-```
-
-```python
-np.cov(X)
-```
-
-```python
-
-```
-
-```python
 import warnings
 # warnings.filterwarnings('error')
 ```
@@ -146,7 +134,7 @@ imputer_tsmle = imputers.ImputerEM(groups=("station",), model="VAR1", method="ml
 
 
 imputer_knn = imputers.ImputerKNN(groups=("station",), n_neighbors=10)
-imputer_mice = imputers.ImputerMICE(groups=("station",), estimator=LinearRegression(), sample_posterior=False, max_iter=100, missing_values=np.nan)
+imputer_mice = imputers.ImputerMICE(groups=("station",), estimator=LinearRegression(), sample_posterior=False, max_iter=100)
 imputer_regressor = imputers.ImputerRegressor(groups=("station",), estimator=LinearRegression())
 ```
 
@@ -352,8 +340,11 @@ plt.show()
 In this section, we present an MLP model of data imputation using Keras, which can be installed using a "pip install tensorflow".
 
 ```python
-from qolmat.imputations import imputers_keras
-import tensorflow as tf
+from qolmat.imputations import imputers_pytorch
+try:
+    import torch.nn as nn
+except ModuleNotFoundError:
+    raise PyTorchExtraNotInstalled
 ```
 
 For the MLP model, we work on a dataset that corresponds to weather data with missing values. We add missing MCAR values on the features "TEMP", "PRES" and other features with NaN values. The goal is impute the missing values for the features "TEMP" and "PRES" by a Deep Learning method. We add features to take into account the seasonality of the data set and a feature for the station name
@@ -371,17 +362,21 @@ For the example, we use a simple MLP model with 3 layers of neurons.
 Then we train the model without taking a group on the stations
 
 ```python
-estimator = tf.keras.models.Sequential([
-    tf.keras.layers.Dense(256, activation='relu'),
-    tf.keras.layers.Dense(128, activation='relu'),
-    tf.keras.layers.Dense(64, activation='relu'),
-    tf.keras.layers.Dense(1)])
-estimator.compile(optimizer='adam', loss='mae')
-dict_imputers["MLP"] = imputer_mlp = imputers_keras.ImputerRegressorKeras(estimator=estimator, groups=['station'], handler_nan = "column")
+estimator = nn.Sequential(
+        nn.Linear(np.sum(df_data.isna().sum()==0), 256),
+        nn.ReLU(),
+        nn.Linear(256, 128),
+        nn.ReLU(),
+        nn.Linear(128, 64),
+        nn.ReLU(),
+        nn.Linear(64, 1)
+    )
+# imputers_pytorch.build_mlp_example(input_dim=np.sum(df_data.isna().sum()==0), list_num_neurons=[256,128,64])
+dict_imputers["MLP"] = imputer_mlp = imputers_pytorch.ImputerRegressorPyTorch(estimator=estimator, groups=['station'], handler_nan = "column", epochs=500)
 ```
 
 We can re-run the imputation model benchmark as before.
-```python jupyter={"outputs_hidden": true} tags=[]
+```python tags=[]
 generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], subset=cols_to_impute, ratio_masked=ratio_masked)
 
 comparison = comparator.Comparator(
@@ -395,7 +390,7 @@ comparison = comparator.Comparator(
 results = comparison.compare(df_data)
 results
 ```
-```python jupyter={"outputs_hidden": true, "source_hidden": true} tags=[]
+```python jupyter={"source_hidden": true} tags=[]
 df_plot = df_data
 dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_imputers.items()}
 station = df_plot.index.get_level_values("station")[0]
