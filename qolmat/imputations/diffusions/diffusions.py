@@ -3,7 +3,6 @@ import math
 import numpy as np
 import pandas as pd
 import time
-import gc
 from datetime import timedelta
 
 import torch
@@ -16,6 +15,14 @@ from qolmat.benchmark import missing_patterns, metrics
 
 
 class TabDDPM(DDPM):
+    """Diffusion model for tabular data based on the works of
+    Ho et al., 2020 (https://arxiv.org/abs/2006.11239),
+    Tashiro et al., 2021 (https://arxiv.org/abs/2107.03502).
+    This implementation follows the implementations found in
+    https://github.com/quickgrid/pytorch-diffusion/tree/main,
+    https://github.com/ermongroup/CSDI/tree/main
+    """
+
     def __init__(
         self,
         dim_input: int,
@@ -28,6 +35,30 @@ class TabDDPM(DDPM):
         num_blocks: int = 1,
         p_dropout: float = 0.0,
     ):
+        """_summary_
+
+        Parameters
+        ----------
+        dim_input : int
+            _description_
+        num_noise_steps : int, optional
+            _description_, by default 50
+        beta_start : float, optional
+            _description_, by default 1e-4
+        beta_end : float, optional
+            _description_, by default 0.02
+        lr : float, optional
+            _description_, by default 0.001
+        ratio_masked : float, optional
+            _description_, by default 0.1
+        dim_embedding : int, optional
+            _description_, by default 128
+        num_blocks : int, optional
+            _description_, by default 1
+        p_dropout : float, optional
+            _description_, by default 0.0
+        """
+
         super().__init__(num_noise_steps, beta_start, beta_end)
 
         self.lr = lr
@@ -41,6 +72,7 @@ class TabDDPM(DDPM):
         self.normalizer_x = preprocessing.StandardScaler()
 
     def _set_eps_model(self):
+        """_summary_"""
         self.eps_model = AutoEncoder(
             self.num_noise_steps,
             self.dim_input,
@@ -66,6 +98,25 @@ class TabDDPM(DDPM):
         x_valid_mask: pd.DataFrame = None,
         metrics_valid: Dict[str, Callable] = {"mae": metrics.mean_absolute_error},
     ):
+        """_summary_
+
+        Parameters
+        ----------
+        x : pd.DataFrame
+            _description_
+        epochs : int, optional
+            _description_, by default 10
+        batch_size : int, optional
+            _description_, by default 100
+        print_valid : bool, optional
+            _description_, by default False
+        x_valid : pd.DataFrame, optional
+            _description_, by default None
+        x_valid_mask : pd.DataFrame, optional
+            _description_, by default None
+        metrics_valid : _type_, optional
+            _description_, by default {"mae": metrics.mean_absolute_error}
+        """
         self.epochs = epochs
         self.batch_size = batch_size
         self.columns = x.columns.tolist()
@@ -211,6 +262,18 @@ class TabDDPM(DDPM):
         return scores
 
     def predict(self, x: pd.DataFrame):
+        """_summary_
+
+        Parameters
+        ----------
+        x : pd.DataFrame
+            _description_
+
+        Returns
+        -------
+        _type_
+            _description_
+        """
         self.eps_model.eval()
 
         x_processed, x_mask = self._process_data(x)
@@ -228,14 +291,16 @@ class TabDDPM(DDPM):
             x_windows_mask_processed = mask.to_numpy()
         return x_windows_processed, x_windows_mask_processed
 
-    def cuda_empty_cache(self):
-        del self.eps_model
-        del self.optimiser
-        gc.collect()
-        torch.cuda.empty_cache()
-
 
 class TabDDPMTS(TabDDPM):
+    """Diffusion model for time-series data based on the works of
+    Ho et al., 2020 (https://arxiv.org/abs/2006.11239),
+    Tashiro et al., 2021 (https://arxiv.org/abs/2107.03502).
+    This implementation follows the implementations found in
+    https://github.com/quickgrid/pytorch-diffusion/tree/main,
+    https://github.com/ermongroup/CSDI/tree/main
+    """
+
     def __init__(
         self,
         dim_input: int,
@@ -253,6 +318,39 @@ class TabDDPMTS(TabDDPM):
         num_layers_transformer: int = 1,
         p_dropout: float = 0.0,
     ):
+        """_summary_
+
+        Parameters
+        ----------
+        dim_input : int
+            _description_
+        num_noise_steps : int, optional
+            _description_, by default 50
+        size_window : int, optional
+            _description_, by default 10
+        beta_start : float, optional
+            _description_, by default 1e-4
+        beta_end : float, optional
+            _description_, by default 0.02
+        lr : float, optional
+            _description_, by default 0.001
+        ratio_masked : float, optional
+            _description_, by default 0.1
+        dim_embedding : int, optional
+            _description_, by default 128
+        dim_feedforward : int, optional
+            _description_, by default 64
+        num_blocks : int, optional
+            _description_, by default 1
+        nheads_feature : int, optional
+            _description_, by default 5
+        nheads_time : int, optional
+            _description_, by default 8
+        num_layers_transformer : int, optional
+            _description_, by default 1
+        p_dropout : float, optional
+            _description_, by default 0.0
+        """
         super().__init__(
             dim_input,
             num_noise_steps,

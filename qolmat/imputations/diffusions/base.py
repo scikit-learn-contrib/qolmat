@@ -1,9 +1,16 @@
 from typing import Tuple
 import torch
 import math
+import gc
 
 
 class DDPM:
+    """Diffusion model based on the works of
+    Ho et al., 2020 (https://arxiv.org/abs/2006.11239)
+    This implementation follows the implementation found in
+    https://github.com/quickgrid/pytorch-diffusion/tree/main
+    """
+
     def __init__(self, num_noise_steps, beta_start: float = 1e-4, beta_end: float = 0.02):
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
@@ -35,6 +42,18 @@ class DDPM:
         """Section 3.2, algorithm 1 formula implementation. Forward process, defined by `q`.
         Found in section 2. `q` gradually adds gaussian noise according to variance schedule. Also,
         can be seen on figure 2.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            _description_
+        t : torch.Tensor
+            _description_
+
+        Returns
+        -------
+        Tuple[torch.Tensor, torch.Tensor]
+            _description_
         """
 
         sqrt_alpha_hat = self.sqrt_alpha_hat[t].view(-1, 1)
@@ -46,9 +65,28 @@ class DDPM:
         epsilon = torch.randn_like(x, device=self.device)
         return sqrt_alpha_hat * x + sqrt_one_minus_alpha_hat * epsilon, epsilon
 
+    def _cuda_empty_cache(self):
+        del self.eps_model
+        del self.optimiser
+        gc.collect()
+        torch.cuda.empty_cache()
+
 
 class ResidualBlock(torch.nn.Module):
+    """_summary_"""
+
     def __init__(self, dim_input, dim_embedding=128, p_dropout=0.1):
+        """_summary_
+
+        Parameters
+        ----------
+        dim_input : _type_
+            _description_
+        dim_embedding : int, optional
+            _description_, by default 128
+        p_dropout : float, optional
+            _description_, by default 0.1
+        """
         super().__init__()
 
         self.linear_in = torch.nn.Linear(dim_input, dim_embedding)
@@ -58,6 +96,20 @@ class ResidualBlock(torch.nn.Module):
         self.linear_out = torch.nn.Linear(dim_embedding, dim_input)
 
     def forward(self, x, t):
+        """_summary_
+
+        Parameters
+        ----------
+        x : _type_
+            _description_
+        t : _type_
+            _description_
+
+        Returns
+        -------
+        _type_
+            _description_
+        """
 
         x_t = x + t
         x_t_emb = torch.nn.functional.relu(self.linear_in(x_t))
@@ -68,7 +120,24 @@ class ResidualBlock(torch.nn.Module):
 
 
 class AutoEncoder(torch.nn.Module):
+    """_summary_"""
+
     def __init__(self, num_noise_steps, dim_input, dim_embedding=128, num_blocks=1, p_dropout=0.0):
+        """_summary_
+
+        Parameters
+        ----------
+        num_noise_steps : _type_
+            _description_
+        dim_input : _type_
+            _description_
+        dim_embedding : int, optional
+            _description_, by default 128
+        num_blocks : int, optional
+            _description_, by default 1
+        p_dropout : float, optional
+            _description_, by default 0.0
+        """
         super().__init__()
 
         self.layer_x = torch.nn.Linear(dim_input, dim_embedding)
@@ -90,6 +159,20 @@ class AutoEncoder(torch.nn.Module):
         )
 
     def forward(self, x: torch.Tensor, t: torch.LongTensor) -> torch.Tensor:
+        """_summary_
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            _description_
+        t : torch.LongTensor
+            _description_
+
+        Returns
+        -------
+        torch.Tensor
+            _description_
+        """
         # Noise step embedding
         t_emb = self.embedding_noise_step[t].squeeze()
         t_emb = self.layer_t_1(t_emb)
