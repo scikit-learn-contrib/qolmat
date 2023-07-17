@@ -155,10 +155,8 @@ class TabDDPM(DDPM):
             time_start = time.time()
             self.eps_model.train()
             for id_batch, (x_batch, mask_x_batch) in enumerate(dataloader):
-                mask_rand = (
-                    torch.cuda.FloatTensor(mask_x_batch.size()).uniform_() > self.ratio_masked
-                )
-                mask_x_batch = mask_x_batch * mask_rand
+                mask_rand = torch.FloatTensor(mask_x_batch.size()).uniform_() > self.ratio_masked
+                mask_x_batch = mask_x_batch * mask_rand.to(self.device)
 
                 self.optimiser.zero_grad()
                 t = torch.randint(

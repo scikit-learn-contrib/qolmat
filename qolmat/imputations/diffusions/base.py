@@ -174,7 +174,8 @@ class AutoEncoder(torch.nn.Module):
             _description_
         """
         # Noise step embedding
-        t_emb = self.embedding_noise_step[t].squeeze()
+
+        t_emb = torch.as_tensor(self.embedding_noise_step)[t].squeeze()
         t_emb = self.layer_t_1(t_emb)
         t_emb = torch.nn.functional.silu(t_emb)
         t_emb = self.layer_t_2(t_emb)
@@ -290,7 +291,7 @@ class AutoEncoderTS(AutoEncoder):
 
     def forward(self, x: torch.Tensor, t: torch.LongTensor) -> torch.Tensor:
         # Noise step embedding
-        t_emb = self.embedding_noise_step[t].squeeze()
+        t_emb = torch.as_tensor(self.embedding_noise_step)[t].squeeze()
         t_emb = self.layer_t_1(t_emb)
         t_emb = torch.nn.functional.silu(t_emb)
         t_emb = self.layer_t_2(t_emb)
