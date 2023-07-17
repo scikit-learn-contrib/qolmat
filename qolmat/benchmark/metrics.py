@@ -919,6 +919,7 @@ def get_metric(name: str) -> Callable:
         "wasserstein_columnwise": partial(wasserstein_distance, method="columnwise"),
         "KL_columnwise": partial(kl_divergence, method="columnwise"),
         "KL_gaussian": partial(kl_divergence, method="gaussian"),
+        "KL_forest": partial(kl_divergence, method="random_forest"),
         "ks_test": kolmogorov_smirnov_test,
         "correlation_diff": mean_difference_correlation_matrix_numerical_features,
         "pairwise_dist": sum_pairwise_distances,

@@ -32,41 +32,43 @@ def synthetic_temporal_data():
 
 
 @pytest.mark.parametrize(
-    "obs, lr, ano, lam",
+    "obs, lr, ano, omega, lam",
     [
         (
             np.array([[1, 1], [1, 1]], dtype=float),
             np.array([[2, 2], [2, 2]], dtype=float),
             np.array([[2, 2], [2, 2]], dtype=float),
+            np.array([[False, True], [False, False]], dtype=float),
             2,
         )
     ],
 )
 def test_check_cost_function_minimized_warning(
-    obs: NDArray, lr: NDArray, ano: NDArray, lam: float
+    obs: NDArray, lr: NDArray, ano: NDArray, omega: NDArray, lam: float
 ):
     """Test warning when the cost function is minimized."""
     with pytest.warns(UserWarning):
-        RPCAPCP()._check_cost_function_minimized(obs, lr, ano, lam)
+        RPCAPCP()._check_cost_function_minimized(obs, lr, ano, omega, lam)
 
 
 @pytest.mark.parametrize(
-    "obs, lr, ano, lam",
+    "obs, lr, ano, omega, lam",
     [
         (
             np.array([[1, 1], [1, 1]], dtype=float),
             np.array([[0, 0], [0, 0]], dtype=float),
             np.array([[2, 2], [2, 2]], dtype=float),
+            np.array([[False, False], [False, False]], dtype=float),
             0,
         )
     ],
 )
 def test_check_cost_function_minimized_no_warning(
-    obs: NDArray, lr: NDArray, ano: NDArray, lam: float
+    obs: NDArray, lr: NDArray, ano: NDArray, omega: NDArray, lam: float
 ):
     """Test no warning when the cost function is minimized."""
     with warnings.catch_warnings(record=True) as record:
-        RPCAPCP()._check_cost_function_minimized(obs, lr, ano, lam)
+        RPCAPCP()._check_cost_function_minimized(obs, lr, ano, omega, lam)
     assert len(record) == 0
 
 

@@ -116,6 +116,8 @@ ratio_masked = 0.1
 ```
 
 ```python
+dict_config_opti = {}
+
 imputer_mean = imputers.ImputerMean(groups=("station",))
 imputer_median = imputers.ImputerMedian(groups=("station",))
 imputer_mode = imputers.ImputerMode(groups=("station",))
@@ -127,6 +129,18 @@ imputer_shuffle = imputers.ImputerShuffle(groups=("station",))
 imputer_residuals = imputers.ImputerResiduals(groups=("station",), period=365, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
 
 imputer_rpca = imputers.ImputerRPCA(groups=("station",), columnwise=False, max_iterations=500, tau=2, lam=0.05)
+imputer_rpca_opti = imputers.ImputerRPCA(groups=("station",), columnwise=False, max_iterations=256)
+dict_config_opti["RPCA_opti"] = {
+    "tau": ho.hp.uniform("tau", low=.5, high=5),
+    "lam": ho.hp.uniform("lam", low=.1, high=1),
+}
+imputer_rpca_opticw = imputers.ImputerRPCA(groups=("station",), columnwise=False, max_iterations=256)
+dict_config_opti["RPCA_opticw"] = {
+    "tau/TEMP": ho.hp.uniform("tau/TEMP", low=.5, high=5),
+    "tau/PRES": ho.hp.uniform("tau/PRES", low=.5, high=5),
+    "lam/TEMP": ho.hp.uniform("lam/TEMP", low=.1, high=1),
+    "lam/PRES": ho.hp.uniform("lam/PRES", low=.1, high=1),
+}
 
 imputer_ou = imputers.ImputerEM(groups=("station",), model="multinormal", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
 imputer_tsou = imputers.ImputerEM(groups=("station",), model="VAR1", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
@@ -143,40 +157,6 @@ generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=("s
 ```
 
 ```python
-dict_config_opti = {
-    "tau": ho.hp.uniform("tau", low=.5, high=5),
-    "lam": ho.hp.uniform("lam", low=.1, high=1),
-}
-imputer_rpca_opti = imputers.ImputerRPCA(groups=("station",), columnwise=False, max_iterations=256)
-imputer_rpca_opti = hyperparameters.optimize(
-    imputer_rpca_opti,
-    df_data,
-    generator = generator_holes,
-    metric="mae",
-    max_evals=10,
-    dict_spaces=dict_config_opti
-)
-```
-
-```python jupyter={"source_hidden": true}
-dict_config_opti2 = {
-    "tau/TEMP": ho.hp.uniform("tau/TEMP", low=.5, high=5),
-    "tau/PRES": ho.hp.uniform("tau/PRES", low=.5, high=5),
-    "lam/TEMP": ho.hp.uniform("lam/TEMP", low=.1, high=1),
-    "lam/PRES": ho.hp.uniform("lam/PRES", low=.1, high=1),
-}
-imputer_rpca_opti2 = imputers.ImputerRPCA(groups=("station",), columnwise=True, max_iterations=256)
-imputer_rpca_opti2 = hyperparameters.optimize(
-    imputer_rpca_opti2,
-    df_data,
-    generator = generator_holes,
-    metric="mae",
-    max_evals=10,
-    dict_spaces=dict_config_opti2
-)
-```
-
-```python
 dict_imputers = {
     "mean": imputer_mean,
     # "median": imputer_median,
@@ -190,7 +170,7 @@ dict_imputers = {
     "TSMLE": imputer_tsmle,
     "RPCA": imputer_rpca,
     "RPCA_opti": imputer_rpca_opti,
-    # "RPCA_opti2": imputer_rpca_opti2,
+    # "RPCA_opticw": imputer_rpca_opti2,
     # "locf": imputer_locf,
     # "nocb": imputer_nocb,
     # "knn": imputer_knn,
@@ -225,7 +205,7 @@ results = comparison.compare(df_data)
 results
 ```
 
-```python jupyter={"source_hidden": true}
+```python
 df_plot = results.loc["KL_columnwise",'TEMP']
 plt.barh(df_plot.index, df_plot, color=tab10(0))
 plt.title('TEMP')
@@ -246,7 +226,7 @@ plot.multibar(results.loc["mae"], decimals=1)
 plt.ylabel("mae")
 
 fig.add_subplot(2, 1, 2)
-plot.multibar(results.loc["dist_corr_pattern"], decimals=1)
+plot.multibar(results.loc["dist_corr_pattern"], decimals=2)
 plt.ylabel("dist_corr_pattern")
 
 plt.savefig("figures/imputations_benchmark_errors.png")

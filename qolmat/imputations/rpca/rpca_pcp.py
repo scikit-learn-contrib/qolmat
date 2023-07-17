@@ -36,12 +36,9 @@ class RPCAPCP(RPCA):
         lam: Optional[float] = None,
         max_iterations: int = int(1e4),
         tol: float = 1e-6,
+        verbose: bool = True,
     ) -> None:
-        super().__init__(
-            period=period,
-            max_iterations=max_iterations,
-            tol=tol,
-        )
+        super().__init__(period=period, max_iterations=max_iterations, tol=tol, verbose=verbose)
         self.rng = sku.check_random_state(random_state)
         self.mu = mu
         self.lam = lam
@@ -79,15 +76,16 @@ class RPCAPCP(RPCA):
             if error < self.tol:
                 break
 
-        self._check_cost_function_minimized(D, M, A, lam)
+        self._check_cost_function_minimized(D, M, A, Omega, lam)
 
         return M, A
 
-    @staticmethod
     def _check_cost_function_minimized(
+        self,
         observations: NDArray,
         low_rank: NDArray,
         anomalies: NDArray,
+        Omega: NDArray,
         lam: float,
     ):
         """Check that the functional minimized by the RPCA
@@ -101,18 +99,14 @@ class RPCAPCP(RPCA):
             low_rank matrix resulting from RPCA
         anomalies : NDArray
             sparse matrix resulting from RPCA
+        Omega: NDArrau
+            boolean matrix indicating the observed values
         lam : float
             parameter penalizing the L1-norm of the anomaly/sparse part
-
-        Raises
-        ------
-        CostFunctionRPCANotMinimized
-            The RPCA does not minimized the cost function:
-            the starting cost is at least equal to the final one.
         """
         cost_start = np.linalg.norm(observations, "nuc")
-        cost_end = np.linalg.norm(low_rank, "nuc") + lam * np.sum(np.abs(anomalies))
-        if round(cost_start, 4) - round(cost_end, 4) <= -1e-2:
+        cost_end = np.linalg.norm(low_rank, "nuc") + lam * np.sum(Omega * np.abs(anomalies))
+        if self.verbose and round(cost_start, 4) - round(cost_end, 4) <= -1e-2:
             function_str = "||D||_* + lam ||A||_1"
             warnings.warn(
                 f"RPCA algorithm may provide bad results. Function {function_str} increased from"

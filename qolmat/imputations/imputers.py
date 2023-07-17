@@ -12,12 +12,12 @@ from sklearn.base import BaseEstimator
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer, KNNImputer
 from sklearn.impute._base import _BaseImputer
-from qolmat.benchmark.hyperparameters import HyperValue
 from statsmodels.tsa import seasonal as tsa_seasonal
 
 from qolmat.imputations import em_sampler
 from qolmat.imputations.rpca import rpca, rpca_noisy, rpca_pcp
 from qolmat.utils.exceptions import NotDataFrame
+from qolmat.utils.utils import HyperValue
 
 
 class _Imputer(_BaseImputer):
@@ -1527,6 +1527,7 @@ class ImputerRPCA(_Imputer):
         max_iterations: int = int(1e4),
         tol: float = 1e-6,
         norm: Optional[str] = "L2",
+        verbose: bool = False,
     ) -> None:
         super().__init__(
             imputer_params=(
@@ -1557,6 +1558,7 @@ class ImputerRPCA(_Imputer):
         self.max_iterations = max_iterations
         self.tol = tol
         self.norm = norm
+        self.verbose = verbose
 
     def get_model(self, **hyperparams) -> rpca.RPCA:
         """Get the underlying model of the imputer based on its attributes.
@@ -1580,7 +1582,7 @@ class ImputerRPCA(_Imputer):
                     "norm",
                 ]
             }
-            model = rpca_pcp.RPCAPCP(random_state=self.rng_, **hyperparams)
+            model = rpca_pcp.RPCAPCP(random_state=self.rng_, verbose=self.verbose, **hyperparams)
         elif self.method == "noisy":
             hyperparams = {
                 key: hyperparams[key]
@@ -1596,7 +1598,9 @@ class ImputerRPCA(_Imputer):
                     "norm",
                 ]
             }
-            model = rpca_noisy.RPCANoisy(random_state=self.rng_, **hyperparams)
+            model = rpca_noisy.RPCANoisy(
+                random_state=self.rng_, verbose=self.verbose, **hyperparams
+            )
         return model
 
     def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
@@ -1674,6 +1678,7 @@ class ImputerEM(_Imputer):
         stagnation_threshold: float = 5e-3,
         stagnation_loglik: float = 2,
         period: int = 1,
+        verbose: bool = False,
     ):
         super().__init__(
             imputer_params=(
@@ -1700,6 +1705,7 @@ class ImputerEM(_Imputer):
         self.stagnation_threshold = stagnation_threshold
         self.stagnation_loglik = stagnation_loglik
         self.period = period
+        self.verbose = verbose
 
     def get_model(self, **hyperparams) -> em_sampler.EM:
         """Get the underlying model of the imputer based on its attributes.
@@ -1710,9 +1716,11 @@ class ImputerEM(_Imputer):
             EM model to be used in the fit and transform methods.
         """
         if self.model == "multinormal":
-            return em_sampler.MultiNormalEM(**hyperparams)
+            return em_sampler.MultiNormalEM(
+                random_state=self.rng_, verbose=self.verbose, **hyperparams
+            )
         elif self.model == "VAR1":
-            return em_sampler.VAR1EM(**hyperparams)
+            return em_sampler.VAR1EM(random_state=self.rng_, verbose=self.verbose, **hyperparams)
         else:
             raise ValueError(
                 f"Model argument `{self.model}` is invalid!"
@@ -1751,12 +1759,12 @@ class ImputerEM(_Imputer):
         if self.columnwise:
             for col in cols_with_nans:
                 hyperparams = self.get_hyperparams(col=col)
-                model = self.get_model(random_state=self.rng_, **hyperparams)
+                model = self.get_model(**hyperparams)
                 model.fit(df[col].values)
                 self._models[col] = model
         else:
             hyperparams = self.get_hyperparams()
-            model = self.get_model(random_state=self.rng_, **hyperparams)
+            model = self.get_model(**hyperparams)
             model.fit(df.values.T)
             self._models["__all__"] = model
         return self

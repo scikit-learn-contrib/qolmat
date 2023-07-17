@@ -62,8 +62,9 @@ class RPCANoisy(RPCA):
         max_iterations: int = int(1e4),
         tol: float = 1e-6,
         norm: str = "L2",
+        verbose: bool = True,
     ) -> None:
-        super().__init__(period=period, max_iterations=max_iterations, tol=tol)
+        super().__init__(period=period, max_iterations=max_iterations, tol=tol, verbose=verbose)
         self.rng = sku.check_random_state(random_state)
         self.rank = rank
         self.mu = mu
@@ -439,12 +440,6 @@ class RPCANoisy(RPCA):
             parameter penalizing the L1-norm of the anomaly/sparse part
         norm : str
             norm of the temporal penalisation. Has to be `L1` or `L2`
-
-        Raises
-        ------
-        CostFunctionRPCANotMinimized
-            The RPCA does not minimized the cost function:
-            the starting cost is at least equal to the final one.
         """
         cost_start = self.cost_function(
             observations, observations, np.full_like(observations, 0), Omega, tau, lam
@@ -455,8 +450,8 @@ class RPCANoisy(RPCA):
             for eta in self.list_etas:
                 function_str += f"{eta} ||XH||_{self.norm}"
 
-        if (round(cost_start, 4) - round(cost_end, 4)) <= -1e-2:
+        if self.verbose and (round(cost_start, 4) - round(cost_end, 4)) <= -1e-2:
             warnings.warn(
                 f"RPCA algorithm may provide bad results. Function {function_str} increased from"
-                f" {cost_start} to {cost_end} instead of decreasing!"
+                f" {cost_start} to {cost_end} instead of decreasing!".format("%.2f")
             )
