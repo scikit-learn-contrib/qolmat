@@ -1,4 +1,4 @@
-from typing import Dict, List, Callable
+from typing import Dict, List, Callable, Tuple
 import math
 import numpy as np
 import pandas as pd
@@ -96,7 +96,10 @@ class TabDDPM(DDPM):
         print_valid: bool = False,
         x_valid: pd.DataFrame = None,
         x_valid_mask: pd.DataFrame = None,
-        metrics_valid: Dict[str, Callable] = {"mae": metrics.mean_absolute_error},
+        metrics_valid: Tuple[Tuple[str, Callable], ...] = (
+            ("mean_absolute_error", metrics.mean_absolute_error),
+            ("wasserstein_distance", metrics.wasserstein_distance),
+        ),
     ):
         """_summary_
 
@@ -138,8 +141,9 @@ class TabDDPM(DDPM):
         if x_valid is not None:
             if x_valid_mask is None:
                 x_valid_mask = missing_patterns.UniformHoleGenerator(
-                    n_splits=1, ratio_masked=self.ratio_masked
-                ).generate_mask(x_valid)
+                    n_splits=1,
+                    ratio_masked=self.ratio_masked,
+                ).split(x_valid)[0]
             x_processed_valid, x_mask_valid = self._process_data(x_valid, x_valid_mask)
 
         x_tensor = torch.from_numpy(x_processed).float().to(self.device)
@@ -249,14 +253,37 @@ class TabDDPM(DDPM):
         x_df: pd.DataFrame,
         x_mask_obs_df: pd.DataFrame,
     ):
+        """_summary_
+
+        Parameters
+        ----------
+        x : np.ndarray
+            _description_
+        x_mask_obs : np.ndarray
+            Mask for x, cells for metric input are set to True
+        x_df : pd.DataFrame
+            _description_
+        x_mask_obs_df : pd.DataFrame
+            _description_
+
+        Returns
+        -------
+        _type_
+            _description_
+        """
         x_imputed = self._impute(x, x_mask_obs)
         x_normalized = pd.DataFrame(
             self.normalizer_x.inverse_transform(x_imputed), columns=self.columns, index=x_df.index
         )
 
+        columns_with_True = x_mask_obs_df.columns[(x_mask_obs_df == True).any()]
         scores = {}
-        for name, metric in self.metrics_valid.items():
-            scores[name] = metric(x_df, x_normalized, ~x_mask_obs_df).mean()
+        for name, metric in self.metrics_valid:
+            scores[name] = metric(
+                x_df[columns_with_True],
+                x_normalized[columns_with_True],
+                x_mask_obs_df[columns_with_True],
+            ).mean()
         return scores
 
     def predict(self, x: pd.DataFrame):

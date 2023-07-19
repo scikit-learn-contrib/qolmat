@@ -153,7 +153,10 @@ class ImputerGenerativeModelPytorch(ImputerGenerativeModel):
         x_valid: pd.DataFrame = None,
         x_valid_mask: pd.DataFrame = None,
         print_valid: bool = False,
-        metrics_valid: Tuple[str, Callable] = ("mae", metrics.mean_absolute_error),
+        metrics_valid: Tuple[Tuple[str, Callable], ...] = (
+            ("mean_absolute_error", metrics.mean_absolute_error),
+            ("wasserstein_distance", metrics.wasserstein_distance),
+        ),
     ):
         super().__init__(groups=groups, model=model)
         self.epochs = epochs
