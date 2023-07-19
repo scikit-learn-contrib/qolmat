@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from sklearn import utils as sku
 from sklearn.utils import resample
+import math
 
 from qolmat.utils.exceptions import NoMissingValue, SubsetIsAString
 
@@ -188,7 +189,7 @@ class UniformHoleGenerator(_HoleGenerator):
 
         self.rng = sku.check_random_state(self.random_state)
         df_mask = pd.DataFrame(False, index=X.index, columns=X.columns)
-        n_masked_col = round(self.ratio_masked * len(X))
+        n_masked_col = math.ceil(self.ratio_masked * len(X))
 
         for column in self.subset:
             indices = np.where(X[column].notna())[0]
