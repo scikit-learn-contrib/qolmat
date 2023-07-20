@@ -23,6 +23,7 @@ list_generators = {
     "geo": mp.GeometricHoleGenerator(n_splits=2, ratio_masked=0.1, random_state=42),
     "unif": mp.UniformHoleGenerator(n_splits=2, ratio_masked=0.1, random_state=42),
     "multi": mp.MultiMarkovHoleGenerator(n_splits=2, ratio_masked=0.1, random_state=42),
+    "bern": mp.BernoulliHoleGenerator(n_splits=2, ratio_masked=0.1, random_state=42),
     "group": mp.GroupedHoleGenerator(
         n_splits=2, ratio_masked=0.1, random_state=42, groups=("group",)
     ),
@@ -73,3 +74,17 @@ def test_SamplerHoleGenerator_without_real_nans(
 
     np.testing.assert_allclose(len(set(loc_real_nans_col1) & set(loc_mask_col1)), 0)
     np.testing.assert_allclose(len(set(loc_real_nans_col2) & set(loc_mask_col2)), 0)
+
+
+@pytest.mark.parametrize(
+    "df, generator",
+    [
+        (df_incomplet, list_generators["bern"]),
+    ],
+)
+def test_BernoulliHoleGenerator_split(df: pd.DataFrame, generator: mp._HoleGenerator) -> None:
+    mask = generator.split(df)[0]
+    ratio_hole = mask.sum().sum() / mask.size
+    expected_ratio_hole = 0.1
+
+    np.testing.assert_allclose(ratio_hole, expected_ratio_hole, atol=0.1)
