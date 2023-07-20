@@ -360,3 +360,20 @@ def test_pattern_based_weighted_mean_metric(
         df1, df2, df_mask, metric=metrics.distance_anticorr, min_n_rows=1
     )
     np.testing.assert_allclose(result, expected, rtol=1e-2)
+
+
+rng = npr.default_rng(123)
+df_gauss1 = pd.DataFrame(rng.multivariate_normal([0, 0], [[1, 0.2], [0.2, 2]], size=100))
+df_gauss2 = pd.DataFrame(rng.multivariate_normal([0, 1], [[1, 0.2], [0.2, 2]], size=100))
+df_mask = pd.DataFrame(np.full_like(df_gauss1, True))
+
+
+def test_pattern_mae_comparison() -> None:
+    def fun_mean_mae(df_gauss1, df_gauss2, df_mask) -> float:
+        return metrics.mean_squared_error(df_gauss1, df_gauss2, df_mask).mean()
+
+    result1 = fun_mean_mae(df_gauss1, df_gauss2, df_mask)
+    result2 = metrics.pattern_based_weighted_mean_metric(
+        df_gauss1, df_gauss2, df_mask, metric=fun_mean_mae, min_n_rows=1
+    )
+    np.testing.assert_allclose(result1, result2, rtol=1e-2)

@@ -801,6 +801,39 @@ def kl_divergence_1D(df1: pd.Series, df2: pd.Series) -> float:
     return scipy.stats.entropy(p + EPS, q + EPS)
 
 
+def kl_divergence_gaussian_exact(
+    mean1: pd.Series, cov1: pd.DataFrame, mean2: pd.Series, cov2: pd.DataFrame
+) -> float:
+    """Exact Kullback-Leibler divergence computed between two multivariate normal distributions
+
+    Parameters
+    ----------
+    mean1: pd.Series
+        Mean of the first distribution
+    cov1: pd.DataFrame
+        Covariance matrx of the first distribution
+    mean2: pd.Series
+        Mean of the second distribution
+    cov2: pd.DataFrame
+        Covariance matrx of the second distribution
+    Returns
+    -------
+    float
+        Kulback-Leibler divergence
+    """
+    n_variables = len(mean1)
+    L1, lower1 = scipy.linalg.cho_factor(cov1)
+    L2, lower2 = scipy.linalg.cho_factor(cov2)
+    M = scipy.linalg.solve(L2, L1)
+    y = scipy.linalg.solve(L2, mean2 - mean1)
+    norm_M = (M**2).sum().sum()
+    norm_y = (y**2).sum()
+    term_diag_L = 2 * np.sum(np.log(np.diagonal(L2) / np.diagonal(L1)))
+    print(norm_M, "-", n_variables, "+", norm_y, "+", term_diag_L)
+    div_kl = 0.5 * (norm_M - n_variables + norm_y + term_diag_L)
+    return div_kl
+
+
 def kl_divergence_gaussian(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.Series) -> float:
     """Kullback-Leibler divergence estimation based on a Gaussian approximation of both empirical
     distributions
@@ -821,20 +854,12 @@ def kl_divergence_gaussian(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.Ser
     """
     df1 = df1[df_mask.any(axis=1)]
     df2 = df2[df_mask.any(axis=1)]
-    n_variables = len(df1.columns)
     cov1 = df1.cov()
     cov2 = df2.cov()
     mean1 = df1.mean()
     mean2 = df2.mean()
-    L1, lower1 = scipy.linalg.cho_factor(cov1)
-    L2, lower2 = scipy.linalg.cho_factor(cov2)
-    M = scipy.linalg.solve(L2, L1)
-    y = scipy.linalg.solve(L2, mean2 - mean1)
-    norm_M = (M**2).sum().sum()
-    norm_y = (y**2).sum()
-    term_diag_L = 2 * np.sum(np.log(np.diagonal(L2) / np.diagonal(L1)))
-    print(norm_M, "-", n_variables, "+", norm_y, "+", term_diag_L)
-    div_kl = 0.5 * (norm_M - n_variables + norm_y + term_diag_L)
+
+    div_kl = kl_divergence_gaussian_exact(mean1, cov1, mean2, cov2)
     return div_kl
 
 
@@ -1017,6 +1042,10 @@ def pattern_based_weighted_mean_metric(
         scores.append(metric(df1_pattern, df2_pattern, df_mask_pattern, **kwargs))
     if len(scores) == 0:
         raise NotEnoughSamples(max_num_row, min_n_rows)
+    print("scores:")
+    print(scores)
+    print("weights:")
+    print(weights)
     return pd.Series(sum([s * w for s, w in zip(scores, weights)]), index=["All"])
 
 
