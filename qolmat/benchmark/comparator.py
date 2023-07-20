@@ -35,6 +35,7 @@ class Comparator:
         metrics: List = ["mae", "wmape", "KL_columnwise"],
         dict_config_opti: Optional[Dict[str, Any]] = {},
         max_evals: int = 10,
+        verbose: bool = False,
     ):
         self.dict_imputers = dict_models
         self.selected_columns = selected_columns
@@ -42,6 +43,7 @@ class Comparator:
         self.metrics = metrics
         self.dict_config_opti = dict_config_opti
         self.max_evals = max_evals
+        self.verbose = verbose
 
     def get_errors(
         self,
@@ -106,6 +108,7 @@ class Comparator:
                 metric_optim,
                 dict_config_opti_imputer,
                 max_evals=self.max_evals,
+                verbose=self.verbose,
             )
             df_imputed = imputer_opti.fit_transform(df_corrupted)
             subset = self.generator_holes.subset
