@@ -69,6 +69,20 @@ def test_mean_absolute_error(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.D
 @pytest.mark.parametrize("df1", [df_incomplete])
 @pytest.mark.parametrize("df2", [df_imputed])
 @pytest.mark.parametrize("df_mask", [df_mask])
+def test_mean_absolute_percentage_error(
+    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
+) -> None:
+    assert metrics.mean_absolute_percentage_error(df1, df1, df_mask).equals(
+        pd.Series([0.0, 0.0], index=["col1", "col2"])
+    )
+    result = metrics.mean_absolute_percentage_error(df1, df2, df_mask)
+    expected = pd.Series([0.083, 1.166], index=["col1", "col2"])
+    np.testing.assert_allclose(result, expected, atol=1e-3)
+
+
+@pytest.mark.parametrize("df1", [df_incomplete])
+@pytest.mark.parametrize("df2", [df_imputed])
+@pytest.mark.parametrize("df_mask", [df_mask])
 def test_weighted_mean_absolute_percentage_error(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
 ) -> None:
@@ -76,7 +90,7 @@ def test_weighted_mean_absolute_percentage_error(
         pd.Series([0.0, 0.0], index=["col1", "col2"])
     )
     result = metrics.weighted_mean_absolute_percentage_error(df1, df2, df_mask)
-    expected = pd.Series([0.083, 1.167], index=["col1", "col2"])
+    expected = pd.Series([0.1, 1.0], index=["col1", "col2"])
     np.testing.assert_allclose(result, expected, atol=1e-3)
 
 

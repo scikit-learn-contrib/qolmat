@@ -111,6 +111,46 @@ def mean_absolute_error(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFr
     return columnwise_metric(df1, df2, df_mask, skm.mean_absolute_error)
 
 
+def mean_absolute_percentage_error(
+    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
+) -> pd.Series:
+    """Mean absolute percentage error between two dataframes.
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        True dataframe
+    df2 : pd.DataFrame
+        Predicted dataframe
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
+
+    Returns
+    -------
+    pd.Series
+    """
+    return columnwise_metric(df1, df2, df_mask, skm.mean_absolute_percentage_error)
+
+
+def _weighted_mean_absolute_percentage_error_1D(values1: pd.Series, values2: pd.Series) -> float:
+    """Weighted mean absolute percentage error between two series.
+    Based on https://en.wikipedia.org/wiki/Mean_absolute_percentage_error
+
+    Parameters
+    ----------
+    values1 : pd.Series
+        true series
+    values2 : pd.Series
+        predicted series
+
+    Returns
+    -------
+    float
+        Weighted mean absolute percentage error
+    """
+    return (values1 - values2).abs().sum() / values1.abs().sum()
+
+
 def weighted_mean_absolute_percentage_error(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
 ) -> pd.Series:
@@ -129,7 +169,7 @@ def weighted_mean_absolute_percentage_error(
     -------
     pd.Series
     """
-    return columnwise_metric(df1, df2, df_mask, skm.mean_absolute_percentage_error)
+    return columnwise_metric(df1, df2, df_mask, _weighted_mean_absolute_percentage_error_1D)
 
 
 def dist_wasserstein(
