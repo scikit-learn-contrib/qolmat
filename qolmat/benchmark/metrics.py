@@ -132,15 +132,15 @@ def mean_absolute_percentage_error(
     return columnwise_metric(df1, df2, df_mask, skm.mean_absolute_percentage_error)
 
 
-def _weighted_mean_absolute_percentage_error_1D(df1: pd.Series, df2: pd.Series) -> float:
+def _weighted_mean_absolute_percentage_error_1D(values1: pd.Series, values2: pd.Series) -> float:
     """Weighted mean absolute percentage error between two series.
     Based on https://en.wikipedia.org/wiki/Mean_absolute_percentage_error
 
     Parameters
     ----------
-    df1 : pd.Series
+    values1 : pd.Series
         true series
-    df2 : pd.Series
+    values2 : pd.Series
         predicted series
 
     Returns
@@ -148,7 +148,7 @@ def _weighted_mean_absolute_percentage_error_1D(df1: pd.Series, df2: pd.Series) 
     float
         Weighted mean absolute percentage error
     """
-    return (df1 - df2).abs().sum() / df1.abs().sum()
+    return (values1 - values2).abs().sum() / values1.abs().sum()
 
 
 def weighted_mean_absolute_percentage_error(
