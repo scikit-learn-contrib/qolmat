@@ -67,9 +67,9 @@ class Comparator:
         """
         dict_errors = {}
         for name_metric in self.metrics:
-            dict_errors[name_metric] = metrics.get_metric(name_metric)(
-                df_origin, df_imputed, df_mask
-            )
+            fun_metric = metrics.get_metric(name_metric)
+            dict_errors[name_metric] = fun_metric(df_origin, df_imputed, df_mask)
+        print(dict_errors)
         errors = pd.concat(dict_errors.values(), keys=dict_errors.keys())
         return errors
 

@@ -51,7 +51,6 @@ from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor, HistGra
 
 import sys
 from qolmat.benchmark import comparator, missing_patterns, hyperparameters
-from qolmat.benchmark.metrics import kl_divergence
 from qolmat.imputations import imputers
 from qolmat.utils import data, utils, plot
 
@@ -153,42 +152,7 @@ imputer_regressor = imputers.ImputerRegressor(groups=("station",), estimator=Lin
 ```
 
 ```python
-generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=("station",), subset=cols_to_impute, ratio_masked=ratio_masked)
-```
-
-```python jupyter={"outputs_hidden": true}
-dict_config_opti = {
-    "tau": ho.hp.uniform("tau", low=.5, high=5),
-    "lam": ho.hp.uniform("lam", low=.1, high=1),
-}
-imputer_rpca_opti = imputers.ImputerRPCA(groups=("station",), columnwise=False, max_iterations=256)
-imputer_rpca_opti = hyperparameters.optimize(
-    imputer_rpca_opti,
-    df_data,
-    generator = generator_holes,
-    metric="mae",
-    max_evals=10,
-    dict_spaces=dict_config_opti
-)
-# imputer_rpca_opti.params_optim = hyperparams_opti
-```
-
-```python
-dict_config_opti2 = {
-    "tau/TEMP": ho.hp.uniform("tau/TEMP", low=.5, high=5),
-    "tau/PRES": ho.hp.uniform("tau/PRES", low=.5, high=5),
-    "lam/TEMP": ho.hp.uniform("lam/TEMP", low=.1, high=1),
-    "lam/PRES": ho.hp.uniform("lam/PRES", low=.1, high=1),
-}
-imputer_rpca_opti2 = imputers.ImputerRPCA(groups=("station",), columnwise=True, max_iterations=256)
-imputer_rpca_opti2 = hyperparameters.optimize(
-    imputer_rpca_opti2,
-    df_data,
-    generator = generator_holes,
-    metric="mae",
-    max_evals=10,
-    dict_spaces=dict_config_opti2
-)
+generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=1, groups=("station",), subset=cols_to_impute, ratio_masked=ratio_masked)
 ```
 
 ```python
@@ -198,13 +162,13 @@ dict_imputers = {
     # "mode": imputer_mode,
     "interpolation": imputer_interpol,
     # "spline": imputer_spline,
-    "shuffle": imputer_shuffle,
-    # "residuals": imputer_residuals,
+    # "shuffle": imputer_shuffle,
+    "residuals": imputer_residuals,
     # "OU": imputer_ou,
     "TSOU": imputer_tsou,
     "TSMLE": imputer_tsmle,
-    "RPCA": imputer_rpca,
-    "RPCA_opti": imputer_rpca_opti,
+    # "RPCA": imputer_rpca,
+    # "RPCA_opti": imputer_rpca,
     # "RPCA_opticw": imputer_rpca_opti2,
     # "locf": imputer_locf,
     # "nocb": imputer_nocb,
@@ -228,7 +192,8 @@ Concretely, the comparator takes as input a dataframe to impute, a proportion of
 Note these metrics compute reconstruction errors; it tells nothing about the distances between the "true" and "imputed" distributions.
 
 ```python
-metrics = ["mae", "wmape", "KL_columnwise", "ks_test", "dist_corr_pattern"]
+metrics = ["mae", "wmape", "KL_columnwise", "KL_forest", "ks_test", "dist_corr_pattern"]
+# metrics = ["KL_forest"]
 comparison = comparator.Comparator(
     dict_imputers,
     cols_to_impute,
@@ -247,10 +212,7 @@ fig = plt.figure(figsize=(24, 4 * n_metrics))
 for i, metric in enumerate(metrics):
     fig.add_subplot(n_metrics, 1, i + 1)
     df = results.loc[metric]
-    if "All" in df.index:
-        plt.bar(df.loc["All"].index, height=df.loc["All"])
-    else:
-        plot.multibar(df, decimals=1)
+    plot.multibar(df, decimals=2)
     plt.ylabel(metric)
 
 plt.savefig("figures/imputations_benchmark_errors.png")
