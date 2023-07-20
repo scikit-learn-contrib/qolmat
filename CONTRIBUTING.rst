@@ -36,7 +36,7 @@ If you need to use tensorflow, enter the command:
 
 .. code:: sh
 
-    $ pip install -e .[tensorflow]
+    $ pip install -e .[pytorch]
 
 Once the environment is installed, pre-commit is installed, but need to be activated using the following command:
 

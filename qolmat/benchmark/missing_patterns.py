@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import functools
-import logging
 from typing import Callable, List, Optional, Tuple, Union
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -10,8 +10,6 @@ from sklearn import utils as sku
 from sklearn.utils import resample
 
 from qolmat.utils.exceptions import NoMissingValue, SubsetIsAString
-
-logger = logging.getLogger(__name__)
 
 
 def compute_transition_counts_matrix(states: pd.Series):
@@ -305,7 +303,7 @@ class _SamplerHoleGenerator(_HoleGenerator):
                     break
 
         if list_failed:
-            logger.warning(f"No place to introduce sampled holes of size {list_failed}!")
+            warnings.warn(f"No place to introduce sampled holes of size {list_failed}!")
         return mask
 
 

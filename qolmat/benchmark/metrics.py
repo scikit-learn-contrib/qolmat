@@ -4,11 +4,14 @@ from typing import Callable, Dict, List, Optional
 import numpy as np
 import pandas as pd
 import scipy
+from scipy.stats import wasserstein_distance as dist_wasserstein_1d
 import sklearn
 from sklearn import metrics as skm
 from sklearn.ensemble import BaseEnsemble
 from sklearn.preprocessing import StandardScaler
 import dcor
+
+from qolmat.utils.exceptions import NotEnoughSamples
 
 EPS = np.finfo(float).eps
 
@@ -169,7 +172,7 @@ def weighted_mean_absolute_percentage_error(
     return columnwise_metric(df1, df2, df_mask, _weighted_mean_absolute_percentage_error_1D)
 
 
-def wasserstein_distance(
+def dist_wasserstein(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame, method: str = "columnwise"
 ) -> pd.Series:
     """Wasserstein distances between columns of 2 dataframes.
@@ -195,135 +198,6 @@ def wasserstein_distance(
         raise AssertionError(
             f"The parameter of the function wasserstein_distance should be one of"
             f"the following: [`columnwise`], not `{method}`!"
-        )
-
-
-def density_from_rf(
-    df: pd.DataFrame, estimator: BaseEnsemble, df_est: Optional[pd.DataFrame] = None
-):
-    """Estimates the density of the empirical distribution given by df at the sample points given
-    by df_est. The estimation uses an random forest estimator and relies on the average number of
-    samples in the leaf corresponding to each estimation point.
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Empirical distribution which density should be estimated
-    estimator : BaseEnsemble
-        Estimator defining the forest upon which is based the density counting.
-    df_est : pd.DataFrame, optional
-        Sample points of the estimation, by default None
-        If None, the density is estimated at the points given by `df`.
-
-    Returns
-    -------
-    pd.Series
-        Series of floats providing the normalized density
-    """
-    if df_est is None:
-        df_est = df.copy()
-    counts = pd.Series(0, index=df_est.index)
-    df_leafs = pd.DataFrame(estimator.apply(df))
-    df_leafs_est = pd.DataFrame(estimator.apply(df_est))
-    for i_tree in range(estimator.n_estimators):
-        leafs = df_leafs[i_tree].rename("id_leaf")
-        leafs_est = df_leafs_est[i_tree].rename("id_leaf")
-        counts_leafs = leafs.value_counts().rename("count")
-        df_merge = pd.merge(leafs_est.reset_index(), counts_leafs.reset_index(), on="id_leaf")
-        df_merge = df_merge.set_index("index")
-        counts += df_merge["count"]
-    counts /= counts.sum()
-    return counts
-
-
-def kl_divergence_1D(df1: pd.Series, df2: pd.Series) -> float:
-    """Estimation of the Kullback-Leibler divergence between the two 1D empirical distributions
-    given by `df1`and `df2`. The samples are binarized using a uniform spacing with 20 bins from
-    the smallest to the largest value. Not that this may be a coarse estimation.
-
-    Parameters
-    ----------
-    df1 : pd.Series
-        First empirical distribution
-    df2 : pd.Series
-        Second empirical distribution
-
-    Returns
-    -------
-    float
-        Kullback-Leibler divergence between the two empirical distributions.
-    """
-    min_val = min(df1.min(), df2.min())
-    max_val = max(df1.max(), df2.max())
-    bins = np.linspace(min_val, max_val, 20)
-    p = np.histogram(df1, bins=bins, density=True)[0]
-    q = np.histogram(df2, bins=bins, density=True)[0]
-    return scipy.stats.entropy(p + EPS, q + EPS)
-
-
-def kl_divergence(
-    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame, method: str = "columnwise"
-) -> pd.Series:
-    """
-    Estimation of the Kullback-Leibler divergence between too empirical distributions. Three
-    methods are implemented:
-    - columnwise, relying on a uniform binarization and only taking marginals into account
-    (https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence),
-    - gaussian, relying on a Gaussian approximation,
-    - random_forest, experimental
-
-    Parameters
-    ----------
-    df1 : pd.DataFrame
-        First empirical distribution
-    df2 : pd.DataFrame
-        Second empirical distribution
-    df_mask: pd.DataFrame
-        Mask indicating on what values the divergence should be computed
-    method:
-
-    Returns
-    -------
-    Kullback-Leibler divergence : Union[float, pd.Series]
-    """
-    if method == "columnwise":
-        return columnwise_metric(df1, df2, df_mask, kl_divergence_1D)
-    elif method == "gaussian":
-        n_variables = len(df1.columns)
-        cov1 = df1.cov()
-        cov2 = df2.cov()
-        mean1 = df1.mean()
-        mean2 = df2.mean()
-        L1, lower1 = scipy.linalg.cho_factor(cov1)
-        L2, lower2 = scipy.linalg.cho_factor(cov2)
-        M = scipy.linalg.solve(L2, L1)
-        y = scipy.linalg.solve(L2, mean2 - mean1)
-        norm_M = (M**2).sum().sum()
-        norm_y = (y**2).sum()
-        term_diag_L = 2 * np.sum(np.log(np.diagonal(L2) / np.diagonal(L1)))
-        print(norm_M, "-", n_variables, "+", norm_y, "+", term_diag_L)
-        div_kl = 0.5 * (norm_M - n_variables + norm_y + term_diag_L)
-        return pd.Series(div_kl, index=df1.columns)
-    elif method == "random_forest":
-        # df_1 = StandardScaler().fit_transform(df1[df_mask.any(axis=1)])
-        # df_2 = StandardScaler().fit_transform(df2[df_mask.any(axis=1)])
-        n_estimators = 1000
-        # estimator = sklearn.ensemble.RandomForestClassifier(
-        #     n_estimators=n_estimators, max_depth=10
-        # )
-        # X = pd.concat([df1, df2])
-        # y = pd.concat([pd.Series([False] * len(df1)), pd.Series([True] * len(df2))])
-        # estimator.fit(X, y)
-        estimator = sklearn.ensemble.RandomTreesEmbedding(n_estimators=n_estimators, max_depth=8)
-        estimator.fit(df1)
-        counts1 = density_from_rf(df1, estimator, df_est=df2)
-        counts2 = density_from_rf(df2, estimator, df_est=df2)
-        div_kl = np.mean(np.log(counts1 / counts2) * counts1 / counts2)
-        return pd.Series(div_kl, index=df1.columns)
-    else:
-        raise AssertionError(
-            f"The parameter of the function wasserstein_distance should be one of"
-            f"the following: [`columnwise`, `gaussian`], not `{method}`!"
         )
 
 
@@ -780,7 +654,7 @@ def sum_energy_distances(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataF
 
 def sum_pairwise_distances(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame, metric: str = "cityblock"
-) -> pd.Series:
+) -> float:
     """Sum of pairwise distances based on a predefined metric.
     Metrics are found in this link
     https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.cdist.html
@@ -788,24 +662,24 @@ def sum_pairwise_distances(
     Parameters
     ----------
     df1 : pd.DataFrame
-        true dataframe
+        First empirical distribution without nans
     df2 : pd.DataFrame
-        predicted dataframe
+        Second empirical distribution without nans
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
     metric : str, optional
         distance metric, by default 'cityblock'
 
     Returns
     -------
-    pd.Series
+    float
         Sum of pairwise distances based on a predefined metric
     """
-    distances = np.sum(
-        scipy.spatial.distance.cdist(
-            df1[df_mask].fillna(0.0), df2[df_mask].fillna(0.0), metric=metric
-        )
-    )
+    df1 = df1[df_mask.any(axis=1)]
+    df2 = df2[df_mask.any(axis=1)]
+    distances = np.sum(scipy.spatial.distance.cdist(df1, df2, metric=metric))
 
-    return pd.Series(distances, index=["All"])
+    return distances
 
 
 ###########################
@@ -817,11 +691,10 @@ def frechet_distance(
     df1: pd.DataFrame,
     df2: pd.DataFrame,
     df_mask: pd.DataFrame,
-    normalized: Optional[bool] = False,
-) -> pd.Series:
+) -> float:
     """Compute the Fréchet distance between two dataframes df1 and df2
     frechet_distance = || mu_1 - mu_2 ||_2^2 + Tr(Sigma_1 + Sigma_2 - 2(Sigma_1 . Sigma_2)^(1/2))
-    if normalized, df1 and df_ are first scaled by a factor
+    It is normalized, df1 and df_ are first scaled by a factor
         (std(df1) + std(df2)) / 2
     and then centered around
         (mean(df1) + mean(df2)) / 2
@@ -836,12 +709,13 @@ def frechet_distance(
         true dataframe
     df2 : pd.DataFrame
         predicted dataframe
-    normalized: Optional[bool]
-        if the data has to be normalised. By default, is set to False
+    df_mask : pd.DataFrame
+        Mask indicating on which values the distance has to computed on
 
     Returns
     -------
-    frechet_distance : float
+    float
+        frechet_distance
     """
 
     if df1.shape != df2.shape:
@@ -850,11 +724,10 @@ def frechet_distance(
     df_true = df1[df_mask.any(axis=1)]
     df_pred = df2[df_mask.any(axis=1)]
 
-    if normalized:
-        std = (np.std(df_true) + np.std(df_pred) + EPS) / 2
-        mu = (np.nanmean(df_true, axis=0) + np.nanmean(df_pred, axis=0)) / 2
-        df_true = (df_true - mu) / std
-        df_pred = (df_pred - mu) / std
+    std = (np.std(df_true) + np.std(df_pred) + EPS) / 2
+    mu = (np.nanmean(df_true, axis=0) + np.nanmean(df_pred, axis=0)) / 2
+    df_true = (df_true - mu) / std
+    df_pred = (df_pred - mu) / std
 
     mu_true = np.nanmean(df_true, axis=0)
     sigma_true = np.ma.cov(np.ma.masked_invalid(df_true), rowvar=False).data
@@ -870,36 +743,294 @@ def frechet_distance(
         covmean = covmean.real
     frechet_dist = ssdiff + np.trace(sigma_true + sigma_pred - 2.0 * covmean)
 
-    if normalized:
-        return pd.Series((frechet_dist / df_true.shape[0]), index=["All"])
-    else:
-        return pd.Series(np.repeat(frechet_dist, len(df1.columns)))
+    return frechet_dist / df_true.shape[0]
 
 
-def distance_correlation_complement(
-    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
+def frechet_distance_pattern(
+    df1: pd.DataFrame,
+    df2: pd.DataFrame,
+    df_mask: pd.DataFrame,
 ) -> pd.Series:
-    """Correlation distance between columns of 2 dataframes.
+    """Frechet distance computed using a pattern decomposition
 
     Parameters
     ----------
     df1 : pd.DataFrame
-        true dataframe
+        First empirical ditribution
     df2 : pd.DataFrame
-        predicted dataframe
+        Second empirical ditribution
     df_mask : pd.DataFrame
-        Elements of the dataframes to compute on
+        Mask indicating on which values the distance has to computed on
 
     Returns
     -------
     pd.Series
-        Correlation distance
+        Series of computed metrics
     """
-    # For the case that we use this function outside pattern_based_metric
-    df1 = df1[df_mask].fillna(0.0)
-    df2 = df2[df_mask].fillna(0.0)
+    cols_numerical = _get_numerical_features(df1)
+    distance = frechet_distance(df1[cols_numerical], df2[cols_numerical], df_mask[cols_numerical])
+    return pd.Series(distance, index=["All"])
 
-    return 1.0 - pd.Series([dcor.distance_correlation(df1.values, df2.values)], index=["All"])
+
+def density_from_rf(
+    df: pd.DataFrame, estimator: BaseEnsemble, df_est: Optional[pd.DataFrame] = None
+):
+    """Estimates the density of the empirical distribution given by df at the sample points given
+    by df_est. The estimation uses an random forest estimator and relies on the average number of
+    samples in the leaf corresponding to each estimation point.
+
+    Disclaimer: this method is experimental and has no known theoretical grounds
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Empirical distribution which density should be estimated
+    estimator : BaseEnsemble
+        Estimator defining the forest upon which is based the density counting.
+    df_est : pd.DataFrame, optional
+        Sample points of the estimation, by default None
+        If None, the density is estimated at the points given by `df`.
+
+    Returns
+    -------
+    pd.Series
+        Series of floats providing the normalized density
+    """
+    if df_est is None:
+        df_est = df.copy()
+    if df_est.index.names == [None]:
+        cols_index = ["index"]
+    else:
+        cols_index = df_est.index.names
+    counts = pd.Series(0, index=df_est.index)
+    df_leafs = pd.DataFrame(estimator.apply(df), index=df.index)
+    df_leafs_est = pd.DataFrame(estimator.apply(df_est), index=df_est.index)
+    for i_tree in range(estimator.n_estimators):
+        leafs = df_leafs[i_tree].rename("id_leaf")
+        leafs_est = df_leafs_est[i_tree].rename("id_leaf")
+        counts_leafs = leafs.value_counts().rename("count")
+        df_merge = pd.merge(leafs_est.reset_index(), counts_leafs.reset_index(), on="id_leaf")
+        df_merge = df_merge.set_index(cols_index)
+        counts += df_merge["count"]
+    counts /= counts.sum()
+    return counts
+
+
+def kl_divergence_1D(df1: pd.Series, df2: pd.Series) -> float:
+    """Estimation of the Kullback-Leibler divergence between the two 1D empirical distributions
+    given by `df1`and `df2`. The samples are binarized using a uniform spacing with 20 bins from
+    the smallest to the largest value. Not that this may be a coarse estimation.
+
+    Parameters
+    ----------
+    df1 : pd.Series
+        First empirical distribution
+    df2 : pd.Series
+        Second empirical distribution
+
+    Returns
+    -------
+    float
+        Kullback-Leibler divergence between the two empirical distributions.
+    """
+    min_val = min(df1.min(), df2.min())
+    max_val = max(df1.max(), df2.max())
+    bins = np.linspace(min_val, max_val, 20)
+    p = np.histogram(df1, bins=bins, density=True)[0]
+    q = np.histogram(df2, bins=bins, density=True)[0]
+    return scipy.stats.entropy(p + EPS, q + EPS)
+
+
+def kl_divergence_gaussian_exact(
+    mean1: pd.Series, cov1: pd.DataFrame, mean2: pd.Series, cov2: pd.DataFrame
+) -> float:
+    """Exact Kullback-Leibler divergence computed between two multivariate normal distributions
+
+    Parameters
+    ----------
+    mean1: pd.Series
+        Mean of the first distribution
+    cov1: pd.DataFrame
+        Covariance matrx of the first distribution
+    mean2: pd.Series
+        Mean of the second distribution
+    cov2: pd.DataFrame
+        Covariance matrx of the second distribution
+    Returns
+    -------
+    float
+        Kulback-Leibler divergence
+    """
+    n_variables = len(mean1)
+    L1, lower1 = scipy.linalg.cho_factor(cov1)
+    L2, lower2 = scipy.linalg.cho_factor(cov2)
+    M = scipy.linalg.solve(L2, L1)
+    y = scipy.linalg.solve(L2, mean2 - mean1)
+    norm_M = (M**2).sum().sum()
+    norm_y = (y**2).sum()
+    term_diag_L = 2 * np.sum(np.log(np.diagonal(L2) / np.diagonal(L1)))
+    print(norm_M, "-", n_variables, "+", norm_y, "+", term_diag_L)
+    div_kl = 0.5 * (norm_M - n_variables + norm_y + term_diag_L)
+    return div_kl
+
+
+def kl_divergence_gaussian(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.Series) -> float:
+    """Kullback-Leibler divergence estimation based on a Gaussian approximation of both empirical
+    distributions
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        First empirical distribution
+    df2 : pd.DataFrame
+        Second empirical distribution
+    df_mask: pd.DataFrame
+        Mask indicating on what values the divergence should be computed
+
+    Returns
+    -------
+    pd.Series
+        Series of estimated metrics
+    """
+    df1 = df1[df_mask.any(axis=1)]
+    df2 = df2[df_mask.any(axis=1)]
+    cov1 = df1.cov()
+    cov2 = df2.cov()
+    mean1 = df1.mean()
+    mean2 = df2.mean()
+
+    div_kl = kl_divergence_gaussian_exact(mean1, cov1, mean2, cov2)
+    return div_kl
+
+
+def kl_divergence_forest(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> float:
+    """Kullback-Leibler divergence estimation based on a random forest fitted on the first
+    empirical distribution
+
+    Disclaimer: this method is experimental and has no known theoretical grounds
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        First empirical distribution
+    df2 : pd.DataFrame
+        Second empirical distribution
+    df_mask: pd.DataFrame
+        Mask indicating on what values the divergence should be computed
+
+    Returns
+    -------
+    pd.Series
+        Series of estimated metrics
+    """
+    df1 = df1[df_mask.any(axis=1)]
+    df2 = df2[df_mask.any(axis=1)]
+    # df_1 = StandardScaler().fit_transform(df1[df_mask.any(axis=1)])
+    # df_2 = StandardScaler().fit_transform(df2[df_mask.any(axis=1)])
+    n_estimators = 100
+    # estimator = sklearn.ensemble.RandomForestClassifier(
+    #     n_estimators=n_estimators, max_depth=10
+    # )
+    # X = pd.concat([df1, df2])
+    # y = pd.concat([pd.Series([False] * len(df1)), pd.Series([True] * len(df2))])
+    # estimator.fit(X, y)
+    estimator = sklearn.ensemble.RandomTreesEmbedding(n_estimators=n_estimators, random_state=123)
+    estimator.fit(df1)
+    counts1 = density_from_rf(df1, estimator, df_est=df2)
+    counts2 = density_from_rf(df2, estimator, df_est=df2)
+    div_kl = np.mean(np.log(counts1 / counts2) * counts1 / counts2)
+    return div_kl
+
+
+def kl_divergence(
+    df1: pd.DataFrame,
+    df2: pd.DataFrame,
+    df_mask: pd.Series,
+    method: str = "columnwise",
+    min_n_rows: int = 10,
+) -> pd.Series:
+    """
+    Estimation of the Kullback-Leibler divergence between too empirical distributions. Three
+    methods are implemented:
+    - columnwise, relying on a uniform binarization and only taking marginals into account
+    (https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence),
+    - gaussian, relying on a Gaussian approximation,
+    - random_forest, experimental
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        First empirical distribution
+    df2 : pd.DataFrame
+        Second empirical distribution
+    df_mask: pd.DataFrame
+        Mask indicating on what values the divergence should be computed
+    method: str
+        Method used
+    min_n_rows: int
+        Minimum number of rows for a KL estimation
+
+    Returns
+    -------
+    pd.Series
+        Kullback-Leibler divergence
+
+    Raise
+    -----
+    AssertionError
+        If the empirical distributions do not have enough samples to estimate a KL divergence.
+        Consider using a larger dataset of lowering the parameter `min_n_rows`.
+    """
+    if method == "columnwise":
+        cols_numerical = _get_numerical_features(df1)
+        return columnwise_metric(
+            df1[cols_numerical],
+            df2[cols_numerical],
+            df_mask[cols_numerical],
+            kl_divergence_1D,
+        )
+    elif method == "gaussian":
+        cols_numerical = _get_numerical_features(df1)
+        return pattern_based_weighted_mean_metric(
+            df1[cols_numerical],
+            df2[cols_numerical],
+            df_mask[cols_numerical],
+            kl_divergence_gaussian,
+            min_n_rows=min_n_rows,
+        )
+    elif method == "random_forest":
+        return pattern_based_weighted_mean_metric(
+            df1, df2, df_mask, kl_divergence_forest, min_n_rows=min_n_rows
+        )
+    else:
+        raise AssertionError(
+            f"The parameter of the function wasserstein_distance should be one of"
+            f"the following: [`columnwise`, `gaussian`, `random_forest`], not `{method}`!"
+        )
+
+
+def distance_anticorr(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> float:
+    """Score based on the distance anticorrelation between two empirical distributions.
+    The theoretical basis can be found on dcor documentation:
+    https://dcor.readthedocs.io/en/latest/theory.html
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        Dataframe representing the first empirical distribution
+    df2 : pd.DataFrame
+        Dataframe representing the second empirical distribution
+    df_mask: pd.DataFrame
+        Mask indicating on what values the divergence should be computed
+
+    Returns
+    -------
+    float
+        Distance correlation score
+    """
+    df1 = df1[df_mask.any(axis=1)]
+    df2 = df2[df_mask.any(axis=1)]
+    return (1 - dcor.distance_correlation(df1.values, df2.values)) / 2
 
 
 def pattern_based_weighted_mean_metric(
@@ -907,7 +1038,7 @@ def pattern_based_weighted_mean_metric(
     df2: pd.DataFrame,
     df_mask: pd.DataFrame,
     metric: Callable,
-    min_num_row: int = 10,
+    min_n_rows: int = 10,
     **kwargs,
 ) -> pd.Series:
     """Compute a mean score based on missing patterns.
@@ -917,14 +1048,14 @@ def pattern_based_weighted_mean_metric(
     Parameters
     ----------
     df1 : pd.DataFrame
-        true dataframe
+        Dataframe representing the first empirical distribution, with nans
     df2 : pd.DataFrame
-        predicted dataframe
+        Dataframe representing the second empirical distribution
     df_mask : pd.DataFrame
         Elements of the dataframes to compute on
     metric : Callable
         metric function
-    min_num_row : int, optional
+    min_n_rows : int, optional
         minimum number of row allowed for a pattern without nan, by default 10
 
     Returns
@@ -934,20 +1065,28 @@ def pattern_based_weighted_mean_metric(
     """
     scores = []
     weights = []
-    for tup_pattern, df_mask_pattern in df_mask.groupby(df_mask.columns.tolist()):
-        ind_pattern = df_mask_pattern.index
+    df1 = df1[df_mask.any(axis=1)]
+    df2 = df2[df_mask.any(axis=1)]
+    df_nan = df1.notna()
+    max_num_row = 0
+    for tup_pattern, df_nan_pattern in df_nan.groupby(df_nan.columns.tolist()):
+        ind_pattern = df_nan_pattern.index
         df1_pattern = df1.loc[ind_pattern, list(tup_pattern)]
-        if not any(tup_pattern) or len(df1_pattern) < min_num_row:
+        max_num_row = max(max_num_row, len(df1_pattern))
+        if not any(tup_pattern) or len(df1_pattern) < min_n_rows:
             continue
         df2_pattern = df2.loc[ind_pattern, list(tup_pattern)]
-        weights.append(1.0 / len(df1_pattern))
-        scores.append(metric(df1_pattern, df2_pattern, ~df1_pattern.isna(), **kwargs))
+        df_mask_pattern = df_mask.loc[ind_pattern, list(tup_pattern)]
+        print(df1_pattern.shape, df2_pattern.shape)
+        weights.append(len(df1_pattern) / len(df1))
+        scores.append(metric(df1_pattern, df2_pattern, df_mask_pattern, **kwargs))
     if len(scores) == 0:
-        raise Exception(
-            "Not found enough patterns. "
-            f"Number of row for each pattern must be larger than min_num_row={min_num_row}."
-        )
-    return pd.Series(sum([s * w for s, w in zip(scores, weights)]) / sum(weights), index=["All"])
+        raise NotEnoughSamples(max_num_row, min_n_rows)
+    print("scores:")
+    print(scores)
+    print("weights:")
+    print(weights)
+    return pd.Series(sum([s * w for s, w in zip(scores, weights)]), index=["All"])
 
 
 def get_metric(name: str) -> Callable:
@@ -956,17 +1095,17 @@ def get_metric(name: str) -> Callable:
         "rmse": root_mean_squared_error,
         "mae": mean_absolute_error,
         "wmape": weighted_mean_absolute_percentage_error,
-        "wasserstein_columnwise": partial(wasserstein_distance, method="columnwise"),
+        "wasserstein_columnwise": dist_wasserstein,
         "KL_columnwise": partial(kl_divergence, method="columnwise"),
         "KL_gaussian": partial(kl_divergence, method="gaussian"),
+        "KL_forest": partial(kl_divergence, method="random_forest"),
         "ks_test": kolmogorov_smirnov_test,
         "correlation_diff": mean_difference_correlation_matrix_numerical_features,
-        "pairwise_dist": sum_pairwise_distances,
         "energy": sum_energy_distances,
         "frechet": frechet_distance,
         "dist_corr_pattern": partial(
             pattern_based_weighted_mean_metric,
-            metric=distance_correlation_complement,
+            metric=distance_anticorr,
         ),
     }
     return dict_metrics[name]

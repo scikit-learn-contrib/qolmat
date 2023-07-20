@@ -34,11 +34,13 @@ class RPCA(BaseEstimator, TransformerMixin):
         max_iterations: int = int(1e4),
         tol: float = 1e-6,
         random_state: Union[None, int, np.random.RandomState] = None,
+        verbose: bool = True,
     ) -> None:
         self.period = period
         self.max_iterations = max_iterations
         self.tol = tol
         self.random_state = random_state
+        self.verbose = verbose
 
     def decompose_rpca_signal(
         self,
