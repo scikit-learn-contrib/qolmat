@@ -116,52 +116,49 @@ ratio_masked = 0.1
 ```
 
 ```python
-imputer_mean = imputers.ImputerMean(groups=["station"])
-imputer_median = imputers.ImputerMedian(groups=["station"])
-imputer_mode = imputers.ImputerMode(groups=["station"])
-imputer_locf = imputers.ImputerLOCF(groups=["station"])
-imputer_nocb = imputers.ImputerNOCB(groups=["station"])
-imputer_interpol = imputers.ImputerInterpolation(groups=["station"], method="linear")
-imputer_spline = imputers.ImputerInterpolation(groups=["station"], method="spline", order=2)
-imputer_shuffle = imputers.ImputerShuffle(groups=["station"])
-imputer_residuals = imputers.ImputerResiduals(groups=["station"], period=365, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
+dict_config_opti = {}
 
-imputer_rpca = imputers.ImputerRPCA(groups=["station"], columnwise=False, max_iter=256, tau=2, lam=1)
+imputer_mean = imputers.ImputerMean(groups=("station",))
+imputer_median = imputers.ImputerMedian(groups=("station",))
+imputer_mode = imputers.ImputerMode(groups=("station",))
+imputer_locf = imputers.ImputerLOCF(groups=("station",))
+imputer_nocb = imputers.ImputerNOCB(groups=("station",))
+imputer_interpol = imputers.ImputerInterpolation(groups=("station",), method="linear")
+imputer_spline = imputers.ImputerInterpolation(groups=("station",), method="spline", order=2)
+imputer_shuffle = imputers.ImputerShuffle(groups=("station",))
+imputer_residuals = imputers.ImputerResiduals(groups=("station",), period=365, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
 
-imputer_ou = imputers.ImputerEM(groups=["station"], model="multinormal", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
-imputer_tsou = imputers.ImputerEM(groups=["station"], model="VAR1", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
-imputer_tsmle = imputers.ImputerEM(groups=["station"], model="VAR1", method="mle", max_iter_em=100, n_iter_ou=15, dt=1e-3)
-
-
-imputer_knn = imputers.ImputerKNN(groups=["station"], k=10)
-imputer_mice = imputers.ImputerMICE(groups=["station"], estimator=LinearRegression(), sample_posterior=False, max_iter=100, missing_values=np.nan)
-imputer_regressor = imputers.ImputerRegressor(groups=["station"], estimator=LinearRegression())
-```
-
-```python
-generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], subset=cols_to_impute, ratio_masked=ratio_masked)
-```
-
-```python
-dict_config_opti = {
+imputer_rpca = imputers.ImputerRPCA(groups=("station",), columnwise=False, max_iterations=500, tau=2, lam=0.05)
+imputer_rpca_opti = imputers.ImputerRPCA(groups=("station",), columnwise=False, max_iterations=256)
+dict_config_opti["RPCA_opti"] = {
     "tau": ho.hp.uniform("tau", low=.5, high=5),
     "lam": ho.hp.uniform("lam", low=.1, high=1),
 }
-imputer_rpca_opti = imputers.ImputerRPCA(groups=["station"], columnwise=False, max_iter=256)
-imputer_rpca_opti = hyperparameters.optimize(
-    imputer_rpca_opti,
-    df_data,
-    generator = generator_holes,
-    metric="mae",
-    max_evals=10,
-    dict_config_opti=dict_config_opti
-)
-# imputer_rpca_opti.params_optim = hyperparams_opti
+imputer_rpca_opticw = imputers.ImputerRPCA(groups=("station",), columnwise=False, max_iterations=256)
+dict_config_opti["RPCA_opticw"] = {
+    "tau/TEMP": ho.hp.uniform("tau/TEMP", low=.5, high=5),
+    "tau/PRES": ho.hp.uniform("tau/PRES", low=.5, high=5),
+    "lam/TEMP": ho.hp.uniform("lam/TEMP", low=.1, high=1),
+    "lam/PRES": ho.hp.uniform("lam/PRES", low=.1, high=1),
+}
+
+imputer_ou = imputers.ImputerEM(groups=("station",), model="multinormal", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
+imputer_tsou = imputers.ImputerEM(groups=("station",), model="VAR1", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
+imputer_tsmle = imputers.ImputerEM(groups=("station",), model="VAR1", method="mle", max_iter_em=100, n_iter_ou=15, dt=1e-3)
+
+
+imputer_knn = imputers.ImputerKNN(groups=("station",), n_neighbors=10)
+imputer_mice = imputers.ImputerMICE(groups=("station",), estimator=LinearRegression(), sample_posterior=False, max_iter=100)
+imputer_regressor = imputers.ImputerRegressor(groups=("station",), estimator=LinearRegression())
+```
+
+```python
+generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=("station",), subset=cols_to_impute, ratio_masked=ratio_masked)
 ```
 
 ```python
 dict_imputers = {
-    # "mean": imputer_mean,
+    "mean": imputer_mean,
     # "median": imputer_median,
     # "mode": imputer_mode,
     "interpolation": imputer_interpol,
@@ -173,6 +170,7 @@ dict_imputers = {
     "TSMLE": imputer_tsmle,
     "RPCA": imputer_rpca,
     "RPCA_opti": imputer_rpca_opti,
+    # "RPCA_opticw": imputer_rpca_opti2,
     # "locf": imputer_locf,
     # "nocb": imputer_nocb,
     # "knn": imputer_knn,
@@ -199,7 +197,7 @@ comparison = comparator.Comparator(
     dict_imputers,
     cols_to_impute,
     generator_holes = generator_holes,
-    metrics=["mae", "wmape", "KL_columnwise", "ks_test"],
+    metrics=["mae", "wmape", "KL_columnwise", "ks_test", "dist_corr_pattern"],
     max_evals=10,
     dict_config_opti=dict_config_opti,
 )
@@ -211,11 +209,13 @@ results
 df_plot = results.loc["KL_columnwise",'TEMP']
 plt.barh(df_plot.index, df_plot, color=tab10(0))
 plt.title('TEMP')
+plt.xlabel("KL")
 plt.show()
 
 df_plot = results.loc["KL_columnwise",'PRES']
 plt.barh(df_plot.index, df_plot, color=tab10(0))
 plt.title('PRES')
+plt.xlabel("KL")
 plt.show()
 ```
 
@@ -226,8 +226,8 @@ plot.multibar(results.loc["mae"], decimals=1)
 plt.ylabel("mae")
 
 fig.add_subplot(2, 1, 2)
-plot.multibar(results.loc["KL_columnwise"], decimals=1)
-plt.ylabel("KL")
+plot.multibar(results.loc["dist_corr_pattern"], decimals=2)
+plt.ylabel("dist_corr_pattern")
 
 plt.savefig("figures/imputations_benchmark_errors.png")
 plt.show()
@@ -276,10 +276,6 @@ for col in cols_to_impute:
 ```
 
 ```python
-dfs_imputed
-```
-
-```python
 # plot.plot_imputations(df_station, dfs_imputed_station)
 
 n_columns = len(cols_to_impute)
@@ -308,7 +304,7 @@ for i_col, col in enumerate(cols_to_impute):
         loc = plticker.MultipleLocator(base=2*365)
         ax.xaxis.set_major_locator(loc)
         ax.tick_params(axis='both', which='major')
-        plt.xlim(datetime(2010, 1, 1), datetime(2015, 3, 1))
+        # plt.xlim(datetime(2019, 2, 1), datetime(2019, 3, 1))
         i_plot += 1
 plt.savefig("figures/imputations_benchmark.png")
 plt.show()
@@ -321,8 +317,11 @@ plt.show()
 In this section, we present an MLP model of data imputation using Keras, which can be installed using a "pip install tensorflow".
 
 ```python
-from qolmat.imputations import imputers_keras
-import tensorflow as tf
+from qolmat.imputations import imputers_pytorch
+try:
+    import torch.nn as nn
+except ModuleNotFoundError:
+    raise PyTorchExtraNotInstalled
 ```
 
 For the MLP model, we work on a dataset that corresponds to weather data with missing values. We add missing MCAR values on the features "TEMP", "PRES" and other features with NaN values. The goal is impute the missing values for the features "TEMP" and "PRES" by a Deep Learning method. We add features to take into account the seasonality of the data set and a feature for the station name
@@ -340,17 +339,21 @@ For the example, we use a simple MLP model with 3 layers of neurons.
 Then we train the model without taking a group on the stations
 
 ```python
-estimator = tf.keras.models.Sequential([
-    tf.keras.layers.Dense(256, activation='relu'),
-    tf.keras.layers.Dense(128, activation='relu'),
-    tf.keras.layers.Dense(64, activation='relu'),
-    tf.keras.layers.Dense(1)])
-estimator.compile(optimizer='adam', loss='mae')
-dict_imputers["MLP"] = imputer_mlp = imputers_keras.ImputerRegressorKeras(estimator=estimator, groups=['station'], handler_nan = "column")
+estimator = nn.Sequential(
+        nn.Linear(np.sum(df_data.isna().sum()==0), 256),
+        nn.ReLU(),
+        nn.Linear(256, 128),
+        nn.ReLU(),
+        nn.Linear(128, 64),
+        nn.ReLU(),
+        nn.Linear(64, 1)
+    )
+# imputers_pytorch.build_mlp_example(input_dim=np.sum(df_data.isna().sum()==0), list_num_neurons=[256,128,64])
+dict_imputers["MLP"] = imputer_mlp = imputers_pytorch.ImputerRegressorPyTorch(estimator=estimator, groups=['station'], handler_nan = "column", epochs=500)
 ```
 
 We can re-run the imputation model benchmark as before.
-```python jupyter={"outputs_hidden": true} tags=[]
+```python tags=[]
 generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], subset=cols_to_impute, ratio_masked=ratio_masked)
 
 comparison = comparator.Comparator(
@@ -364,7 +367,7 @@ comparison = comparator.Comparator(
 results = comparison.compare(df_data)
 results
 ```
-```python jupyter={"outputs_hidden": true, "source_hidden": true} tags=[]
+```python jupyter={"source_hidden": true} tags=[]
 df_plot = df_data
 dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_imputers.items()}
 station = df_plot.index.get_level_values("station")[0]

@@ -59,8 +59,8 @@ EXTRAS_REQUIRE = {
         "sphinx_rtd_theme",
         "typing_extensions",
     ],
-    "tensorflow": [
-        "tensorflow==2.10.0",
+    "pytorch": [
+        "torch==2.0.1",
     ],
 }
 

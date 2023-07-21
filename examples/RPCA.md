@@ -6,7 +6,7 @@ jupyter:
       extension: .md
       format_name: markdown
       format_version: '1.3'
-      jupytext_version: 1.14.5
+      jupytext_version: 1.14.4
   kernelspec:
     display_name: Python 3 (ipykernel)
     language: python
@@ -46,7 +46,10 @@ X_true, A_true, E_true = generate_artificial_ts(n_samples, periods, amp_anomalie
 signal = X_true + A_true + E_true
 
 # Adding missing data
-signal[5:20] = np.nan
+#signal[5:20] = np.nan
+mask = np.random.choice(len(signal), round(len(signal) / 20))
+signal[mask] = np.nan
+
 ```
 
 ```python
@@ -74,7 +77,7 @@ plt.show()
 
 ```python
 %%time
-rpca_pcp = RPCAPCP(period=100, max_iter=5, mu=.5, lam=1)
+rpca_pcp = RPCAPCP(period=100, max_iterations=100, mu=.5, lam=0.1)
 X, A = rpca_pcp.decompose_rpca_signal(signal)
 imputed = signal - A
 ```
@@ -89,7 +92,7 @@ plt.plot(imputed)
 
 ```python
 %%time
-rpca_noisy = RPCANoisy(period=10, tau=2, lam=0.3, list_periods=[10], list_etas=[0.01], norm="L2")
+rpca_noisy = RPCANoisy(period=10, tau=1, lam=0.4, list_periods=[10], list_etas=[0.01], norm="L2")
 X, A = rpca_noisy.decompose_rpca_signal(signal)
 ```
 
@@ -97,55 +100,6 @@ X, A = rpca_noisy.decompose_rpca_signal(signal)
 fig = plt.figure(figsize=(12, 4))
 plt.plot(X, color="black")
 plt.plot(imputed)
-```
-
-```python
-
-```
-
-```python
-%%time
-signal_toy = np.array([[1, 2], [np.nan, np.nan]])
-rpca_noisy = RPCANoisy(tau=0, lam=1, norm="L2", do_report=True)
-X, A = rpca_noisy.decompose_rpca_signal(signal_toy)
-```
-
-```python
-print(X)
-print(A)
-```
-
-```python
-%%time
-signal_toy = np.array([[1, 2], [np.nan, np.nan]])
-rpca_pcp = RPCAPCP(lam=1e3)
-X, A = rpca_pcp.decompose_rpca_signal(signal_toy)
-```
-
-```python
-X
-```
-
-```python
-A
-```
-
-```python
-np.log(10) / np.log(1.1)
-```
-
-```python
-X = np.array([[1, 2], [4, 4], [4, 3]])
-# Omega = np.array([[True, False], [True, True], [False, True]])
-Omega = np.array([[True, True], [True, True], [True, True]])
-rpca_noisy = RPCANoisy(period=2, max_iter=200, tau=.5, lam=1, do_report=True)
-M_result, A_result, U_result, V_result = rpca_noisy.decompose_rpca_L2(
-    X, Omega=Omega, lam=1, tau=.5, rank=2
-)
-```
-
-```python
-M_result
 ```
 
 ```python

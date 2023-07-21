@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 import warnings
 
 import numpy as np
@@ -6,7 +6,9 @@ import pandas as pd
 
 from numpy.typing import NDArray
 
-from qolmat.utils.exceptions import SignalTooShort
+from qolmat.utils.exceptions import NotDimension2, SignalTooShort
+
+HyperValue = Union[int, float, str]
 
 
 def progress_bar(
@@ -122,13 +124,17 @@ def linear_interpolation(X: NDArray) -> NDArray:
     n_rows, n_cols = X.shape
     indices = np.arange(n_cols)
     X_interpolated = X.copy()
+    median = np.nanmedian(X)
     for i_row in range(n_rows):
         values = X[i_row]
         mask_isna = np.isnan(values)
-        values_interpolated = np.interp(
-            indices[mask_isna], indices[~mask_isna], values[~mask_isna]
-        )
-        X_interpolated[i_row, mask_isna] = values_interpolated
+        if np.all(mask_isna):
+            X_interpolated[i_row] = median
+        elif np.any(mask_isna):
+            values_interpolated = np.interp(
+                indices[mask_isna], indices[~mask_isna], values[~mask_isna]
+            )
+            X_interpolated[i_row, mask_isna] = values_interpolated
     return X_interpolated
 
 
@@ -153,11 +159,9 @@ def fold_signal(X: NDArray, period: int) -> NDArray:
         if X is not a 1D array
     """
     if len(X.shape) != 2:
-        raise ValueError("'X' should be of dimension 2")
+        raise NotDimension2(X.shape)
     n_rows, n_cols = X.shape
     n_rows_new = n_rows * period
-    if period >= n_cols:
-        raise SignalTooShort(period, n_cols)
 
     X = X.flatten()
     n_required_nans = (-X.size) % n_rows_new

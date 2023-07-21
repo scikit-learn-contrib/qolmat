@@ -1,5 +1,4 @@
 import copy
-import logging
 from typing import Any, Callable, Dict, List, Union
 
 import numpy as np
@@ -12,51 +11,38 @@ from hyperopt.pyll.base import Apply as hoApply
 from qolmat.benchmark import metrics
 
 from qolmat.benchmark.missing_patterns import _HoleGenerator
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-
-HyperValue = Union[int, float, str]
+from qolmat.imputations.imputers import _Imputer
+from qolmat.utils.utils import HyperValue
 
 
-def get_hyperparams(hyperparams_global: Dict[str, HyperValue], col: str):
+def get_objective(
+    imputer: _Imputer,
+    df: pd.DataFrame,
+    generator: _HoleGenerator,
+    metric: str,
+    names_hyperparams: List[str],
+) -> Callable:
     """
-    Filter hyperparameters based on the specified column, the dictionary keys in the form
-    name_params/column are only relevent for the specified column and are filtered accordingly.
+    Define the objective function, which is the average metric computed over the folds provided by
+    the hole generator, using a cross-validation.
 
     Parameters
     ----------
-    hyperparams_global : dict
-        A dictionary containing global hyperparameters.
-    col : str
-        The column name to filter hyperparameters.
+    imputer: _Imputer
+        Imputer that should be optimized, it should at least have a fit_transform method and an
+        imputer_params attribute
+    generator: _HoleGenerator
+        Generator creating the masked values in the nested cross validation allowing to measure the
+         imputer performance
+    metric: str
+        Metric used as perfomance indicator, common values are `mse` and `mae`
+    names_hyperparams: List[str]
+        List of the names of the hyperparameters which are being optimized
 
     Returns
     -------
-    dict
-        A dictionary containing filtered hyperparameters.
-
-    """
-    hyperparams = {}
-    for key, value in hyperparams_global.items():
-        if "/" not in key:
-            name_param = key
-            hyperparams[name_param] = value
-        else:
-            name_param, col2 = key.split("/")
-            if col2 == col:
-                hyperparams[name_param] = value
-    return hyperparams
-
-
-def get_objective(imputer, df, generator, metric, names_hyperparams) -> Callable:
-    """
-    Define the objective function for the cross-validation
-
-    Returns
-    -------
-    _type_
-        objective function
+    Callable[List[HyperValue], float]
+        Objective function
     """
 
     def fun_obf(args: List[HyperValue]) -> float:
@@ -69,7 +55,6 @@ def get_objective(imputer, df, generator, metric, names_hyperparams) -> Callable
             df_origin = df.copy()
             df_corrupted = df_origin.copy()
             df_corrupted[df_mask] = np.nan
-
             df_imputed = imputer.fit_transform(df_corrupted)
             subset = generator.subset
             fun_metric = metrics.get_metric(metric)
@@ -82,32 +67,55 @@ def get_objective(imputer, df, generator, metric, names_hyperparams) -> Callable
     return fun_obf
 
 
-def optimize(imputer, df, generator, metric, dict_config_opti, max_evals=100):
-    """Optimize hyperparamaters
+def optimize(
+    imputer: _Imputer,
+    df: pd.DataFrame,
+    generator: _HoleGenerator,
+    metric: str,
+    dict_config: Dict[str, HyperValue],
+    max_evals: int = 100,
+    verbose: bool = False,
+):
+    """Return the provided imputer with hyperparameters optimized in the provided range in order to
+     minimize the provided metric.
 
     Parameters
     ----------
-    df : pd.DataFrame
-        DataFrame masked
+    imputer: _Imputer
+        Imputer that should be optimized, it should at least have a fit_transform method and an
+        imputer_params attribute
+    generator: _HoleGenerator
+        Generator creating the masked values in the nested cross validation allowing to measure the
+         imputer performance
+    metric: str
+        Metric used as perfomance indicator, common values are `mse` and `mae`
+    dict_config: Dict[str, HyperValue]
+        Search space for the tested hyperparameters
+    max_evals: int
+        Maximum number of evaluation of the performance of the algorithm. Each estimation involves
+        one call to fit_transform per fold returned by the generator. See the n_fold attribute.
+    verbose: bool
+        Verbosity switch, usefull for imputers that can have unstable behavior for some
+        hyperparameters values
 
     Returns
     -------
-    Dict[str, Any]
-        hyperparameters optimize flat
+    _Imputer
+        Optimized imputer
     """
     imputer = copy.deepcopy(imputer)
-    if dict_config_opti == {}:
+    if dict_config == {}:
         return imputer
-    # dict_spaces = flat_hyperparams(dict_config_opti)
-    dict_spaces = dict_config_opti
-    names_hyperparams = list(dict_spaces.keys())
-    values_hyperparams = list(dict_spaces.values())
+    names_hyperparams = list(dict_config.keys())
+    values_hyperparams = list(dict_config.values())
+    imputer.imputer_params = tuple(set(imputer.imputer_params) | set(dict_config.keys()))
+    if verbose and hasattr(imputer, "verbose"):
+        setattr(imputer, "verbose", False)
     fun_obj = get_objective(imputer, df, generator, metric, names_hyperparams)
-    hyperparams_flat = ho.fmin(
+    hyperparams = ho.fmin(
         fn=fun_obj, space=values_hyperparams, algo=ho.tpe.suggest, max_evals=max_evals
     )
 
-    # hyperparams = deflat_hyperparams(hyperparams_flat)
-    for key, value in hyperparams_flat.items():
+    for key, value in hyperparams.items():
         setattr(imputer, key, value)
     return imputer

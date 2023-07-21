@@ -2,10 +2,17 @@
 History
 =======
 
-0.0.X (2023-0X-XX)
+0.0.15 (2023-??-??)
 -------------------
-* Fix MLP imputer
 
+* Hyperparameters are now optimized in hyperparameters.py, with the maintained module hyperopt
+* The Imputer classes do not possess a dictionary attribute anymore, and all list attributes have
+been changed into tuple attributes so that all are not immutable
+* All the tests from scikit-learn's check_estimator now pass for the class Imputer
+* Fix MLP imputer, created a builder for MLP imputer
+* Switch tensorflow by pytorch. Change Test, environment, benchmark and imputers for pytorch
+* Add new datasets
+* Added dcor metrics with a pattern-wise computation on data with missing values
 
 0.0.14 (2023-06-14)
 -------------------
