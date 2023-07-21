@@ -541,23 +541,23 @@ class VAR1EM(EM):
 
     def fit_parameter_A(self, X: NDArray) -> None:
         """
-        The function `fit_parameter_A` calculates the parameter `A`
-        using the input `X` and the previously calculated parameter `B`.
+        Calculates the parameter `A` using the input `X` and
+        the previously calculated parameter `B`.
 
         Parameters
         ----------
         X : NDArray
             Input data.
         """
-        Xc = X - self.B[:, None] # type: ignore #noqa
+        Xc = X - self.B[:, None]  # type: ignore #noqa
         XX_lag = Xc[:, 1:] @ Xc[:, :-1].T
-        XX = Xc @ Xc.T
+        XX = Xc[:, :-1] @ Xc[:, :-1].T
         self.A = XX_lag @ invert_robust(XX, epsilon=1e-2)
 
-    def fit_parameter_B(self, X) -> None:
+    def fit_parameter_B(self, X: NDArray) -> None:
         """
-        The function `fit_parameter_B` calculates the value of parameter `B`
-        based on the input matrix `X` and the existing parameter `A`.
+        Calculates the value of parameter `B` based on
+        the input matrix `X` and the existing parameter `A`.
 
         Parameters
         ----------
@@ -570,8 +570,8 @@ class VAR1EM(EM):
 
     def fit_parameter_omega(self, X: NDArray) -> None:
         """
-        The function `fit_parameter_omega` calculates the covariance
-        matrix `omega` and its inverse `omega_inv` based on the input matrix `X`.
+        Calculates the covariance matrix `omega` and
+        its inverse `omega_inv` based on the input matrix `X`.
 
         Parameters
         ----------
@@ -589,8 +589,8 @@ class VAR1EM(EM):
 
     def fit_distribution(self, X: NDArray) -> None:
         """
-        The function "fit_distribution" fits the parameters `A`, `B`,
-        and `omega` of a distribution using the input data `X`.
+        Fits the parameters `A`, `B`, and `omega` of a VAR1 process
+        using the input data `X`.
 
         Parameters
         ----------
@@ -608,8 +608,9 @@ class VAR1EM(EM):
 
     def gradient_X_centered_loglik(self, Xc: NDArray) -> NDArray:
         """
-        The function calculates the gradient of a centered
+        Calculates the gradient of a centered
         log-likelihood function using a given matrix.
+        (X_t+1 - A * X_t).T omega_inv (X_t+1 - A * X_t)
 
         Parameters
         ----------
@@ -632,7 +633,7 @@ class VAR1EM(EM):
     def _maximize_likelihood(self, X: NDArray, mask_na: NDArray, dt=1e-2) -> NDArray:
         """Get the argmax of a posterior distribution.
 
-        Parameters
+        Parameters∑
         ----------
         X : NDArray
             Input numpy array.
@@ -686,7 +687,7 @@ class VAR1EM(EM):
         gamma = np.diagonal(self.omega)[:, None]
         Xc = X - self.B[:, None]
         Xc_init = X_init - self.B[:, None]
-        for iter_ou in range(self.n_iter_ou):
+        for _ in range(self.n_iter_ou):
             noise = self.ampli * self.rng.normal(0, 1, size=(n_variables, n_samples))
             grad_X = self.gradient_X_centered_loglik(Xc)
 

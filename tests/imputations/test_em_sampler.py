@@ -25,20 +25,46 @@ mask: NDArray = np.isnan(X_missing)
 
 @pytest.fixture
 def generate_multinormal_predefined_mean_cov():
+    np.random.seed(41)
     n, d = 500, 20
-    r = np.random.RandomState(28)
-    mean = np.array([r.uniform(d) for _ in range(d)])
+    mean = np.array([np.random.uniform(d) for _ in range(d)])
     covariance = make_spd_matrix(n_dim=d, random_state=28)
     X = np.random.multivariate_normal(mean=mean, cov=covariance, size=n)
     mask = np.array(np.full_like(X, False), dtype=bool)
     for j in range(X.shape[1]):
         ind = np.random.choice(
-            np.arange(X.shape[0]), size=np.int64(np.ceil(X.shape[0] * 0.1)), replace=False
+            np.arange(X.shape[0]),
+            size=np.int64(np.ceil(X.shape[0] * 0.1)),
+            replace=False,
         )
         mask[ind, j] = True
     X_missing = X.copy()
     X_missing[mask] = np.nan
     return {"mean": mean, "covariance": covariance, "X": X.T, "X_missing": X_missing.T}
+
+
+@pytest.fixture
+def generate_var1_process():
+    np.random.seed(41)
+    d, n = 3, 10_000
+    A = np.array([[0.3, 0.1, -0.02], [0.2, 0.03, -0.2], [-0.01, 0.3, 0.4]])
+    B = np.array([0.0, 0.04, 0.01])
+    omega = make_spd_matrix(n_dim=d, random_state=208) * 1e-6
+    X = np.zeros((n, d))
+    noise = np.random.multivariate_normal(mean=np.zeros(d), cov=omega, size=n)
+    for i in range(1, n):
+        X[i] = A.dot(X[i - 1] - B) + B + noise[i]
+    mask = np.array(np.full_like(X, False), dtype=bool)
+    for j in range(X.shape[1]):
+        ind = np.random.choice(
+            np.arange(X.shape[0]),
+            size=np.int64(np.ceil(X.shape[0] * 0.1)),
+            replace=False,
+        )
+        mask[ind, j] = True
+    X_missing = X.copy()
+    X_missing[mask] = np.nan
+    return {"X": X.T, "X_missing": X_missing.T, "A": A, "B": B, "omega": omega}
 
 
 @pytest.mark.parametrize(
@@ -155,14 +181,14 @@ def test_em_sampler_check_convergence_false(
 
 def test_no_more_nan_multinormalem() -> None:
     """Test there are no more missing values after the MultiNormalEM algorithm."""
-    X = np.array([[1, np.nan, 8, 10], [13, 1, 4, 20], [1, 3, np.nan, 1]], dtype=float)
+    X = np.array([[1, np.nan, 8, 1], [3, 1, 4, 2], [2, 3, np.nan, 1]], dtype=float)
     assert np.sum(np.isnan(X)) > 0
     assert np.sum(np.isnan(em_sampler.MultiNormalEM().fit_transform(X))) == 0
 
 
 def test_no_more_nan_var1em() -> None:
     """Test there are no more missing values after the VAR1EM algorithm."""
-    X = np.array([[1, np.nan, 8, 10], [13, 1, 4, 20], [1, 3, np.nan, 1]], dtype=float)
+    X = np.array([[1, np.nan, 8, 1], [3, 1, 4, 2], [2, 3, np.nan, 1]], dtype=float)
     assert np.sum(np.isnan(X)) > 0
     assert np.sum(np.isnan(em_sampler.VAR1EM().fit_transform(X))) == 0
 
@@ -195,3 +221,22 @@ def test_mean_covariance_var1em(generate_multinormal_predefined_mean_cov):
         / np.sum(np.abs(data["covariance"]))
         < 1e-1
     )
+
+
+def test_fit_distribution_var1em(generate_var1_process):
+    """Test the fit VAR1EM provides good A and B estimates (no imputation)."""
+    data = generate_var1_process
+    em = em_sampler.VAR1EM()
+    em.fit_distribution(data["X"])
+    np.testing.assert_allclose(data["A"], em.A, atol=1e-1)
+    np.testing.assert_allclose(data["B"], em.B, atol=1e-1)
+    np.testing.assert_allclose(data["omega"], em.omega, atol=1e-1)
+
+
+def test_parameters_after_imputation_var1em(generate_var1_process):
+    """Test the VAR1EM provides good A and B estimates."""
+    data = generate_var1_process
+    em = em_sampler.VAR1EM()
+    _ = em.fit_transform(data["X_missing"])
+    np.testing.assert_allclose(data["A"], em.A, rtol=1e-1, atol=1e-1)
+    np.testing.assert_allclose(data["B"], em.B, rtol=1e-1, atol=1e-1)
