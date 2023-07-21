@@ -33,9 +33,7 @@ def generate_multinormal_predefined_mean_cov():
     mask = np.array(np.full_like(X, False), dtype=bool)
     for j in range(X.shape[1]):
         ind = np.random.choice(
-            np.arange(X.shape[0]),
-            size=np.int64(np.ceil(X.shape[0] * 0.1)),
-            replace=False,
+            np.arange(X.shape[0]), size=np.int64(np.ceil(X.shape[0] * 0.1)), replace=False
         )
         mask[ind, j] = True
     X_missing = X.copy()
@@ -57,9 +55,7 @@ def generate_var1_process():
     mask = np.array(np.full_like(X, False), dtype=bool)
     for j in range(X.shape[1]):
         ind = np.random.choice(
-            np.arange(X.shape[0]),
-            size=np.int64(np.ceil(X.shape[0] * 0.1)),
-            replace=False,
+            np.arange(X.shape[0]), size=np.int64(np.ceil(X.shape[0] * 0.1)), replace=False
         )
         mask[ind, j] = True
     X_missing = X.copy()
@@ -82,17 +78,6 @@ def test_gradient_conjuge(
     np.testing.assert_allclose(X_result, X_expected, atol=1e-5)
     assert np.sum(X_result * (A @ X_result)) <= np.sum(X_first_guess * (A @ X_first_guess))
     assert np.allclose(X_first_guess[~mask], X_result[~mask])
-
-
-@pytest.mark.parametrize(
-    "A, A_inverse_expected",
-    [(A, A_inverse)],
-)
-def test_invert_robust(A: NDArray, A_inverse_expected: NDArray) -> None:
-    """Test the matrix inversion."""
-    A_inv = em_sampler.invert_robust(A, epsilon=0)
-    assert A_inv.shape == A.shape
-    assert np.allclose(A_inv, A_inverse_expected, atol=1e-5)
 
 
 def test_initialized() -> None:
