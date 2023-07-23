@@ -154,9 +154,11 @@ class ImputerGenerativeModelPytorch(ImputerGenerativeModel):
         x_valid_mask: pd.DataFrame = None,
         print_valid: bool = False,
         metrics_valid: Tuple[Tuple[str, Callable], ...] = (
-            ("mean_absolute_error", metrics.mean_absolute_error),
-            ("wasserstein_distance", metrics.wasserstein_distance),
+            ("mae", metrics.mean_absolute_error),
+            ("wasser", metrics.wasserstein_distance),
         ),
+        round: int = 10,
+        cols_imputed: Tuple[str, ...] = (),
     ):
         super().__init__(groups=groups, model=model)
         self.epochs = epochs
@@ -165,6 +167,8 @@ class ImputerGenerativeModelPytorch(ImputerGenerativeModel):
         self.x_valid_mask = x_valid_mask
         self.print_valid = print_valid
         self.metrics_valid = metrics_valid
+        self.round = round
+        self.cols_imputed = cols_imputed
 
     def _get_params_fit(self) -> Dict:
         return {
@@ -174,4 +178,6 @@ class ImputerGenerativeModelPytorch(ImputerGenerativeModel):
             "x_valid_mask": self.x_valid_mask,
             "print_valid": self.print_valid,
             "metrics_valid": self.metrics_valid,
+            "round": self.round,
+            "cols_imputed": self.cols_imputed,
         }

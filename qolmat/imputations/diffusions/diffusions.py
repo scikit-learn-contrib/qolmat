@@ -69,7 +69,7 @@ class TabDDPM(DDPM):
         self.num_blocks = num_blocks
         self.p_dropout = p_dropout
 
-        self.normalizer_x = preprocessing.StandardScaler()
+        self.normalizer_x = preprocessing.MinMaxScaler(feature_range=(-1, 1.0))
 
     def _set_eps_model(self):
         """_summary_"""
@@ -97,9 +97,11 @@ class TabDDPM(DDPM):
         x_valid: pd.DataFrame = None,
         x_valid_mask: pd.DataFrame = None,
         metrics_valid: Tuple[Tuple[str, Callable], ...] = (
-            ("mean_absolute_error", metrics.mean_absolute_error),
-            ("wasserstein_distance", metrics.wasserstein_distance),
+            ("mae", metrics.mean_absolute_error),
+            ("wasser", metrics.wasserstein_distance),
         ),
+        round: int = 10,
+        cols_imputed: Tuple[str, ...] = (),
     ):
         """_summary_
 
@@ -126,6 +128,11 @@ class TabDDPM(DDPM):
         self.metrics_valid = metrics_valid
         self.print_valid = print_valid
         self.time_durations: List = []
+        self.cols_imputed = cols_imputed
+        self.cols_idx_not_imputed = [
+            idx for idx, col in enumerate(self.columns) if col not in self.cols_imputed
+        ]
+        self.round = round
 
         self._set_eps_model()
 
@@ -133,6 +140,9 @@ class TabDDPM(DDPM):
             "epoch_loss": [],
             "num_params": [get_num_params(self.eps_model)],
         }
+
+        if self.batch_size >= x.shape[0]:
+            raise ValueError(f"Batch size {self.batch_size} larger than x size {x.shape[0]}")
 
         self.normalizer_x.fit(x.values)
 
@@ -160,6 +170,8 @@ class TabDDPM(DDPM):
             self.eps_model.train()
             for id_batch, (x_batch, mask_x_batch) in enumerate(dataloader):
                 mask_rand = torch.FloatTensor(mask_x_batch.size()).uniform_() > self.ratio_masked
+                # for col in self.cols_idx_not_imputed:
+                #     mask_rand[:, col] = 0.
                 mask_x_batch = mask_x_batch * mask_rand.to(self.device)
 
                 self.optimiser.zero_grad()
@@ -178,7 +190,7 @@ class TabDDPM(DDPM):
 
             # self.lr_scheduler.step()
             time_duration = time.time() - time_start
-            self.summary["epoch_loss"].append(loss.item())
+            self.summary["epoch_loss"].append(np.mean(loss_epoch))
             if x_valid is not None:
                 self.eps_model.eval()
                 dict_loss = self._eval(x_processed_valid, x_mask_valid, x_valid, x_valid_mask)
@@ -199,7 +211,7 @@ class TabDDPM(DDPM):
             string_valid = f"Epoch {epoch}: "
             for s in self.summary:
                 if s not in ["num_params"]:
-                    string_valid += f" {s}={round(self.summary[s][epoch], 5)}"
+                    string_valid += f" {s}={round(self.summary[s][epoch], self.round)}"
             string_valid += f" | in {round(time_duration, 3)} secs"
             remaining_duration = np.mean(self.time_durations) * (self.epochs - epoch)
             string_valid += f" remaining {timedelta(seconds=remaining_duration)}"
@@ -240,8 +252,9 @@ class TabDDPM(DDPM):
                         )
                     ) + (epsilon_t * random_noise)
                     noise = mask_x_batch * x_batch + (1.0 - mask_x_batch) * noise
-
-                outputs.append(noise.detach().cpu().numpy())
+                    # Generate data output, this activation function depends on normalizer_x
+                    x_out = torch.nn.Tanh()(noise)
+                outputs.append(x_out.detach().cpu().numpy())
 
         outputs = np.concatenate(outputs)
         return np.array(outputs)
