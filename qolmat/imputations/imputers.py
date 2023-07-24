@@ -21,7 +21,8 @@ from qolmat.utils.utils import HyperValue
 
 
 class _Imputer(_BaseImputer):
-    """Base class for all imputers.
+    """
+    Base class for all imputers.
 
     Parameters
     ----------
@@ -125,7 +126,8 @@ class _Imputer(_BaseImputer):
             raise NotDataFrame(type(X))
 
     def fit(self, X: pd.DataFrame, y=None) -> Self:
-        """Fit the imputer on X.
+        """
+        Fit the imputer on X.
 
         Parameters
         ----------
@@ -251,7 +253,8 @@ class _Imputer(_BaseImputer):
         return df.fillna(df.median())
 
     def _fit_allgroups(self, df: pd.DataFrame, col: str = "__all__") -> Self:
-        """Fits the Imputer either on a column, for a columnwise setting, on or all columns.
+        """
+        Fits the Imputer either on a column, for a columnwise setting, on or all columns.
 
         Parameters
         ----------
@@ -456,7 +459,8 @@ class ImputerOracle(_Imputer):
 
 
 class ImputerMean(_Imputer):
-    """Impute by the mean of the column.
+    """
+    Impute by the mean of the column.
 
     Parameters
     ----------
@@ -557,7 +561,8 @@ class ImputerMean(_Imputer):
 
 
 class ImputerMedian(_Imputer):
-    """Impute by the median of the column.
+    """
+    Impute by the median of the column.
 
     Parameters
     ----------
@@ -658,7 +663,8 @@ class ImputerMedian(_Imputer):
 
 
 class ImputerMode(_Imputer):
-    """Impute by the mode of the column, which is the most represented value.
+    """
+    Impute by the mode of the column, which is the most represented value.
 
     Parameters
     ----------
@@ -759,7 +765,8 @@ class ImputerMode(_Imputer):
 
 
 class ImputerShuffle(_Imputer):
-    """Impute using random samples from the considered column.
+    """
+    Impute using random samples from the considered column.
 
     Parameters
     ----------
@@ -830,7 +837,8 @@ class ImputerShuffle(_Imputer):
 
 
 class ImputerLOCF(_Imputer):
-    """Impute by the last available value of the column. Relevent for time series.
+    """
+    Impute by the last available value of the column. Relevent for time series.
 
     If the first observations are missing, it is imputed by a NOCB
 
@@ -894,7 +902,8 @@ class ImputerLOCF(_Imputer):
 
 
 class ImputerNOCB(_Imputer):
-    """Impute by the next available value of the column. Relevent for time series.
+    """
+    Impute by the next available value of the column. Relevent for time series.
     If the last observation is missing, it is imputed by a LOCF.
 
     Parameters
@@ -1167,16 +1176,16 @@ class ImputerKNN(_Imputer):
         List of column names to group by, by default []
     n_neighbors : int, default=5
         Number of neighbors to use by default for `kneighbors` queries.
-    weights : {'uniform', 'distance'}, callable or None, default='uniform'
+    weights : {`uniform`, `distance`}, callable or None, default=`uniform`
         Weight function used in prediction.  Possible values:
-        - 'uniform' : uniform weights.  All points in each neighborhood
-          are weighted equally.
-        - 'distance' : weight points by the inverse of their distance.
-          in this case, closer neighbors of a query point will have a
-          greater influence than neighbors which are further away.
-        - [callable] : a user-defined function which accepts an
-          array of distances, and returns an array of the same shape
-          containing the weights.
+            - `uniform` : uniform weights. All points in each neighborhood
+                are weighted equally.
+            - `distance` : weight points by the inverse of their distance.
+                in this case, closer neighbors of a query point will have a
+                greater influence than neighbors which are further away.
+            - [callable] : a user-defined function which accepts an
+                array of distances, and returns an array of the same shape
+                containing the weights.
 
     Examples
     --------
@@ -1210,7 +1219,8 @@ class ImputerKNN(_Imputer):
         self.weights = weights
 
     def fit(self, X: pd.DataFrame, y=None):
-        """Fit the imputer on X.
+        """
+        Fit the imputer on X.
 
         Parameters
         ----------
@@ -1315,7 +1325,8 @@ class ImputerMICE(_Imputer):
         self.max_iter = max_iter
 
     def fit(self, X: pd.DataFrame, y=None):
-        """Fit the imputer on X.
+        """
+        Fit the imputer on X.
 
         Parameters
         ----------
@@ -1383,7 +1394,7 @@ class ImputerRegressor(_Imputer):
         - if `fit`, the estimator is assumed to be fitted on parcelar data,
         - if `row` all non complete rows will be removed from the train dataset, and will not be
         used for the inferance,
-        - if `column`all non complete columns will be ignored.
+        - if `column` all non complete columns will be ignored.
 
     Examples
     --------
@@ -1561,7 +1572,8 @@ class ImputerRPCA(_Imputer):
         self.verbose = verbose
 
     def get_model(self, **hyperparams) -> rpca.RPCA:
-        """Get the underlying model of the imputer based on its attributes.
+        """
+        Get the underlying model of the imputer based on its attributes.
 
         Returns
         -------
@@ -1728,7 +1740,8 @@ class ImputerEM(_Imputer):
             )
 
     def fit(self, X: pd.DataFrame, y=None):
-        """Fit the imputer on X.
+        """
+        Fit the imputer on X.
 
         Parameters
         ----------
