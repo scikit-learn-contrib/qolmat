@@ -3,15 +3,19 @@
 # ######################
 
 import numpy as np
+from numpy import random as npr
 import pandas as pd
 import pytest
 import scipy
 
 from qolmat.benchmark import metrics
+from qolmat.utils.exceptions import NotEnoughSamples
 
 df_incomplete = pd.DataFrame(
     {"col1": [0, np.nan, 2, 3, np.nan], "col2": [-1, np.nan, 0.5, 1, 1.5]}
 )
+
+df_complete = pd.DataFrame({"col1": [0, 2, 2, 3, 4], "col2": [-1, -2, 0.5, 1, 1.5]})
 
 df_imputed = pd.DataFrame({"col1": [0, 1, 2, 3.5, 4], "col2": [-1.5, 0, 1.5, 2, 1.5]})
 
@@ -65,6 +69,20 @@ def test_mean_absolute_error(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.D
 @pytest.mark.parametrize("df1", [df_incomplete])
 @pytest.mark.parametrize("df2", [df_imputed])
 @pytest.mark.parametrize("df_mask", [df_mask])
+def test_mean_absolute_percentage_error(
+    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
+) -> None:
+    assert metrics.mean_absolute_percentage_error(df1, df1, df_mask).equals(
+        pd.Series([0.0, 0.0], index=["col1", "col2"])
+    )
+    result = metrics.mean_absolute_percentage_error(df1, df2, df_mask)
+    expected = pd.Series([0.083, 1.166], index=["col1", "col2"])
+    np.testing.assert_allclose(result, expected, atol=1e-3)
+
+
+@pytest.mark.parametrize("df1", [df_incomplete])
+@pytest.mark.parametrize("df2", [df_imputed])
+@pytest.mark.parametrize("df_mask", [df_mask])
 def test_weighted_mean_absolute_percentage_error(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
 ) -> None:
@@ -72,7 +90,7 @@ def test_weighted_mean_absolute_percentage_error(
         pd.Series([0.0, 0.0], index=["col1", "col2"])
     )
     result = metrics.weighted_mean_absolute_percentage_error(df1, df2, df_mask)
-    expected = pd.Series([0.083, 1.167], index=["col1", "col2"])
+    expected = pd.Series([0.1, 1.0], index=["col1", "col2"])
     np.testing.assert_allclose(result, expected, atol=1e-3)
 
 
@@ -80,9 +98,9 @@ def test_weighted_mean_absolute_percentage_error(
 @pytest.mark.parametrize("df2", [df_imputed])
 @pytest.mark.parametrize("df_mask", [df_mask])
 def test_wasserstein_distance(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> None:
-    dist = metrics.wasserstein_distance(df1, df1, df_mask, method="columnwise")
+    dist = metrics.dist_wasserstein(df1, df1, df_mask, method="columnwise")
     assert dist.equals(pd.Series([0.0, 0.0], index=["col1", "col2"]))
-    dist = metrics.wasserstein_distance(df1, df2, df_mask, method="columnwise")
+    dist = metrics.dist_wasserstein(df1, df2, df_mask, method="columnwise")
     assert dist.round(3).equals(pd.Series([0.250, 0.833], index=["col1", "col2"]))
 
 
@@ -103,40 +121,36 @@ def test_kl_divergence_columnwise(
 @pytest.mark.parametrize("df1", [df_incomplete])
 @pytest.mark.parametrize("df2", [df_imputed])
 @pytest.mark.parametrize("df_mask", [df_mask])
-def test_kl_divergence(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> None:
-    result = metrics.kl_divergence(df1, df1, df_mask, method="gaussian")
-    expected = pd.Series([0, 0], index=["col1", "col2"])
-    np.testing.assert_allclose(result, expected, atol=1e-3)
+def test_kl_divergence_gaussian(
+    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
+) -> None:
+    result = metrics.kl_divergence_gaussian(df1, df1, df_mask)
+    np.testing.assert_allclose(result, 0, atol=1e-3)
 
-    result = metrics.kl_divergence(df1, df2, df_mask, method="gaussian")
-    expected = pd.Series([0.669, 0.669], index=["col1", "col2"])
-    np.testing.assert_allclose(result, expected, atol=1e-3)
+    result = metrics.kl_divergence_gaussian(df1, df2, df_mask)
+    np.testing.assert_allclose(result, 1.371, atol=1e-3)
+
+
+@pytest.mark.parametrize("df1", [df_incomplete])
+@pytest.mark.parametrize("df2", [df_imputed])
+@pytest.mark.parametrize("df_mask", [df_mask])
+def test_kl_divergence_forest(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> None:
+    result = metrics.kl_divergence_forest(df1, df1, df_mask)
+    np.testing.assert_allclose(result, 0, atol=1e-3)
+
+    result = metrics.kl_divergence_forest(df1, df2, df_mask)
+    np.testing.assert_allclose(result, 6.21e-2, rtol=1e-2)
 
 
 @pytest.mark.parametrize("df1", [df_incomplete])
 @pytest.mark.parametrize("df2", [df_imputed])
 @pytest.mark.parametrize("df_mask", [df_mask])
 def test_frechet_distance(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> None:
-    assert (
-        metrics.frechet_distance(df1, df1, df_mask)
-        .round(3)
-        .equals(pd.Series([-0.0, -0.0], index=[0, 1]))
-    )
-    assert (
-        metrics.frechet_distance(df1, df2, df_mask)
-        .round(3)
-        .equals(pd.Series([1.11, 1.11], index=[0, 1]))
-    )
-    assert (
-        metrics.frechet_distance(df1, df1, df_mask, True)
-        .round(3)
-        .equals(pd.Series([-0.0], index=["All"]))
-    )
-    assert (
-        metrics.frechet_distance(df1, df2, df_mask, True)
-        .round(3)
-        .equals(pd.Series([0.253], index=["All"]))
-    )
+    result = metrics.frechet_distance(df1, df1, df_mask)
+    np.testing.assert_allclose(result, 0, atol=1e-3)
+
+    result = metrics.frechet_distance(df1, df2, df_mask)
+    np.testing.assert_allclose(result, 0.253, atol=1e-3)
 
 
 @pytest.mark.parametrize("df1", [df_incomplete])
@@ -145,12 +159,13 @@ def test_frechet_distance(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.Data
 def test_kolmogorov_smirnov_test(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
 ) -> None:
-    assert metrics.kolmogorov_smirnov_test(df1, df1, df_mask).equals(
-        pd.Series([0.0, 0.0], index=["col1", "col2"])
-    )
-    assert metrics.kolmogorov_smirnov_test(df1, df2, df_mask).equals(
-        pd.Series([0.5, 2 / 3], index=["col1", "col2"])
-    )
+    result = metrics.kolmogorov_smirnov_test(df1, df1, df_mask)
+    expected = pd.Series([0, 0], index=["col1", "col2"])
+    np.testing.assert_allclose(result, expected, atol=1e-3)
+
+    result = metrics.kolmogorov_smirnov_test(df1, df2, df_mask)
+    expected = pd.Series([0.5, 2 / 3], index=["col1", "col2"])
+    np.testing.assert_allclose(result, expected, atol=1e-3)
 
 
 @pytest.mark.parametrize("df1", [df_incomplete])
@@ -159,9 +174,8 @@ def test_kolmogorov_smirnov_test(
 def test_sum_pairwise_distances(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
 ) -> None:
-    assert metrics.sum_pairwise_distances(df1, df2, df_mask).equals(
-        pd.Series([64.0], index=["All"])
-    )
+    result = metrics.sum_pairwise_distances(df1, df2, df_mask)
+    np.testing.assert_allclose(result, 28, atol=1e-3)
 
 
 @pytest.mark.parametrize("df1", [df_incomplete])
@@ -338,12 +352,10 @@ def test_value_error_get_correlation_f_oneway_matrix(
 @pytest.mark.parametrize("df1", [df_incomplete])
 @pytest.mark.parametrize("df2", [df_imputed])
 @pytest.mark.parametrize("df_mask", [df_mask])
-def test_distance_correlation_complement(
-    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
-) -> None:
-    result = metrics.distance_correlation_complement(df1, df2, df_mask)
-    expected = pd.Series([0.001559], index=["All"])
-    np.testing.assert_allclose(result, expected, atol=1e-3)
+def test_distance_anticorr(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> None:
+    result = metrics.distance_anticorr(df1, df2, df_mask)
+    print(result)
+    np.testing.assert_allclose(result, 1.1e-4, rtol=1e-2)
 
 
 @pytest.mark.parametrize("df1", [df_incomplete])
@@ -352,13 +364,30 @@ def test_distance_correlation_complement(
 def test_pattern_based_weighted_mean_metric(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
 ) -> None:
-    with pytest.raises(Exception):
+    with pytest.raises(NotEnoughSamples):
         metrics.pattern_based_weighted_mean_metric(
-            df1, df2, df_mask, metric=metrics.distance_correlation_complement, min_num_row=5
+            df1, df2, df_mask, metric=metrics.distance_anticorr, min_n_rows=5
         )
 
-    expected = pd.Series([2 / 3], index=["All"])
+    expected = pd.Series([1.1e-4], index=["All"])
     result = metrics.pattern_based_weighted_mean_metric(
-        df1, df2, df_mask, metric=metrics.distance_correlation_complement, min_num_row=1
+        df1, df2, df_mask, metric=metrics.distance_anticorr, min_n_rows=1
     )
-    np.testing.assert_allclose(result, expected, atol=1e-3)
+    np.testing.assert_allclose(result, expected, rtol=1e-2)
+
+
+rng = npr.default_rng(123)
+df_gauss1 = pd.DataFrame(rng.multivariate_normal([0, 0], [[1, 0.2], [0.2, 2]], size=100))
+df_gauss2 = pd.DataFrame(rng.multivariate_normal([0, 1], [[1, 0.2], [0.2, 2]], size=100))
+df_mask = pd.DataFrame(np.full_like(df_gauss1, True))
+
+
+def test_pattern_mae_comparison() -> None:
+    def fun_mean_mae(df_gauss1, df_gauss2, df_mask) -> float:
+        return metrics.mean_squared_error(df_gauss1, df_gauss2, df_mask).mean()
+
+    result1 = fun_mean_mae(df_gauss1, df_gauss2, df_mask)
+    result2 = metrics.pattern_based_weighted_mean_metric(
+        df_gauss1, df_gauss2, df_mask, metric=fun_mean_mae, min_n_rows=1
+    )
+    np.testing.assert_allclose(result1, result2, rtol=1e-2)

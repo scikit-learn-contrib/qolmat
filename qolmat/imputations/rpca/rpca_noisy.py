@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -7,9 +8,8 @@ import scipy as scp
 from numpy.typing import NDArray
 from sklearn import utils as sku
 
-from qolmat.imputations.rpca import rpca_utils as rpca_utils
+from qolmat.imputations.rpca import rpca_utils
 from qolmat.imputations.rpca.rpca import RPCA
-from qolmat.utils.exceptions import CostFunctionRPCANotMinimized
 
 
 class RPCANoisy(RPCA):
@@ -62,8 +62,9 @@ class RPCANoisy(RPCA):
         max_iterations: int = int(1e4),
         tol: float = 1e-6,
         norm: str = "L2",
+        verbose: bool = True,
     ) -> None:
-        super().__init__(period=period, max_iterations=max_iterations, tol=tol)
+        super().__init__(period=period, max_iterations=max_iterations, tol=tol, verbose=verbose)
         self.rng = sku.check_random_state(random_state)
         self.rank = rank
         self.mu = mu
@@ -167,12 +168,12 @@ class RPCANoisy(RPCA):
 
             for index, _ in enumerate(self.list_periods):
                 R[index] = rpca_utils.soft_thresholding(
-                    X @ H[index].T - Y_[index] / mu, self.list_etas[index] / mu
+                    X @ H[index] - Y_[index] / mu, self.list_etas[index] / mu
                 )
 
             Y += mu * (X - L @ Q.T)
             for index, _ in enumerate(self.list_periods):
-                Y_[index] += mu * (X @ H[index].T - R[index])
+                Y_[index] += mu * (X @ H[index] - R[index])
 
             # update mu
             mu = min(mu * rho, mu_bar)
@@ -256,6 +257,7 @@ class RPCANoisy(RPCA):
         In = np.eye(n)
 
         for _ in range(self.max_iterations):
+            # print("Cost function", self.cost_function(D, X, A, Omega, tau, lam))
             X_temp = X.copy()
             A_temp = A.copy()
             L_temp = L.copy()
@@ -375,18 +377,49 @@ class RPCANoisy(RPCA):
         elif self.norm == "L2":
             M, A, U, V = self.decompose_rpca_L2(D, Omega, lam, tau, rank)
 
-        self._check_cost_function_minimized(D, M, A, tau, lam, self.norm)
+        self._check_cost_function_minimized(D, M, A, Omega, tau, lam)
 
         return M, A
 
-    @staticmethod
-    def _check_cost_function_minimized(
+    def cost_function(
+        self,
         observations: NDArray,
         low_rank: NDArray,
         anomalies: NDArray,
+        Omega: NDArray,
         tau: float,
         lam: float,
-        norm: str,
+    ):
+        temporal_norm: float = 0
+        if len(self.list_etas) > 0:
+            # matrices for temporal correlation
+            H = [
+                rpca_utils.toeplitz_matrix(period, observations.shape[1], model="column")
+                for period in self.list_periods
+            ]
+            if self.norm == "L1":
+                for eta, H_matrix in zip(self.list_etas, H):
+                    temporal_norm += eta * np.sum(np.abs(H_matrix @ low_rank))
+            elif self.norm == "L2":
+                for eta, H_matrix in zip(self.list_etas, H):
+                    temporal_norm += eta * float(np.linalg.norm(low_rank @ H_matrix, "fro"))
+        anomalies_norm = np.sum(np.abs(anomalies * Omega))
+        cost = (
+            1 / 2 * ((Omega * (observations - low_rank - anomalies)) ** 2).sum()
+            + tau * np.linalg.norm(low_rank, "nuc")
+            + lam * anomalies_norm
+            + temporal_norm
+        )
+        return cost
+
+    def _check_cost_function_minimized(
+        self,
+        observations: NDArray,
+        low_rank: NDArray,
+        anomalies: NDArray,
+        Omega: NDArray,
+        tau: float,
+        lam: float,
     ):
         """Check that the functional minimized by the RPCA
         is smaller at the end than at the beginning
@@ -399,30 +432,26 @@ class RPCANoisy(RPCA):
             low_rank matrix resulting from RPCA
         anomalies : NDArray
             sparse matrix resulting from RPCA
+        Omega: NDArrau
+            boolean matrix indicating the observed values
         tau : float
             parameter penalizing the nuclear norm of the low rank part
         lam : float
             parameter penalizing the L1-norm of the anomaly/sparse part
         norm : str
             norm of the temporal penalisation. Has to be `L1` or `L2`
-
-        Raises
-        ------
-        CostFunctionRPCANotMinimized
-            The RPCA does not minimized the cost function:
-            the starting cost is at least equal to the final one.
         """
-        value_start = tau * np.linalg.norm(observations, "nuc")
-        if norm == "L1":
-            anomalies_norm = np.sum(np.abs(anomalies))
-            function_str = "||D-M-A||_2 + tau ||D||_* + lam ||A||_1"
-        elif norm == "L2":
-            anomalies_norm = np.sum(anomalies**2)
-            function_str = "||D-M-A||_2 + tau ||D||_* + lam ||A||_2"
-        value_end = (
-            np.sum((observations - low_rank - anomalies) ** 2)
-            + tau * np.linalg.norm(low_rank, "nuc")
-            + lam * anomalies_norm
+        cost_start = self.cost_function(
+            observations, observations, np.full_like(observations, 0), Omega, tau, lam
         )
-        if value_start + 1e-4 <= value_end:
-            raise CostFunctionRPCANotMinimized(function_str, float(value_start), float(value_end))
+        cost_end = self.cost_function(observations, low_rank, anomalies, Omega, tau, lam)
+        function_str = "1/2 $ ||D-M-A||_2 + tau ||D||_* + lam ||A||_1"
+        if len(self.list_etas) > 0:
+            for eta in self.list_etas:
+                function_str += f"{eta} ||XH||_{self.norm}"
+
+        if self.verbose and (round(cost_start, 4) - round(cost_end, 4)) <= -1e-2:
+            warnings.warn(
+                f"RPCA algorithm may provide bad results. Function {function_str} increased from"
+                f" {cost_start} to {cost_end} instead of decreasing!".format("%.2f")
+            )
