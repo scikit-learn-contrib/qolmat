@@ -164,6 +164,51 @@ def test_em_sampler_check_convergence_false(
     assert em._check_convergence() == False
 
 
+@pytest.mark.parametrize(
+    "As, Bs, omegas, logliks",
+    [
+        (
+            [np.array([1, 2, 3, 3])] * 12,
+            [np.array([1])] * 12,
+            [np.array([1, 2, 3, 3])] * 12,
+            [1] * 12,
+        )
+    ],
+)
+def test_varem_sampler_check_convergence_true(
+    As: List[NDArray],
+    Bs: List[NDArray],
+    omegas: List[NDArray],
+    logliks: List[float],
+) -> None:
+    """Test the convergence criteria of the VAR1EM algorithm."""
+    em = em_sampler.VAR1EM(random_state=32)
+    em.dict_criteria_stop["As"] = As
+    em.dict_criteria_stop["Bs"] = Bs
+    em.dict_criteria_stop["omegas"] = omegas
+    em.dict_criteria_stop["logliks"] = logliks
+    assert em._check_convergence() == True
+
+
+@pytest.mark.parametrize(
+    "As, Bs, omegas, logliks",
+    [([np.array([1, 2, 3, 3])] * 4, [np.array([1])] * 4, [np.array([1, 2, 3, 3])] * 4, [1] * 4)],
+)
+def test_varem_sampler_check_convergence_false(
+    As: List[NDArray],
+    Bs: List[NDArray],
+    omegas: List[NDArray],
+    logliks: List[float],
+) -> None:
+    """Test the non-convergence criteria of the VAR1EM algorithm."""
+    em = em_sampler.VAR1EM(random_state=32)
+    em.dict_criteria_stop["As"] = As
+    em.dict_criteria_stop["Bs"] = Bs
+    em.dict_criteria_stop["omegas"] = omegas
+    em.dict_criteria_stop["logliks"] = logliks
+    assert em._check_convergence() == False
+
+
 def test_no_more_nan_multinormalem() -> None:
     """Test there are no more missing values after the MultiNormalEM algorithm."""
     X = np.array([[1, np.nan, 8, 1], [3, 1, 4, 2], [2, 3, np.nan, 1]], dtype=float)
