@@ -426,7 +426,9 @@ class MultiNormalEM(EM):
 
         if n_iter > 10:
             logliks = pd.Series(list_logliks[-6:])
-            max_loglik = min(abs(logliks.diff())) < self.stagnation_loglik
+            max_loglik = (min(abs(logliks.diff(1)[1:])) < self.stagnation_loglik) or (
+                min(abs(logliks.diff(2)[2:])) < self.stagnation_loglik
+            )
         else:
             max_loglik = False
 
@@ -489,7 +491,7 @@ class VAR1EM(EM):
         dt: float = 2e-2,
         tolerance: float = 1e-4,
         stagnation_threshold: float = 5e-3,
-        stagnation_loglik: float = 2,
+        stagnation_loglik: float = 10,
         period: int = 1,
         verbose: bool = False,
     ) -> None:
@@ -506,6 +508,7 @@ class VAR1EM(EM):
             period=period,
             verbose=verbose,
         )
+        self.dict_criteria_stop = {"logliks": [], "As": [], "Bs": [], "omegas": []}
 
     def fit_parameter_A(self, X: NDArray) -> None:
         """
@@ -667,4 +670,82 @@ class VAR1EM(EM):
 
         self.fit_distribution(X)
 
+        # Stop criteria
+        self.loglik = self.get_loglikelihood(X)
+
+        self.dict_criteria_stop["As"].append(self.A)
+        self.dict_criteria_stop["Bs"].append(self.B)
+        self.dict_criteria_stop["omegas"].append(self.omega)
+        self.dict_criteria_stop["logliks"].append(self.loglik)
+
         return X
+
+    def get_loglikelihood(self, X: NDArray) -> float:
+        p, n = X.shape
+        sign, logdet = np.linalg.slogdet(self.omega)
+        Xc = X - self.B[:, None]
+        Xc_back = np.roll(Xc, 1, axis=1)
+        Xc_back[:, 0] = 0
+        return (
+            -n * p / 2 * np.log(2 * np.pi)
+            - n / 2 * sign * logdet
+            - 1
+            / 2
+            * np.trace((Xc - self.A @ Xc_back).T @ self.omega_inv @ (Xc - self.A @ Xc_back))
+        )
+
+    def _check_convergence(self) -> bool:
+        """
+        Check if the EM algorithm has converged. Three criteria:
+        1) if the differences between the estimates of the parameters (mean and covariance) is
+        less than a threshold (min_diff_reached - tolerance).
+        2) if the difference of the consecutive differences of the estimates is less than a
+        threshold, i.e. stagnates over the last 5 interactions (min_diff_stable -
+        stagnation_threshold).
+        3) if the likelihood of the data no longer increases,
+        i.e. stagnates over the last 5 iterations (max_loglik - stagnation_loglik).
+
+        Returns
+        -------
+        bool
+            True/False if the algorithm has converged
+        """
+
+        list_As = self.dict_criteria_stop["As"]
+        list_Bs = self.dict_criteria_stop["Bs"]
+        list_omegas = self.dict_criteria_stop["omegas"]
+        list_logliks = self.dict_criteria_stop["logliks"]
+
+        n_iter = len(list_As)
+
+        min_diff_reached = (
+            n_iter > 5
+            and scipy.linalg.norm(list_As[-1] - list_As[-2], np.inf) < self.tolerance
+            and scipy.linalg.norm(list_Bs[-1] - list_Bs[-2], np.inf) < self.tolerance
+            and scipy.linalg.norm(list_omegas[-1] - list_omegas[-2], np.inf) < self.tolerance
+        )
+
+        min_diff_stable = (
+            n_iter > 10
+            and min([scipy.linalg.norm(t - s, np.inf) for s, t in zip(list_As[-6:], list_As[-5:])])
+            < self.stagnation_threshold
+            and min([scipy.linalg.norm(t - s, np.inf) for s, t in zip(list_Bs[-6:], list_Bs[-5:])])
+            < self.stagnation_threshold
+            and min(
+                [
+                    scipy.linalg.norm(t - s, np.inf)
+                    for s, t in zip(list_omegas[-6:], list_omegas[-5:])
+                ]
+            )
+            < self.stagnation_threshold
+        )
+
+        if n_iter > 10:
+            logliks = pd.Series(list_logliks[-6:])
+            max_loglik = (min(abs(logliks.diff(1)[1:])) < self.stagnation_loglik) or (
+                min(abs(logliks.diff(2)[2:])) < self.stagnation_loglik
+            )
+        else:
+            max_loglik = False
+
+        return min_diff_reached or min_diff_stable or max_loglik

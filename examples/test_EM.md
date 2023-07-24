@@ -19,6 +19,7 @@ jupyter:
 import numpy as np
 from numpy.typing import NDArray
 import matplotlib.pyplot as plt
+import pandas as pd
 from sklearn.datasets import make_spd_matrix
 from sklearn.preprocessing import StandardScaler
 
@@ -33,7 +34,7 @@ def generate_var1_process(n_samples: int, A: NDArray, B: NDArray, sigma: NDArray
 
     Parameters
     ----------
-    n_samples : int 
+    n_samples : int
         Number of samples to generate.
     A : : NDArray
         Coefficient matrix of shape (n_variables, n_variables) for variables relationships.
@@ -78,11 +79,25 @@ X_missing[mask] = np.nan
 ```
 
 ```python
-%%time 
-em = em_sampler.MultiNormalEM(max_iter_em=50, n_iter_ou=200)
+%%time
+em = em_sampler.MultiNormalEM(max_iter_em=40, n_iter_ou=100)
 X_imputed = em.fit_transform(X_missing).T
 covariance_imputed = np.cov(X_imputed, rowvar=False)
 mean_imputed = np.mean(X_imputed, axis=0)
+```
+
+```python
+plt.figure(figsize=(8,3))
+plt.plot(em.dict_criteria_stop["logliks"], "-o")
+plt.ylabel("log-likelihood")
+plt.show()
+```
+
+```python
+plt.figure(figsize=(8,3))
+plt.plot(abs(pd.Series(em.dict_criteria_stop["logliks"]).diff())[1:], "-o")
+plt.ylabel("LL criterion")
+plt.show()
 ```
 
 ```python
@@ -91,11 +106,25 @@ print(np.sum(np.abs(covariance-covariance_imputed)) / np.sum(np.abs(covariance))
 ```
 
 ```python
-%%time 
-varem = em_sampler.VAR1EM(method="sample", max_iter_em=50, n_iter_ou=200)
+%%time
+varem = em_sampler.VAR1EM(method="sample", max_iter_em=200, n_iter_ou=80)
 X_imputed = varem.fit_transform(X_missing).T
 covariance_imputed = np.cov(X_imputed, rowvar=False)
 mean_imputed = np.mean(X_imputed, axis=0)
+```
+
+```python
+plt.figure(figsize=(8,3))
+plt.plot(varem.dict_criteria_stop["logliks"], "-o")
+plt.ylabel("log-likelihood")
+plt.show()
+```
+
+```python
+plt.figure(figsize=(8,3))
+plt.plot(abs(pd.Series(varem.dict_criteria_stop["logliks"]).diff(2)), "-o")
+plt.ylabel("LL criterion")
+plt.show()
 ```
 
 ```python
@@ -132,7 +161,7 @@ X_missing[mask] = np.nan
 ```
 
 ```python
-%%time 
+%%time
 varem = em_sampler.VAR1EM(method="sample", max_iter_em=600, n_iter_ou=200)
 X_imputed = varem.fit_transform(X_missing).T
 covariance_imputed = np.cov(X_imputed, rowvar=False)
