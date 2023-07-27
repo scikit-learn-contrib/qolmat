@@ -1077,15 +1077,10 @@ def pattern_based_weighted_mean_metric(
             continue
         df2_pattern = df2.loc[ind_pattern, list(tup_pattern)]
         df_mask_pattern = df_mask.loc[ind_pattern, list(tup_pattern)]
-        print(df1_pattern.shape, df2_pattern.shape)
         weights.append(len(df1_pattern) / len(df1))
         scores.append(metric(df1_pattern, df2_pattern, df_mask_pattern, **kwargs))
     if len(scores) == 0:
         raise NotEnoughSamples(max_num_row, min_n_rows)
-    print("scores:")
-    print(scores)
-    print("weights:")
-    print(weights)
     return pd.Series(sum([s * w for s, w in zip(scores, weights)]), index=["All"])
 
 

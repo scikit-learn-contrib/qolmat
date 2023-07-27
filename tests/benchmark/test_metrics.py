@@ -354,7 +354,6 @@ def test_value_error_get_correlation_f_oneway_matrix(
 @pytest.mark.parametrize("df_mask", [df_mask])
 def test_distance_anticorr(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> None:
     result = metrics.distance_anticorr(df1, df2, df_mask)
-    print(result)
     np.testing.assert_allclose(result, 1.1e-4, rtol=1e-2)
 
 
