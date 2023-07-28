@@ -51,6 +51,7 @@ from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor, HistGra
 
 import sys
 from qolmat.benchmark import comparator, missing_patterns, hyperparameters
+from qolmat.benchmark.metrics import kl_divergence
 from qolmat.imputations import imputers
 from qolmat.utils import data, utils, plot
 
@@ -152,7 +153,7 @@ imputer_regressor = imputers.ImputerRegressor(groups=("station",), estimator=Lin
 ```
 
 ```python
-generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=1, groups=("station",), subset=cols_to_impute, ratio_masked=ratio_masked)
+generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=("station",), subset=cols_to_impute, ratio_masked=ratio_masked)
 ```
 
 ```python
@@ -162,13 +163,13 @@ dict_imputers = {
     # "mode": imputer_mode,
     "interpolation": imputer_interpol,
     # "spline": imputer_spline,
-    # "shuffle": imputer_shuffle,
-    "residuals": imputer_residuals,
+    "shuffle": imputer_shuffle,
+    # "residuals": imputer_residuals,
     # "OU": imputer_ou,
     "TSOU": imputer_tsou,
     "TSMLE": imputer_tsmle,
-    # "RPCA": imputer_rpca,
-    # "RPCA_opti": imputer_rpca,
+    "RPCA": imputer_rpca,
+    "RPCA_opti": imputer_rpca_opti,
     # "RPCA_opticw": imputer_rpca_opti2,
     # "locf": imputer_locf,
     # "nocb": imputer_nocb,
@@ -192,13 +193,11 @@ Concretely, the comparator takes as input a dataframe to impute, a proportion of
 Note these metrics compute reconstruction errors; it tells nothing about the distances between the "true" and "imputed" distributions.
 
 ```python
-metrics = ["mae", "wmape", "KL_columnwise", "KL_forest", "ks_test", "dist_corr_pattern"]
-# metrics = ["KL_forest"]
 comparison = comparator.Comparator(
     dict_imputers,
     cols_to_impute,
     generator_holes = generator_holes,
-    metrics=metrics,
+    metrics=["mae", "wmape", "KL_columnwise", "ks_test", "dist_corr_pattern"],
     max_evals=10,
     dict_config_opti=dict_config_opti,
 )
@@ -207,13 +206,28 @@ results
 ```
 
 ```python
-n_metrics = len(metrics)
-fig = plt.figure(figsize=(24, 4 * n_metrics))
-for i, metric in enumerate(metrics):
-    fig.add_subplot(n_metrics, 1, i + 1)
-    df = results.loc[metric]
-    plot.multibar(df, decimals=2)
-    plt.ylabel(metric)
+df_plot = results.loc["KL_columnwise",'TEMP']
+plt.barh(df_plot.index, df_plot, color=tab10(0))
+plt.title('TEMP')
+plt.xlabel("KL")
+plt.show()
+
+df_plot = results.loc["KL_columnwise",'PRES']
+plt.barh(df_plot.index, df_plot, color=tab10(0))
+plt.title('PRES')
+plt.xlabel("KL")
+plt.show()
+```
+
+```python
+fig = plt.figure(figsize=(24, 8))
+fig.add_subplot(2, 1, 1)
+plot.multibar(results.loc["mae"], decimals=1)
+plt.ylabel("mae")
+
+fig.add_subplot(2, 1, 2)
+plot.multibar(results.loc["dist_corr_pattern"], decimals=2)
+plt.ylabel("dist_corr_pattern")
 
 plt.savefig("figures/imputations_benchmark_errors.png")
 plt.show()
