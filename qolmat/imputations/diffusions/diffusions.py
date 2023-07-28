@@ -98,7 +98,7 @@ class TabDDPM(DDPM):
         x_valid_mask: pd.DataFrame = None,
         metrics_valid: Tuple[Tuple[str, Callable], ...] = (
             ("mae", metrics.mean_absolute_error),
-            ("wasser", metrics.wasserstein_distance),
+            ("wasser", metrics.dist_wasserstein),
         ),
         round: int = 10,
         cols_imputed: Tuple[str, ...] = (),
@@ -127,12 +127,16 @@ class TabDDPM(DDPM):
         self.columns = x.columns.tolist()
         self.metrics_valid = metrics_valid
         self.print_valid = print_valid
-        self.time_durations: List = []
         self.cols_imputed = cols_imputed
-        self.cols_idx_not_imputed = [
-            idx for idx, col in enumerate(self.columns) if col not in self.cols_imputed
-        ]
         self.round = round
+
+        self.time_durations: List = []
+        self.cols_idx_not_imputed: List = []
+
+        if len(self.cols_imputed) != 0:
+            self.cols_idx_not_imputed = [
+                idx for idx, col in enumerate(self.columns) if col not in self.cols_imputed
+            ]
 
         self._set_eps_model()
 
@@ -170,8 +174,8 @@ class TabDDPM(DDPM):
             self.eps_model.train()
             for id_batch, (x_batch, mask_x_batch) in enumerate(dataloader):
                 mask_rand = torch.FloatTensor(mask_x_batch.size()).uniform_() > self.ratio_masked
-                # for col in self.cols_idx_not_imputed:
-                #     mask_rand[:, col] = 0.
+                for col in self.cols_idx_not_imputed:
+                    mask_rand[:, col] = 0.0
                 mask_x_batch = mask_x_batch * mask_rand.to(self.device)
 
                 self.optimiser.zero_grad()
@@ -252,8 +256,9 @@ class TabDDPM(DDPM):
                         )
                     ) + (epsilon_t * random_noise)
                     noise = mask_x_batch * x_batch + (1.0 - mask_x_batch) * noise
-                    # Generate data output, this activation function depends on normalizer_x
-                    x_out = torch.nn.Tanh()(noise)
+
+                # Generate data output, this activation function depends on normalizer_x
+                x_out = torch.nn.Tanh()(noise)
                 outputs.append(x_out.detach().cpu().numpy())
 
         outputs = np.concatenate(outputs)
@@ -464,7 +469,9 @@ class TabDDPMTS(TabDDPM):
                     ) + (epsilon_t * random_noise)
                     noise = mask_x_batch * x_batch + (1.0 - mask_x_batch) * noise
 
-                for id_window, x_window in enumerate(noise.detach().cpu().numpy()):
+                # Generate data output, this activation function depends on normalizer_x
+                x_out = torch.nn.Tanh()(noise)
+                for id_window, x_window in enumerate(x_out.detach().cpu().numpy()):
                     if id_batch == 0 and id_window == 0:
                         outputs += list(x_window)
                     else:
