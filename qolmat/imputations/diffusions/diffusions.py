@@ -98,7 +98,7 @@ class TabDDPM(DDPM):
         x_valid_mask: pd.DataFrame = None,
         metrics_valid: Tuple[Tuple[str, Callable], ...] = (
             ("mae", metrics.mean_absolute_error),
-            ("wasser", metrics.dist_wasserstein),
+            ("wasser", metrics.wasserstein_distance),
         ),
         round: int = 10,
         cols_imputed: Tuple[str, ...] = (),
