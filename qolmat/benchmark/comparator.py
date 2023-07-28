@@ -67,9 +67,9 @@ class Comparator:
         """
         dict_errors = {}
         for name_metric in self.metrics:
-            fun_metric = metrics.get_metric(name_metric)
-            dict_errors[name_metric] = fun_metric(df_origin, df_imputed, df_mask)
-        print(dict_errors)
+            dict_errors[name_metric] = metrics.get_metric(name_metric)(
+                df_origin, df_imputed, df_mask
+            )
         errors = pd.concat(dict_errors.values(), keys=dict_errors.keys())
         return errors
 
@@ -96,14 +96,7 @@ class Comparator:
             DataFrame with the errors for each metric (in column) and at each fold (in index)
         """
         list_errors = []
-        if len(np.setdiff1d(self.selected_columns, df.columns.to_list())) > 0:
-            raise ValueError(
-                f"{np.setdiff1d(self.selected_columns, df.columns.to_list())}" "not found."
-            )
-        if imputer.columnwise:
-            df_origin = df[self.selected_columns].copy()
-        else:
-            df_origin = df.copy()
+        df_origin = df[self.selected_columns].copy()
         for df_mask in self.generator_holes.split(df_origin):
             df_corrupted = df_origin.copy()
             df_corrupted[df_mask] = np.nan
