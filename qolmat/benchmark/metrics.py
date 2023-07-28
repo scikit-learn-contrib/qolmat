@@ -261,7 +261,7 @@ def kl_divergence(
         norm_M = (M**2).sum().sum()
         norm_y = (y**2).sum()
         term_diag_L = 2 * np.sum(np.log(np.diagonal(L2) / np.diagonal(L1)))
-        print(norm_M, "-", n_variables, "+", norm_y, "+", term_diag_L)
+        # print(norm_M, "-", n_variables, "+", norm_y, "+", term_diag_L)
         div_kl = 0.5 * (norm_M - n_variables + norm_y + term_diag_L)
         return pd.Series(div_kl, index=df1.columns)
     elif method == "random_forest":

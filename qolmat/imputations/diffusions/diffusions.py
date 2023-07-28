@@ -125,7 +125,7 @@ class TabDDPM(DDPM):
         self.epochs = epochs
         self.batch_size = batch_size
         self.columns = x.columns.tolist()
-        self.metrics_valid = metrics_valid
+        self.metrics_valid = dict((x, y) for x, y in metrics_valid)
         self.print_valid = print_valid
         self.cols_imputed = cols_imputed
         self.round = round
@@ -270,7 +270,7 @@ class TabDDPM(DDPM):
         x_mask_obs: np.ndarray,
         x_df: pd.DataFrame,
         x_mask_obs_df: pd.DataFrame,
-    ):
+    ) -> Dict:
         """_summary_
 
         Parameters
@@ -296,7 +296,7 @@ class TabDDPM(DDPM):
 
         columns_with_True = x_mask_obs_df.columns[(x_mask_obs_df == True).any()]
         scores = {}
-        for name, metric in self.metrics_valid:
+        for name, metric in self.metrics_valid.items():
             scores[name] = metric(
                 x_df[columns_with_True],
                 x_normalized[columns_with_True],
