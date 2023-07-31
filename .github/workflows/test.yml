@@ -1,6 +1,12 @@
 name: Unit test Qolmat
 
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches:
+      -dev
+      -main
+    pull_request:
+    workflow_dispatch:
 
 jobs:
   build-linux:
