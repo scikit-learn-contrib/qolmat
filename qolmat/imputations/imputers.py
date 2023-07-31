@@ -1691,6 +1691,7 @@ class ImputerEM(_Imputer):
         stagnation_loglik: float = 2,
         period: int = 1,
         verbose: bool = False,
+        p: Union[None, int] = None,
     ):
         super().__init__(
             imputer_params=(
@@ -1718,6 +1719,7 @@ class ImputerEM(_Imputer):
         self.stagnation_loglik = stagnation_loglik
         self.period = period
         self.verbose = verbose
+        self.p = p
 
     def get_model(self, **hyperparams) -> em_sampler.EM:
         """Get the underlying model of the imputer based on its attributes.
@@ -1731,8 +1733,12 @@ class ImputerEM(_Imputer):
             return em_sampler.MultiNormalEM(
                 random_state=self.rng_, verbose=self.verbose, **hyperparams
             )
-        elif self.model == "VAR1":
-            return em_sampler.VAR1EM(random_state=self.rng_, verbose=self.verbose, **hyperparams)
+        elif self.model == "VAR":
+            return em_sampler.VARpEM(
+                random_state=self.rng_,
+                verbose=self.verbose,
+                **(hyperparams | {"p": self.p}),  # type: ignore #noqa
+            )
         else:
             raise ValueError(
                 f"Model argument `{self.model}` is invalid!"
@@ -1760,7 +1766,7 @@ class ImputerEM(_Imputer):
         # if n_rows == 1:
         #     raise ValueError("n_samples=1 is not allowed!")
 
-        if self.model not in ["multinormal", "VAR1"]:
+        if self.model not in ["multinormal", "VAR"]:
             raise ValueError(
                 f"Model argument `{self.model}` is invalid!"
                 " Valid values are `multinormal`and `VAR`."

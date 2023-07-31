@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 from numpy.typing import NDArray
 from sklearn.datasets import make_spd_matrix
+from statsmodels.tsa.vector_ar.var_model import VARResultsWrapper
 
 from qolmat.imputations import em_sampler
 
@@ -63,11 +64,37 @@ def generate_var1_process():
     return {"X": X.T, "X_missing": X_missing.T, "A": A, "B": B, "omega": omega}
 
 
+@pytest.fixture
+def generate_varp_process():
+    np.random.seed(41)
+    d, n = 3, 10_000
+    A1 = np.array([[0.03, 0.03, 0.13], [0.03, 0.03, 0.14], [0.0, 0.02, 0.23]], dtype=float)
+    A2 = np.array([[0.08, 0.1, 0.08], [0.03, 0.16, 0.14], [0.0, 0.2, 0.23]], dtype=float)
+    A = [A1, A2]
+    B = np.array([0.001, 0.023, 0.019])
+    omega = make_spd_matrix(n_dim=d, random_state=208) * 1e-6
+    noise = np.random.multivariate_normal(mean=np.zeros(d), cov=omega, size=n)
+    X = np.zeros((n, d))
+    for i in range(1, n):
+        for ind, mat_A in enumerate(A):
+            X[i] += mat_A.dot(X[i - (ind + 1)] - B)
+        X[i] = X[i] + B + noise[i]
+    mask = np.array(np.full_like(X, False), dtype=bool)
+    for j in range(X.shape[1]):
+        ind = np.random.choice(
+            np.arange(X.shape[0]), size=np.int64(np.ceil(X.shape[0] * 0.1)), replace=False
+        )
+        mask[ind, j] = True
+    X_missing = X.copy()
+    X_missing[mask] = np.nan
+    return {"X": X.T, "X_missing": X_missing.T, "A": A, "B": B, "omega": omega}
+
+
 @pytest.mark.parametrize(
     "A, X_first_guess, X_expected, mask",
     [(A, X_first_guess, X_expected, mask)],
 )
-def test_gradient_conjuge(
+def test_gradient_conjugue(
     A: NDArray,
     X_first_guess: NDArray,
     X_expected: NDArray,
@@ -80,11 +107,28 @@ def test_gradient_conjuge(
     assert np.allclose(X_first_guess[~mask], X_result[~mask])
 
 
+def test_fit_var_model(generate_var1_process):
+    """Test the fit for VAR"""
+    result_aic = em_sampler.fit_var_model(generate_var1_process["X"].T, p=1, criterion="aic")
+    result_bic = em_sampler.fit_var_model(generate_var1_process["X"].T, p=1, criterion="bic")
+
+    assert isinstance(result_aic, VARResultsWrapper)
+    assert isinstance(result_bic, VARResultsWrapper)
+    assert result_aic.k_ar == 1
+    assert result_bic.k_ar == 1
+
+
+def test_get_lag_p(generate_varp_process):
+    """Test if it can retrieve the lag p"""
+    lag_p = em_sampler.get_lag_p(generate_varp_process["X"])
+    assert lag_p == 2
+
+
 def test_initialized() -> None:
     """Test that initializations do not crash."""
     em_sampler.EM()
     em_sampler.MultiNormalEM()
-    em_sampler.VAR1EM()
+    em_sampler.VARpEM()
 
 
 @pytest.mark.parametrize("X_missing", [X_missing])
@@ -182,7 +226,7 @@ def test_varem_sampler_check_convergence_true(
     logliks: List[float],
 ) -> None:
     """Test the convergence criteria of the VAR1EM algorithm."""
-    em = em_sampler.VAR1EM(random_state=32)
+    em = em_sampler.VARpEM(p=1, random_state=32)
     em.dict_criteria_stop["As"] = As
     em.dict_criteria_stop["Bs"] = Bs
     em.dict_criteria_stop["omegas"] = omegas
@@ -201,7 +245,7 @@ def test_varem_sampler_check_convergence_false(
     logliks: List[float],
 ) -> None:
     """Test the non-convergence criteria of the VAR1EM algorithm."""
-    em = em_sampler.VAR1EM(random_state=32)
+    em = em_sampler.VARpEM(p=1, random_state=32)
     em.dict_criteria_stop["As"] = As
     em.dict_criteria_stop["Bs"] = Bs
     em.dict_criteria_stop["omegas"] = omegas
@@ -216,11 +260,11 @@ def test_no_more_nan_multinormalem() -> None:
     assert np.sum(np.isnan(em_sampler.MultiNormalEM().fit_transform(X))) == 0
 
 
-def test_no_more_nan_var1em() -> None:
+def test_no_more_nan_varpem() -> None:
     """Test there are no more missing values after the VAR1EM algorithm."""
     X = np.array([[1, np.nan, 8, 1], [3, 1, 4, 2], [2, 3, np.nan, 1]], dtype=float)
     assert np.sum(np.isnan(X)) > 0
-    assert np.sum(np.isnan(em_sampler.VAR1EM().fit_transform(X))) == 0
+    assert np.sum(np.isnan(em_sampler.VARpEM(p=1).fit_transform(X))) == 0
 
 
 def test_mean_covariance_multinormalem(generate_multinormal_predefined_mean_cov):
@@ -238,10 +282,10 @@ def test_mean_covariance_multinormalem(generate_multinormal_predefined_mean_cov)
     )
 
 
-def test_mean_covariance_var1em(generate_multinormal_predefined_mean_cov):
+def test_mean_covariance_varpem(generate_multinormal_predefined_mean_cov):
     """Test the MultiNormalEM provides good mean and covariance estimations."""
     data = generate_multinormal_predefined_mean_cov
-    em = em_sampler.VAR1EM()
+    em = em_sampler.VARpEM(p=1)
     X_imputed = em.fit_transform(data["X_missing"])
     covariance_imputed = np.cov(X_imputed, rowvar=True)
     mean_imputed = np.mean(X_imputed, axis=1)
@@ -254,9 +298,9 @@ def test_mean_covariance_var1em(generate_multinormal_predefined_mean_cov):
 
 
 def test_fit_distribution_var1em(generate_var1_process):
-    """Test the fit VAR1EM provides good A and B estimates (no imputation)."""
+    """Test the fit VAR(1) provides good A and B estimates (no imputation)."""
     data = generate_var1_process
-    em = em_sampler.VAR1EM()
+    em = em_sampler.VARpEM(p=1)
     em.fit_distribution(data["X"])
     np.testing.assert_allclose(data["A"], em.A, atol=1e-1)
     np.testing.assert_allclose(data["B"], em.B, atol=1e-1)
@@ -264,9 +308,19 @@ def test_fit_distribution_var1em(generate_var1_process):
 
 
 def test_parameters_after_imputation_var1em(generate_var1_process):
-    """Test the VAR1EM provides good A and B estimates."""
+    """Test the VAR(1) provides good A and B estimates."""
     data = generate_var1_process
-    em = em_sampler.VAR1EM()
+    em = em_sampler.VARpEM(p=1)
     _ = em.fit_transform(data["X_missing"])
-    np.testing.assert_allclose(data["A"], em.A, rtol=1e-1, atol=1e-1)
+    np.testing.assert_allclose(data["A"], em.list_A[0], rtol=1e-1, atol=1e-1)
+    np.testing.assert_allclose(data["B"], em.B, rtol=1e-1, atol=1e-1)
+
+
+def test_parameters_after_imputation_varpem(generate_varp_process):
+    """Test the VAR(2) provides good A and B estimates."""
+    data = generate_varp_process
+    em = em_sampler.VARpEM(p=2)
+    _ = em.fit_transform(data["X_missing"])
+    np.testing.assert_allclose(data["A"][0], em.list_A[0], rtol=1e-1, atol=1e-1)
+    np.testing.assert_allclose(data["A"][1], em.list_A[1], rtol=1e-1, atol=1e-1)
     np.testing.assert_allclose(data["B"], em.B, rtol=1e-1, atol=1e-1)

@@ -7,6 +7,8 @@ from numpy.typing import NDArray
 from sklearn import utils as sku
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import StandardScaler
+from statsmodels.tsa.api import VAR
+from statsmodels.tsa.vector_ar.var_model import VARResultsWrapper
 
 from qolmat.utils import utils
 
@@ -56,6 +58,32 @@ def _gradient_conjugue(A: NDArray, X: NDArray, mask: NDArray) -> NDArray:
     X_final[:, cols_imputed] = X_temp
 
     return X_final
+
+
+def fit_var_model(data: NDArray, p: int, criterion: str = "aic") -> VARResultsWrapper:
+    model = VAR(data)
+    result = model.fit(maxlags=p, ic=criterion)
+    return result
+
+
+def get_lag_p(X: NDArray, max_lag_order: int = 10, criterion: str = "aic") -> int:
+    if criterion not in ["aic", "bic"]:
+        raise AssertionError("Invalid criterion. `criterion` must be `aic`or `bic`.")
+
+    best_p = 1
+    best_criteria_value = float("inf")
+    for p in range(1, max_lag_order + 1):
+        model_result = fit_var_model(X.T, p, criterion=criterion)
+        if criterion == "aic":
+            criteria_value = model_result.aic
+        else:
+            criteria_value = model_result.bic
+
+        if criteria_value < best_criteria_value:
+            best_p = p
+            best_criteria_value = criteria_value
+
+    return best_p
 
 
 class EM(BaseEstimator, TransformerMixin):
@@ -146,12 +174,19 @@ class EM(BaseEstimator, TransformerMixin):
             Numpy array to be imputed
         """
         X = X.copy()
+        self.shape_original = X.shape
+
         self.hash_fit = hash(X.tobytes())
         if not isinstance(X, np.ndarray):
             raise AssertionError("Invalid type. X must be a NDArray.")
 
         X = utils.prepare_data(X, self.period)
         X = self.scaler.fit_transform(X.T).T
+
+        if hasattr(self, "p"):
+            if self.p is None:  # type: ignore # noqa
+                self.p = get_lag_p(utils.linear_interpolation(X))
+            X = self.create_lag_matrix_X(X)
 
         mask_na = np.isnan(X)
 
@@ -167,6 +202,7 @@ class EM(BaseEstimator, TransformerMixin):
 
         self.dict_criteria_stop = {key: [] for key in self.dict_criteria_stop}
         self.X_sample_last = X_sample_last
+
         return self
 
     def transform(self, X: NDArray) -> NDArray:
@@ -183,13 +219,17 @@ class EM(BaseEstimator, TransformerMixin):
         NDArray
             Final array after EM sampling.
         """
-        shape_original = X.shape
+        # shape_original = X.shape
         if hash(X.tobytes()) == self.hash_fit:
             X = self.X_sample_last
         else:
             X = utils.prepare_data(X, self.period)
             X = self.scaler.transform(X.T).T
             X = utils.linear_interpolation(X)
+            if hasattr(self, "p"):
+                if self.p is None:
+                    self.p = get_lag_p(utils.linear_interpolation(X))
+                X = self.create_lag_matrix_X(X)
 
         mask_na = np.isnan(X)
 
@@ -201,8 +241,16 @@ class EM(BaseEstimator, TransformerMixin):
         if np.all(np.isnan(X_transformed)):
             raise AssertionError("Result contains NaN. This is a bug.")
 
+        if hasattr(self, "p"):
+            X_transformed = self.get_X(X_transformed)
+            self.get_parameters_ABomega()
+            self.dict_criteria_stop["As"] = self.A
+            self.dict_criteria_stop["Bs"] = self.B
+            self.dict_criteria_stop["omegas"] = self.omega
+
         X_transformed = self.scaler.inverse_transform(X_transformed.T).T
-        X_transformed = utils.get_shape_original(X_transformed, shape_original)
+        # X_transformed = utils.get_shape_original(X_transformed, self.shape_original)
+
         return X_transformed
 
 
@@ -435,7 +483,7 @@ class MultiNormalEM(EM):
         return min_diff_reached or min_diff_stable or max_loglik
 
 
-class VAR1EM(EM):
+class VARpEM(EM):
     """
     Imputation of missing values using a vector autoregressive model through EM optimization and
     using a projected Ornstein-Uhlenbeck process.
@@ -491,9 +539,10 @@ class VAR1EM(EM):
         dt: float = 2e-2,
         tolerance: float = 1e-4,
         stagnation_threshold: float = 5e-3,
-        stagnation_loglik: float = 10,
+        stagnation_loglik: float = 2,
         period: int = 1,
         verbose: bool = False,
+        p: Union[None, int] = None,
     ) -> None:
         super().__init__(
             method=method,
@@ -509,6 +558,32 @@ class VAR1EM(EM):
             verbose=verbose,
         )
         self.dict_criteria_stop = {"logliks": [], "As": [], "Bs": [], "omegas": []}
+        self.p = p  # type: ignore #noqa
+
+    def create_lag_matrix_X(self, X: NDArray) -> NDArray:
+        self.n_features = X.shape[0]
+        X_lag = [X]
+        for lag in range(1, self.p):
+            X_temp = X.copy()
+            X_temp[:, :lag] = 0
+            X_temp[:, lag:] = X_temp[:, :-lag]
+            X_lag.append(X_temp)
+        return np.concatenate(X_lag, axis=0)
+
+    def get_X(self, X: NDArray) -> NDArray:
+        return X[: self.n_features, :]
+
+    def get_parameters_ABomega(self) -> None:
+        estimated_A = []
+        for i in range(self.p):
+            estimated_A.append(self.A[: self.n_features, (i * self.n_features) : (i * self.n_features) + self.n_features])  # type: ignore # noqa
+        estimated_B = self.B[: self.n_features]  # type: ignore # noqa
+        estimated_omega = self.omega[: self.n_features, : self.n_features]  # type: ignore # noqa
+
+        self.list_A = estimated_A
+        self.B = estimated_B
+        self.omega = estimated_omega
+        self.omega_inv = np.linalg.pinv(self.omega, rcond=1e-2)
 
     def fit_parameter_A(self, X: NDArray) -> None:
         """
@@ -561,7 +636,7 @@ class VAR1EM(EM):
 
     def fit_distribution(self, X: NDArray) -> None:
         """
-        Fits the parameters `A`, `B`, and `omega` of a VAR1 process
+        Fits the parameters `A`, `B`, and `omega` of a VAR(p) process
         using the input data `X`.
 
         Parameters
@@ -571,9 +646,9 @@ class VAR1EM(EM):
         """
         n_variables, _ = X.shape
 
-        self.A = np.zeros((n_variables, n_variables))
+        self.A = np.zeros((n_variables, n_variables))  # type: ignore # noqa
 
-        for n in range(5):
+        for _ in range(5):
             self.fit_parameter_B(X)
             self.fit_parameter_A(X)
         self.fit_parameter_omega(X)
