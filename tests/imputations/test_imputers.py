@@ -3,9 +3,11 @@ from typing import Any, Dict
 import numpy as np
 import pandas as pd
 import pytest
-from sklearn.ensemble import ExtraTreesRegressor
 from sklearn.utils.estimator_checks import check_estimator, parametrize_with_checks
 from qolmat.benchmark.hyperparameters import HyperValue
+from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import ExtraTreesRegressor
+
 
 from qolmat.imputations import imputers
 
@@ -286,6 +288,35 @@ def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
     np.testing.assert_allclose(result, expected, atol=1e-2)
 
 
+index_grouped = pd.MultiIndex.from_product([["a", "b"], range(4)], names=["group", "date"])
+dict_values = {"col1": [0, np.nan, 0, 0, 1, 1, 1, 1], "col2": np.arange(8)}
+df_grouped = pd.DataFrame(dict_values, index=index_grouped)
+
+list_imputers = [
+    imputers.ImputerMean(groups=("group",)),
+    imputers.ImputerMedian(groups=("group",)),
+    imputers.ImputerMode(groups=("group",)),
+    imputers.ImputerShuffle(groups=("group",)),
+    imputers.ImputerLOCF(groups=("group",)),
+    imputers.ImputerNOCB(groups=("group",)),
+    imputers.ImputerInterpolation(groups=("group",)),
+    imputers.ImputerResiduals(groups=("group",), period=2),
+    imputers.ImputerKNN(groups=("group",)),
+    imputers.ImputerMICE(groups=("group",)),
+    imputers.ImputerRegressor(groups=("group",), estimator=LinearRegression()),
+    imputers.ImputerRPCA(groups=("group",)),
+    imputers.ImputerEM(groups=("group",)),
+]
+
+
+@pytest.mark.parametrize("imputer", list_imputers)
+def test_models_fit_transform_grouped(imputer):
+    # imputer = imputers.ImputerEM(groups=("group",), method="sample", random_state=42)
+    result = imputer.fit_transform(df_grouped)
+    expected = df_grouped.fillna(0)
+    np.testing.assert_allclose(result, expected)
+
+
 @parametrize_with_checks(
     [
         imputers._Imputer(),
@@ -298,7 +329,7 @@ def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
         imputers.ImputerNOCB(),
         imputers.ImputerInterpolation(),
         imputers.ImputerResiduals(period=2),
-        imputers.KNNImputer(),
+        imputers.ImputerKNN(),
         imputers.ImputerMICE(),
         imputers.ImputerRegressor(),
         imputers.ImputerRPCA(tau=0, lam=0),

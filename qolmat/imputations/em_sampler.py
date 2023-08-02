@@ -177,18 +177,22 @@ class EM(BaseEstimator, TransformerMixin):
         mask_na = np.isnan(X)
 
         # first imputation
-        X_sample_last = utils.linear_interpolation(X)
-        self.fit_distribution(X_sample_last)
+        X = utils.linear_interpolation(X)
+        print("fit")
+        print(X)
+        print("fit_distribution")
+        self.fit_distribution(X)
+        print("...")
 
         for iter_em in range(self.max_iter_em):
-            X_sample_last = self._sample_ou(X_sample_last, mask_na)
+            X = self._sample_ou(X, mask_na)
 
             if self._check_convergence():
                 # print(f"EM converged after {iter_em} iterations.")
                 break
 
         self.dict_criteria_stop = {key: [] for key in self.dict_criteria_stop}
-        self.X_sample_last = X_sample_last
+        self.X_sample_last = X
         return self
 
     def transform(self, X: NDArray) -> NDArray:
@@ -314,7 +318,9 @@ class MultiNormalEM(EM):
         if np.all(np.isclose(self.cov, 0)):
             return 0
         else:
-            return scipy.stats.multivariate_normal.logpdf(X.T, self.means, self.cov).mean()
+            return scipy.stats.multivariate_normal.logpdf(
+                X.T, self.means, self.cov, allow_singular=True
+            ).mean()
 
     def _maximize_likelihood(self, X: NDArray, mask_na: NDArray, dt: float = np.nan) -> NDArray:
         """
