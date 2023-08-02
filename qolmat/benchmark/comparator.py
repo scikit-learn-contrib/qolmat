@@ -34,6 +34,7 @@ class Comparator:
         generator_holes: _HoleGenerator,
         metrics: List = ["mae", "wmape", "KL_columnwise"],
         dict_config_opti: Optional[Dict[str, Any]] = {},
+        metric_optim: str = "mse",
         max_evals: int = 10,
         verbose: bool = False,
     ):
@@ -42,6 +43,7 @@ class Comparator:
         self.generator_holes = generator_holes
         self.metrics = metrics
         self.dict_config_opti = dict_config_opti
+        self.metric_optim = metric_optim
         self.max_evals = max_evals
         self.verbose = verbose
 
@@ -77,6 +79,7 @@ class Comparator:
         imputer: Any,
         df: pd.DataFrame,
         dict_config_opti_imputer: Dict[str, Any] = {},
+        metric_optim: str = "mse",
     ) -> pd.Series:
         """Evaluate the errors in the cross-validation
 
@@ -88,6 +91,8 @@ class Comparator:
             dataframe to impute
         dict_config_opti_imputer : Dict
             search space for tested_model's hyperparameters
+        metric_optim : str
+            Loss function used when imputers undergo hyperparameter optimization
 
         Returns
         -------
@@ -99,7 +104,6 @@ class Comparator:
         for df_mask in self.generator_holes.split(df_origin):
             df_corrupted = df_origin.copy()
             df_corrupted[df_mask] = np.nan
-            metric_optim = "mae"
             imputer_opti = hyperparameters.optimize(
                 imputer,
                 df,
@@ -142,7 +146,7 @@ class Comparator:
 
             try:
                 dict_errors[name] = self.evaluate_errors_sample(
-                    imputer, df, dict_config_opti_imputer
+                    imputer, df, dict_config_opti_imputer, self.metric_optim
                 )
                 print(f"Tested model: {type(imputer).__name__}")
             except Exception as excp:
