@@ -2,7 +2,7 @@
 History
 =======
 
-0.0.15 (2023-??-??)
+0.0.15 (2023-08-03)
 -------------------
 
 * Hyperparameters are now optimized in hyperparameters.py, with the maintained module hyperopt

@@ -12,12 +12,12 @@ from sklearn.base import BaseEstimator
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer, KNNImputer
 from sklearn.impute._base import _BaseImputer
-from qolmat.benchmark.hyperparameters import HyperValue
 from statsmodels.tsa import seasonal as tsa_seasonal
 
 from qolmat.imputations import em_sampler
 from qolmat.imputations.rpca import rpca, rpca_noisy, rpca_pcp
 from qolmat.utils.exceptions import NotDataFrame
+from qolmat.utils.utils import HyperValue
 
 
 class _Imputer(_BaseImputer):
@@ -1223,10 +1223,8 @@ class ImputerKNN(_Imputer):
             Returns self.
         """
         super().fit(X)
-        df = self._check_input(X)
         hyperparameters = self.get_hyperparams()
         self.imputer_ = KNNImputer(metric="nan_euclidean", **hyperparameters)
-        self.imputer_.fit(df)
         return self
 
     def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
@@ -1252,7 +1250,7 @@ class ImputerKNN(_Imputer):
             Input has to be a pandas.DataFrame.
         """
         self._check_dataframe(df)
-        results = self.imputer_.transform(df)
+        results = self.imputer_.fit_transform(df)
         return pd.DataFrame(data=results, columns=df.columns, index=df.index)
 
 
@@ -1329,10 +1327,10 @@ class ImputerMICE(_Imputer):
         """
         hyperparams = self.get_hyperparams()
         super().fit(X)
-        df = self._check_input(X)
         self.imputer_ = IterativeImputer(estimator=self.estimator, **hyperparams)
-        self.imputer_.fit(df)
-        self.n_iter_ = self.imputer_.n_iter_
+        self.n_iter_ = 1
+        # requires fitting IterativeImputer in the fit method
+        # self.n_iter_ = self.imputer_.n_iter_
         return self
 
     def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
@@ -1358,12 +1356,10 @@ class ImputerMICE(_Imputer):
             Input has to be a pandas.DataFrame.
         """
         self._check_dataframe(df)
-        res = self.imputer_.transform(df)
-        imputed = pd.DataFrame(columns=df.columns)
-        for ind, col in enumerate(imputed.columns):
-            imputed[col] = res[:, ind]
-        imputed.index = df.index
-        return imputed
+        X_imputed = self.imputer_.fit_transform(df)
+        df_imputed = pd.DataFrame(X_imputed, index=df.index, columns=df.columns)
+
+        return df_imputed
 
 
 class ImputerRegressor(_Imputer):
@@ -1529,6 +1525,7 @@ class ImputerRPCA(_Imputer):
         max_iterations: int = int(1e4),
         tol: float = 1e-6,
         norm: Optional[str] = "L2",
+        verbose: bool = False,
     ) -> None:
         super().__init__(
             imputer_params=(
@@ -1559,6 +1556,7 @@ class ImputerRPCA(_Imputer):
         self.max_iterations = max_iterations
         self.tol = tol
         self.norm = norm
+        self.verbose = verbose
 
     def get_model(self, **hyperparams) -> rpca.RPCA:
         """Get the underlying model of the imputer based on its attributes.
@@ -1582,7 +1580,7 @@ class ImputerRPCA(_Imputer):
                     "norm",
                 ]
             }
-            model = rpca_pcp.RPCAPCP(random_state=self.rng_, **hyperparams)
+            model = rpca_pcp.RPCAPCP(random_state=self.rng_, verbose=self.verbose, **hyperparams)
         elif self.method == "noisy":
             hyperparams = {
                 key: hyperparams[key]
@@ -1598,7 +1596,9 @@ class ImputerRPCA(_Imputer):
                     "norm",
                 ]
             }
-            model = rpca_noisy.RPCANoisy(random_state=self.rng_, **hyperparams)
+            model = rpca_noisy.RPCANoisy(
+                random_state=self.rng_, verbose=self.verbose, **hyperparams
+            )
         return model
 
     def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
@@ -1676,6 +1676,7 @@ class ImputerEM(_Imputer):
         stagnation_threshold: float = 5e-3,
         stagnation_loglik: float = 2,
         period: int = 1,
+        verbose: bool = False,
     ):
         super().__init__(
             imputer_params=(
@@ -1702,6 +1703,7 @@ class ImputerEM(_Imputer):
         self.stagnation_threshold = stagnation_threshold
         self.stagnation_loglik = stagnation_loglik
         self.period = period
+        self.verbose = verbose
 
     def get_model(self, **hyperparams) -> em_sampler.EM:
         """Get the underlying model of the imputer based on its attributes.
@@ -1712,56 +1714,58 @@ class ImputerEM(_Imputer):
             EM model to be used in the fit and transform methods.
         """
         if self.model == "multinormal":
-            return em_sampler.MultiNormalEM(**hyperparams)
+            return em_sampler.MultiNormalEM(
+                random_state=self.rng_, verbose=self.verbose, **hyperparams
+            )
         elif self.model == "VAR1":
-            return em_sampler.VAR1EM(**hyperparams)
+            return em_sampler.VAR1EM(random_state=self.rng_, verbose=self.verbose, **hyperparams)
         else:
             raise ValueError(
                 f"Model argument `{self.model}` is invalid!"
                 " Valid values are `multinormal`and `VAR`."
             )
 
-    def fit(self, X: pd.DataFrame, y=None):
-        """Fit the imputer on X.
+    # def fit(self, X: pd.DataFrame, y=None):
+    #     """Fit the imputer on X.
 
-        Parameters
-        ----------
-        X : pd.DataFrame
-            Data matrix on which the Imputer must be fitted.
+    #     Parameters
+    #     ----------
+    #     X : pd.DataFrame
+    #         Data matrix on which the Imputer must be fitted.
 
-        Returns
-        -------
-        self : Self
-            Returns self.
-        """
-        super().fit(X)
-        df = self._check_input(X)
+    #     Returns
+    #     -------
+    #     self : Self
+    #         Returns self.
+    #     """
+    #     super().fit(X)
+    #     df = self._check_input(X)
 
-        # n_rows, n_cols = df.shape
-        # if n_rows == 1:
-        #     raise ValueError("n_samples=1 is not allowed!")
+    #     # n_rows, n_cols = df.shape
+    #     # if n_rows == 1:
+    #     #     raise ValueError("n_samples=1 is not allowed!")
 
-        if self.model not in ["multinormal", "VAR1"]:
-            raise ValueError(
-                f"Model argument `{self.model}` is invalid!"
-                " Valid values are `multinormal`and `VAR`."
-            )
+    #     if self.model not in ["multinormal", "VAR1"]:
+    #         raise ValueError(
+    #             f"Model argument `{self.model}` is invalid!"
+    #             " Valid values are `multinormal`and `VAR`."
+    #         )
 
-        cols_with_nans = df.columns[df.isna().any()]
+    #     cols_with_nans = df.columns[df.isna().any()]
 
-        self._models = {}
-        if self.columnwise:
-            for col in cols_with_nans:
-                hyperparams = self.get_hyperparams(col=col)
-                model = self.get_model(random_state=self.rng_, **hyperparams)
-                model.fit(df[col].values)
-                self._models[col] = model
-        else:
-            hyperparams = self.get_hyperparams()
-            model = self.get_model(random_state=self.rng_, **hyperparams)
-            model.fit(df.values.T)
-            self._models["__all__"] = model
-        return self
+    #     self._models = {}
+    #     if self.columnwise:
+    #         for col in cols_with_nans:
+    #             hyperparams = self.get_hyperparams(col=col)
+    #             model = self.get_model(**hyperparams)
+    #             model.fit(df[col].values)
+    #             self._models[col] = model
+    #     else:
+    #         hyperparams = self.get_hyperparams()
+    #         model = self.get_model(**hyperparams)
+    #         model.fit(df.values.T)
+    #         self._models["__all__"] = model
+    #     return self
 
     def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
         """
@@ -1786,7 +1790,13 @@ class ImputerEM(_Imputer):
             Input has to be a pandas.DataFrame.
         """
         self._check_dataframe(df)
-        model = self._models[col]
+
+        hyperparams = self.get_hyperparams(col=col)
+        model = self.get_model(**hyperparams)
+        if col == "__all__":
+            model.fit(df.values.T)
+        else:
+            model.fit(df[col].values)
 
         X = df.values.T.astype(float)
         X_imputed = model.transform(X)

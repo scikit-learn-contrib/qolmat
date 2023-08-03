@@ -34,14 +34,18 @@ class Comparator:
         generator_holes: _HoleGenerator,
         metrics: List = ["mae", "wmape", "KL_columnwise"],
         dict_config_opti: Optional[Dict[str, Any]] = {},
+        metric_optim: str = "mse",
         max_evals: int = 10,
+        verbose: bool = False,
     ):
         self.dict_imputers = dict_models
         self.selected_columns = selected_columns
         self.generator_holes = generator_holes
         self.metrics = metrics
         self.dict_config_opti = dict_config_opti
+        self.metric_optim = metric_optim
         self.max_evals = max_evals
+        self.verbose = verbose
 
     def get_errors(
         self,
@@ -65,9 +69,8 @@ class Comparator:
         """
         dict_errors = {}
         for name_metric in self.metrics:
-            dict_errors[name_metric] = metrics.get_metric(name_metric)(
-                df_origin, df_imputed, df_mask
-            )
+            fun_metric = metrics.get_metric(name_metric)
+            dict_errors[name_metric] = fun_metric(df_origin, df_imputed, df_mask)
         errors = pd.concat(dict_errors.values(), keys=dict_errors.keys())
         return errors
 
@@ -76,6 +79,7 @@ class Comparator:
         imputer: Any,
         df: pd.DataFrame,
         dict_config_opti_imputer: Dict[str, Any] = {},
+        metric_optim: str = "mse",
     ) -> pd.Series:
         """Evaluate the errors in the cross-validation
 
@@ -87,6 +91,8 @@ class Comparator:
             dataframe to impute
         dict_config_opti_imputer : Dict
             search space for tested_model's hyperparameters
+        metric_optim : str
+            Loss function used when imputers undergo hyperparameter optimization
 
         Returns
         -------
@@ -98,7 +104,6 @@ class Comparator:
         for df_mask in self.generator_holes.split(df_origin):
             df_corrupted = df_origin.copy()
             df_corrupted[df_mask] = np.nan
-            metric_optim = "mae"
             imputer_opti = hyperparameters.optimize(
                 imputer,
                 df,
@@ -106,6 +111,7 @@ class Comparator:
                 metric_optim,
                 dict_config_opti_imputer,
                 max_evals=self.max_evals,
+                verbose=self.verbose,
             )
             df_imputed = imputer_opti.fit_transform(df_corrupted)
             subset = self.generator_holes.subset
@@ -140,7 +146,7 @@ class Comparator:
 
             try:
                 dict_errors[name] = self.evaluate_errors_sample(
-                    imputer, df, dict_config_opti_imputer
+                    imputer, df, dict_config_opti_imputer, self.metric_optim
                 )
                 print(f"Tested model: {type(imputer).__name__}")
             except Exception as excp:
