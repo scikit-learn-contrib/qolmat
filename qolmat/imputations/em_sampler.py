@@ -1,5 +1,4 @@
-import logging
-from typing import Dict, List, Literal, Union
+from typing import Dict, List, Literal, Optional, Union
 from warnings import WarningMessage
 
 import numpy as np
@@ -10,7 +9,7 @@ from sklearn import utils as sku
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import StandardScaler
 
-logger = logging.getLogger(__name__)
+from qolmat.utils import utils
 
 
 def _gradient_conjugue(A: NDArray, X: NDArray, mask_na: NDArray) -> NDArray:
@@ -58,56 +57,6 @@ def _gradient_conjugue(A: NDArray, X: NDArray, mask_na: NDArray) -> NDArray:
     X_final[:, cols_imputed] = X_temp
 
     return X_final
-
-
-def invert_robust(M, epsilon=1e-2):
-    """
-    Compute the inverse of a matrix `M`, with robustness checks.
-
-    In case of singularity or near-singularity of the input matrix, this function applies
-    a penalty term to the diagonal elements of `M` to make it more invertible. If the matrix
-    still fails to meet certain quality criteria, an error is raised.
-
-    Parameters
-    ----------
-    M : array_like
-        The matrix to invert. Should be square.
-    epsilon : float, optional
-        The penalty parameter to add to the diagonal elements of `M`. Default is 1e-2.
-
-    Returns
-    -------
-    invM : ndarray
-        The inverse of `M` after applying the penalty term.
-
-    Raises
-    ------
-    WarningMessage
-        If `M` has negative eigenvalues, indicating that some variables may be constant
-        or collinear, or if `M` has extremely large eigenvalues, indicating that the imputation
-        may be inflated.
-
-    Examples
-    --------
-    >>> M = np.array([[1, 2], [3, 4]])
-    >>> invert_robust(M)
-    array([[-2,  1],
-           [ 1.5   , -0.5  ]])
-    """
-    Meps = M - epsilon * (M - np.diag(M.diagonal()))
-    if scipy.linalg.eigh(M)[0].min() < 0:
-        print("---------------- FAILURE -------------")
-        print(M.shape)
-        print(M)
-        print(scipy.linalg.eigh(M)[0].min())
-        raise WarningMessage(
-            f"Negative eigenvalue, some variables may be constant or colinear, "
-            f"min value of {scipy.linalg.eigh(M)[0].min():.3g} found."
-        )
-    if np.abs(scipy.linalg.eigh(M)[0].min()) > 1e20:
-        raise WarningMessage("Large eigenvalues, imputation may be inflated.")
-
-    return scipy.linalg.inv(Meps)
 
 
 class EM(BaseEstimator, TransformerMixin):
@@ -163,6 +112,8 @@ class EM(BaseEstimator, TransformerMixin):
         tolerance: float = 1e-4,
         stagnation_threshold: float = 5e-3,
         stagnation_loglik: float = 2,
+        period: int = 1,
+        verbose: bool = False,
     ):
         if method not in ["mle", "sample"]:
             raise ValueError(f"`method` must be 'mle' or 'sample', provided value is '{method}'")
@@ -174,38 +125,14 @@ class EM(BaseEstimator, TransformerMixin):
         self.rng = sku.check_random_state(random_state)
         self.cov = np.array([[]])
         self.dt = dt
-        self.convergence_threshold = tolerance
+        self.tolerance = tolerance
         self.stagnation_threshold = stagnation_threshold
         self.stagnation_loglik = stagnation_loglik
         self.scaler = StandardScaler()
 
         self.dict_criteria_stop: Dict[str, List] = {}
-
-    def _linear_interpolation(self, X: NDArray) -> NDArray:
-        """
-        Impute missing data with a linear interpolation, column-wise
-
-        Parameters
-        ----------
-        X : NDArray
-            array with missing values
-
-        Returns
-        -------
-        X_interpolated : NDArray
-            imputed array, by linear interpolation
-        """
-        n_rows, n_cols = X.shape
-        indices = np.arange(n_cols)
-        X_interpolated = X.copy()
-        for i_row in range(n_rows):
-            values = X[i_row]
-            mask_isna = np.isnan(values)
-            values_interpolated = np.interp(
-                indices[mask_isna], indices[~mask_isna], values[~mask_isna]
-            )
-            X_interpolated[i_row, mask_isna] = values_interpolated
-        return X_interpolated
+        self.period = period
+        self.verbose = verbose
 
     def _convert_numpy(self, X: NDArray) -> NDArray:
         """
@@ -244,23 +171,28 @@ class EM(BaseEstimator, TransformerMixin):
         if not isinstance(X, np.ndarray):
             raise AssertionError("Invalid type. X must be a NDArray.")
 
+        X = utils.prepare_data(X, self.period)
         X = self.scaler.fit_transform(X.T).T
 
         mask_na = np.isnan(X)
 
         # first imputation
-        X_sample_last = self._linear_interpolation(X)
-        self.fit_distribution(X_sample_last)
+        X = utils.linear_interpolation(X)
+        print("fit")
+        print(X)
+        print("fit_distribution")
+        self.fit_distribution(X)
+        print("...")
 
         for iter_em in range(self.max_iter_em):
-            X_sample_last = self._sample_ou(X_sample_last, mask_na)
+            X = self._sample_ou(X, mask_na)
 
             if self._check_convergence():
                 # print(f"EM converged after {iter_em} iterations.")
                 break
 
         self.dict_criteria_stop = {key: [] for key in self.dict_criteria_stop}
-        self.X_sample_last = X_sample_last
+        self.X_sample_last = X
         return self
 
     def transform(self, X: NDArray) -> NDArray:
@@ -277,12 +209,15 @@ class EM(BaseEstimator, TransformerMixin):
         NDArray
             Final array after EM sampling.
         """
-        mask_na = np.isnan(X)
+        shape_original = X.shape
         if hash(X.tobytes()) == self.hash_fit:
             X = self.X_sample_last
         else:
+            X = utils.prepare_data(X, self.period)
             X = self.scaler.transform(X.T).T
-            X = self._linear_interpolation(X)
+            X = utils.linear_interpolation(X)
+
+        mask_na = np.isnan(X)
 
         if self.method == "mle":
             X_transformed = self._maximize_likelihood(X, mask_na, self.dt)
@@ -292,8 +227,8 @@ class EM(BaseEstimator, TransformerMixin):
         if np.all(np.isnan(X_transformed)):
             raise AssertionError("Result contains NaN. This is a bug.")
 
-        X_transformed = X_transformed.T
-        X_transformed = self.scaler.inverse_transform(X_transformed)
+        X_transformed = self.scaler.inverse_transform(X_transformed.T).T
+        X_transformed = utils.get_shape_original(X_transformed, shape_original)
         return X_transformed
 
 
@@ -319,6 +254,8 @@ class MultiNormalEM(EM):
     dt : float
         Process integration time step, a large value increases the sample bias and can make
         the algorithm unstable, but compensates for a smaller n_iter_ou. By default, 2e-2.
+    verbose: bool
+        default `False`
 
     Attributes
     ----------
@@ -350,25 +287,40 @@ class MultiNormalEM(EM):
         tolerance: float = 1e-4,
         stagnation_threshold: float = 5e-3,
         stagnation_loglik: float = 2,
+        period: int = 1,
+        verbose: bool = False,
     ) -> None:
         super().__init__(
-            method,
-            max_iter_em,
-            n_iter_ou,
-            ampli,
-            random_state,
-            dt,
-            stagnation_threshold,
-            stagnation_loglik,
+            method=method,
+            max_iter_em=max_iter_em,
+            n_iter_ou=n_iter_ou,
+            ampli=ampli,
+            random_state=random_state,
+            dt=dt,
+            tolerance=tolerance,
+            stagnation_threshold=stagnation_threshold,
+            stagnation_loglik=stagnation_loglik,
+            period=period,
+            verbose=verbose,
         )
-        self.tolerance = tolerance
-
         self.dict_criteria_stop = {"logliks": [], "means": [], "covs": []}
 
     def fit_distribution(self, X):
         self.means = np.mean(X, axis=1)
-        self.cov = np.cov(X).reshape(len(X), -1)
-        self.cov_inv = invert_robust(self.cov, epsilon=1e-2)
+        n_rows, n_cols = X.shape
+        if n_cols == 1:
+            self.cov = np.eye(n_rows)
+        else:
+            self.cov = np.cov(X).reshape(n_rows, -1)
+        self.cov_inv = np.linalg.pinv(self.cov, rcond=1e-2)
+
+    def get_loglikelihood(self, X: NDArray) -> float:
+        if np.all(np.isclose(self.cov, 0)):
+            return 0
+        else:
+            return scipy.stats.multivariate_normal.logpdf(
+                X.T, self.means, self.cov, allow_singular=True
+            ).mean()
 
     def _maximize_likelihood(self, X: NDArray, mask_na: NDArray, dt: float = np.nan) -> NDArray:
         """
@@ -445,10 +397,10 @@ class MultiNormalEM(EM):
         self.means = np.mean(means_stack, axis=1)
         cov_stack = np.stack(list_cov, axis=2)
         self.cov = np.mean(cov_stack, axis=2) + np.cov(means_stack, bias=True)
-        self.cov_inv = invert_robust(self.cov, epsilon=1e-2)
+        self.cov_inv = np.linalg.pinv(self.cov, rcond=1e-2)
 
         # Stop criteria
-        self.loglik = scipy.stats.multivariate_normal.logpdf(X.T, self.means, self.cov).mean()
+        self.loglik = self.get_loglikelihood(X)
 
         self.dict_criteria_stop["means"].append(self.means)
         self.dict_criteria_stop["covs"].append(self.cov)
@@ -460,7 +412,7 @@ class MultiNormalEM(EM):
         """
         Check if the EM algorithm has converged. Three criteria:
         1) if the differences between the estimates of the parameters (mean and covariance) is
-        less than a threshold (min_diff_reached - convergence_threshold).
+        less than a threshold (min_diff_reached - tolerance).
         2) if the difference of the consecutive differences of the estimates is less than a
         threshold, i.e. stagnates over the last 5 interactions (min_diff_stable -
         stagnation_threshold).
@@ -481,10 +433,8 @@ class MultiNormalEM(EM):
 
         min_diff_reached = (
             n_iter > 5
-            and scipy.linalg.norm(list_means[-1] - list_means[-2], np.inf)
-            < self.convergence_threshold
-            and scipy.linalg.norm(list_covs[-1] - list_covs[-2], np.inf)
-            < self.convergence_threshold
+            and scipy.linalg.norm(list_means[-1] - list_means[-2], np.inf) < self.tolerance
+            and scipy.linalg.norm(list_covs[-1] - list_covs[-2], np.inf) < self.tolerance
         )
 
         min_diff_stable = (
@@ -516,6 +466,8 @@ class VAR1EM(EM):
     Imputation of missing values using a vector autoregressive model through EM optimization and
     using a projected Ornstein-Uhlenbeck process.
 
+    (X_n+1 - B) = A @ (X_n - B) + Omega @ G_n
+
     Parameters
     ----------
     method : Literal["mle", "sample"]
@@ -533,6 +485,8 @@ class VAR1EM(EM):
     dt : float
         Process integration time step, a large value increases the sample bias and can make
         the algorithm unstable, but compensates for a smaller n_iter_ou. By default, 2e-2.
+    verbose: bool
+        default `False`
 
     Attributes
     ----------
@@ -564,25 +518,30 @@ class VAR1EM(EM):
         tolerance: float = 1e-4,
         stagnation_threshold: float = 5e-3,
         stagnation_loglik: float = 2,
+        period: int = 1,
+        verbose: bool = False,
     ) -> None:
         super().__init__(
-            method,
-            max_iter_em,
-            n_iter_ou,
-            ampli,
-            random_state,
-            dt,
-            stagnation_threshold,
-            stagnation_loglik,
+            method=method,
+            max_iter_em=max_iter_em,
+            n_iter_ou=n_iter_ou,
+            ampli=ampli,
+            random_state=random_state,
+            dt=dt,
+            tolerance=tolerance,
+            stagnation_threshold=stagnation_threshold,
+            stagnation_loglik=stagnation_loglik,
+            period=period,
+            verbose=verbose,
         )
-        self.tolerance = tolerance
 
     def fit_parameter_A(self, X):
         n_variables, n_samples = X.shape
         Xc = X - self.B[:, None]
         XX_lag = Xc[:, 1:] @ Xc[:, :-1].T
         XX = Xc @ Xc.T
-        self.A = XX_lag @ invert_robust(XX, epsilon=1e-2)
+        XX_inv = np.linalg.pinv(XX, rcond=1e-2)
+        self.A = XX_lag @ XX_inv
 
     def fit_parameter_B(self, X):
         n_variables, n_samples = X.shape
@@ -596,7 +555,7 @@ class VAR1EM(EM):
         Z_back = Xc - self.A @ Xc_lag
         Z_back[:, 0] = 0
         self.omega = (Z_back @ Z_back.T) / n_samples
-        self.omega_inv = invert_robust(self.omega, epsilon=1e-2)
+        self.omega_inv = np.linalg.pinv(self.omega, rcond=1e-2)
 
     def fit_distribution(self, X):
         n_variables, n_samples = X.shape
