@@ -192,7 +192,7 @@ class EM(BaseEstimator, TransformerMixin):
 
         # first imputation
         X_sample_last = utils.linear_interpolation(X)
-        self.fit_distribution(X_sample_last)
+        self.fit_distribution(X)
 
         for iter_em in range(self.max_iter_em):
             X_sample_last = self._sample_ou(X_sample_last, mask_na)
@@ -340,7 +340,9 @@ class MultiNormalEM(EM):
         if np.all(np.isclose(self.cov, 0)):
             return 0
         else:
-            return scipy.stats.multivariate_normal.logpdf(X.T, self.means, self.cov).mean()
+            return scipy.stats.multivariate_normal.logpdf(
+                X.T, self.means, self.cov, allow_singular=True
+            ).mean()
 
     def _maximize_likelihood(self, X: NDArray, mask_na: NDArray, dt: float = np.nan) -> NDArray:
         """
