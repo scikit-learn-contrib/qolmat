@@ -185,7 +185,6 @@ class _Imputer(_BaseImputer):
         """
 
         df = self._check_input(X)
-
         if tuple(df.columns) != self.columns_:
             raise ValueError(
                 """The number of features is different from the counterpart in fit.
@@ -1657,11 +1656,11 @@ class ImputerEM(_Imputer):
     ----------
     groups: Tuple[str, ...]
         List of column names to group by, by default []
-    method : {'multinormal', 'VAR1'}, default='multinormal'
+    method : {'multinormal', 'VAR'}, default='multinormal'
         Method defining the hypothesis made on the data distribution. Possible values:
         - 'multinormal' : the data points a independent and uniformly distributed following a
         multinormal distribution
-        - 'VAR1' : the data is a time series modeled by a VAR(1) process
+        - 'VAR' : the data is a time series modeled by a VAR(p) process
     columnwise : bool
         If False, correlations between variables will be used, which is advised.
         If True, each column is imputed independently. For the multinormal case each
@@ -1743,24 +1742,24 @@ class ImputerEM(_Imputer):
 
     def fit(self, X: pd.DataFrame, y=None):
         """
-            Fit the imputer on X.
+        Fit the imputer on X.
 
-        #     Parameters
-        #     ----------
-        #     X : pd.DataFrame
-        #         Data matrix on which the Imputer must be fitted.
+        Parameters
+        ----------
+        X : pd.DataFrame
+            Data matrix on which the Imputer must be fitted.
 
-        #     Returns
-        #     -------
-        #     self : Self
-        #         Returns self.
-        #"""
-        #     super().fit(X)
-        #     df = self._check_input(X)
+        Returns
+        -------
+        self : Self
+            Returns self.
+        """
+        super().fit(X)
+        df = self._check_input(X)
 
-        #     # n_rows, n_cols = df.shape
-        #     # if n_rows == 1:
-        #     #     raise ValueError("n_samples=1 is not allowed!")
+        # n_rows, n_cols = df.shape
+        # if n_rows == 1:
+        #     raise ValueError("n_samples=1 is not allowed!")
 
         if self.model not in ["multinormal", "VAR"]:
             raise ValueError(
@@ -1768,21 +1767,21 @@ class ImputerEM(_Imputer):
                 " Valid values are `multinormal`and `VAR`."
             )
 
-    #     cols_with_nans = df.columns[df.isna().any()]
+        cols_with_nans = df.columns[df.isna().any()]
 
-    #     self._models = {}
-    #     if self.columnwise:
-    #         for col in cols_with_nans:
-    #             hyperparams = self.get_hyperparams(col=col)
-    #             model = self.get_model(**hyperparams)
-    #             model.fit(df[col].values)
-    #             self._models[col] = model
-    #     else:
-    #         hyperparams = self.get_hyperparams()
-    #         model = self.get_model(**hyperparams)
-    #         model.fit(df.values.T)
-    #         self._models["__all__"] = model
-    #     return self
+        self._models = {}
+        if self.columnwise:
+            for col in cols_with_nans:
+                hyperparams = self.get_hyperparams(col=col)
+                model = self.get_model(**hyperparams)
+                model.fit(df[col].values)
+                self._models[col] = model
+        else:
+            hyperparams = self.get_hyperparams()
+            model = self.get_model(**hyperparams)
+            model.fit(df.values.T)
+            self._models["__all__"] = model
+        return self
 
     def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
         """
@@ -1807,13 +1806,7 @@ class ImputerEM(_Imputer):
             Input has to be a pandas.DataFrame.
         """
         self._check_dataframe(df)
-
-        hyperparams = self.get_hyperparams(col=col)
-        model = self.get_model(**hyperparams)
-        if col == "__all__":
-            model.fit(df.values.T)
-        else:
-            model.fit(df[col].values)
+        model = self._models[col]
 
         X = df.values.T.astype(float)
         X_imputed = model.transform(X)

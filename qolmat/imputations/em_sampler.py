@@ -192,7 +192,7 @@ class EM(BaseEstimator, TransformerMixin):
 
         # first imputation
         X_sample_last = utils.linear_interpolation(X)
-        self.fit_distribution(X)
+        self.fit_distribution(X_sample_last)
 
         for iter_em in range(self.max_iter_em):
             X_sample_last = self._sample_ou(X_sample_last, mask_na)
@@ -399,6 +399,7 @@ class MultiNormalEM(EM):
         gamma = np.diagonal(self.cov)[:, None]
         list_means = []
         list_cov = []
+        nb_samples = 50
         for iter_ou in range(self.n_iter_ou):
             noise = self.ampli * self.rng.normal(0, 1, size=(n_samples, n_variables))
             X_center = X - self.means[:, None]
@@ -408,17 +409,19 @@ class MultiNormalEM(EM):
                 + noise * np.sqrt(2 * gamma * self.dt)
             )
             X[~mask_na] = X_init[~mask_na]
-            if iter_ou > self.n_iter_ou - 50:
+            if iter_ou > self.n_iter_ou - nb_samples:
                 list_means.append(np.mean(X, axis=1))
                 # reshaping for 1D input
                 cov = np.cov(X, bias=True).reshape(len(X), -1)
                 list_cov.append(cov)
 
-        # MANOVA formula
+        # Rubin's rule
         means_stack = np.stack(list_means, axis=1)
         self.means = np.mean(means_stack, axis=1)
         cov_stack = np.stack(list_cov, axis=2)
-        self.cov = np.mean(cov_stack, axis=2) + np.cov(means_stack, bias=True)
+        self.cov = np.mean(cov_stack, axis=2) + (1 + 1 / nb_samples) * np.cov(
+            means_stack, bias=True
+        )
         self.cov_inv = np.linalg.pinv(self.cov, rcond=1e-2)
 
         # Stop criteria
@@ -649,7 +652,6 @@ class VARpEM(EM):
         n_variables, _ = X.shape
 
         self.A = np.zeros((n_variables, n_variables))  # type: ignore # noqa
-
         for _ in range(5):
             self.fit_parameter_B(X)
             self.fit_parameter_A(X)
@@ -739,12 +741,10 @@ class VARpEM(EM):
         for _ in range(self.n_iter_ou):
             noise = self.ampli * self.rng.normal(0, 1, size=(n_variables, n_samples))
             grad_X = self.gradient_X_centered_loglik(Xc)
-
             Xc = Xc + self.dt * gamma * grad_X + np.sqrt(2 * gamma * self.dt) * noise
-
             Xc[~mask_na] = Xc_init[~mask_na]
-        X = Xc + self.B[:, None]
 
+        X = Xc + self.B[:, None]
         self.fit_distribution(X)
 
         # Stop criteria
