@@ -11,7 +11,7 @@
    hole_generator
 
 .. toctree::
-   :maxdepth: 2 
+   :maxdepth: 2
    :hidden:
    :caption: Simple examples
 

@@ -75,8 +75,8 @@ RPCA engine
 
 .. autosummary::
     :toctree: generated/
-    :template: class.rst    
-    
+    :template: class.rst
+
     imputations.rpca.rpca_noisy.RPCANoisy
     imputations.rpca.rpca_pcp.RPCAPCP
 
@@ -86,9 +86,9 @@ EM engine
 
 .. autosummary::
     :toctree: generated/
-    :template: class.rst    
-    
+    :template: class.rst
+
     imputations.em_sampler.MultiNormalEM
-    imputations.em_sampler.VAR1EM
+    imputations.em_sampler.VARpEM
 
 

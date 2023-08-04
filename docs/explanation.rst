@@ -1,5 +1,5 @@
 
-Qolmat methods 
+Qolmat methods
 ==============
 
 It can be divided into two main parts:

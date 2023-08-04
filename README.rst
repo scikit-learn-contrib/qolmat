@@ -215,6 +215,33 @@ Finally, we keep the best ``TSMLE`` imputor we represent.
 
 The full documentation can be found `on this link <https://qolmat.readthedocs.io/en/latest/>`_.
 
+**How does Qolmat work ?**
+
+Qolmat simplifies the selection process of a data imputation algorithm. It does so by comparing of various methods based on different evaluation metrics.
+It is compatible with scikit-learn.
+
+.. image:: https://raw.githubusercontent.com/Quantmetry/qolmat/main/docs/images/schema_qolmat.png
+    :align: center
+
+**Imputation methods**
+
+The following table contains the available imputation methods:
+
+| methods | description | tabular | time series | minimized criterion |
+| --- | --- | --- | --- | --- |
+| mean | Imputes the missing values using the mean along each column | yes | no | point |
+| median | Imputes the missing values using the median along each column | yes | no | point |
+| LOCF | Imputes missing entries by carrying the last observation forward for each columns | yes | yes | point |
+| shuffle | Imputes missing entries with the random value of each column | yes | no | point |
+| interpolation | IMputes missing using some interpolation strategies supported by pd.Series.interpolate |  | ues | point |
+| impute on residuals | The series are de-seasonalised, residuals are imputed via linear interpolation, then residuals are re-seasonalised | no | yes | point |
+| MICE | Multiple Imputation by Chained Equation | yes |  | point |
+| RPCA | Robust Principal Component Analysis | yes | yes | point |
+| KNN | K-nearest kneighbors | yes |  | point |
+| EM sampler | Imputes missing values via EM algorithm | yes | yes | point/distribution |
+| TabDDPM | Imputer based on Denoising Diffusion Probabilistic Models |  |  | distribution |
+
+
 📝 Contributing
 ===============
 
