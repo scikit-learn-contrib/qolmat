@@ -291,7 +291,7 @@ def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
 
 
 index_grouped = pd.MultiIndex.from_product([["a", "b"], range(4)], names=["group", "date"])
-dict_values = {"col1": [0, np.nan, 0, 0, 1, 1, 1, 1], "col2": np.arange(8)}
+dict_values = {"col1": [0, np.nan, 0, np.nan, 1, 1, 1, 1], "col2": [1, 1, 1, 1, 2, 2, 2, 2]}
 df_grouped = pd.DataFrame(dict_values, index=index_grouped)
 
 list_imputers = [
@@ -313,7 +313,6 @@ list_imputers = [
 
 @pytest.mark.parametrize("imputer", list_imputers)
 def test_models_fit_transform_grouped(imputer):
-    # imputer = imputers.ImputerEM(groups=("group",), method="sample", random_state=42)
     result = imputer.fit_transform(df_grouped)
     expected = df_grouped.fillna(0)
     np.testing.assert_allclose(result, expected)

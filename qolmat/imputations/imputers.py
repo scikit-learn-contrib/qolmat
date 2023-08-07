@@ -7,6 +7,7 @@ from abc import abstractmethod
 import numpy as np
 from numpy.typing import NDArray
 import pandas as pd
+import sklearn as skl
 from sklearn import utils as sku
 from sklearn.base import BaseEstimator
 from sklearn.experimental import enable_iterative_imputer
@@ -1245,23 +1246,36 @@ class ImputerKNN(_Imputer):
         self.n_neighbors = n_neighbors
         self.weights = weights
 
-    def fit(self, X: pd.DataFrame, y=None):
-        """Fit the imputer on X.
+    def _fit_element(self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0) -> KNNImputer:
+        """
+        Fits the imputer on `df`, at the group and/or column level depending onself.groups and
+        self.columnwise.
 
         Parameters
         ----------
-        X : pd.DataFrame
-            Data matrix on which the Imputer must be fitted.
+        df : pd.DataFrame
+            Dataframe on which the imputer is fitted
+        col : str, optional
+            Column on which the imputer is fitted, by default "__all__"
+        ngroup : int, optional
+            Id of the group on which the method is applied
 
         Returns
         -------
-        self : Self
-            Returns self.
+        Any
+            Return fitted KNN model
+
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
         """
-        super().fit(X)
+        self._check_dataframe(df)
+        assert col == "__all__"
         hyperparameters = self.get_hyperparams()
-        self.imputer_ = KNNImputer(metric="nan_euclidean", **hyperparameters)
-        return self
+        model = KNNImputer(metric="nan_euclidean", **hyperparameters)
+        model = model.fit(df)
+        return model
 
     def _transform_element(
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
@@ -1290,8 +1304,10 @@ class ImputerKNN(_Imputer):
             Input has to be a pandas.DataFrame.
         """
         self._check_dataframe(df)
-        results = self.imputer_.fit_transform(df)
-        return pd.DataFrame(data=results, columns=df.columns, index=df.index)
+        assert col == "__all__"
+        model = self._dict_fitting["__all__"][ngroup]
+        X_imputed = model.fit_transform(df)
+        return pd.DataFrame(data=X_imputed, columns=df.columns, index=df.index)
 
 
 class ImputerMICE(_Imputer):
@@ -1352,26 +1368,39 @@ class ImputerMICE(_Imputer):
         self.sample_posterior = sample_posterior
         self.max_iter = max_iter
 
-    def fit(self, X: pd.DataFrame, y=None):
-        """Fit the imputer on X.
+    def _fit_element(
+        self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
+    ) -> IterativeImputer:
+        """
+        Fits the imputer on `df`, at the group and/or column level depending onself.groups and
+        self.columnwise.
 
         Parameters
         ----------
-        X : pd.DataFrame
-            Data matrix on which the Imputer must be fitted.
+        df : pd.DataFrame
+            Dataframe on which the imputer is fitted
+        col : str, optional
+            Column on which the imputer is fitted, by default "__all__"
+        ngroup : int, optional
+            Id of the group on which the method is applied
 
         Returns
         -------
-        self : Self
-            Returns self.
+        Any
+            Return fitted KNN model
+
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
         """
-        hyperparams = self.get_hyperparams()
-        super().fit(X)
-        self.imputer_ = IterativeImputer(estimator=self.estimator, **hyperparams)
-        self.n_iter_ = 1
-        # requires fitting IterativeImputer in the fit method
-        # self.n_iter_ = self.imputer_.n_iter_
-        return self
+        self._check_dataframe(df)
+        assert col == "__all__"
+        hyperparameters = self.get_hyperparams()
+        model = IterativeImputer(estimator=self.estimator, **hyperparameters)
+        model = model.fit(df)
+        self.n_iter_ = model.n_iter_
+        return model
 
     def _transform_element(
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
@@ -1399,11 +1428,12 @@ class ImputerMICE(_Imputer):
         NotDataFrame
             Input has to be a pandas.DataFrame.
         """
-        self._check_dataframe(df)
-        X_imputed = self.imputer_.fit_transform(df)
-        df_imputed = pd.DataFrame(X_imputed, index=df.index, columns=df.columns)
 
-        return df_imputed
+        self._check_dataframe(df)
+        assert col == "__all__"
+        model = self._dict_fitting["__all__"][ngroup]
+        X_imputed = model.fit_transform(df)
+        return pd.DataFrame(data=X_imputed, columns=df.columns, index=df.index)
 
 
 class ImputerRegressor(_Imputer):
@@ -1461,12 +1491,73 @@ class ImputerRegressor(_Imputer):
         self.estimator = estimator
         self.handler_nan = handler_nan
 
-    def _fit_estimator(self, X, y) -> Self:
-        return self.estimator.fit(X, y)
+    def _fit_estimator(self, model, X, y) -> Self:
+        return model.fit(X, y)
 
-    def _predict_estimator(self, X) -> pd.Series:
-        pred = self.estimator.predict(X)
+    def _predict_estimator(self, model, X) -> pd.Series:
+        pred = model.predict(X)
         return pd.Series(pred, index=X.index, dtype=float)
+
+    def get_Xy_valid(self, df: pd.DataFrame, col: str) -> Tuple[pd.DataFrame, pd.Series]:
+        X = df.drop(columns=col, errors="ignore")
+        if self.handler_nan == "fit":
+            pass
+        elif self.handler_nan == "row":
+            X = X.loc[~X.isna().any(axis=1)]
+        elif self.handler_nan == "column":
+            X = X.dropna(how="any", axis=1)
+        else:
+            raise ValueError(
+                f"Value '{self.handler_nan}' is not correct for argument `handler_nan'"
+            )
+        y = df.loc[X.index, col]
+        return X, y
+
+    def _fit_element(
+        self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
+    ) -> Optional[BaseEstimator]:
+        """
+        Fits the imputer on `df`, at the group and/or column level depending onself.groups and
+        self.columnwise.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe on which the imputer is fitted
+        col : str, optional
+            Column on which the imputer is fitted, by default "__all__"
+        ngroup : int, optional
+            Id of the group on which the method is applied
+
+        Returns
+        -------
+        Any
+            Return a fitted regressor
+
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
+        """
+        self._check_dataframe(df)
+        assert col == "__all__"
+        cols_with_nans = df.columns[df.isna().any()]
+        dict_model: Dict[str, BaseEstimator] = dict()
+
+        for col in cols_with_nans:
+            # Selects only the valid values in the Train Set according to the chosen method
+            X, y = self.get_Xy_valid(df, col)
+
+            # Selects only non-NaN values for the Test Set
+            is_na = y.isna()
+
+            # Train the model according to an ML or DL method and after predict the imputation
+            if not X[~is_na].empty:
+                model = skl.base.clone(self.estimator)
+                dict_model[col] = self._fit_estimator(model, X[~is_na], y[~is_na])
+            else:
+                dict_model[col] = None
+        return dict_model
 
     def _transform_element(
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
@@ -1495,44 +1586,25 @@ class ImputerRegressor(_Imputer):
             Input has to be a pandas.DataFrame.
         """
         self._check_dataframe(df)
+        assert col == "__all__"
+
         # df_imputed = df.apply(pd.DataFrame.median, result_type="broadcast", axis=0)
         df_imputed = df.copy()
         cols_with_nans = df.columns[df.isna().any()]
 
         for col in cols_with_nans:
+            model = self._dict_fitting["__all__"][ngroup][col]
+            if model is None:
+                continue
             # Define the Train and Test set
-            X = df.drop(columns=col, errors="ignore")
-            y = df[col]
-
-            # Selects only the valid values in the Train Set according to the chosen method
-            is_valid = pd.Series(True, index=df.index)
-            if self.handler_nan == "fit":
-                pass
-            elif self.handler_nan == "row":
-                is_valid = ~X.isna().any(axis=1)
-            elif self.handler_nan == "column":
-                X = X.dropna(how="any", axis=1)
-            else:
-                raise ValueError(
-                    f"Value '{self.handler_nan}' is not correct for argument `handler_nan'"
-                )
+            X, y = self.get_Xy_valid(df, col)
 
             # Selects only non-NaN values for the Test Set
             is_na = y.isna()
+            X = X.loc[is_na]
 
-            # Train the model according to an ML or DL method and after predict the imputation
-            is_in_fit = (~is_na) & is_valid
-            is_in_pred = is_na & is_valid
-            if is_in_fit.any() and is_in_pred.any() and not X.empty:
-                self._fit_estimator(X[is_in_fit], y[is_in_fit])
-                X_pred = X[is_in_pred]
-                # y_pred = self._predict_estimator(X_pred)
-                # y_imputed = y.copy()
-                # y_imputed[is_in_pred] = y_pred.values
-                # df_imputed[col] = y_imputed
-                y_imputed = self._predict_estimator(X_pred)
-                df_imputed[col] = y_imputed.where(is_in_pred, y)
-        # df_imputed = df_imputed.fillna(df_imputed.median())
+            y_hat = self._predict_estimator(model, X)
+            df_imputed.loc[X.index, col] = y_hat
         return df_imputed
 
 
