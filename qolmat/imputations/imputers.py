@@ -1492,11 +1492,11 @@ class ImputerRegressor(_Imputer):
         self.estimator = estimator
         self.handler_nan = handler_nan
 
-    def _fit_estimator(self, model, X, y) -> Self:
-        return model.fit(X, y)
+    def _fit_estimator(self, estimator, X, y) -> Any:
+        return estimator.fit(X, y)
 
-    def _predict_estimator(self, model, X) -> pd.Series:
-        pred = model.predict(X)
+    def _predict_estimator(self, estimator, X) -> pd.Series:
+        pred = estimator.predict(X)
         return pd.Series(pred, index=X.index, dtype=float)
 
     def get_Xy_valid(self, df: pd.DataFrame, col: str) -> Tuple[pd.DataFrame, pd.Series]:

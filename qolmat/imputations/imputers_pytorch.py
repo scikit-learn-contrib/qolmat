@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 
-from typing import Callable, List, Optional, Tuple, Union
+from typing import Any, Callable, List, Optional, Tuple, Union
 from typing_extensions import Self
 from numpy.typing import NDArray
 from sklearn.preprocessing import StandardScaler
@@ -60,7 +60,7 @@ class ImputerRegressorPyTorch(ImputerRegressor):
         self.loss_fn = loss_fn
         self.estimator = estimator
 
-    def _fit_estimator(self, estimator: nn.Sequential, X: pd.DataFrame, y: pd.DataFrame) -> Self:
+    def _fit_estimator(self, estimator: nn.Sequential, X: pd.DataFrame, y: pd.DataFrame) -> Any:
         """
         Fit the PyTorch estimator using the provided input and target data.
 
@@ -73,8 +73,8 @@ class ImputerRegressorPyTorch(ImputerRegressor):
 
         Returns
         -------
-        Self
-            Return Self.
+        Any
+            Return fitted PyTorch estimator.
         """
         if not estimator:
             raise EstimatorNotDefined()
@@ -152,11 +152,11 @@ class Autoencoder(nn.Module):
         learning_rate: float = 0.001,
         loss_fn: Callable = nn.L1Loss(),
     ):
-        super(Autoencoder, self).__init__()
+        super().__init__()
 
-        self.loss_fn = loss_fn
         self.encoder = encoder
         self.decoder = decoder
+        self.loss_fn = loss_fn
         self.epochs = epochs
         self.learning_rate = learning_rate
         self.loss: List[List[float]] = []
@@ -276,6 +276,8 @@ class ImputerAutoencoder(_Imputer):
 
     def __init__(
         self,
+        encoder: nn.Sequential,
+        decoder: nn.Sequential,
         groups: Tuple[str, ...] = (),
         random_state: Union[None, int, np.random.RandomState] = None,
         lamb: float = 1e-2,
@@ -283,8 +285,6 @@ class ImputerAutoencoder(_Imputer):
         epochs: int = 100,
         learning_rate: float = 0.001,
         loss_fn: Callable = nn.L1Loss(),
-        encoder: Optional[nn.Sequential] = None,
-        decoder: Optional[nn.Sequential] = None,
     ) -> None:
         super().__init__(groups=groups, columnwise=False, shrink=False, random_state=random_state)
         self.loss_fn = loss_fn

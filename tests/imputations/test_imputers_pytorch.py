@@ -68,7 +68,7 @@ def test_imputers_pytorch_Autoencoder(df: pd.DataFrame) -> None:
         list_num_neurons=[4 * latent, 2 * latent],
     )
     autoencoder = imputers_pytorch.ImputerAutoencoder(
-        epochs=10, lamb=0.01, max_iterations=5, encoder=encoder, decoder=decoder, random_state=42
+        encoder, decoder, epochs=10, lamb=0.01, max_iterations=5, random_state=42
     )
     result = autoencoder.fit_transform(df)
     expected = pd.DataFrame(
