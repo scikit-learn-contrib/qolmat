@@ -1,3 +1,4 @@
+import copy
 from functools import partial
 import warnings
 from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
@@ -1542,7 +1543,7 @@ class ImputerRegressor(_Imputer):
         self._check_dataframe(df)
         assert col == "__all__"
         cols_with_nans = df.columns[df.isna().any()]
-        dict_model: Dict[str, BaseEstimator] = dict()
+        dict_estimators: Dict[str, BaseEstimator] = dict()
 
         for col in cols_with_nans:
             # Selects only the valid values in the Train Set according to the chosen method
@@ -1553,11 +1554,11 @@ class ImputerRegressor(_Imputer):
 
             # Train the model according to an ML or DL method and after predict the imputation
             if not X[~is_na].empty:
-                model = skl.base.clone(self.estimator)
-                dict_model[col] = self._fit_estimator(model, X[~is_na], y[~is_na])
+                estimator = copy.deepcopy(self.estimator)
+                dict_estimators[col] = self._fit_estimator(estimator, X[~is_na], y[~is_na])
             else:
-                dict_model[col] = None
-        return dict_model
+                dict_estimators[col] = None
+        return dict_estimators
 
     def _transform_element(
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
@@ -1850,47 +1851,37 @@ class ImputerEM(_Imputer):
                 " Valid values are `multinormal`and `VAR`."
             )
 
-    # def fit(self, X: pd.DataFrame, y=None):
-    #     """Fit the imputer on X.
+    def _fit_element(
+        self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
+    ) -> IterativeImputer:
+        """
+        Fits the imputer on `df`, at the group and/or column level depending onself.groups and
+        self.columnwise.
 
-    #     Parameters
-    #     ----------
-    #     X : pd.DataFrame
-    #         Data matrix on which the Imputer must be fitted.
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe on which the imputer is fitted
+        col : str, optional
+            Column on which the imputer is fitted, by default "__all__"
+        ngroup : int, optional
+            Id of the group on which the method is applied
 
-    #     Returns
-    #     -------
-    #     self : Self
-    #         Returns self.
-    #     """
-    #     super().fit(X)
-    #     df = self._check_input(X)
+        Returns
+        -------
+        Any
+            Return fitted KNN model
 
-    #     # n_rows, n_cols = df.shape
-    #     # if n_rows == 1:
-    #     #     raise ValueError("n_samples=1 is not allowed!")
-
-    #     if self.model not in ["multinormal", "VAR1"]:
-    #         raise ValueError(
-    #             f"Model argument `{self.model}` is invalid!"
-    #             " Valid values are `multinormal`and `VAR`."
-    #         )
-
-    #     cols_with_nans = df.columns[df.isna().any()]
-
-    #     self._models = {}
-    #     if self.columnwise:
-    #         for col in cols_with_nans:
-    #             hyperparams = self.get_hyperparams(col=col)
-    #             model = self.get_model(**hyperparams)
-    #             model.fit(df[col].values)
-    #             self._models[col] = model
-    #     else:
-    #         hyperparams = self.get_hyperparams()
-    #         model = self.get_model(**hyperparams)
-    #         model.fit(df.values.T)
-    #         self._models["__all__"] = model
-    #     return self
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
+        """
+        self._check_dataframe(df)
+        hyperparams = self.get_hyperparams()
+        model = self.get_model(**hyperparams)
+        model = model.fit(df.values.T)
+        return model
 
     def _transform_element(
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
@@ -1920,12 +1911,7 @@ class ImputerEM(_Imputer):
         """
         self._check_dataframe(df)
 
-        hyperparams = self.get_hyperparams(col=col)
-        model = self.get_model(**hyperparams)
-        if col == "__all__":
-            model.fit(df.values.T)
-        else:
-            model.fit(df[col].values)
+        model = self._dict_fitting[col][ngroup]
 
         X = df.values.T.astype(float)
         X_imputed = model.transform(X)

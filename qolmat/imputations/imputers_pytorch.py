@@ -60,7 +60,7 @@ class ImputerRegressorPyTorch(ImputerRegressor):
         self.loss_fn = loss_fn
         self.estimator = estimator
 
-    def _fit_estimator(self, X: pd.DataFrame, y: pd.DataFrame) -> Self:
+    def _fit_estimator(self, estimator: nn.Sequential, X: pd.DataFrame, y: pd.DataFrame) -> Self:
         """
         Fit the PyTorch estimator using the provided input and target data.
 
@@ -76,28 +76,30 @@ class ImputerRegressorPyTorch(ImputerRegressor):
         Self
             Return Self.
         """
-        optimizer = optim.Adam(self.estimator.parameters(), lr=self.learning_rate)
+        if not estimator:
+            raise EstimatorNotDefined()
+        optimizer = optim.Adam(estimator.parameters(), lr=self.learning_rate)
         loss_fn = self.loss_fn
-        if self.estimator is None:
+        if estimator is None:
             assert EstimatorNotDefined()
         else:
             for epoch in range(self.epochs):
-                self.estimator.train()
+                estimator.train()
                 optimizer.zero_grad()
 
                 input_data = torch.Tensor(X.values)
                 target_data = torch.Tensor(y.values)
                 target_data = target_data.unsqueeze(1)
-                outputs = self.estimator(input_data)
+                outputs = estimator(input_data)
                 loss = loss_fn(outputs, target_data)
 
                 loss.backward()
                 optimizer.step()
                 if (epoch + 1) % 10 == 0:
                     print(f"Epoch [{epoch+1}/{self.epochs}], Loss: {loss.item():.4f}")
-        return self
+        return estimator
 
-    def _predict_estimator(self, X: pd.DataFrame) -> pd.Series:
+    def _predict_estimator(self, estimator: nn.Sequential, X: pd.DataFrame) -> pd.Series:
         """
         Perform predictions using the trained PyTorch estimator.
 
@@ -116,13 +118,12 @@ class ImputerRegressorPyTorch(ImputerRegressor):
         EstimatorNotDefined
             Raises an error if the attribute estimator is not defined.
         """
-        if self.estimator:
-            input_data = torch.Tensor(X.values)
-            output_data = self.estimator(input_data)
-            y = pd.Series(output_data.detach().numpy().flatten())
-            return y
-        else:
+        if not estimator:
             raise EstimatorNotDefined()
+        input_data = torch.Tensor(X.values)
+        output_data = estimator(input_data)
+        y = pd.Series(output_data.detach().numpy().flatten())
+        return y
 
 
 class Autoencoder(nn.Module):
