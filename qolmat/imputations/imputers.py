@@ -365,6 +365,8 @@ class _Imputer(_BaseImputer):
             Dataframe on which the imputer is fitted
         col : str, optional
             Column on which the imputer is fitted, by default "__all__"
+        ngroup : int, optional
+            Id of the group on which the method is applied
 
         Returns
         -------
@@ -384,7 +386,7 @@ class _Imputer(_BaseImputer):
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
     ) -> pd.DataFrame:
         """
-        Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
+        Transforms the dataframe `df`, at the group and/or column level depending onself.groups and
         self.columnwise.
 
         Parameters
@@ -393,11 +395,13 @@ class _Imputer(_BaseImputer):
             Dataframe or column to impute
         col : str, optional
             Column transformed by the imputer, by default "__all__"
+        ngroup : int, optional
+            Id of the group on which the method is applied
 
         Returns
         -------
-        Self
-            Return Self.
+        pd.DataFrame
+            Imputed dataframe.
 
         Raises
         ------
@@ -810,7 +814,7 @@ class ImputerShuffle(_Imputer):
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
     ) -> pd.DataFrame:
         """
-        Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
+        Transforms the dataframe `df`, at the group and/or column level depending onself.groups and
         self.columnwise.
 
         Parameters
@@ -824,8 +828,8 @@ class ImputerShuffle(_Imputer):
 
         Returns
         -------
-        Self
-            Return Self.
+        pd.DataFrame
+            Imputed dataframe
 
         Raises
         ------
@@ -884,7 +888,7 @@ class ImputerLOCF(_Imputer):
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
     ) -> pd.DataFrame:
         """
-        Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
+        Transforms the dataframe `df`, at the group and/or column level depending onself.groups and
         self.columnwise.
 
         Parameters
@@ -898,8 +902,8 @@ class ImputerLOCF(_Imputer):
 
         Returns
         -------
-        Self
-            Return Self.
+        pd.DataFrame
+            Imputed dataframe
 
         Raises
         ------
@@ -951,7 +955,7 @@ class ImputerNOCB(_Imputer):
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
     ) -> pd.DataFrame:
         """
-        Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
+        Transforms the dataframe `df`, at the group and/or column level depending onself.groups and
         self.columnwise.
 
         Parameters
@@ -965,8 +969,8 @@ class ImputerNOCB(_Imputer):
 
         Returns
         -------
-        Self
-            Return Self.
+        pd.DataFrame
+            Imputed dataframe
 
         Raises
         ------
@@ -1037,7 +1041,7 @@ class ImputerInterpolation(_Imputer):
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
     ) -> pd.DataFrame:
         """
-        Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
+        Transforms the dataframe `df`, at the group and/or column level depending onself.groups and
         self.columnwise.
 
         Parameters
@@ -1051,8 +1055,8 @@ class ImputerInterpolation(_Imputer):
 
         Returns
         -------
-        Self
-            Return Self.
+        pd.DataFrame
+            Imputed dataframe
 
         Raises
         ------
@@ -1142,7 +1146,7 @@ class ImputerResiduals(_Imputer):
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
     ) -> pd.DataFrame:
         """
-        Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
+        Transforms the dataframe `df`, at the group and/or column level depending onself.groups and
         self.columnwise.
 
         Parameters
@@ -1156,8 +1160,8 @@ class ImputerResiduals(_Imputer):
 
         Returns
         -------
-        Self
-            Return Self.
+        pd.DataFrame
+            Imputed dataframe.
 
         Raises
         ------
@@ -1263,7 +1267,7 @@ class ImputerKNN(_Imputer):
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
     ) -> pd.DataFrame:
         """
-        Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
+        Transforms the dataframe `df`, at the group and/or column level depending onself.groups and
         self.columnwise.
 
         Parameters
@@ -1277,8 +1281,8 @@ class ImputerKNN(_Imputer):
 
         Returns
         -------
-        Self
-            Return Self.
+        pd.DataFrame
+            Imputed dataframe.
 
         Raises
         ------
@@ -1373,7 +1377,7 @@ class ImputerMICE(_Imputer):
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
     ) -> pd.DataFrame:
         """
-        Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
+        Transforms the dataframe `df`, at the group and/or column level depending onself.groups and
         self.columnwise.
 
         Parameters
@@ -1387,8 +1391,8 @@ class ImputerMICE(_Imputer):
 
         Returns
         -------
-        Self
-            Return Self.
+        pd.DataFrame
+            Imputed dataframe.
 
         Raises
         ------
@@ -1468,7 +1472,7 @@ class ImputerRegressor(_Imputer):
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
     ) -> pd.DataFrame:
         """
-        Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
+        Transforms the dataframe `df`, at the group and/or column level depending onself.groups and
         self.columnwise.
 
         Parameters
@@ -1482,8 +1486,8 @@ class ImputerRegressor(_Imputer):
 
         Returns
         -------
-        Self
-            Return Self.
+        pd.DataFrame
+            Imputed dataframe.
 
         Raises
         ------
@@ -1650,7 +1654,7 @@ class ImputerRPCA(_Imputer):
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
     ) -> pd.DataFrame:
         """
-        Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
+        Transforms the dataframe `df`, at the group and/or column level depending onself.groups and
         self.columnwise.
 
         Parameters
@@ -1664,8 +1668,8 @@ class ImputerRPCA(_Imputer):
 
         Returns
         -------
-        Self
-            Return Self.
+        pd.DataFrame
+            Imputed dataframe.
 
         Raises
         ------
@@ -1820,7 +1824,7 @@ class ImputerEM(_Imputer):
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
     ) -> pd.DataFrame:
         """
-        Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
+        Transforms the dataframe `df`, at the group and/or column level depending onself.groups and
         self.columnwise.
 
         Parameters
@@ -1834,8 +1838,8 @@ class ImputerEM(_Imputer):
 
         Returns
         -------
-        Self
-            Return Self.
+        pd.DataFrame
+            Imputed dataframe.
 
         Raises
         ------

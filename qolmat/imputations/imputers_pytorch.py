@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 
 from typing import Callable, List, Optional, Tuple, Union
+from typing_extensions import Self
 from numpy.typing import NDArray
 from sklearn.preprocessing import StandardScaler
 
@@ -17,6 +18,29 @@ except ModuleNotFoundError:
 
 
 class ImputerRegressorPyTorch(ImputerRegressor):
+    """
+    This class inherits from the class ImputerRegressor and allows for PyTorch regressors.
+
+    Parameters
+    ----------
+    groups: Tuple[str, ...]
+        List of column names to group by, by default []
+    estimator : torch.nn.Sequential, optional
+        PyTorch estimator for imputing a column based on the others
+    handler_nan : str
+        Can be `fit, `row` or `column`:
+        - if `fit`, the estimator is assumed to be fitted on parcelar data,
+        - if `row` all non complete rows will be removed from the train dataset, and will not be
+        used for the inferance,
+        - if `column`all non complete columns will be ignored.
+    epochs: int
+        Number of epochs when fitting the autoencoder, by default 100
+    learning_rate: float
+        Learning rate hen fitting the autoencoder, by default 0.001
+    loss_fn: Callable
+        Loss used when fitting the autoencoder, by default nn.L1Loss()
+    """
+
     def __init__(
         self,
         groups: Tuple[str, ...] = (),
@@ -36,7 +60,7 @@ class ImputerRegressorPyTorch(ImputerRegressor):
         self.loss_fn = loss_fn
         self.estimator = estimator
 
-    def _fit_estimator(self, X: pd.DataFrame, y: pd.DataFrame):
+    def _fit_estimator(self, X: pd.DataFrame, y: pd.DataFrame) -> Self:
         """
         Fit the PyTorch estimator using the provided input and target data.
 
@@ -46,6 +70,11 @@ class ImputerRegressorPyTorch(ImputerRegressor):
             The input data for training.
         y : pd.DataFrame
             The target data for training.
+
+        Returns
+        -------
+        Self
+            Return Self.
         """
         optimizer = optim.Adam(self.estimator.parameters(), lr=self.learning_rate)
         loss_fn = self.loss_fn
@@ -66,6 +95,7 @@ class ImputerRegressorPyTorch(ImputerRegressor):
                 optimizer.step()
                 if (epoch + 1) % 10 == 0:
                     print(f"Epoch [{epoch+1}/{self.epochs}], Loss: {loss.item():.4f}")
+        return self
 
     def _predict_estimator(self, X: pd.DataFrame) -> pd.Series:
         """
@@ -80,6 +110,11 @@ class ImputerRegressorPyTorch(ImputerRegressor):
         -------
         pd.Series
             The predicted values.
+
+        Raises
+        ------
+        EstimatorNotDefined
+            Raises an error if the attribute estimator is not defined.
         """
         if self.estimator:
             input_data = torch.Tensor(X.values)
@@ -91,6 +126,23 @@ class ImputerRegressorPyTorch(ImputerRegressor):
 
 
 class Autoencoder(nn.Module):
+    """
+    Wrapper of a PyTorch autoencoder allowing to encode
+
+    Parameters
+    ----------
+    encoder : nn.Sequential
+        The encoder module.
+    decoder : nn.Sequential
+        The decoder module.
+    epochs : int, optional
+        Number of epochs for training, by default 100.
+    learning_rate : float, optional
+        Learning rate for optimization, by default 0.001.
+    loss_fn : Callable, optional
+        Loss function for training, by default nn.L1Loss().
+    """
+
     def __init__(
         self,
         encoder: nn.Sequential,
@@ -107,13 +159,42 @@ class Autoencoder(nn.Module):
         self.epochs = epochs
         self.learning_rate = learning_rate
         self.loss: List[List[float]] = []
+        self.scaler = StandardScaler()
 
-    def forward(self, x: pd.DataFrame) -> pd.DataFrame:
+    def forward(self, x: NDArray) -> nn.Sequential:
+        """
+        Forward pass through the autoencoder.
+
+        Parameters
+        ----------
+        x : pd.DataFrame
+            Input data.
+
+        Returns
+        -------
+        pd.DataFrame
+            Decoded data.
+        """
         encode = self.encoder(x)
         decode = self.decoder(encode)
         return decode
 
-    def fit(self, X, y):
+    def fit(self, X: NDArray, y: NDArray) -> Self:
+        """
+        Fit the autoencoder to the data.
+
+        Parameters
+        ----------
+        X : ndarray
+            Input data for training.
+        y : ndarray
+            Target data for training.
+
+        Returns
+        -------
+        Self
+            Return Self
+        """
         optimizer = optim.Adam(self.parameters(), lr=self.learning_rate)
         loss_fn = self.loss_fn
         list_loss = []
@@ -135,12 +216,42 @@ class Autoencoder(nn.Module):
         return self
 
     def decode(self, Z: NDArray):
-        Z_decoded = self.decoder(torch.Tensor(Z))
-        return Z_decoded.detach().numpy()
+        """
+        Decode encoded data.
 
-    def encode(self, X):
+        Parameters
+        ----------
+        Z : ndarray
+            Encoded data.
+
+        Returns
+        -------
+        ndarray
+            Decoded data.
+        """
+        Z_decoded = self.scaler.inverse_transform(Z)
+        Z_decoded = self.decoder(torch.Tensor(Z_decoded))
+        Z_decoded = Z_decoded.detach().numpy()
+        return Z_decoded
+
+    def encode(self, X: NDArray):
+        """
+        Encode input data.
+
+        Parameters
+        ----------
+        X : ndarray
+            Input data.
+
+        Returns
+        -------
+        ndarray
+            Encoded data.
+        """
         X_encoded = self.encoder(torch.Tensor(X))
-        return X_encoded.detach().numpy()
+        X_encoded = X_encoded.detach().numpy()
+        X_encoded = self.scaler.fit_transform(X_encoded)
+        return X_encoded
 
 
 class ImputerAutoencoder(_Imputer):
@@ -184,6 +295,30 @@ class ImputerAutoencoder(_Imputer):
         self.decoder = decoder
 
     def _fit_element(self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0) -> Autoencoder:
+        """
+        Fits the imputer on `df`, at the group and/or column level depending onself.groups and
+        self.columnwise.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe on which the imputer is fitted
+        col : str, optional
+            Column on which the imputer is fitted, by default "__all__"
+        ngroup : int, optional
+            Id of the group on which the method is applied
+
+        Returns
+        -------
+        Any
+            Return fitted encoder
+
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
+        """
+        self._check_dataframe(df)
         autoencoder = Autoencoder(
             self.encoder,
             self.decoder,
@@ -197,30 +332,45 @@ class ImputerAutoencoder(_Imputer):
     def _transform_element(
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
     ) -> pd.DataFrame:
+        """
+        Transforms the dataframe `df`, at the group and/or column level depending onself.groups and
+        self.columnwise.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe or column to impute
+        col : str, optional
+            Column transformed by the imputer, by default "__all__"
+        ngroup : int, optional
+            Id of the group on which the method is applied
+
+        Returns
+        -------
+        pd.DataFrame
+            Imputed dataframe
+
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
+        """
         autoencoder = self._dict_fitting[col][ngroup]
         df_train = df.copy()
         df_train = df_train.fillna(df_train.mean())
-        print("a")
         scaler = StandardScaler()
         df_train_scaler = pd.DataFrame(
             scaler.fit_transform(df_train), index=df_train.index, columns=df_train.columns
         )
-        print("b")
         X = df_train_scaler.values
         mask = df.isna().values
 
         for _ in range(self.max_iterations):
             self.fit(X, X)
-            encode = autoencoder.encode(X)
-
-            scaler_encode = StandardScaler()
-            print("c")
-            encode_scaler = scaler_encode.fit_transform(encode)
-            print("d")
-            W = np.sqrt(self.lamb) * self._rng.normal(0, 1, size=encode_scaler.shape)
-            Z_itt = (1 - self.lamb) * encode_scaler + W
-            Z_itt = scaler_encode.inverse_transform(Z_itt)
-            X_next = autoencoder.decode(Z_itt)
+            Z = autoencoder.encode(X)
+            W = np.sqrt(self.lamb) * self._rng.normal(0, 1, size=Z.shape)
+            Z_next = (1 - self.lamb) * Z + W
+            X_next = autoencoder.decode(Z_next)
             X[mask] = X_next[mask]
         df_imputed = pd.DataFrame(
             scaler.inverse_transform(X), index=df_train.index, columns=df_train.columns
