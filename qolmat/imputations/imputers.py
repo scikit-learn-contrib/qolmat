@@ -144,9 +144,11 @@ class _Imputer(_BaseImputer):
                 raise ValueError("Input contains a column full of NaN")
 
         self.columns_ = tuple(df.columns)
-        self.rng_ = sku.check_random_state(self.random_state)
+        print("self.random_state:", self.random_state)
+        self._rng = sku.check_random_state(self.random_state)
+        print("first sample :", self._rng.randint(1000))
         if hasattr(self, "estimator") and hasattr(self.estimator, "random_state"):
-            self.estimator.random_state = self.rng_
+            self.estimator.random_state = self._rng
 
         if self.groups:
             self.ngroups_ = df.groupby(list(self.groups)).ngroup().rename("_ngroup")
@@ -270,14 +272,22 @@ class _Imputer(_BaseImputer):
         ValueError
             Input has to be a pandas.DataFrame.
         """
+
         self._check_dataframe(df)
-        self._apply_groupwise(self._fit_element, df, col=col)
+        fun_on_col = partial(self._fit_element, col=col)
+        if self.groups:
+            groupby = df.groupby(self.ngroups_, group_keys=False)
+            self._dict_fitting[col] = groupby.apply(fun_on_col).to_dict()
+        else:
+            self._dict_fitting[col] = {0: fun_on_col(df)}
+
         return self
 
     def _setup_fit(self) -> None:
         """
         Setup step of the fit function, before looping over the columns.
         """
+        self._dict_fitting: Dict[str, Any] = dict()
         return
 
     def _apply_groupwise(self, fun: Callable, df: pd.DataFrame, **kwargs) -> Any:
@@ -344,7 +354,7 @@ class _Imputer(_BaseImputer):
         return df
 
     @abstractmethod
-    def _fit_element(self, df: pd.DataFrame, col: str = "__all__") -> Self:
+    def _fit_element(self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0) -> Any:
         """
         Fits the imputer on `df`, at the group and/or column level depending onself.groups and
         self.columnwise.
@@ -358,8 +368,8 @@ class _Imputer(_BaseImputer):
 
         Returns
         -------
-        Self
-            Return Self.
+        Any
+            Return self.
 
         Raises
         ------
@@ -370,7 +380,9 @@ class _Imputer(_BaseImputer):
         return self
 
     @abstractmethod
-    def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+    def _transform_element(
+        self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
+    ) -> pd.DataFrame:
         """
         Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
         self.columnwise.
@@ -794,7 +806,9 @@ class ImputerShuffle(_Imputer):
     ) -> None:
         super().__init__(groups=groups, columnwise=True, random_state=random_state)
 
-    def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+    def _transform_element(
+        self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
+    ) -> pd.DataFrame:
         """
         Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
         self.columnwise.
@@ -805,6 +819,8 @@ class ImputerShuffle(_Imputer):
             Dataframe or column to impute
         col : str, optional
             Column transformed by the imputer, by default "__all__"
+        ngroup : int, optional
+            Id of the group on which the method is applied
 
         Returns
         -------
@@ -823,7 +839,7 @@ class ImputerShuffle(_Imputer):
         name = df.columns[0]
         values = df[name]
         values_notna = values.dropna()
-        samples = self.rng_.choice(values_notna, n_missing, replace=True)
+        samples = self._rng.choice(values_notna, n_missing, replace=True)
         values[values.isna()] = samples
         df_imputed = values.to_frame()
         return df_imputed
@@ -864,7 +880,9 @@ class ImputerLOCF(_Imputer):
     ) -> None:
         super().__init__(groups=groups, columnwise=True)
 
-    def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+    def _transform_element(
+        self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
+    ) -> pd.DataFrame:
         """
         Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
         self.columnwise.
@@ -875,6 +893,8 @@ class ImputerLOCF(_Imputer):
             Dataframe or column to impute
         col : str, optional
             Column transformed by the imputer, by default "__all__"
+        ngroup : int, optional
+            Id of the group on which the method is applied
 
         Returns
         -------
@@ -927,7 +947,9 @@ class ImputerNOCB(_Imputer):
     ) -> None:
         super().__init__(groups=groups, columnwise=True)
 
-    def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+    def _transform_element(
+        self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
+    ) -> pd.DataFrame:
         """
         Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
         self.columnwise.
@@ -938,6 +960,8 @@ class ImputerNOCB(_Imputer):
             Dataframe or column to impute
         col : str, optional
             Column transformed by the imputer, by default "__all__"
+        ngroup : int, optional
+            Id of the group on which the method is applied
 
         Returns
         -------
@@ -1009,7 +1033,9 @@ class ImputerInterpolation(_Imputer):
         self.order = order
         self.col_time = col_time
 
-    def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+    def _transform_element(
+        self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
+    ) -> pd.DataFrame:
         """
         Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
         self.columnwise.
@@ -1020,6 +1046,8 @@ class ImputerInterpolation(_Imputer):
             Dataframe or column to impute
         col : str, optional
             Column transformed by the imputer, by default "__all__"
+        ngroup : int, optional
+            Id of the group on which the method is applied
 
         Returns
         -------
@@ -1110,7 +1138,9 @@ class ImputerResiduals(_Imputer):
         self.extrapolate_trend = extrapolate_trend
         self.method_interpolation = method_interpolation
 
-    def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+    def _transform_element(
+        self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
+    ) -> pd.DataFrame:
         """
         Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
         self.columnwise.
@@ -1121,6 +1151,8 @@ class ImputerResiduals(_Imputer):
             Dataframe or column to impute
         col : str, optional
             Column transformed by the imputer, by default "__all__"
+        ngroup : int, optional
+            Id of the group on which the method is applied
 
         Returns
         -------
@@ -1227,7 +1259,9 @@ class ImputerKNN(_Imputer):
         self.imputer_ = KNNImputer(metric="nan_euclidean", **hyperparameters)
         return self
 
-    def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+    def _transform_element(
+        self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
+    ) -> pd.DataFrame:
         """
         Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
         self.columnwise.
@@ -1238,6 +1272,8 @@ class ImputerKNN(_Imputer):
             Dataframe or column to impute
         col : str, optional
             Column transformed by the imputer, by default "__all__"
+        ngroup : int, optional
+            Id of the group on which the method is applied
 
         Returns
         -------
@@ -1333,7 +1369,9 @@ class ImputerMICE(_Imputer):
         # self.n_iter_ = self.imputer_.n_iter_
         return self
 
-    def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+    def _transform_element(
+        self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
+    ) -> pd.DataFrame:
         """
         Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
         self.columnwise.
@@ -1344,6 +1382,8 @@ class ImputerMICE(_Imputer):
             Dataframe or column to impute
         col : str, optional
             Column transformed by the imputer, by default "__all__"
+        ngroup : int, optional
+            Id of the group on which the method is applied
 
         Returns
         -------
@@ -1424,7 +1464,9 @@ class ImputerRegressor(_Imputer):
         pred = self.estimator.predict(X)
         return pd.Series(pred, index=X.index, dtype=float)
 
-    def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+    def _transform_element(
+        self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
+    ) -> pd.DataFrame:
         """
         Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
         self.columnwise.
@@ -1435,6 +1477,8 @@ class ImputerRegressor(_Imputer):
             Dataframe or column to impute
         col : str, optional
             Column transformed by the imputer, by default "__all__"
+        ngroup : int, optional
+            Id of the group on which the method is applied
 
         Returns
         -------
@@ -1478,11 +1522,12 @@ class ImputerRegressor(_Imputer):
             if is_in_fit.any() and is_in_pred.any() and not X.empty:
                 self._fit_estimator(X[is_in_fit], y[is_in_fit])
                 X_pred = X[is_in_pred]
-                y_pred = self._predict_estimator(X_pred)
-                y_imputed = y.copy()
-                y_imputed[is_in_pred] = y_pred.values
-                df_imputed[col] = y_imputed
-                # df_imputed[col] = y.where(~is_in_pred, y_imputed)
+                # y_pred = self._predict_estimator(X_pred)
+                # y_imputed = y.copy()
+                # y_imputed[is_in_pred] = y_pred.values
+                # df_imputed[col] = y_imputed
+                y_imputed = self._predict_estimator(X_pred)
+                df_imputed[col] = y_imputed.where(is_in_pred, y)
         # df_imputed = df_imputed.fillna(df_imputed.median())
         return df_imputed
 
@@ -1580,7 +1625,7 @@ class ImputerRPCA(_Imputer):
                     "norm",
                 ]
             }
-            model = rpca_pcp.RPCAPCP(random_state=self.rng_, verbose=self.verbose, **hyperparams)
+            model = rpca_pcp.RPCAPCP(random_state=self._rng, verbose=self.verbose, **hyperparams)
         elif self.method == "noisy":
             hyperparams = {
                 key: hyperparams[key]
@@ -1597,11 +1642,13 @@ class ImputerRPCA(_Imputer):
                 ]
             }
             model = rpca_noisy.RPCANoisy(
-                random_state=self.rng_, verbose=self.verbose, **hyperparams
+                random_state=self._rng, verbose=self.verbose, **hyperparams
             )
         return model
 
-    def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+    def _transform_element(
+        self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
+    ) -> pd.DataFrame:
         """
         Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
         self.columnwise.
@@ -1612,6 +1659,8 @@ class ImputerRPCA(_Imputer):
             Dataframe or column to impute
         col : str, optional
             Column transformed by the imputer, by default "__all__"
+        ngroup : int, optional
+            Id of the group on which the method is applied
 
         Returns
         -------
@@ -1628,7 +1677,7 @@ class ImputerRPCA(_Imputer):
             raise ValueError("Argument method must be `PCP` or `noisy`!")
 
         hyperparams = self.get_hyperparams(col=col)
-        model = self.get_model(random_state=self.rng_, **hyperparams)
+        model = self.get_model(random_state=self._rng, **hyperparams)
         X = df.astype(float).values.T
         M, A = model.decompose_rpca_signal(X)
         X_imputed = (M + A).T
@@ -1715,10 +1764,10 @@ class ImputerEM(_Imputer):
         """
         if self.model == "multinormal":
             return em_sampler.MultiNormalEM(
-                random_state=self.rng_, verbose=self.verbose, **hyperparams
+                random_state=self._rng, verbose=self.verbose, **hyperparams
             )
         elif self.model == "VAR1":
-            return em_sampler.VAR1EM(random_state=self.rng_, verbose=self.verbose, **hyperparams)
+            return em_sampler.VAR1EM(random_state=self._rng, verbose=self.verbose, **hyperparams)
         else:
             raise ValueError(
                 f"Model argument `{self.model}` is invalid!"
@@ -1767,7 +1816,9 @@ class ImputerEM(_Imputer):
     #         self._models["__all__"] = model
     #     return self
 
-    def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
+    def _transform_element(
+        self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
+    ) -> pd.DataFrame:
         """
         Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
         self.columnwise.
@@ -1778,6 +1829,8 @@ class ImputerEM(_Imputer):
             Dataframe or column to impute
         col : str, optional
             Column transformed by the imputer, by default "__all__"
+        ngroup : int, optional
+            Id of the group on which the method is applied
 
         Returns
         -------
