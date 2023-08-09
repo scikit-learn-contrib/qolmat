@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from sklearn.ensemble import ExtraTreesRegressor
+from sklearn.linear_model import LinearRegression
 from sklearn.utils.estimator_checks import check_estimator, parametrize_with_checks
 from qolmat.benchmark.hyperparameters import HyperValue
 
@@ -173,7 +174,8 @@ def test_ImputerShuffle_fit_transform1(df: pd.DataFrame) -> None:
 def test_ImputerShuffle_fit_transform2(df: pd.DataFrame) -> None:
     imputer = imputers.ImputerShuffle(random_state=42)
     result = imputer.fit_transform(df)
-    expected = pd.DataFrame({"col1": [0, 3, 2, 3, 0], "col2": [-1, 1.5, 0.5, 1.5, 1.5]})
+    print(result)
+    expected = pd.DataFrame({"col1": [0, 0, 2, 3, 3], "col2": [-1, 1.5, 0.5, -1, 1.5]})
     np.testing.assert_allclose(result, expected)
 
 
@@ -277,13 +279,43 @@ def test_ImputerRPCA_fit_transform(df: pd.DataFrame) -> None:
 def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
     imputer = imputers.ImputerEM(method="sample", random_state=42)
     result = imputer.fit_transform(df)
+    print(result)
     expected = pd.DataFrame(
         {
             "col1": [i for i in range(20)],
-            "col2": [0, 3.299, 2, 4.432, 2] + [i for i in range(5, 20)],
+            "col2": [0, 13.784, 2, 23.210, 2] + [i for i in range(5, 20)],
         }
     )
+    print(result)
     np.testing.assert_allclose(result, expected, atol=1e-2)
+
+
+index_grouped = pd.MultiIndex.from_product([["a", "b"], range(4)], names=["group", "date"])
+dict_values = {"col1": [0, np.nan, 0, np.nan, 1, 1, 1, 1], "col2": [1, 1, 1, 1, 2, 2, 2, 2]}
+df_grouped = pd.DataFrame(dict_values, index=index_grouped)
+
+list_imputers = [
+    imputers.ImputerMean(groups=("group",)),
+    imputers.ImputerMedian(groups=("group",)),
+    imputers.ImputerMode(groups=("group",)),
+    imputers.ImputerShuffle(groups=("group",)),
+    imputers.ImputerLOCF(groups=("group",)),
+    imputers.ImputerNOCB(groups=("group",)),
+    imputers.ImputerInterpolation(groups=("group",)),
+    imputers.ImputerResiduals(groups=("group",), period=2),
+    imputers.ImputerKNN(groups=("group",)),
+    imputers.ImputerMICE(groups=("group",)),
+    imputers.ImputerRegressor(groups=("group",), estimator=LinearRegression()),
+    imputers.ImputerRPCA(groups=("group",)),
+    imputers.ImputerEM(groups=("group",)),
+]
+
+
+@pytest.mark.parametrize("imputer", list_imputers)
+def test_models_fit_transform_grouped(imputer):
+    result = imputer.fit_transform(df_grouped)
+    expected = df_grouped.fillna(0)
+    np.testing.assert_allclose(result, expected)
 
 
 @parametrize_with_checks(

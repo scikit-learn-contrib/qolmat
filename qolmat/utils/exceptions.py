@@ -46,3 +46,8 @@ class NotEnoughSamples(Exception):
             f"Not enough valid patterns found. Largest found pattern has {max_num_row} rows, when "
             f"they should have at least min_n_rows={min_n_rows}."
         )
+
+
+class EstimatorNotDefined(Exception):
+    def __init__(self):
+        super().__init__("The underlying estimator should be defined beforehand!")

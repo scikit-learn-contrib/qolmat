@@ -191,17 +191,18 @@ class EM(BaseEstimator, TransformerMixin):
         mask_na = np.isnan(X)
 
         # first imputation
-        X_sample_last = utils.linear_interpolation(X)
-        self.fit_distribution(X_sample_last)
+        X = utils.linear_interpolation(X)
+        self.fit_distribution(X)
 
+        print("max iter :", self.max_iter_em)
         for iter_em in range(self.max_iter_em):
-            X_sample_last = self._sample_ou(X_sample_last, mask_na)
+            X = self._sample_ou(X, mask_na)
             if self._check_convergence():
                 print(f"EM converged after {iter_em} iterations.")
                 break
 
         self.dict_criteria_stop = {key: [] for key in self.dict_criteria_stop}
-        self.X_sample_last = X_sample_last
+        self.X_sample_last = X
 
         return self
 
@@ -328,6 +329,8 @@ class MultiNormalEM(EM):
         self.dict_criteria_stop = {"logliks": [], "means": [], "covs": []}
 
     def fit_distribution(self, X):
+        print("X")
+        print(X)
         self.means = np.mean(X, axis=1)
         n_rows, n_cols = X.shape
         if n_cols == 1:
@@ -335,6 +338,9 @@ class MultiNormalEM(EM):
         else:
             self.cov = np.cov(X).reshape(n_rows, -1)
         self.cov_inv = np.linalg.pinv(self.cov, rcond=1e-2)
+        print("theta")
+        print(self.means)
+        print(self.cov)
 
     def get_loglikelihood(self, X: NDArray) -> float:
         if np.all(np.isclose(self.cov, 0)):
