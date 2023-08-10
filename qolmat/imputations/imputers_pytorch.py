@@ -216,7 +216,7 @@ class Autoencoder(nn.Module):
         self.loss.extend([list_loss])
         return self
 
-    def decode(self, Z: NDArray):
+    def decode(self, Z: NDArray) -> NDArray:
         """
         Decode encoded data.
 
@@ -235,7 +235,7 @@ class Autoencoder(nn.Module):
         Z_decoded = Z_decoded.detach().numpy()
         return Z_decoded
 
-    def encode(self, X: NDArray):
+    def encode(self, X: NDArray) -> NDArray:
         """
         Encode input data.
 

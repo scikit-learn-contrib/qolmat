@@ -146,9 +146,7 @@ class _Imputer(_BaseImputer):
                 raise ValueError("Input contains a column full of NaN")
 
         self.columns_ = tuple(df.columns)
-        print("self.random_state:", self.random_state)
         self._rng = sku.check_random_state(self.random_state)
-        print("first sample :", self._rng.randint(1000))
         if hasattr(self, "estimator") and hasattr(self.estimator, "random_state"):
             self.estimator.random_state = self._rng
 
