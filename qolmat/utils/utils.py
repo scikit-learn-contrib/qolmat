@@ -211,6 +211,7 @@ def create_lag_matrices(X: NDArray, p: int) -> Tuple[NDArray, NDArray]:
     for lag in range(p):
         X_lag = X[p - lag - 1 : n_rows - lag - 1, :]
         list_X_lag.append(X_lag)
+
     Z = np.concatenate(list_X_lag, axis=1)
     Y = X[-n_rows_new:, :]
     return Z, Y

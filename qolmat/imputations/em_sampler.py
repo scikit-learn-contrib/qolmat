@@ -88,6 +88,13 @@ def get_lag_p(X: NDArray, max_lag_order: int = 10, criterion: str = "aic") -> in
     return best_p
 
 
+def min_diff_Linf(list_params: List[NDArray], n_steps: int, order: int = 1) -> float:
+    params = np.stack(list_params[-n_steps - order : -order])
+    params_shift = np.stack(list_params[-n_steps:])
+    min_diff = np.max(np.abs(params - params_shift))
+    return min_diff
+
+
 class EM(BaseEstimator, TransformerMixin):
     """
     Generic abstract class for missing values imputation through EM optimization and
@@ -140,7 +147,7 @@ class EM(BaseEstimator, TransformerMixin):
         self.tolerance = tolerance
         self.stagnation_threshold = stagnation_threshold
         self.stagnation_loglik = stagnation_loglik
-        self.scaler = StandardScaler()
+        # self.scaler = StandardScaler()
 
         self.dict_criteria_stop: Dict[str, List] = {}
         self.period = period
@@ -150,10 +157,25 @@ class EM(BaseEstimator, TransformerMixin):
     def _check_convergence(self) -> bool:
         return False
 
+    @abstractmethod
+    def reset_learned_parameters(self):
+        pass
+
+    @abstractmethod
+    def update_parameters(self, X: NDArray):
+        pass
+
+    @abstractmethod
+    def combine_parameters(self):
+        pass
+
     def fit_parameters(self, X: NDArray):
         self.reset_learned_parameters()
         self.update_parameters(X)
         self.combine_parameters()
+
+    def update_criteria_stop(self, X: NDArray):
+        self.loglik = self.get_loglikelihood(X)
 
     @abstractmethod
     def gradient_X_centered_loglik(
@@ -219,7 +241,7 @@ class EM(BaseEstimator, TransformerMixin):
         for _ in range(self.n_iter_ou):
             noise = self.ampli * self.rng.normal(0, 1, size=(n_variables, n_samples))
             grad_X = self.gradient_X_loglik(X)
-            X -= self.dt * gamma * grad_X + np.sqrt(2 * gamma * self.dt) * noise
+            X += self.dt * gamma * grad_X + np.sqrt(2 * gamma * self.dt) * noise
             X[~mask_na] = X_init[~mask_na]
             self.update_parameters(X)
 
@@ -242,7 +264,7 @@ class EM(BaseEstimator, TransformerMixin):
             raise AssertionError("Invalid type. X must be a NDArray.")
 
         X = utils.prepare_data(X, self.period)
-        X = self.scaler.fit_transform(X)
+        # X = self.scaler.fit_transform(X)
 
         if hasattr(self, "p"):
             if self.p is None:  # type: ignore # noqa
@@ -262,8 +284,7 @@ class EM(BaseEstimator, TransformerMixin):
             self.combine_parameters()
 
             # Stop criteria
-            self.loglik = self.get_loglikelihood(X)
-            self.update_criteria_stop()
+            self.update_criteria_stop(X)
             if self._check_convergence():
                 print(f"EM converged after {iter_em} iterations.")
                 break
@@ -292,7 +313,7 @@ class EM(BaseEstimator, TransformerMixin):
             X = self.X_sample_last
         else:
             X = utils.prepare_data(X, self.period)
-            X = self.scaler.transform(X)
+            # X = self.scaler.transform(X)
             X = utils.linear_interpolation(X)
             if hasattr(self, "p"):
                 if self.p is None:
@@ -316,7 +337,7 @@ class EM(BaseEstimator, TransformerMixin):
         #     self.dict_criteria_stop["Bs"] = self.B
         #     self.dict_criteria_stop["omegas"] = self.omega
 
-        X_transformed = self.scaler.inverse_transform(X_transformed)
+        # X_transformed = self.scaler.inverse_transform(X_transformed)
         # X_transformed = utils.get_shape_original(X_transformed, self.shape_original)
 
         return X_transformed
@@ -395,11 +416,41 @@ class MultiNormalEM(EM):
         )
         self.dict_criteria_stop = {"logliks": [], "means": [], "covs": []}
 
+    def get_loglikelihood(self, X: NDArray) -> float:
+        Xc = X - self.means
+        return -((Xc @ self.cov_inv) * Xc).sum().sum() / 2
+        # if np.all(np.isclose(self.cov, 0)):
+        #     return 0
+        # else:
+        #     return scipy.stats.multivariate_normal.logpdf(
+        #         X, self.means, self.cov, allow_singular=True
+        #     ).mean()
+
+    def gradient_X_loglik(self, X: NDArray) -> NDArray:
+        """
+        Calculates the gradient of a centered
+        log-likelihood function using a given matrix.
+        (X_t+1 - A * X_t).T omega_inv (X_t+1 - A * X_t)
+
+        Parameters
+        ----------
+        Xc : NDArray
+            Xc is a numpy array representing the centered input data.
+
+        Returns
+        -------
+        NDArray
+            The gradient of the centered log-likelihood with respect to the input variable `Xc`.
+        """
+        grad_X = -(X - self.means) @ self.cov_inv
+        return grad_X
+
     def get_gamma(self) -> NDArray:
         gamma = np.diagonal(self.cov).reshape(1, -1)
         return gamma
 
-    def update_criteria_stop(self):
+    def update_criteria_stop(self, X: NDArray):
+        self.loglik = self.get_loglikelihood(X)
         self.dict_criteria_stop["means"].append(self.means)
         self.dict_criteria_stop["covs"].append(self.cov)
         self.dict_criteria_stop["logliks"].append(self.loglik)
@@ -419,28 +470,13 @@ class MultiNormalEM(EM):
     def combine_parameters(self):
         list_means = self.list_means[-self.n_samples :]
         list_cov = self.list_cov[-self.n_samples :]
-        # self.means = np.mean(X, axis=0)
-        # n_rows, n_cols = X.shape
-        # if n_cols == 1:
-        #     self.cov = np.eye(n_cols)
-        # else:
-        #     self.cov = np.cov(X, rowvar=False).reshape(n_cols, -1)
-        # self.cov_inv = np.linalg.pinv(self.cov, rcond=1e-2)
 
         # MANOVA formula
-        means_stack = np.stack(list_means, axis=0)
+        means_stack = np.stack(list_means)
         self.means = np.mean(means_stack, axis=0)
-        cov_stack = np.stack(list_cov, axis=2)
-        self.cov = np.mean(cov_stack, axis=2) + np.cov(means_stack, bias=True, rowvar=False)
-        self.cov_inv = np.linalg.pinv(self.cov, rcond=1e-2)
-
-    def get_loglikelihood(self, X: NDArray) -> float:
-        if np.all(np.isclose(self.cov, 0)):
-            return 0
-        else:
-            return scipy.stats.multivariate_normal.logpdf(
-                X, self.means, self.cov, allow_singular=True
-            ).mean()
+        cov_stack = np.stack(list_cov)
+        self.cov = np.mean(cov_stack, axis=0) + np.cov(means_stack, bias=True, rowvar=False)
+        self.cov_inv = np.linalg.pinv(self.cov)
 
     def _maximize_likelihood(self, X: NDArray, mask_na: NDArray, dt: float = np.nan) -> NDArray:
         """
@@ -461,92 +497,6 @@ class MultiNormalEM(EM):
         X_imputed = self.means[:, None] + X_imputed
         return X_imputed
 
-    def gradient_X_loglik(self, X: NDArray) -> NDArray:
-        """
-        Calculates the gradient of a centered
-        log-likelihood function using a given matrix.
-        (X_t+1 - A * X_t).T omega_inv (X_t+1 - A * X_t)
-
-        Parameters
-        ----------
-        Xc : NDArray
-            Xc is a numpy array representing the centered input data.
-
-        Returns
-        -------
-        NDArray
-            The gradient of the centered log-likelihood with respect to the input variable `Xc`.
-        """
-        grad_X = (X - self.means) @ self.cov_inv
-        return grad_X
-
-    # def _sample_ou(
-    #     self,
-    #     X: NDArray,
-    #     mask_na: NDArray,
-    # ) -> NDArray:
-    #     """
-    #     Samples the Gaussian distribution under the constraint that not na values must remain
-    #     unchanged, using a projected Ornstein-Uhlenbeck process.
-    #     The sampled distribution tends to the target one in the limit dt -> 0 and
-    #     n_iter_ou x dt -> infty.
-    #     Called by `impute_sample_ts`.
-
-    #     Parameters
-    #     ----------
-    #     df : NDArray
-    #         Inital dataframe to be imputed, which should have been already imputed using a simple
-    #         method. This first imputation will be used as an initial guess.
-    #     mask_na : NDArray
-    #         Boolean dataframe indicating which coefficients should be resampled.
-    #     n_iter_ou : int
-    #         Number of iterations for the OU process, a large value decreases the sample bias
-    #         but increases the computation time.
-    #     ampli : float
-    #         Amplification of the noise, if less than 1 the variance is reduced. By default, 1.
-
-    #     Returns
-    #     -------
-    #     NDArray
-    #         DataFrame after Ornstein-Uhlenbeck process.
-    #     """
-    #     n_samples, n_variables = X.shape
-    #     print("_sample_ou")
-    #     print(X.shape)
-
-    #     X_init = X.copy()
-    #     gamma = np.diagonal(self.cov)
-    #     list_means = []
-    #     list_cov = []
-    #     nb_samples = 50
-    #     for iter_ou in range(self.n_iter_ou):
-    #         noise = self.ampli * self.rng.normal(0, 1, size=(n_samples, n_variables))
-    #         X_center = X - self.means
-    #         X += -X_center @ self.cov_inv * gamma * self.dt
-    # + noise * np.sqrt(2 * gamma * self.dt)
-    #         X[~mask_na] = X_init[~mask_na]
-    #         if iter_ou > self.n_iter_ou - nb_samples:
-    #             list_means.append(np.mean(X, axis=0))
-    #             # reshaping for 1D input
-    #             cov = np.cov(X, bias=True, rowvar=False).reshape(n_variables, -1)
-    #             list_cov.append(cov)
-
-    #     # MANOVA formula
-    #     means_stack = np.stack(list_means, axis=0)
-    #     self.means = np.mean(means_stack, axis=0)
-    #     cov_stack = np.stack(list_cov, axis=2)
-    #     self.cov = np.mean(cov_stack, axis=2) + np.cov(means_stack, bias=True, rowvar=False)
-    #     self.cov_inv = np.linalg.pinv(self.cov, rcond=1e-2)
-
-    #     # Stop criteria
-    #     self.loglik = self.get_loglikelihood(X)
-
-    #     self.dict_criteria_stop["means"].append(self.means)
-    #     self.dict_criteria_stop["covs"].append(self.cov)
-    #     self.dict_criteria_stop["logliks"].append(self.loglik)
-
-    #     return X
-
     def _check_convergence(self) -> bool:
         """
         Check if the EM algorithm has converged. Three criteria:
@@ -563,41 +513,31 @@ class MultiNormalEM(EM):
         bool
             True/False if the algorithm has converged
         """
-
         list_means = self.dict_criteria_stop["means"]
         list_covs = self.dict_criteria_stop["covs"]
         list_logliks = self.dict_criteria_stop["logliks"]
 
         n_iter = len(list_means)
+        if n_iter < 10:
+            return False
 
-        min_diff_reached = (
-            n_iter > 5
-            and scipy.linalg.norm(list_means[-1] - list_means[-2], np.inf) < self.tolerance
-            and scipy.linalg.norm(list_covs[-1] - list_covs[-2], np.inf) < self.tolerance
-        )
+        min_diff_means1 = min_diff_Linf(list_covs, n_steps=1)
+        min_diff_covs1 = min_diff_Linf(list_means, n_steps=1)
+        min_diff_reached = min_diff_means1 < self.tolerance and min_diff_covs1 < self.tolerance
+
+        min_diff_means5 = min_diff_Linf(list_covs, n_steps=5)
+        min_diff_covs5 = min_diff_Linf(list_means, n_steps=5)
 
         min_diff_stable = (
-            n_iter > 10
-            and min(
-                [
-                    scipy.linalg.norm(t - s, np.inf)
-                    for s, t in zip(list_means[-6:], list_means[-5:])
-                ]
-            )
-            < self.stagnation_threshold
-            and min(
-                [scipy.linalg.norm(t - s, np.inf) for s, t in zip(list_covs[-6:], list_covs[-5:])]
-            )
-            < self.stagnation_threshold
+            min_diff_means5 < self.stagnation_threshold
+            and min_diff_covs5 < self.stagnation_threshold
         )
 
-        if n_iter > 10:
-            logliks = pd.Series(list_logliks[-6:])
-            max_loglik = (min(abs(logliks.diff(1)[1:])) < self.stagnation_loglik) or (
-                min(abs(logliks.diff(2)[2:])) < self.stagnation_loglik
-            )
-        else:
-            max_loglik = False
+        min_diff_loglik5_ord1 = min_diff_Linf(list_logliks, n_steps=5)
+        min_diff_loglik5_ord2 = min_diff_Linf(list_logliks, n_steps=5, order=2)
+        max_loglik = (min_diff_loglik5_ord1 < self.stagnation_loglik) or (
+            min_diff_loglik5_ord2 < self.stagnation_loglik
+        )
 
         return min_diff_reached or min_diff_stable or max_loglik
 
@@ -676,112 +616,28 @@ class VARpEM(EM):
             period=period,
             verbose=verbose,
         )
-        self.dict_criteria_stop = {"logliks": [], "As": [], "Bs": [], "omegas": []}
+        self.dict_criteria_stop = {"logliks": [], "S": [], "B": []}
         self.p = p  # type: ignore #noqa
 
-    def get_X(self, X: NDArray) -> NDArray:
-        return X[:, : self.n_features]
-
-    def update_criteria_stop(self):
-        self.dict_criteria_stop["As"].append(self.A)
-        self.dict_criteria_stop["Bs"].append(self.B)
-        self.dict_criteria_stop["omegas"].append(self.omega)
-        self.dict_criteria_stop["logliks"].append(self.loglik)
-
-    def get_parameters_ABomega(self) -> None:
-        estimated_A = []
-        for i in range(self.p):
-            estimated_A.append(self.A[: self.n_features, (i * self.n_features) : (i * self.n_features) + self.n_features])  # type: ignore # noqa
-        estimated_B = self.B[: self.n_features]  # type: ignore # noqa
-        estimated_omega = self.omega[: self.n_features, : self.n_features]  # type: ignore # noqa
-
-        self.list_A = estimated_A
-        self.B = estimated_B
-        self.omega = estimated_omega
-        self.omega_inv = np.linalg.pinv(self.omega, rcond=1e-2)
-
-    def fit_parameter_A(self, X: NDArray) -> None:
-        """
-        Calculates the parameter `A` using the input `X` and
-        the previously calculated parameter `B`.
-
-        Parameters
-        ----------
-        X : NDArray
-            Input data.
-        """
-        Xc = X - self.B[:, None]  # type: ignore #noqa
-        XX_lag = Xc[:, 1:] @ Xc[:, :-1].T
-        XX = Xc[:, :-1] @ Xc[:, :-1].T
-        XX_inv = np.linalg.pinv(XX, rcond=1e-2)
-        self.A = XX_lag @ XX_inv
-
-    def fit_parameter_B(self, X: NDArray) -> None:
-        """
-        Calculates the value of parameter `B` based on
-        the input matrix `X` and the existing parameter `A`.
-
-        Parameters
-        ----------
-        X : NDArray
-            Input data
-        """
-        n_variables, _ = X.shape
-        D = np.mean(X - self.A @ X, axis=1)
-        self.B = scipy.linalg.inv(np.eye(n_variables) - self.A) @ D
-
-    def fit_parameter_omega(self, X: NDArray) -> None:
-        """
-        Calculates the covariance matrix `omega` and
-        its inverse `omega_inv` based on the input matrix `X`.
-
-        Parameters
-        ----------
-        X : NDArray
-            X is a numpy array representing the input data. It has shape (m, n),
-            where m is the number of features and n is the number of samples.
-        """
-        _, n_samples = X.shape
-        Xc = X - self.B[:, None]
-        Xc_lag = np.roll(Xc, 1)
-        Z_back = Xc - self.A @ Xc_lag
-        Z_back[:, 0] = 0
-        self.omega = (Z_back @ Z_back.T) / n_samples
-        self.omega_inv = np.linalg.pinv(self.omega, rcond=1e-2)
-
-    # def fit_distribution(self, X: NDArray) -> None:
-    #     """
-    #     Fits the parameters `A`, `B`, and `omega` of a VAR(p) process
-    #     using the input data `X`.
-
-    #     Parameters
-    #     ----------
-    #     X : NDArray
-    #         Input data for which the distribution is being fitted.
-    #     """
-    #     n_variables, _ = X.shape
-
-    #     self.A = np.zeros((n_variables, n_variables))  # type: ignore # noqa
-    #     for _ in range(5):
-    #         self.fit_parameter_B(X)
-    #         self.fit_parameter_A(X)
-    #     self.fit_parameter_omega(X)
-
-    def update_parameters(self, X: NDArray) -> None:
-        """
-        Fits the parameters `beta` and `Sigma` of a VAR(p) process
-        using the input data `X`.
-
-        Parameters
-        ----------
-        X : NDArray
-            Input data for which the distribution is being fitted.
-        """
-        n_rows, n_cols = X.shape
+    def get_loglikelihood(self, X: NDArray) -> float:
         Z, Y = utils.create_lag_matrices(X, self.p)
-        self.list_ZZ.append(Z @ Z.T)
+        U = Y - Z @ self.B
+        return -(U @ self.S_inv * U).sum().sum() / 2
 
-    def gradient_X_loglik(self, Xc: NDArray) -> NDArray:
+        # p, n = X.shape
+        # sign, logdet = np.linalg.slogdet(self.omega)
+        # Xc = X - self.B[:, None]
+        # Xc_back = np.roll(Xc, 1, axis=1)
+        # Xc_back[:, 0] = 0
+        # return (
+        #     -n * p / 2 * np.log(2 * np.pi)
+        #     - n / 2 * sign * logdet
+        #     - 1
+        #     / 2
+        #     * np.trace((Xc - self.A @ Xc_back).T @ self.omega_inv @ (Xc - self.A @ Xc_back))
+        # )
+
+    def gradient_X_loglik(self, X: NDArray) -> NDArray:
         """
         Calculates the gradient of a centered
         log-likelihood function using a given matrix.
@@ -797,37 +653,87 @@ class VARpEM(EM):
         NDArray
             The gradient of the centered log-likelihood with respect to the input variable `Xc`.
         """
-        Xc_back = np.roll(Xc, 1, axis=1)
-        Xc_back[:, 0] = 0
-        Z_back = Xc - self.A @ Xc_back
-        Xc_fore = np.roll(Xc, -1, axis=1)
-        Xc_fore[:, -1] = 0
-        Z_fore = Xc_fore - self.A @ Xc
-        return -self.omega_inv @ Z_back + self.A.T @ self.omega_inv @ Z_fore
+        n_rows, n_cols = X.shape
+        Z, Y = utils.create_lag_matrices(X, p=self.p)
+        U = Y - Z @ self.B
+        grad_1 = np.zeros(X.shape)
+        grad_1[self.p :, :] = -U @ self.S_inv
+        grad_2 = np.zeros(X.shape)
+        for lag in range(self.p):
+            A = self.B[1 + lag * n_cols : 1 + (lag + 1) * n_cols, :]
+            grad_2[self.p - lag - 1 : -lag - 1, :] += U @ self.S_inv @ A.T
 
-    def get_loglikelihood(self, X: NDArray) -> float:
-        p, n = X.shape
-        sign, logdet = np.linalg.slogdet(self.omega)
-        Xc = X - self.B[:, None]
-        Xc_back = np.roll(Xc, 1, axis=1)
-        Xc_back[:, 0] = 0
-        return (
-            -n * p / 2 * np.log(2 * np.pi)
-            - n / 2 * sign * logdet
-            - 1
-            / 2
-            * np.trace((Xc - self.A @ Xc_back).T @ self.omega_inv @ (Xc - self.A @ Xc_back))
-        )
+        return grad_1 + grad_2
+
+    def get_gamma(self) -> NDArray:
+        gamma = np.diagonal(self.S).reshape(1, -1)
+        return gamma
+
+    def reset_learned_parameters(self):
+        self.list_ZZ = []
+        self.list_ZY = []
+        self.list_B = []
+        self.list_S = []
+
+    def update_criteria_stop(self, X: NDArray):
+        self.loglik = self.get_loglikelihood(X)
+        self.dict_criteria_stop["S"].append(self.list_S[-1])
+        self.dict_criteria_stop["B"].append(self.list_B[-1])
+        self.dict_criteria_stop["logliks"].append(self.loglik)
+
+    def update_parameters(self, X: NDArray) -> None:
+        """
+
+
+        Parameters
+        ----------
+        X : NDArray
+            Input data for which the distribution is being fitted.
+        """
+        n_rows, n_cols = X.shape
+
+        Z, Y = utils.create_lag_matrices(X, self.p)
+        n_obs = len(Z)
+        ZZ = Z.T @ Z / n_obs
+        ZZ_inv = np.linalg.pinv(ZZ)
+        ZY = Z.T @ Y / n_obs
+        B = ZZ_inv @ ZY
+        U = Y - Z @ B
+        S = U.T @ U / n_obs
+
+        self.list_ZZ.append(ZZ)
+        self.list_ZY.append(ZY)
+        self.list_B.append(B)
+        self.list_S.append(S)
+
+    def combine_parameters(self) -> None:
+        """ """
+        list_ZZ = self.list_ZZ[-self.n_samples :]
+        list_ZY = self.list_ZY[-self.n_samples :]
+        list_S = self.list_S[-self.n_samples :]
+
+        # MANOVA formula
+        stack_ZZ = np.stack(list_ZZ)
+        self.ZZ = np.mean(stack_ZZ, axis=0)
+        stack_ZY = np.stack(list_ZY)
+        self.ZY = np.mean(stack_ZY, axis=0)
+        self.ZZ_inv = np.linalg.pinv(self.ZZ)
+        self.B = self.ZZ_inv @ self.ZY
+
+        # do not account for inter-group variance
+        stack_S = np.stack(list_S)
+        self.S = np.mean(stack_S, axis=0)
+        self.S_inv = np.linalg.pinv(self.S)
 
     def _check_convergence(self) -> bool:
         """
         Check if the EM algorithm has converged. Three criteria:
         1) if the differences between the estimates of the parameters (mean and covariance) is
         less than a threshold (min_diff_reached - tolerance).
-        2) if the difference of the consecutive differences of the estimates is less than a
+        OR 2) if the difference of the consecutive differences of the estimates is less than a
         threshold, i.e. stagnates over the last 5 interactions (min_diff_stable -
         stagnation_threshold).
-        3) if the likelihood of the data no longer increases,
+        OR 3) if the likelihood of the data no longer increases,
         i.e. stagnates over the last 5 iterations (max_loglik - stagnation_loglik).
 
         Returns
@@ -836,33 +742,22 @@ class VARpEM(EM):
             True/False if the algorithm has converged
         """
 
-        list_As = self.dict_criteria_stop["As"]
-        list_Bs = self.dict_criteria_stop["Bs"]
-        list_omegas = self.dict_criteria_stop["omegas"]
+        list_B = self.dict_criteria_stop["B"]
+        list_S = self.dict_criteria_stop["S"]
         list_logliks = self.dict_criteria_stop["logliks"]
 
-        n_iter = len(list_As)
+        n_iter = len(list_B)
+        if n_iter < 10:
+            return False
 
-        min_diff_reached = (
-            n_iter > 5
-            and scipy.linalg.norm(list_As[-1] - list_As[-2], np.inf) < self.tolerance
-            and scipy.linalg.norm(list_Bs[-1] - list_Bs[-2], np.inf) < self.tolerance
-            and scipy.linalg.norm(list_omegas[-1] - list_omegas[-2], np.inf) < self.tolerance
-        )
+        min_diff_B1 = min_diff_Linf(list_B, n_steps=1)
+        min_diff_S1 = min_diff_Linf(list_S, n_steps=1)
+        min_diff_reached = min_diff_B1 < self.tolerance and min_diff_S1 < self.tolerance
 
+        min_diff_B5 = min_diff_Linf(list_B, n_steps=5)
+        min_diff_S5 = min_diff_Linf(list_S, n_steps=5)
         min_diff_stable = (
-            n_iter > 10
-            and min([scipy.linalg.norm(t - s, np.inf) for s, t in zip(list_As[-6:], list_As[-5:])])
-            < self.stagnation_threshold
-            and min([scipy.linalg.norm(t - s, np.inf) for s, t in zip(list_Bs[-6:], list_Bs[-5:])])
-            < self.stagnation_threshold
-            and min(
-                [
-                    scipy.linalg.norm(t - s, np.inf)
-                    for s, t in zip(list_omegas[-6:], list_omegas[-5:])
-                ]
-            )
-            < self.stagnation_threshold
+            min_diff_B5 < self.stagnation_threshold and min_diff_S5 < self.stagnation_threshold
         )
 
         if n_iter > 10:
