@@ -5,6 +5,8 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import scipy as scp
+from scipy import linalg as lscp
+from scipy.sparse import dok_matrix
 from numpy.typing import NDArray
 from sklearn import utils as sku
 
@@ -75,7 +77,12 @@ class RPCANoisy(RPCA):
         self.norm = norm
 
     def decompose_rpca_L1(
-        self, D: NDArray, Omega: NDArray, lam: float, tau: float, rank: int
+        self,
+        D: NDArray,
+        Omega: NDArray,
+        lam: float,
+        tau: float,
+        rank: int,
     ) -> Tuple:
         """
         Compute the noisy RPCA with a L1 time penalisation
@@ -109,29 +116,31 @@ class RPCANoisy(RPCA):
             Array of iterative errors.
         """
 
-        m, n = D.shape
+        n_rows, n_cols = D.shape
         rho = 1.1
         mu = self.mu or 1e-2
         mu_bar = mu * 1e3
 
         # init
-        Y = np.ones((m, n))
-        Y_ = [np.ones((m, n - period)) for period in self.list_periods]
+        Y = np.ones((n_rows, n_cols))
+        # Y_ = [np.ones((n_rows - period, n_cols)) for period in self.list_periods]
 
         X = D.copy()
-        A = np.zeros((m, n))
-        L = np.ones((m, rank))
-        Q = np.ones((n, rank))
-        R = [np.ones((m, n - period)) for period in self.list_periods]
+        A = np.zeros((n_rows, n_cols))
+        L = np.ones((n_rows, rank))
+        Q = np.ones((rank, n_cols))
+        # R = [np.ones((n_rows - period, n_cols)) for period in self.list_periods]
+        R = [np.ones((n_rows, n_cols)) for _ in self.list_periods]
 
         # matrices for temporal correlation
-        H = [rpca_utils.toeplitz_matrix(period, n, model="column") for period in self.list_periods]
-        HHT = np.zeros((n, n))
-        for index, _ in enumerate(self.list_periods):
-            HHT += self.list_etas[index] * (H[index] @ H[index].T)
+        list_H = [rpca_utils.toeplitz_matrix(period, n_rows) for period in self.list_periods]
+        # HtH = np.zeros((n_rows, n_rows))
+        HtH = dok_matrix((n_rows, n_rows))
+        for i_period, _ in enumerate(self.list_periods):
+            HtH += self.list_etas[i_period] * (list_H[i_period].T @ list_H[i_period])
 
         Ir = np.eye(rank)
-        In = np.eye(n)
+        In = np.eye(n_rows)
 
         for _ in range(self.max_iterations):
             X_temp = X.copy()
@@ -140,14 +149,14 @@ class RPCANoisy(RPCA):
             Q_temp = Q.copy()
             R_temp = R.copy()
 
-            sums = np.zeros((m, n))
-            for index, _ in enumerate(self.list_periods):
-                sums += (mu * R[index] - Y_[index]) @ H[index].T
+            sums = np.zeros((n_rows, n_cols))
+            for i_period, _ in enumerate(self.list_periods):
+                sums += mu * R[i_period] - list_H[i_period] @ Y
 
             X = scp.linalg.solve(
-                a=((1 + mu) * In + 2 * HHT).T,
-                b=(D - A + mu * L @ Q.T - Y + sums).T,
-            ).T
+                a=(1 + mu) * In + 2 * HtH,
+                b=D - A + mu * L @ Q - Y + sums,
+            )
 
             if np.any(np.isnan(D)):
                 A_Omega = rpca_utils.soft_thresholding(D - X, lam)
@@ -157,23 +166,21 @@ class RPCANoisy(RPCA):
                 A = rpca_utils.soft_thresholding(D - X, lam)
 
             L = scp.linalg.solve(
-                a=(tau * Ir + mu * (Q.T @ Q)).T,
-                b=((mu * X + Y) @ Q).T,
+                a=tau * Ir + mu * (Q @ Q.T),
+                b=(mu * X + Y) @ Q.T,
             ).T
 
             Q = scp.linalg.solve(
-                a=(tau * Ir + mu * (L.T @ L)).T,
-                b=((mu * X.T + Y.T) @ L).T,
-            ).T
+                a=tau * Ir + mu * (L.T @ L),
+                b=L.T @ (mu * X + Y),
+            )
 
-            for index, _ in enumerate(self.list_periods):
-                R[index] = rpca_utils.soft_thresholding(
-                    X @ H[index] - Y_[index] / mu, self.list_etas[index] / mu
-                )
-
-            Y += mu * (X - L @ Q.T)
-            for index, _ in enumerate(self.list_periods):
-                Y_[index] += mu * (X @ H[index] - R[index])
+            Y += mu * (X - L @ Q)
+            for i_period, _ in enumerate(self.list_periods):
+                eta = self.list_etas[i_period]
+                # R[i_period] = HX - Y_[i_period]
+                R[i_period] = rpca_utils.soft_thresholding(R[i_period] / mu, eta / mu)
+                # Y_[i_period] += mu * (HX - R[i_period])
 
             # update mu
             mu = min(mu * rho, mu_bar)
@@ -184,8 +191,8 @@ class RPCANoisy(RPCA):
             Lc = np.linalg.norm(L - L_temp, np.inf)
             Qc = np.linalg.norm(Q - Q_temp, np.inf)
             Rc = -1
-            for index, _ in enumerate(self.list_periods):
-                Rc = np.maximum(Rc, np.linalg.norm(R[index] - R_temp[index], np.inf))
+            for i_period, _ in enumerate(self.list_periods):
+                Rc = np.maximum(Rc, np.linalg.norm(R[i_period] - R_temp[i_period], np.inf))
             tol = np.amax(np.array([Xc, Ac, Lc, Qc, Rc]))
 
             if tol < self.tol:
@@ -232,30 +239,34 @@ class RPCANoisy(RPCA):
         """
 
         rho = 1.1
-        m, n = D.shape
+        n_rows, n_cols = D.shape
 
         # init
-        Y = np.full_like(D, 0)
+        Y = np.zeros((n_rows, n_cols))
         X = D.copy()
-        A = np.full_like(D, 0)
+        A = np.zeros((n_rows, n_cols))
         U, S, Vt = np.linalg.svd(X)
+        print("SVD")
+        print(U)
+        print(S)
+        print(Vt)
         U = U[:, :rank]
         S = S[:rank]
         Vt = Vt[:rank, :]
         L = U @ np.diag(np.sqrt(S))
-        Q = Vt.transpose() @ np.diag(np.sqrt(S))
+        Q = np.diag(np.sqrt(S)) @ Vt
 
         mu = self.mu or 1e-2
         mu_bar = mu * 1e3
 
         # matrices for temporal correlation
-        H = [rpca_utils.toeplitz_matrix(period, n, model="column") for period in self.list_periods]
-        HHT = np.zeros((n, n))
-        for index, _ in enumerate(self.list_periods):
-            HHT += self.list_etas[index] * (H[index] @ H[index].T)
+        list_H = [rpca_utils.toeplitz_matrix(period, n_rows) for period in self.list_periods]
+        HtH = dok_matrix((n_rows, n_rows))
+        for i_period, _ in enumerate(self.list_periods):
+            HtH += self.list_etas[i_period] * (list_H[i_period].T @ list_H[i_period])
 
         Ir = np.eye(rank)
-        In = np.eye(n)
+        In = np.eye(n_rows)
 
         for _ in range(self.max_iterations):
             # print("Cost function", self.cost_function(D, X, A, Omega, tau, lam))
@@ -265,9 +276,9 @@ class RPCANoisy(RPCA):
             Q_temp = Q.copy()
 
             X = scp.linalg.solve(
-                a=((1 + mu) * In + HHT).T,
-                b=(D - A + mu * L @ Q.T - Y).T,
-            ).T
+                a=(1 + mu) * In + HtH,
+                b=D - A + mu * L @ Q - Y,
+            )
 
             if np.any(np.isnan(D)):
                 A_Omega = rpca_utils.soft_thresholding(D - X, lam)
@@ -277,16 +288,21 @@ class RPCANoisy(RPCA):
                 A = rpca_utils.soft_thresholding(D - X, lam)
 
             L = scp.linalg.solve(
-                a=(tau * Ir + mu * (Q.T @ Q)).T,
-                b=((mu * X + Y) @ Q).T,
+                a=tau * Ir + mu * (Q @ Q.T),
+                b=(mu * X + Y) @ Q.T,
             ).T
-
+            print("----")
+            print(Ir)
+            print(L)
+            print(X)
+            print(Y)
+            print("####")
             Q = scp.linalg.solve(
-                a=(tau * Ir + mu * (L.T @ L)).T,
-                b=((mu * X.T + Y.T) @ L).T,
-            ).T
+                a=tau * Ir + mu * (L.T @ L),
+                b=L.T @ (mu * X + Y),
+            )
 
-            Y += mu * (X - L @ Q.T)
+            Y += mu * (X - L @ Q)
 
             mu = min(mu * rho, mu_bar)
 
@@ -418,16 +434,16 @@ class RPCANoisy(RPCA):
         temporal_norm: float = 0
         if len(self.list_etas) > 0:
             # matrices for temporal correlation
-            H = [
-                rpca_utils.toeplitz_matrix(period, observations.shape[1], model="column")
+            list_H = [
+                rpca_utils.toeplitz_matrix(period, observations.shape[0])
                 for period in self.list_periods
             ]
             if self.norm == "L1":
-                for eta, H_matrix in zip(self.list_etas, H):
+                for eta, H_matrix in zip(self.list_etas, list_H):
                     temporal_norm += eta * np.sum(np.abs(H_matrix @ low_rank))
             elif self.norm == "L2":
-                for eta, H_matrix in zip(self.list_etas, H):
-                    temporal_norm += eta * float(np.linalg.norm(low_rank @ H_matrix, "fro"))
+                for eta, H_matrix in zip(self.list_etas, list_H):
+                    temporal_norm += eta * float(np.linalg.norm(H_matrix @ low_rank, "fro"))
         anomalies_norm = np.sum(np.abs(anomalies * Omega))
         cost = (
             1 / 2 * ((Omega * (observations - low_rank - anomalies)) ** 2).sum()

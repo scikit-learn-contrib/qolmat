@@ -29,10 +29,23 @@ from math import pi
 from qolmat.utils import plot, data
 from qolmat.imputations.rpca.rpca_pcp import RPCAPCP
 from qolmat.imputations.rpca.rpca_noisy import RPCANoisy
+from qolmat.imputations.rpca import rpca_utils
 from qolmat.utils.data import generate_artificial_ts
 ```
 
 **Generate synthetic data**
+
+```python
+H = rpca_utils.toeplitz_matrix(2, 10)
+```
+
+```python
+Tr(Xt Ht H X) = Tr(Ht H X Xt)
+```
+
+```python
+H.T @ H
+```
 
 ```python
 n_samples = 1000

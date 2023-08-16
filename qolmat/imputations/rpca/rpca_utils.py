@@ -5,7 +5,9 @@ Modular utility functions for RPCA
 
 import numpy as np
 from numpy.typing import NDArray
+import scipy
 from scipy.linalg import toeplitz
+from scipy import sparse as sps
 
 
 def approx_rank(
@@ -97,7 +99,7 @@ def l1_norm(M: NDArray) -> float:
     return np.sum(np.abs(M))
 
 
-def toeplitz_matrix(T: int, dimension: int, model: str) -> NDArray:
+def toeplitz_matrix(T: int, dimension: int) -> NDArray:
     """
     Create a matrix Toeplitz matrix H to take into account temporal correlation via HX
     H=Toeplitz(0,1,-1), in which the central diagonal is defined as ones and
@@ -109,25 +111,24 @@ def toeplitz_matrix(T: int, dimension: int, model: str) -> NDArray:
         diagonal offset
     dimension : int
         second dimension of H = first dimension of X
-    model: str
-        "column" or "row"
 
     Returns
     -------
     NDArray
         Toeplitz matrix
     """
-    first_row = np.zeros((dimension,))
-    first_row[0] = 1
-    first_row[T] = -1
 
-    first_col = np.zeros((dimension,))
-    first_col[0] = 1
+    # first_row = np.zeros((dimension,))
+    # first_row[0] = 1
+    # first_row[T] = -1
 
-    H = toeplitz(first_col, first_row)
-    if model == "row":
-        return H[:-T, :]
-    elif model == "column":
-        return H[:, T:]
-    else:
-        raise ValueError("Parameter `model`should be 'row' of 'column'")
+    # first_col = np.zeros((dimension,))
+    # first_col[0] = 1
+
+    # H = toeplitz(first_col, first_row)
+    n_lags = dimension - T
+    diagonals = [np.ones(n_lags), -np.ones(n_lags)]
+    H = sps.diags(diagonals, offsets=[0, T], shape=(n_lags, dimension), format="csr")
+    H2 = sps.dok_matrix((dimension, dimension))
+    H2[:n_lags] = H
+    return H2

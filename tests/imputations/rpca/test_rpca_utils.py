@@ -12,29 +12,15 @@ from qolmat.utils.utils import fold_signal
 
 X_incomplete = np.array(
     [
-        [1, np.nan, 3, 2, np.nan],
-        [7, 2, np.nan, 1, 1],
-        [np.nan, 4, 3, np.nan, 5],
-        [np.nan, 4, 3, 5, 5],
-        [4, 4, 3, np.nan, 5],
+        [1, 7, np.nan, np.nan],
+        [np.nan, 2, 4, 4],
+        [-3, np.nan, 3, 3],
+        [2, -1, np.nan, 5],
+        [np.nan, 1, 5, 5],
     ]
 )
-X_complete = np.array(
-    [[1, 5, 3, 2, 2], [7, 2, 3, 1, 1], [4, 4, 3, 5, 5], [4, 4, 3, 5, 5], [4, 4, 3, 5, 5]]
-)
 
-
-X_exp_row = np.array(
-    [[1.0, 0.0, -1.0, 0.0, 0.0], [0.0, 1.0, 0.0, -1.0, 0.0], [0.0, 0.0, 1.0, 0.0, -1.0]]
-)
-
-X_exp_column = np.array(
-    [[-1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [1.0, 0.0, -1.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
-)
-
-threshold = 0.95
-T = 2
-dimension = 5
+X_complete = np.array([[1, 7, 4, 4], [5, 2, 4, 4], [-3, 3, 3, 3], [2, -1, 5, 5], [2, 1, 5, 5]])
 
 
 @pytest.mark.parametrize("X", [X_complete])
@@ -44,46 +30,55 @@ def test_rpca_utils_approx_rank(X: NDArray):
 
 
 @pytest.mark.parametrize("X", [X_complete])
-@pytest.mark.parametrize("threshold", [threshold])
+@pytest.mark.parametrize("threshold", [2])
 def test_rpca_utils_soft_thresholding(X: NDArray, threshold: float):
     result = soft_thresholding(X=X, threshold=threshold)
+    #     X_complete = np.array(
+    #     [[1, 7, 4, 4, 4],
+    #      [5, 2, 4, 4, 4],
+    #      [-3, 3, 3, 3, 3],
+    #      [2, -1, 5, 5, 5],
+    #      [2, 1, 5, 5, 5]]
+    # )
     X_expected = np.array(
         [
-            [0.05, 4.05, 2.05, 1.05, 1.05],
-            [6.05, 1.05, 2.05, 0.05, 0.05],
-            [3.05, 3.05, 2.05, 4.05, 4.05],
-            [3.05, 3.05, 2.05, 4.05, 4.05],
-            [3.05, 3.05, 2.05, 4.05, 4.05],
+            [0, 5, 2, 2],
+            [3, 0, 2, 2],
+            [-1, 1, 1, 1],
+            [0, 0, 3, 3],
+            [0, 0, 3, 3],
         ]
     )
     np.testing.assert_allclose(result, X_expected)
 
 
 @pytest.mark.parametrize("X", [X_complete])
-@pytest.mark.parametrize("threshold", [threshold])
+@pytest.mark.parametrize("threshold", [0.95])
 def test_rpca_utils_svd_thresholding(X: NDArray, threshold: float):
     result = svd_thresholding(X=X, threshold=threshold)
+    print(result)
     X_expected = np.array(
         [
-            [1.22954596, 4.19288775, 2.58695225, 2.11783467, 2.11783467],
-            [6.14486781, 1.96110299, 2.72428711, 1.21646981, 1.21646981],
-            [3.84704901, 3.8901204, 2.92414337, 4.6397143, 4.6397143],
-            [3.84704901, 3.8901204, 2.92414337, 4.6397143, 4.6397143],
-            [3.84704901, 3.8901204, 2.92414337, 4.6397143, 4.6397143],
+            [0.928, 6.182, 3.857, 3.857],
+            [4.313, 1.842, 3.831, 3.831],
+            [-2.355, 2.782, 2.723, 2.723],
+            [1.951, -0.610, 4.570, 4.570],
+            [1.916, 1.098, 4.626, 4.626],
         ]
     )
-    np.testing.assert_allclose(result, X_expected, rtol=1e-5)
+    np.testing.assert_allclose(result, X_expected, atol=1e-3)
 
 
 @pytest.mark.parametrize("X", [X_incomplete])
 def test_rpca_utils_l1_norm(X: NDArray):
     result = l1_norm(M=X_complete)
-    np.testing.assert_allclose(result, 90)
+    np.testing.assert_allclose(result, 69)
 
 
-@pytest.mark.parametrize("T", [T])
-@pytest.mark.parametrize("dimension", [dimension])
-@pytest.mark.parametrize("model, X_expected", [("row", X_exp_row), ("column", X_exp_column)])
-def test_rpca_utils_toeplitz_matrix(T: int, dimension: int, model: str, X_expected: NDArray):
-    result = toeplitz_matrix(T=T, dimension=dimension, model=model)
-    np.testing.assert_allclose(result, X_expected)
+@pytest.mark.parametrize("T", [2])
+@pytest.mark.parametrize("dimension", [5])
+def test_rpca_utils_toeplitz_matrix(T: int, dimension: int):
+    result = toeplitz_matrix(T=T, dimension=dimension)
+    X_exp = np.array([[1, 0, -1, 0, 0], [0, 1, 0, -1, 0], [0, 0, 1, 0, -1]])
+
+    np.testing.assert_allclose(result, X_exp)
