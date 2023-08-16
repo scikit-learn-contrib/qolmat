@@ -66,12 +66,12 @@ class RPCA(BaseEstimator, TransformerMixin):
         Omega = ~np.isnan(D)
         # D_proj = rpca_utils.impute_nans(D_init, method="median")
         D = utils.linear_interpolation(D)
-        print("D")
-        print(D)
         n_rows, n_cols = D.shape
         if n_rows == 1 or n_cols == 1:
             return D, np.full_like(D, 0)
 
+        print("D")
+        print(D.shape)
         M, A = self.decompose_rpca(D, Omega)
 
         M_final = utils.get_shape_original(M, X.shape)

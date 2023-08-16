@@ -76,134 +76,134 @@ class RPCANoisy(RPCA):
         self.list_etas = list_etas
         self.norm = norm
 
-    def decompose_rpca_L1(
-        self,
-        D: NDArray,
-        Omega: NDArray,
-        lam: float,
-        tau: float,
-        rank: int,
-    ) -> Tuple:
-        """
-        Compute the noisy RPCA with a L1 time penalisation
+    # def decompose_rpca_L1(
+    #     self,
+    #     D: NDArray,
+    #     Omega: NDArray,
+    #     lam: float,
+    #     tau: float,
+    #     rank: int,
+    # ) -> Tuple:
+    #     """
+    #     Compute the noisy RPCA with a L1 time penalisation
 
-        Parameters
-        ----------
-        D : np.ndarray
-            Observations matrix of shape (m, n).
-        Omega : np.ndarray
-            Binary matrix indicating the observed entries of D, shape (m, n).
-        lam : float
-            Regularization parameter for the sparse part.
-        tau : float
-            Regularization parameter for the low rank part.
-        rank : int
-            Rank parameter for low-rank matrix decomposition.
+    #     Parameters
+    #     ----------
+    #     D : np.ndarray
+    #         Observations matrix of shape (m, n).
+    #     Omega : np.ndarray
+    #         Binary matrix indicating the observed entries of D, shape (m, n).
+    #     lam : float
+    #         Regularization parameter for the sparse part.
+    #     tau : float
+    #         Regularization parameter for the low rank part.
+    #     rank : int
+    #         Rank parameter for low-rank matrix decomposition.
 
-        Returns
-        -------
-        Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
-            A tuple containing:
-        M : np.ndarray
-            Low-rank signal matrix of shape (m, n).
-        A : np.ndarray
-            Anomalies matrix of shape (m, n).
-        U : np.ndarray
-            Basis Unitary array of shape (m, rank).
-        V : np.ndarray
-            Basis Unitary array of shape (n, rank).
-        errors : np.ndarray
-            Array of iterative errors.
-        """
+    #     Returns
+    #     -------
+    #     Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+    #         A tuple containing:
+    #     M : np.ndarray
+    #         Low-rank signal matrix of shape (m, n).
+    #     A : np.ndarray
+    #         Anomalies matrix of shape (m, n).
+    #     U : np.ndarray
+    #         Basis Unitary array of shape (m, rank).
+    #     V : np.ndarray
+    #         Basis Unitary array of shape (n, rank).
+    #     errors : np.ndarray
+    #         Array of iterative errors.
+    #     """
 
-        n_rows, n_cols = D.shape
-        rho = 1.1
-        mu = self.mu or 1e-2
-        mu_bar = mu * 1e3
+    #     n_rows, n_cols = D.shape
+    #     rho = 1.1
+    #     mu = self.mu or 1e-2
+    #     mu_bar = mu * 1e3
 
-        # init
-        Y = np.ones((n_rows, n_cols))
-        # Y_ = [np.ones((n_rows - period, n_cols)) for period in self.list_periods]
+    #     # init
+    #     Y = np.ones((n_rows, n_cols))
+    #     # Y_ = [np.ones((n_rows - period, n_cols)) for period in self.list_periods]
 
-        X = D.copy()
-        A = np.zeros((n_rows, n_cols))
-        L = np.ones((n_rows, rank))
-        Q = np.ones((rank, n_cols))
-        # R = [np.ones((n_rows - period, n_cols)) for period in self.list_periods]
-        R = [np.ones((n_rows, n_cols)) for _ in self.list_periods]
+    #     X = D.copy()
+    #     A = np.zeros((n_rows, n_cols))
+    #     L = np.ones((n_rows, rank))
+    #     Q = np.ones((rank, n_cols))
+    #     # R = [np.ones((n_rows - period, n_cols)) for period in self.list_periods]
+    #     R = [np.ones((n_rows, n_cols)) for _ in self.list_periods]
 
-        # matrices for temporal correlation
-        list_H = [rpca_utils.toeplitz_matrix(period, n_rows) for period in self.list_periods]
-        # HtH = np.zeros((n_rows, n_rows))
-        HtH = dok_matrix((n_rows, n_rows))
-        for i_period, _ in enumerate(self.list_periods):
-            HtH += self.list_etas[i_period] * (list_H[i_period].T @ list_H[i_period])
+    #     # matrices for temporal correlation
+    #     list_H = [rpca_utils.toeplitz_matrix(period, n_rows) for period in self.list_periods]
+    #     # HtH = np.zeros((n_rows, n_rows))
+    #     HtH = dok_matrix((n_rows, n_rows))
+    #     for i_period, _ in enumerate(self.list_periods):
+    #         HtH += self.list_etas[i_period] * (list_H[i_period].T @ list_H[i_period])
 
-        Ir = np.eye(rank)
-        In = np.eye(n_rows)
+    #     Ir = np.eye(rank)
+    #     In = np.eye(n_rows)
 
-        for _ in range(self.max_iterations):
-            X_temp = X.copy()
-            A_temp = A.copy()
-            L_temp = L.copy()
-            Q_temp = Q.copy()
-            R_temp = R.copy()
+    #     for _ in range(self.max_iterations):
+    #         X_temp = X.copy()
+    #         A_temp = A.copy()
+    #         L_temp = L.copy()
+    #         Q_temp = Q.copy()
+    #         R_temp = R.copy()
 
-            sums = np.zeros((n_rows, n_cols))
-            for i_period, _ in enumerate(self.list_periods):
-                sums += mu * R[i_period] - list_H[i_period] @ Y
+    #         sums = np.zeros((n_rows, n_cols))
+    #         for i_period, _ in enumerate(self.list_periods):
+    #             sums += mu * R[i_period] - list_H[i_period] @ Y
 
-            X = scp.linalg.solve(
-                a=(1 + mu) * In + 2 * HtH,
-                b=D - A + mu * L @ Q - Y + sums,
-            )
+    #         X = scp.linalg.solve(
+    #             a=(1 + mu) * In + 2 * HtH,
+    #             b=D - A + mu * L @ Q - Y + sums,
+    #         )
 
-            if np.any(np.isnan(D)):
-                A_Omega = rpca_utils.soft_thresholding(D - X, lam)
-                A_Omega_C = D - X
-                A = np.where(Omega, A_Omega, A_Omega_C)
-            else:
-                A = rpca_utils.soft_thresholding(D - X, lam)
+    #         if np.any(np.isnan(D)):
+    #             A_Omega = rpca_utils.soft_thresholding(D - X, lam)
+    #             A_Omega_C = D - X
+    #             A = np.where(Omega, A_Omega, A_Omega_C)
+    #         else:
+    #             A = rpca_utils.soft_thresholding(D - X, lam)
 
-            L = scp.linalg.solve(
-                a=tau * Ir + mu * (Q @ Q.T),
-                b=(mu * X + Y) @ Q.T,
-            ).T
+    #         L = scp.linalg.solve(
+    #             a=tau * Ir + mu * (Q @ Q.T),
+    #             b=(mu * X + Y) @ Q.T,
+    #         ).T
 
-            Q = scp.linalg.solve(
-                a=tau * Ir + mu * (L.T @ L),
-                b=L.T @ (mu * X + Y),
-            )
+    #         Q = scp.linalg.solve(
+    #             a=tau * Ir + mu * (L.T @ L),
+    #             b=L.T @ (mu * X + Y),
+    #         )
 
-            Y += mu * (X - L @ Q)
-            for i_period, _ in enumerate(self.list_periods):
-                eta = self.list_etas[i_period]
-                # R[i_period] = HX - Y_[i_period]
-                R[i_period] = rpca_utils.soft_thresholding(R[i_period] / mu, eta / mu)
-                # Y_[i_period] += mu * (HX - R[i_period])
+    #         Y += mu * (X - L @ Q)
+    #         for i_period, _ in enumerate(self.list_periods):
+    #             eta = self.list_etas[i_period]
+    #             # R[i_period] = HX - Y_[i_period]
+    #             R[i_period] = rpca_utils.soft_thresholding(R[i_period] / mu, eta / mu)
+    #             # Y_[i_period] += mu * (HX - R[i_period])
 
-            # update mu
-            mu = min(mu * rho, mu_bar)
+    #         # update mu
+    #         mu = min(mu * rho, mu_bar)
 
-            # stopping criteria
-            Xc = np.linalg.norm(X - X_temp, np.inf)
-            Ac = np.linalg.norm(A - A_temp, np.inf)
-            Lc = np.linalg.norm(L - L_temp, np.inf)
-            Qc = np.linalg.norm(Q - Q_temp, np.inf)
-            Rc = -1
-            for i_period, _ in enumerate(self.list_periods):
-                Rc = np.maximum(Rc, np.linalg.norm(R[i_period] - R_temp[i_period], np.inf))
-            tol = np.amax(np.array([Xc, Ac, Lc, Qc, Rc]))
+    #         # stopping criteria
+    #         Xc = np.linalg.norm(X - X_temp, np.inf)
+    #         Ac = np.linalg.norm(A - A_temp, np.inf)
+    #         Lc = np.linalg.norm(L - L_temp, np.inf)
+    #         Qc = np.linalg.norm(Q - Q_temp, np.inf)
+    #         Rc = -1
+    #         for i_period, _ in enumerate(self.list_periods):
+    #             Rc = np.maximum(Rc, np.linalg.norm(R[i_period] - R_temp[i_period], np.inf))
+    #         tol = np.amax(np.array([Xc, Ac, Lc, Qc, Rc]))
 
-            if tol < self.tol:
-                break
-        M = X
-        U = L
-        V = Q
-        return M, A, U, V
+    #         if tol < self.tol:
+    #             break
+    #     M = X
+    #     U = L
+    #     V = Q
+    #     return M, A, U, V
 
     def decompose_rpca_L2(
-        self, D: NDArray, Omega: NDArray, lam: float, tau: float, rank: int
+        self, D: NDArray, Omega: NDArray, lam: float, tau: float, rank: int, norm: str = "L2"
     ) -> Tuple:
         """
         Compute the noisy RPCA with a L2 time penalisation
@@ -245,22 +245,25 @@ class RPCANoisy(RPCA):
         Y = np.zeros((n_rows, n_cols))
         X = D.copy()
         A = np.zeros((n_rows, n_cols))
-        U, S, Vt = np.linalg.svd(X.T)
+        U, S, Vt = np.linalg.svd(X)
         print("SVD")
-        print(X.T)
-        print(U)
+        # print(X.T)
+        # print(U)
         print(S)
-        print(Vt)
+        # print(Vt)
         U = U[:, :rank]
         S = S[:rank]
         Vt = Vt[:rank, :]
-        U, Vt = Vt.T, U.T
+        # U, Vt = Vt.T, U.T
         L = U @ np.diag(np.sqrt(S))
         Q = np.diag(np.sqrt(S)) @ Vt
-        np.testing.assert_allclose(L @ Q, X, atol=1e-4)
-        print("LQ")
-        print(L)
-        print(Q)
+
+        # print("LQ")
+        # print(L)
+        # print(Q)
+
+        if norm == "L1":
+            R = [np.ones((n_rows, n_cols)) for _ in self.list_periods]
 
         mu = self.mu or 1e-2
         mu_bar = mu * 1e3
@@ -280,48 +283,55 @@ class RPCANoisy(RPCA):
             A_temp = A.copy()
             L_temp = L.copy()
             Q_temp = Q.copy()
+            if norm == "L1":
+                R_temp = R.copy()
+                sums = np.zeros((n_rows, n_cols))
+                for i_period, _ in enumerate(self.list_periods):
+                    sums += mu * R[i_period] - list_H[i_period] @ Y
 
-            X = scp.linalg.solve(
-                a=(1 + mu) * In + HtH,
-                b=D - A + mu * L @ Q - Y,
-            )
-            assert X.shape == X_temp.shape
-
-            if np.any(np.isnan(D)):
-                A_Omega = rpca_utils.soft_thresholding(D - X, lam)
-                A_Omega_C = D - X
-                A = np.where(Omega, A_Omega, A_Omega_C)
+                X = scp.linalg.solve(
+                    a=(1 + mu) * In + HtH,
+                    b=D - A + mu * L @ Q - Y + sums,
+                )
             else:
-                A = rpca_utils.soft_thresholding(D - X, lam)
+                X = scp.linalg.solve(
+                    a=(1 + mu) * In + 2 * HtH,
+                    b=D - A + mu * L @ Q - Y,
+                )
+
+            A_Omega = rpca_utils.soft_thresholding(D - X, lam)
+            A_Omega_C = D - X
+            A = np.where(Omega, A_Omega, A_Omega_C)
 
             Q = scp.linalg.solve(
                 a=tau * Ir + mu * (L.T @ L),
                 b=L.T @ (mu * X + Y),
             )
-            assert Q.shape == Q_temp.shape
 
-            print("----")
-            print(mu)
-            print(tau)
-            print("--XY--")
-            print(X)
-            print(Y)
-            print("Q")
-            print(Q)
-            print("####")
-            print(tau * Ir + mu * (Q @ Q.T))
-            print(Q @ (mu * X.T + Y.T))
+            # print("----")
+            # print(mu)
+            # print(tau)
+            # print("Q")
+            # print(Q)
+            # print("####")
+            # print(tau * Ir + mu * (Q @ Q.T))
+            # print(Q @ (mu * X.T + Y.T))
+            u, s, v = np.linalg.svd(tau * Ir + mu * (Q @ Q.T))
+            print(s)
 
             L = scp.linalg.solve(
                 a=tau * Ir + mu * (Q @ Q.T),
                 b=Q @ (mu * X.T + Y.T),
             ).T
-            assert L.shape == L_temp.shape
 
-            print("L")
-            print(L)
+            # print("L")
+            # print(L)
 
             Y += mu * (X - L @ Q)
+            if norm == "L1":
+                for i_period, _ in enumerate(self.list_periods):
+                    eta = self.list_etas[i_period]
+                    R[i_period] = rpca_utils.soft_thresholding(R[i_period] / mu, eta / mu)
 
             mu = min(mu * rho, mu_bar)
 
@@ -329,13 +339,14 @@ class RPCANoisy(RPCA):
             Ac = np.linalg.norm(A - A_temp, np.inf)
             Lc = np.linalg.norm(L - L_temp, np.inf)
             Qc = np.linalg.norm(Q - Q_temp, np.inf)
-
             tol = max([Xc, Ac, Lc, Qc])
+            if norm == "L1":
+                for i_period, _ in enumerate(self.list_periods):
+                    Rc = np.linalg.norm(R[i_period] - R_temp[i_period], np.inf)
+                    tol = max(tol, Rc)
 
             if tol < self.tol:
                 break
-
-            break
 
         X = L @ Q
 
@@ -401,19 +412,19 @@ class RPCANoisy(RPCA):
         rank = int(rank)
         tau = params_scale["tau"] if self.tau is None else self.tau
 
-        _, n_columns = D.shape
+        n_rows, _ = D.shape
         for period in self.list_periods:
-            if not period < n_columns:
+            if not period < n_rows:
                 raise ValueError(
                     "The periods provided in argument in `list_periods` must smaller "
-                    f"than the number of columns in the matrix but {period} >= {n_columns}!"
+                    f"than the number of rows in the matrix but {period} >= {n_rows}!"
                 )
 
         if self.norm == "L1":
-            M, A, U, V = self.decompose_rpca_L1(D, Omega, lam, tau, rank)
+            M, A, U, V = self.decompose_rpca_L2(D, Omega, lam, tau, rank, norm="L1")
 
         elif self.norm == "L2":
-            M, A, U, V = self.decompose_rpca_L2(D, Omega, lam, tau, rank)
+            M, A, U, V = self.decompose_rpca_L2(D, Omega, lam, tau, rank, norm="L1")
 
         self._check_cost_function_minimized(D, M, A, Omega, tau, lam)
 

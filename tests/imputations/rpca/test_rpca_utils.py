@@ -79,6 +79,12 @@ def test_rpca_utils_l1_norm(X: NDArray):
 @pytest.mark.parametrize("dimension", [5])
 def test_rpca_utils_toeplitz_matrix(T: int, dimension: int):
     result = toeplitz_matrix(T=T, dimension=dimension)
-    X_exp = np.array([[1, 0, -1, 0, 0], [0, 1, 0, -1, 0], [0, 0, 1, 0, -1]])
+    result_np = result.toarray()
+    X_exp = np.array(
+        [[1, 0, -1, 0, 0], [0, 1, 0, -1, 0], [0, 0, 1, 0, -1], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]]
+    )
 
-    np.testing.assert_allclose(result, X_exp)
+    print(result_np)
+    print(X_exp)
+
+    np.testing.assert_allclose(result_np, X_exp)

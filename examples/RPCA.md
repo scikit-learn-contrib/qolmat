@@ -36,18 +36,6 @@ from qolmat.utils.data import generate_artificial_ts
 **Generate synthetic data**
 
 ```python
-H = rpca_utils.toeplitz_matrix(2, 10)
-```
-
-```python
-Tr(Xt Ht H X) = Tr(Ht H X Xt)
-```
-
-```python
-H.T @ H
-```
-
-```python
 n_samples = 1000
 periods = [100, 20]
 amp_anomalies = 0.5
@@ -104,15 +92,22 @@ plt.plot(imputed)
 ## Temporal RPCA
 
 ```python
+signal.shape
+```
+
+```python
 %%time
-rpca_noisy = RPCANoisy(period=10, tau=1, lam=0.4, list_periods=[10], list_etas=[0.01], norm="L2")
+# rpca_noisy = RPCANoisy(period=10, tau=1, lam=0.4, rank=2, list_periods=[10], list_etas=[0.01], norm="L2")
+rpca_noisy = RPCANoisy(period=10, tau=1, lam=0.4, rank=2, norm="L2")
 X, A = rpca_noisy.decompose_rpca_signal(signal)
+imputed =
 ```
 
 ```python
 fig = plt.figure(figsize=(12, 4))
-plt.plot(X, color="black")
-plt.plot(imputed)
+plt.plot(signal, color="black")
+plt.plot(X_true)
+plt.plot(X)
 ```
 
 ```python
