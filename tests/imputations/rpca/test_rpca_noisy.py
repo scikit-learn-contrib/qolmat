@@ -87,10 +87,24 @@ def test_rpca_noisy_get_params_scale(X: NDArray):
     np.testing.assert_allclose(result, params_expected, rtol=1e-5)
 
 
+X_test = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]])
+
+
+@pytest.mark.parametrize("norm", ["L2"])
+def test_rpca_decompose_rpca_signal_shape(norm: str):
+    """Test RPCA noisy results if tau and lambda equal zero."""
+    rpca = RPCANoisy(rank=2, norm=norm)
+    print("X")
+    print(X_test)
+    X_result, A_result = rpca.decompose_rpca_signal(X_test)
+    assert X_result.shape == X_test.shape
+    assert A_result.shape == X_test.shape
+
+
 @pytest.mark.parametrize("X, X_interpolated", [(X_incomplete, X_interpolated)])
 def test_rpca_noisy_zero_tau_zero_lambda(X: NDArray, X_interpolated: NDArray):
     """Test RPCA noisy results if tau and lambda equal zero."""
-    rpca = RPCANoisy(mu=1e-4, tau=0, lam=0, norm="L2")
+    rpca = RPCANoisy(tau=0, lam=0, norm="L2")
     print("X")
     print(X)
     X_result, A_result = rpca.decompose_rpca_signal(X)

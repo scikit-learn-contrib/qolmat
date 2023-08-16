@@ -245,16 +245,22 @@ class RPCANoisy(RPCA):
         Y = np.zeros((n_rows, n_cols))
         X = D.copy()
         A = np.zeros((n_rows, n_cols))
-        U, S, Vt = np.linalg.svd(X)
+        U, S, Vt = np.linalg.svd(X.T)
         print("SVD")
+        print(X.T)
         print(U)
         print(S)
         print(Vt)
         U = U[:, :rank]
         S = S[:rank]
         Vt = Vt[:rank, :]
+        U, Vt = Vt.T, U.T
         L = U @ np.diag(np.sqrt(S))
         Q = np.diag(np.sqrt(S)) @ Vt
+        np.testing.assert_allclose(L @ Q, X, atol=1e-4)
+        print("LQ")
+        print(L)
+        print(Q)
 
         mu = self.mu or 1e-2
         mu_bar = mu * 1e3
@@ -279,6 +285,7 @@ class RPCANoisy(RPCA):
                 a=(1 + mu) * In + HtH,
                 b=D - A + mu * L @ Q - Y,
             )
+            assert X.shape == X_temp.shape
 
             if np.any(np.isnan(D)):
                 A_Omega = rpca_utils.soft_thresholding(D - X, lam)
@@ -287,20 +294,32 @@ class RPCANoisy(RPCA):
             else:
                 A = rpca_utils.soft_thresholding(D - X, lam)
 
-            L = scp.linalg.solve(
-                a=tau * Ir + mu * (Q @ Q.T),
-                b=(mu * X + Y) @ Q.T,
-            ).T
-            print("----")
-            print(Ir)
-            print(L)
-            print(X)
-            print(Y)
-            print("####")
             Q = scp.linalg.solve(
                 a=tau * Ir + mu * (L.T @ L),
                 b=L.T @ (mu * X + Y),
             )
+            assert Q.shape == Q_temp.shape
+
+            print("----")
+            print(mu)
+            print(tau)
+            print("--XY--")
+            print(X)
+            print(Y)
+            print("Q")
+            print(Q)
+            print("####")
+            print(tau * Ir + mu * (Q @ Q.T))
+            print(Q @ (mu * X.T + Y.T))
+
+            L = scp.linalg.solve(
+                a=tau * Ir + mu * (Q @ Q.T),
+                b=Q @ (mu * X.T + Y.T),
+            ).T
+            assert L.shape == L_temp.shape
+
+            print("L")
+            print(L)
 
             Y += mu * (X - L @ Q)
 
@@ -316,7 +335,9 @@ class RPCANoisy(RPCA):
             if tol < self.tol:
                 break
 
-        X = L @ Q.T
+            break
+
+        X = L @ Q
 
         M = X
         U = L
