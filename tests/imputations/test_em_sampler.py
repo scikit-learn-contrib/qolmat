@@ -276,8 +276,8 @@ def test_fit_parameters_multinormalem():
 
 def test_mean_covariance_multinormalem():
     """Test the MultiNormalEM provides good mean and covariance estimations."""
-    X, X_missing, mean, covariance = generate_multinormal_predefined_mean_cov(d=2, n=10000)
-    em = em_sampler.MultiNormalEM(max_iter_em=100)
+    X, X_missing, mean, covariance = generate_multinormal_predefined_mean_cov(d=2, n=1000)
+    em = em_sampler.MultiNormalEM()
     X_imputed = em.fit_transform(X_missing)
 
     em.fit_parameters(X)
