@@ -4,7 +4,7 @@ from typing_extensions import Self
 
 import numpy as np
 import pandas as pd
-import scipy
+from scipy import linalg as spl
 from numpy.typing import NDArray
 from sklearn import utils as sku
 from sklearn.base import BaseEstimator, TransformerMixin
@@ -13,6 +13,7 @@ from statsmodels.tsa.api import VAR
 from statsmodels.tsa.vector_ar.var_model import VARResultsWrapper
 
 from qolmat.utils import utils
+from qolmat.utils.exceptions import SingleSample
 
 
 def _conjugate_gradient(A: NDArray, X: NDArray, mask: NDArray) -> NDArray:
@@ -212,6 +213,7 @@ class EM(BaseEstimator, TransformerMixin):
         self,
         X: NDArray,
         mask_na: NDArray,
+        estimate_params: bool = True,
     ) -> NDArray:
         """
         Samples the Gaussian distribution under the constraint that not na values must remain
@@ -235,15 +237,25 @@ class EM(BaseEstimator, TransformerMixin):
             Sampled data matrix
         """
         n_variables, n_samples = X.shape
-        self.reset_learned_parameters()
+        if estimate_params:
+            self.reset_learned_parameters()
         X_init = X.copy()
         gamma = self.get_gamma()
+        sqrt_gamma = np.real(spl.sqrtm(gamma))
         for _ in range(self.n_iter_ou):
             noise = self.ampli * self.rng.normal(0, 1, size=(n_variables, n_samples))
             grad_X = self.gradient_X_loglik(X)
-            X += self.dt * gamma * grad_X + np.sqrt(2 * gamma * self.dt) * noise
+            # print("X update")
+            # print(X, "\n")
+            # print(self.dt, "\n")
+            # print(gamma, "\n")
+            # print(grad_X, "\n")
+            # print(grad_X @ gamma, "\n")
+            # X += self.dt * gamma * grad_X + np.sqrt(2 * gamma * self.dt) * noise
+            X += self.dt * grad_X @ gamma + np.sqrt(2 * self.dt) * noise @ sqrt_gamma
             X[~mask_na] = X_init[~mask_na]
-            self.update_parameters(X)
+            if estimate_params:
+                self.update_parameters(X)
 
         return X
 
@@ -266,18 +278,21 @@ class EM(BaseEstimator, TransformerMixin):
         X = utils.prepare_data(X, self.period)
         # X = self.scaler.fit_transform(X)
 
-        if hasattr(self, "p"):
-            if self.p is None:  # type: ignore # noqa
-                self.p = get_lag_p(utils.linear_interpolation(X))
-            self.n_features = X.shape[1]
-            # X = utils.create_lag_matrix(X, self.p)
-            Z, Y = utils.create_lag_matrices(X, self.p)
+        # print("X shape")
+        # print(X.shape)
+
+        if hasattr(self, "p") and self.p is None:  # type: ignore # noqa
+            self.p = get_lag_p(utils.linear_interpolation(X))
 
         mask_na = np.isnan(X)
 
         # first imputation
         X = utils.linear_interpolation(X)
         self.fit_parameters(X)
+
+        if not np.any(mask_na):
+            self.X_sample_last = X
+            return self
 
         for iter_em in range(self.max_iter_em):
             X = self._sample_ou(X, mask_na)
@@ -325,7 +340,7 @@ class EM(BaseEstimator, TransformerMixin):
         if self.method == "mle":
             X_transformed = self._maximize_likelihood(X, mask_na, self.dt)
         elif self.method == "sample":
-            X_transformed = self._sample_ou(X, mask_na)
+            X_transformed = self._sample_ou(X, mask_na, estimate_params=False)
 
         if np.all(np.isnan(X_transformed)):
             raise AssertionError("Result contains NaN. This is a bug.")
@@ -446,7 +461,9 @@ class MultiNormalEM(EM):
         return grad_X
 
     def get_gamma(self) -> NDArray:
-        gamma = np.diagonal(self.cov).reshape(1, -1)
+        gamma = np.diag(np.diagonal(self.cov))
+        # gamma = self.cov
+        # gamma = np.eye(len(self.cov))
         return gamma
 
     def update_criteria_stop(self, X: NDArray):
@@ -464,7 +481,10 @@ class MultiNormalEM(EM):
         means = np.mean(X, axis=0)
         self.list_means.append(means)
         # reshaping for 1D input
-        cov = np.cov(X, bias=True, rowvar=False).reshape(n_cols, -1)
+        if n_rows == 1:
+            cov = np.zeros((n_cols, n_cols))
+        else:
+            cov = np.cov(X, bias=True, rowvar=False).reshape(n_cols, -1)
         self.list_cov.append(cov)
 
     def combine_parameters(self):
@@ -475,7 +495,12 @@ class MultiNormalEM(EM):
         means_stack = np.stack(list_means)
         self.means = np.mean(means_stack, axis=0)
         cov_stack = np.stack(list_cov)
-        self.cov = np.mean(cov_stack, axis=0) + np.cov(means_stack, bias=True, rowvar=False)
+        cov_intragroup = np.mean(cov_stack, axis=0)
+        if len(list_means) == 1:
+            cov_intergroup = np.zeros(cov_intragroup.shape)
+        else:
+            cov_intergroup = np.cov(means_stack, bias=True, rowvar=False)
+        self.cov = cov_intragroup + cov_intergroup
         self.cov_inv = np.linalg.pinv(self.cov)
 
     def _maximize_likelihood(self, X: NDArray, mask_na: NDArray, dt: float = np.nan) -> NDArray:
@@ -666,7 +691,8 @@ class VARpEM(EM):
         return grad_1 + grad_2
 
     def get_gamma(self) -> NDArray:
-        gamma = np.diagonal(self.S).reshape(1, -1)
+        # gamma = np.diagonal(self.S).reshape(1, -1)
+        gamma = self.S
         return gamma
 
     def reset_learned_parameters(self):
@@ -712,7 +738,6 @@ class VARpEM(EM):
         list_ZY = self.list_ZY[-self.n_samples :]
         list_S = self.list_S[-self.n_samples :]
 
-        # MANOVA formula
         stack_ZZ = np.stack(list_ZZ)
         self.ZZ = np.mean(stack_ZZ, axis=0)
         stack_ZY = np.stack(list_ZY)

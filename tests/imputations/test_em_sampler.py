@@ -265,14 +265,31 @@ def test_no_more_nan_varpem() -> None:
     assert np.sum(np.isnan(X_imputed)) == 0
 
 
+def test_fit_parameters_multinormalem():
+    """Test the fit MultiNormalEM provides good parameters estimates (no imputation)."""
+    X, X_missing, mean, covariance = generate_multinormal_predefined_mean_cov(d=2, n=10000)
+    em = em_sampler.MultiNormalEM()
+    em.fit_parameters(X)
+    np.testing.assert_allclose(em.means, mean, atol=1e-1)
+    np.testing.assert_allclose(em.cov, covariance, atol=1e-1)
+
+
 def test_mean_covariance_multinormalem():
     """Test the MultiNormalEM provides good mean and covariance estimations."""
-    X, X_missing, mean, covariance = generate_multinormal_predefined_mean_cov(d=3, n=2000)
-    em = em_sampler.MultiNormalEM()
+    X, X_missing, mean, covariance = generate_multinormal_predefined_mean_cov(d=2, n=10000)
+    em = em_sampler.MultiNormalEM(max_iter_em=100)
     X_imputed = em.fit_transform(X_missing)
+
+    print("X X_imputed")
+    em.fit_parameters(X)
+    print(em.cov)
+    em.fit_parameters(X_imputed)
+    print(em.cov)
 
     covariance_imputed = np.cov(X_imputed, rowvar=False)
     mean_imputed = np.mean(X_imputed, axis=0)
+    np.testing.assert_allclose(em.means, mean, rtol=1e-1)
+    np.testing.assert_allclose(em.cov, covariance, rtol=1e-1)
     np.testing.assert_allclose(mean_imputed, mean, rtol=1e-1)
     np.testing.assert_allclose(covariance_imputed, covariance, rtol=1e-1)
 
@@ -283,7 +300,7 @@ def test_mean_covariance_multinormalem():
 )
 def test_fit_parameters_varpem(p: int):
     """Test the fit VAR(1) provides good A and B estimates (no imputation)."""
-    X, X_missing, B, S = generate_varp_process(d=3, n=100000, p=p)
+    X, X_missing, B, S = generate_varp_process(d=2, n=2000, p=p)
     em = em_sampler.VARpEM(p=p)
     em.fit_parameters(X)
     np.testing.assert_allclose(em.S, S, atol=1e-1)
@@ -296,7 +313,7 @@ def test_fit_parameters_varpem(p: int):
 )
 def test_parameters_after_imputation_varpem(p: int):
     """Test the VAR(2) provides good A and B estimates."""
-    X, X_missing, B, S = generate_varp_process(d=3, n=10000, p=p)
+    X, X_missing, B, S = generate_varp_process(d=2, n=1000, p=p)
     em = em_sampler.VARpEM(p=p)
     X_imputed = em.fit_transform(X_missing)
     em.fit_parameters(X_imputed)

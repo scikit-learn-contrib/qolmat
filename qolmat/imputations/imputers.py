@@ -108,6 +108,7 @@ class _Imputer(_BaseImputer):
             df = pd.DataFrame(X_np, columns=[i for i in range(X_np.shape[1])])
         else:
             df = X
+        df = df.astype(float)
         return df
 
     def _check_dataframe(self, X: NDArray):
@@ -148,9 +149,7 @@ class _Imputer(_BaseImputer):
                 raise ValueError("Input contains a column full of NaN")
 
         self.columns_ = tuple(df.columns)
-        print("self.random_state:", self.random_state)
         self._rng = sku.check_random_state(self.random_state)
-        print("first sample :", self._rng.randint(1000))
         if hasattr(self, "estimator") and hasattr(self.estimator, "random_state"):
             self.estimator.random_state = self._rng
 
@@ -1764,9 +1763,9 @@ class ImputerRPCA(_Imputer):
 
         hyperparams = self.get_hyperparams(col=col)
         model = self.get_model(random_state=self._rng, **hyperparams)
-        X = df.astype(float).values.T
+        X = df.astype(float).values
         M, A = model.decompose_rpca_signal(X)
-        X_imputed = (M + A).T
+        X_imputed = M + A
         df_imputed = pd.DataFrame(X_imputed, index=df.index, columns=df.columns)
         df_imputed = df.where(~df.isna(), df_imputed)
 
@@ -1854,11 +1853,11 @@ class ImputerEM(_Imputer):
         if self.model == "multinormal":
             hyperparams.pop("p")
             return em_sampler.MultiNormalEM(
-                random_state=self._rng, verbose=self.verbose, **hyperparams
+                random_state=self.random_state, verbose=self.verbose, **hyperparams
             )
         elif self.model == "VAR":
             return em_sampler.VARpEM(
-                random_state=self.rng_,
+                random_state=self.random_state,
                 verbose=self.verbose,
                 **(hyperparams),  # type: ignore #noqa
             )
@@ -1897,7 +1896,7 @@ class ImputerEM(_Imputer):
         self._check_dataframe(df)
         hyperparams = self.get_hyperparams()
         model = self.get_model(**hyperparams)
-        model = model.fit(df.values.T)
+        model = model.fit(df.values)
         return model
 
     def _transform_element(
@@ -1930,9 +1929,8 @@ class ImputerEM(_Imputer):
 
         model = self._dict_fitting[col][ngroup]
 
-        X = df.values.T.astype(float)
+        X = df.values.astype(float)
         X_imputed = model.transform(X)
-        X_imputed = X_imputed.T
 
         df_transformed = pd.DataFrame(X_imputed, columns=df.columns, index=df.index)
 

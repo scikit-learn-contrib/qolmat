@@ -25,6 +25,82 @@ import warnings
 ```
 
 ```python
+X = np.array([[1, 2, 3]])
+X.shape
+```
+
+```python
+np.cov(X, bias=True, rowvar=False)
+```
+
+```python
+np.diag(X[0]**2)
+```
+
+```python
+np.isnan(X)
+```
+
+```python
+from tests.imputations.test_em_sampler import generate_multinormal_predefined_mean_cov
+from qolmat.imputations import em_sampler
+
+X, X_missing, mean, covariance = generate_multinormal_predefined_mean_cov(d=2, n=10000)
+```
+
+```python
+covariance
+```
+
+```python
+scov = scipy.linalg.sqrtm(covariance)
+```
+
+```python
+scov@scov
+```
+
+```python
+U, S, Vt = scipy.linalg.svd(covariance)
+```
+
+```python
+scov = (np.sqrt(S) * U) @ Vt
+```
+
+```python
+scov
+```
+
+```python
+scov@scov
+```
+
+```python
+X2 = X.copy()
+X2[9000, :] = np.nan
+```
+
+```python
+em = em_sampler.MultiNormalEM(max_iter_em=10, n_iter_ou=200)
+
+```
+
+```python
+em.fit_parameters(X)
+print(em.cov)
+print(covariance)
+```
+
+```python jupyter={"outputs_hidden": true}
+X_imputed = em.fit_transform(X_missing)
+```
+
+```python
+plt.plot([c[0,1] for c in em.hist])
+```
+
+```python
 %reload_ext autoreload
 %autoreload 2
 

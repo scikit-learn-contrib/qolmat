@@ -51,3 +51,8 @@ class NotEnoughSamples(Exception):
 class EstimatorNotDefined(Exception):
     def __init__(self):
         super().__init__("The underlying estimator should be defined beforehand!")
+
+
+class SingleSample(Exception):
+    def __init__(self):
+        super().__init__("""This imputer cannot be fitted on a single sample!""")
