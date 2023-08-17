@@ -3,17 +3,15 @@ from typing import Dict, List, Literal, Union
 from typing_extensions import Self
 
 import numpy as np
-import pandas as pd
 from scipy import linalg as spl
+from scipy import optimize as spo
 from numpy.typing import NDArray
 from sklearn import utils as sku
 from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.preprocessing import StandardScaler
 from statsmodels.tsa.api import VAR
 from statsmodels.tsa.vector_ar.var_model import VARResultsWrapper
 
 from qolmat.utils import utils
-from qolmat.utils.exceptions import SingleSample
 
 
 def _conjugate_gradient(A: NDArray, X: NDArray, mask: NDArray) -> NDArray:
@@ -90,6 +88,23 @@ def get_lag_p(X: NDArray, max_lag_order: int = 10, criterion: str = "aic") -> in
 
 
 def min_diff_Linf(list_params: List[NDArray], n_steps: int, order: int = 1) -> float:
+    """Computes the maximal L infinity norm between the `n_steps` last elements spaced by order.
+    Used to compute the stop criterion.
+
+    Parameters
+    ----------
+    list_params : List[NDArray]
+        List of statistics from the samples
+    n_steps : int
+        Number of steps to take into account
+    order : int, optional
+        Space between compared statistics, by default 1
+
+    Returns
+    -------
+    float
+        Minimal norm of differences
+    """
     params = np.stack(list_params[-n_steps - order : -order])
     params_shift = np.stack(list_params[-n_steps:])
     min_diff = np.max(np.abs(params - params_shift))
@@ -110,14 +125,29 @@ class EM(BaseEstimator, TransformerMixin):
     n_iter_ou : int, optional
         Number of iterations for the Gibbs sampling method (+ noise addition),
         necessary for convergence, by default 50.
+    n_samples : int, optional
+        Number of data samples used to estimate the parameters of the distribution. Default, 10
     ampli : float, optional
         Whether to sample the posterior (1)
         or to maximise likelihood (0), by default 1.
     random_state : int, optional
         The seed of the pseudo random number generator to use, for reproductibility.
-    dt : float
+    dt : float, optional
         Process integration time step, a large value increases the sample bias and can make
         the algorithm unstable, but compensates for a smaller n_iter_ou. By default, 2e-2.
+    tolerance : float, optional
+        Threshold below which a L infinity norm difference indicates the convergence of the
+        parameters
+    stagnation_threshold : float, optional
+        Threshold below which a stagnation of the L infinity norm difference indicates the
+        convergence of the parameters
+    stagnation_loglik : float, optional
+        Threshold below which an absolute difference of the log likelihood indicates the
+        convergence of the parameters
+    period : int, optional
+        Integer used to fold the temporal data periodically before applying the RPCA
+    verbose : bool, optional
+        Verbosity level, if False the warnings are silenced
     """
 
     def __init__(
@@ -148,7 +178,6 @@ class EM(BaseEstimator, TransformerMixin):
         self.tolerance = tolerance
         self.stagnation_threshold = stagnation_threshold
         self.stagnation_loglik = stagnation_loglik
-        # self.scaler = StandardScaler()
 
         self.dict_criteria_stop: Dict[str, List] = {}
         self.period = period
@@ -179,10 +208,13 @@ class EM(BaseEstimator, TransformerMixin):
         self.loglik = self.get_loglikelihood(X)
 
     @abstractmethod
-    def gradient_X_centered_loglik(
+    def get_loglikelihood(self, X: NDArray) -> float:
+        return 0
+
+    @abstractmethod
+    def gradient_X_loglik(
         self,
         X: NDArray,
-        mask_na: NDArray,
     ) -> NDArray:
         return np.empty
 
@@ -190,24 +222,45 @@ class EM(BaseEstimator, TransformerMixin):
         n_rows, n_cols = self.shape_original
         return np.ones((1, n_cols))
 
-    def _maximize_likelihood(self, X: NDArray, mask_na: NDArray, dt=1e-2) -> NDArray:
-        """Get the argmax of a posterior distribution.
+    def _maximize_likelihood(self, X: NDArray, mask_na: NDArray) -> NDArray:
+        """Get the argmax of a posterior distribution using the BFGS algorithm.
 
-        Parameters∑
+        Parameters
         ----------
         X : NDArray
             Input numpy array.
+        mask_na : NDArray
+            Boolean dataframe indicating which coefficients should be resampled, and are therefore
+            the variables of the optimization
 
         Returns
         -------
         NDArray
             DataFrame with imputed values.
         """
-        for _ in range(1000):
-            grad = self.gradient_X_loglik(X)
-            grad[~mask_na] = 0
-            X += dt * grad
-        return X
+
+        def fun_obj(x):
+            x_mat = X.copy()
+            x_mat[mask_na] = x
+            return self.get_loglikelihood(x_mat)
+
+        def fun_jac(x):
+            x_mat = X.copy()
+            x_mat[mask_na] = x
+            grad_x = self.gradient_X_loglik(x_mat)
+            grad_x[~mask_na] = 0
+            return grad_x
+
+        res = spo.minimize(fun_obj, X[mask_na], jac=fun_jac)
+
+        # for _ in range(1000):
+        #     grad = self.gradient_X_loglik(X)
+        #     grad[~mask_na] = 0
+        #     X += dt * grad
+        x = res.x
+        X_sol = X.copy()
+        X_sol[mask_na] = x
+        return X_sol
 
     def _sample_ou(
         self,
@@ -218,10 +271,8 @@ class EM(BaseEstimator, TransformerMixin):
         """
         Samples the Gaussian distribution under the constraint that not na values must remain
         unchanged, using a projected Ornstein-Uhlenbeck process.
-        The sampled distribution tends to the target one in the limit dt -> 0 and
+        The sampled distribution tends to the target distribution in the limit dt -> 0 and
         n_iter_ou x dt -> infty.
-        Called by `impute_sample_ts`.
-        X = A X_t-1 + B + E where E ~ N(0, omega)
 
         Parameters
         ----------
@@ -230,6 +281,9 @@ class EM(BaseEstimator, TransformerMixin):
             method. This first imputation will be used as an initial guess.
         mask_na : NDArray
             Boolean dataframe indicating which coefficients should be resampled.
+        estimate_params : bool
+            Indicates if the parameters of the distribution should be estimated while the data are
+            sampled.
 
         Returns
         -------
@@ -245,13 +299,6 @@ class EM(BaseEstimator, TransformerMixin):
         for _ in range(self.n_iter_ou):
             noise = self.ampli * self.rng.normal(0, 1, size=(n_variables, n_samples))
             grad_X = self.gradient_X_loglik(X)
-            # print("X update")
-            # print(X, "\n")
-            # print(self.dt, "\n")
-            # print(gamma, "\n")
-            # print(grad_X, "\n")
-            # print(grad_X @ gamma, "\n")
-            # X += self.dt * gamma * grad_X + np.sqrt(2 * gamma * self.dt) * noise
             X += self.dt * grad_X @ gamma + np.sqrt(2 * self.dt) * noise @ sqrt_gamma
             X[~mask_na] = X_init[~mask_na]
             if estimate_params:
@@ -276,10 +323,6 @@ class EM(BaseEstimator, TransformerMixin):
             raise AssertionError("Invalid type. X must be a NDArray.")
 
         X = utils.prepare_data(X, self.period)
-        # X = self.scaler.fit_transform(X)
-
-        # print("X shape")
-        # print(X.shape)
 
         if hasattr(self, "p") and self.p is None:  # type: ignore # noqa
             self.p = get_lag_p(utils.linear_interpolation(X))
@@ -338,22 +381,12 @@ class EM(BaseEstimator, TransformerMixin):
         mask_na = np.isnan(X)
 
         if self.method == "mle":
-            X_transformed = self._maximize_likelihood(X, mask_na, self.dt)
+            X_transformed = self._maximize_likelihood(X, mask_na)
         elif self.method == "sample":
             X_transformed = self._sample_ou(X, mask_na, estimate_params=False)
 
         if np.all(np.isnan(X_transformed)):
             raise AssertionError("Result contains NaN. This is a bug.")
-
-        # if hasattr(self, "p"):
-        #     X_transformed = self.get_X(X_transformed)
-        #     self.get_parameters_ABomega()
-        #     self.dict_criteria_stop["As"] = self.A
-        #     self.dict_criteria_stop["Bs"] = self.B
-        #     self.dict_criteria_stop["omegas"] = self.omega
-
-        # X_transformed = self.scaler.inverse_transform(X_transformed)
-        # X_transformed = utils.get_shape_original(X_transformed, self.shape_original)
 
         return X_transformed
 
@@ -380,26 +413,19 @@ class MultiNormalEM(EM):
     dt : float
         Process integration time step, a large value increases the sample bias and can make
         the algorithm unstable, but compensates for a smaller n_iter_ou. By default, 2e-2.
-    verbose: bool
-        default `False`
-
-    Attributes
-    ----------
-    X_intermediate : list
-        List of pd.DataFrame giving the results of the EM process as function of the
-        iteration number.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import pandas as pd
-    >>> from qolmat.imputations.em_sampler import ImputeEM
-    >>> imputor = ImputeEM(method="sample")
-    >>> X = pd.DataFrame(data=[[1, 1, 1, 1],
-    >>>                        [np.nan, np.nan, 3, 2],
-    >>>                        [1, 2, 2, 1], [2, 2, 2, 2]],
-    >>>                        columns=["var1", "var2", "var3", "var4"])
-    >>> imputor.fit_transform(X)
+    tolerance : float, optional
+        Threshold below which a L infinity norm difference indicates the convergence of the
+        parameters
+    stagnation_threshold : float, optional
+        Threshold below which a L infinity norm difference indicates the convergence of the
+        parameters
+    stagnation_loglik : float, optional
+        Threshold below which an absolute difference of the log likelihood indicates the
+        convergence of the parameters
+    period : int, optional
+        Integer used to fold the temporal data periodically before applying the RPCA
+    verbose : bool, optional
+        Verbosity level, if False the warnings are silenced
     """
 
     def __init__(
@@ -432,51 +458,85 @@ class MultiNormalEM(EM):
         self.dict_criteria_stop = {"logliks": [], "means": [], "covs": []}
 
     def get_loglikelihood(self, X: NDArray) -> float:
-        Xc = X - self.means
-        return -((Xc @ self.cov_inv) * Xc).sum().sum() / 2
-        # if np.all(np.isclose(self.cov, 0)):
-        #     return 0
-        # else:
-        #     return scipy.stats.multivariate_normal.logpdf(
-        #         X, self.means, self.cov, allow_singular=True
-        #     ).mean()
-
-    def gradient_X_loglik(self, X: NDArray) -> NDArray:
         """
-        Calculates the gradient of a centered
-        log-likelihood function using a given matrix.
-        (X_t+1 - A * X_t).T omega_inv (X_t+1 - A * X_t)
+        Value of the log-likelihood up to a constant for the provided X, using the attributes
+        `means` and `cov_inv` for the multivariate normal distribution.
 
         Parameters
         ----------
-        Xc : NDArray
-            Xc is a numpy array representing the centered input data.
+        X : NDArray
+            Input matrix with variables in column
+
+        Returns
+        -------
+        float
+            Computed value
+        """
+        Xc = X - self.means
+        return -((Xc @ self.cov_inv) * Xc).sum().sum() / 2
+
+    def gradient_X_loglik(self, X: NDArray) -> NDArray:
+        """
+        Gradient of the log-likelihood for the provided X, using the attributes
+        `means` and `cov_inv` for the multivariate normal distribution.
+
+        Parameters
+        ----------
+        X : NDArray
+            Input matrix with variables in column
 
         Returns
         -------
         NDArray
-            The gradient of the centered log-likelihood with respect to the input variable `Xc`.
+            The gradient of the log-likelihood with respect to the input variable `X`.
         """
         grad_X = -(X - self.means) @ self.cov_inv
         return grad_X
 
     def get_gamma(self) -> NDArray:
+        """
+        Normalisation matrix used to stabilize the sampling process
+
+        Returns
+        -------
+        NDArray
+            Gamma matrix
+        """
         gamma = np.diag(np.diagonal(self.cov))
         # gamma = self.cov
         # gamma = np.eye(len(self.cov))
         return gamma
 
     def update_criteria_stop(self, X: NDArray):
+        """
+        Updates the variables which will be used to compute the stop critera
+
+        Parameters
+        ----------
+        X : NDArray
+            Input matrix with variables in column
+        """
         self.loglik = self.get_loglikelihood(X)
         self.dict_criteria_stop["means"].append(self.means)
         self.dict_criteria_stop["covs"].append(self.cov)
         self.dict_criteria_stop["logliks"].append(self.loglik)
 
     def reset_learned_parameters(self):
+        """
+        Resets all lists of estimated parameters before starting a new estimation.
+        """
         self.list_means = []
         self.list_cov = []
 
     def update_parameters(self, X):
+        """
+        Retains statistics relative to the current sample, in prevision of combining them.
+
+        Parameters
+        ----------
+        X : NDArray
+            Input matrix with variables in column
+        """
         n_rows, n_cols = X.shape
         means = np.mean(X, axis=0)
         self.list_means.append(means)
@@ -488,6 +548,10 @@ class MultiNormalEM(EM):
         self.list_cov.append(cov)
 
     def combine_parameters(self):
+        """
+        Combine all statistics computed for each sample in the update step, using the MANOVA
+        formula.
+        """
         list_means = self.list_means[-self.n_samples :]
         list_cov = self.list_cov[-self.n_samples :]
 
@@ -503,7 +567,7 @@ class MultiNormalEM(EM):
         self.cov = cov_intragroup + cov_intergroup
         self.cov_inv = np.linalg.pinv(self.cov)
 
-    def _maximize_likelihood(self, X: NDArray, mask_na: NDArray, dt: float = np.nan) -> NDArray:
+    def _maximize_likelihood(self, X: NDArray, mask_na: NDArray) -> NDArray:
         """
         Get the argmax of a posterior distribution.
 
@@ -511,6 +575,9 @@ class MultiNormalEM(EM):
         ----------
         X : NDArray
             Input DataFrame.
+        mask_na : NDArray
+            Boolean dataframe indicating which coefficients should be resampled, and are therefore
+            the variables of the optimization
 
         Returns
         -------
@@ -570,9 +637,11 @@ class MultiNormalEM(EM):
 class VARpEM(EM):
     """
     Imputation of missing values using a vector autoregressive model through EM optimization and
-    using a projected Ornstein-Uhlenbeck process.
+    using a projected Ornstein-Uhlenbeck process. Equations and notations and from the following
+    reference, matrices are transposed for consistency:
+    Lütkepohl (2005) New Introduction to Multiple Time Series Analysis
 
-    (X_n+1 - B) = A @ (X_n - B) + Omega @ G_n
+    X^n+1 = nu + sum_k A_k^T @ X_k^n + G_n @ S
 
     Parameters
     ----------
@@ -591,26 +660,19 @@ class VARpEM(EM):
     dt : float
         Process integration time step, a large value increases the sample bias and can make
         the algorithm unstable, but compensates for a smaller n_iter_ou. By default, 2e-2.
+    tolerance : float, optional
+        Threshold below which a L infinity norm difference indicates the convergence of the
+        parameters
+    stagnation_threshold : float, optional
+        Threshold below which a L infinity norm difference indicates the convergence of the
+        parameters
+    stagnation_loglik : float, optional
+        Threshold below which an absolute difference of the log likelihood indicates the
+        convergence of the parameters
+    period : int, optional
+        Integer used to fold the temporal data periodically before applying the RPCA
     verbose: bool
         default `False`
-
-    Attributes
-    ----------
-    X_intermediate : list
-        List of pd.DataFrame giving the results of the EM process as function of the
-        iteration number.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import pandas as pd
-    >>> from qolmat.imputations.em_sampler import VAR1EM
-    >>> imputer = VAR1EM(method="sample")
-    >>> X = pd.DataFrame(data=[[1, 1, 1, 1],
-    >>>                        [np.nan, np.nan, 3, 2],
-    >>>                        [1, 2, 2, 1], [2, 2, 2, 2]],
-    >>>                        columns=["var1", "var2", "var3", "var4"])
-    >>> imputer.fit_transform(X)
     """
 
     def __init__(
@@ -645,38 +707,38 @@ class VARpEM(EM):
         self.p = p  # type: ignore #noqa
 
     def get_loglikelihood(self, X: NDArray) -> float:
+        """
+        Value of the log-likelihood up to a constant for the provided X, using the attributes
+        `nu`, `B` and `S` for the VAR(p) distribution.
+
+        Parameters
+        ----------
+        X : NDArray
+            Input matrix with variables in column
+
+        Returns
+        -------
+        float
+            Computed value
+        """
         Z, Y = utils.create_lag_matrices(X, self.p)
         U = Y - Z @ self.B
         return -(U @ self.S_inv * U).sum().sum() / 2
 
-        # p, n = X.shape
-        # sign, logdet = np.linalg.slogdet(self.omega)
-        # Xc = X - self.B[:, None]
-        # Xc_back = np.roll(Xc, 1, axis=1)
-        # Xc_back[:, 0] = 0
-        # return (
-        #     -n * p / 2 * np.log(2 * np.pi)
-        #     - n / 2 * sign * logdet
-        #     - 1
-        #     / 2
-        #     * np.trace((Xc - self.A @ Xc_back).T @ self.omega_inv @ (Xc - self.A @ Xc_back))
-        # )
-
     def gradient_X_loglik(self, X: NDArray) -> NDArray:
         """
-        Calculates the gradient of a centered
-        log-likelihood function using a given matrix.
-        (X_t+1 - A * X_t).T omega_inv (X_t+1 - A * X_t)
+        Gradient of the log-likelihood for the provided X, using the attributes
+        `means` and `cov_inv` for the VAR(p) distribution.
 
         Parameters
         ----------
-        Xc : NDArray
-            Xc is a numpy array representing the centered input data.
+        X : NDArray
+            Input matrix with variables in column
 
         Returns
         -------
         NDArray
-            The gradient of the centered log-likelihood with respect to the input variable `Xc`.
+            The gradient of the log-likelihood with respect to the input variable `X`.
         """
         n_rows, n_cols = X.shape
         Z, Y = utils.create_lag_matrices(X, p=self.p)
@@ -691,32 +753,50 @@ class VARpEM(EM):
         return grad_1 + grad_2
 
     def get_gamma(self) -> NDArray:
+        """
+        Normalisation matrix used to stabilize the sampling process
+
+        Returns
+        -------
+        NDArray
+            Gamma matrix
+        """
         # gamma = np.diagonal(self.S).reshape(1, -1)
         gamma = self.S
         return gamma
 
-    def reset_learned_parameters(self):
-        self.list_ZZ = []
-        self.list_ZY = []
-        self.list_B = []
-        self.list_S = []
-
     def update_criteria_stop(self, X: NDArray):
+        """
+        Updates the variables which will be used to compute the stop critera
+
+        Parameters
+        ----------
+        X : NDArray
+            Input matrix with variables in column
+        """
         self.loglik = self.get_loglikelihood(X)
         self.dict_criteria_stop["S"].append(self.list_S[-1])
         self.dict_criteria_stop["B"].append(self.list_B[-1])
         self.dict_criteria_stop["logliks"].append(self.loglik)
 
+    def reset_learned_parameters(self):
+        """
+        Resets all lists of estimated parameters before starting a new estimation.
+        """
+        self.list_ZZ = []
+        self.list_ZY = []
+        self.list_B = []
+        self.list_S = []
+
     def update_parameters(self, X: NDArray) -> None:
         """
-
+        Retains statistics relative to the current sample, in prevision of combining them.
 
         Parameters
         ----------
         X : NDArray
-            Input data for which the distribution is being fitted.
+            Input matrix with variables in column
         """
-        n_rows, n_cols = X.shape
 
         Z, Y = utils.create_lag_matrices(X, self.p)
         n_obs = len(Z)
@@ -733,7 +813,10 @@ class VARpEM(EM):
         self.list_S.append(S)
 
     def combine_parameters(self) -> None:
-        """ """
+        """
+        Combine all statistics computed for each sample in the update step. The estimation of `nu`
+         and `B` corresponds to the MLE, whereas `S`is approximated.
+        """
         list_ZZ = self.list_ZZ[-self.n_samples :]
         list_ZY = self.list_ZY[-self.n_samples :]
         list_S = self.list_S[-self.n_samples :]
@@ -785,12 +868,10 @@ class VARpEM(EM):
             min_diff_B5 < self.stagnation_threshold and min_diff_S5 < self.stagnation_threshold
         )
 
-        if n_iter > 10:
-            logliks = pd.Series(list_logliks[-6:])
-            max_loglik = (min(abs(logliks.diff(1)[1:])) < self.stagnation_loglik) or (
-                min(abs(logliks.diff(2)[2:])) < self.stagnation_loglik
-            )
-        else:
-            max_loglik = False
+        max_loglik5_ord1 = min_diff_Linf(list_logliks, n_steps=5, order=1)
+        max_loglik5_ord2 = min_diff_Linf(list_logliks, n_steps=5, order=2)
+        max_loglik = (max_loglik5_ord1 < self.stagnation_loglik) or (
+            max_loglik5_ord2 < self.stagnation_loglik
+        )
 
         return min_diff_reached or min_diff_stable or max_loglik

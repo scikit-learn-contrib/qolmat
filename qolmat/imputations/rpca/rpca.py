@@ -70,8 +70,6 @@ class RPCA(BaseEstimator, TransformerMixin):
         if n_rows == 1 or n_cols == 1:
             return D, np.full_like(D, 0)
 
-        print("D")
-        print(D.shape)
         M, A = self.decompose_rpca(D, Omega)
 
         M_final = utils.get_shape_original(M, X.shape)

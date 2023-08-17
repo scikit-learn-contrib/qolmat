@@ -1853,11 +1853,15 @@ class ImputerEM(_Imputer):
         if self.model == "multinormal":
             hyperparams.pop("p")
             return em_sampler.MultiNormalEM(
-                random_state=self.random_state, verbose=self.verbose, **hyperparams
+                random_state=self.random_state,
+                method=self.method,
+                verbose=self.verbose,
+                **hyperparams,
             )
         elif self.model == "VAR":
             return em_sampler.VARpEM(
                 random_state=self.random_state,
+                method=self.method,
                 verbose=self.verbose,
                 **(hyperparams),  # type: ignore #noqa
             )

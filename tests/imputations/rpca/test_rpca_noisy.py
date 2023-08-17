@@ -94,8 +94,6 @@ X_test = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]])
 def test_rpca_decompose_rpca_signal_shape(norm: str):
     """Test RPCA noisy results if tau and lambda equal zero."""
     rpca = RPCANoisy(rank=2, norm=norm)
-    print("X")
-    print(X_test)
     X_result, A_result = rpca.decompose_rpca_signal(X_test)
     assert X_result.shape == X_test.shape
     assert A_result.shape == X_test.shape
@@ -105,8 +103,6 @@ def test_rpca_decompose_rpca_signal_shape(norm: str):
 def test_rpca_noisy_zero_tau_zero_lambda(X: NDArray, X_interpolated: NDArray):
     """Test RPCA noisy results if tau and lambda equal zero."""
     rpca = RPCANoisy(tau=0, lam=0, norm="L2")
-    print("X")
-    print(X)
     X_result, A_result = rpca.decompose_rpca_signal(X)
     np.testing.assert_allclose(X_result, X_interpolated, atol=1e-4)
     np.testing.assert_allclose(A_result, np.full_like(X, 0), atol=1e-4)
@@ -144,17 +140,17 @@ def test_rpca_noisy_decompose_rpca(synthetic_temporal_data):
     tau = 1
     lam = 0.1
     rank = 10
-    rpca = RPCANoisy(period=period, tau=tau, lam=lam, norm="L2")
+    # rpca = RPCANoisy(period=period, tau=tau, lam=lam, norm="L2")
     D = utils.prepare_data(signal, period)
     Omega = ~np.isnan(D)
     D = utils.linear_interpolation(D)
 
     low_rank_init = D
     anomalies_init = np.zeros(D.shape)
-    cost_init = rpca.cost_function(D, low_rank_init, anomalies_init, Omega, tau, lam)
+    cost_init = RPCANoisy.cost_function(D, low_rank_init, anomalies_init, Omega, tau, lam)
 
-    X_result, A_result, _, _ = rpca.decompose_rpca_L2(D, Omega, lam, tau, rank)
-    cost_result = rpca.cost_function(D, X_result, A_result, Omega, tau, lam)
+    X_result, A_result, _, _ = RPCANoisy.decompose_rpca_algorithm(D, Omega, rank, tau, lam)
+    cost_result = RPCANoisy.cost_function(D, X_result, A_result, Omega, tau, lam)
 
     assert cost_result <= cost_init
 
@@ -176,44 +172,37 @@ def test_rpca_noisy_temporal_signal_temporal_regularisations(synthetic_temporal_
     rank = 10
     list_periods = [10]
     list_etas = [0.01]
-    rpca = RPCANoisy(
-        period=period, tau=tau, lam=lam, list_periods=list_periods, list_etas=list_etas, norm="L2"
-    )
     D = utils.prepare_data(signal, period)
     Omega = ~np.isnan(D)
     D = utils.linear_interpolation(D)
 
     low_rank_init = D
     anomalies_init = np.zeros(D.shape)
-    print("shapes")
-    print(D.shape)
-    print(low_rank_init.shape)
-    print(anomalies_init.shape)
-    print(Omega.shape)
-    cost_init = rpca.cost_function(D, low_rank_init, anomalies_init, Omega, tau, lam)
 
-    X_result, A_result, _, _ = rpca.decompose_rpca_L2(D, Omega, lam, tau, rank)
-    cost_result = rpca.cost_function(D, X_result, A_result, Omega, tau, lam)
+    cost_init = RPCANoisy.cost_function(
+        D,
+        low_rank_init,
+        anomalies_init,
+        Omega,
+        tau,
+        lam,
+        list_periods=list_periods,
+        list_etas=list_etas,
+        norm="L2",
+    )
+
+    X_result, A_result, _, _ = RPCANoisy.decompose_rpca_algorithm(
+        D, Omega, rank, tau, lam, list_periods=list_periods, list_etas=list_etas, norm="L2"
+    )
+    cost_result = RPCANoisy.cost_function(
+        D,
+        X_result,
+        A_result,
+        Omega,
+        tau,
+        lam,
+        list_periods=list_periods,
+        list_etas=list_etas,
+        norm="L2",
+    )
     assert cost_result <= cost_init
-    # X_input_rpca = utils.linear_interpolation(signal.reshape(period, -1))
-    # temporal_norm = 0
-    # H = [
-    #     rpca_utils.toeplitz_matrix(period, X_input_rpca.shape[1], model="column")
-    #     for period in list_periods
-    # ]
-    # for eta, H_matrix in zip(list_etas, H):
-    #     temporal_norm += eta * np.linalg.norm(X_result.reshape(period, -1) @ H_matrix, "fro")
-    # Omega = np.isnan(X_input_rpca)
-    # assert (
-    #     np.linalg.norm(X_input_rpca, "nuc")
-    #     >= 1
-    #     / 2
-    #     * np.linalg.norm(
-    #         X_input_rpca - X_result.reshape(period, -1) - A_result.reshape(period, -1),
-    #         "fro",
-    #     )
-    #     ** 2
-    #     + tau * np.linalg.norm(X_result.reshape(period, -1), "nuc")
-    #     + lam * np.sum(np.abs(A_result.reshape(period, -1) * Omega))
-    #     + temporal_norm
-    # )

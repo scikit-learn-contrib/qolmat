@@ -280,11 +280,8 @@ def test_mean_covariance_multinormalem():
     em = em_sampler.MultiNormalEM(max_iter_em=100)
     X_imputed = em.fit_transform(X_missing)
 
-    print("X X_imputed")
     em.fit_parameters(X)
-    print(em.cov)
     em.fit_parameters(X_imputed)
-    print(em.cov)
 
     covariance_imputed = np.cov(X_imputed, rowvar=False)
     mean_imputed = np.mean(X_imputed, axis=0)
