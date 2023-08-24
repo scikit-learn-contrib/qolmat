@@ -660,8 +660,7 @@ class GroupedHoleGenerator(_HoleGenerator):
             raise Exception("Argument groups is an empty tuple!")
 
     def fit(self, X: pd.DataFrame) -> GroupedHoleGenerator:
-        """
-        Creare the groups based on the column names (groups attribute)
+        """Create the groups based on the column names (groups attribute)
 
         Parameters
         ----------

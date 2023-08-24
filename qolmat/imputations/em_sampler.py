@@ -191,17 +191,17 @@ class EM(BaseEstimator, TransformerMixin):
         mask_na = np.isnan(X)
 
         # first imputation
-        X_sample_last = utils.linear_interpolation(X)
-        self.fit_distribution(X_sample_last)
+        X = utils.linear_interpolation(X)
+        self.fit_distribution(X)
 
         for iter_em in range(self.max_iter_em):
-            X_sample_last = self._sample_ou(X_sample_last, mask_na)
+            X = self._sample_ou(X, mask_na)
             if self._check_convergence():
                 print(f"EM converged after {iter_em} iterations.")
                 break
 
         self.dict_criteria_stop = {key: [] for key in self.dict_criteria_stop}
-        self.X_sample_last = X_sample_last
+        self.X = X
 
         return self
 
@@ -221,7 +221,7 @@ class EM(BaseEstimator, TransformerMixin):
         """
         # shape_original = X.shape
         if hash(X.tobytes()) == self.hash_fit:
-            X = self.X_sample_last
+            X = self.X
         else:
             X = utils.prepare_data(X, self.period)
             X = self.scaler.transform(X.T).T
@@ -249,7 +249,6 @@ class EM(BaseEstimator, TransformerMixin):
             self.dict_criteria_stop["omegas"] = self.omega
 
         X_transformed = self.scaler.inverse_transform(X_transformed.T).T
-        # X_transformed = utils.get_shape_original(X_transformed, self.shape_original)
 
         return X_transformed
 
@@ -684,7 +683,7 @@ class VARpEM(EM):
     def _maximize_likelihood(self, X: NDArray, mask_na: NDArray, dt=1e-2) -> NDArray:
         """Get the argmax of a posterior distribution.
 
-        Parameters∑
+        Parameters
         ----------
         X : NDArray
             Input numpy array.
