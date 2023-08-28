@@ -109,7 +109,7 @@ class TabDDPM(DDPM):
         x_valid_mask: pd.DataFrame = None,
         metrics_valid: Tuple[Tuple[str, Callable], ...] = (
             ("mae", metrics.mean_absolute_error),
-            ("wasser", metrics.wasserstein_distance),
+            ("wasser", metrics.dist_wasserstein),
         ),
         round: int = 10,
         cols_imputed: Tuple[str, ...] = (),
@@ -133,7 +133,7 @@ class TabDDPM(DDPM):
             Artificial nan for validation dataframe, by default None
         metrics_valid : Tuple[Tuple[str, Callable], ...], optional
             Set of validation metrics, by default ( ("mae", metrics.mean_absolute_error),
-            ("wasser", metrics.wasserstein_distance), )
+            ("wasser", metrics.dist_wasserstein), )
         round : int, optional
             Number of decimal places to round to, by default 10
         cols_imputed : Tuple[str, ...], optional

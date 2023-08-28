@@ -155,7 +155,7 @@ class ImputerGenerativeModelPytorch(ImputerGenerativeModel):
         print_valid: bool = False,
         metrics_valid: Tuple[Tuple[str, Callable], ...] = (
             ("mae", metrics.mean_absolute_error),
-            ("wasser", metrics.wasserstein_distance),
+            ("wasser", metrics.dist_wasserstein),
         ),
         round: int = 10,
         cols_imputed: Tuple[str, ...] = (),

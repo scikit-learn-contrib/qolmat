@@ -5,7 +5,6 @@ import pytest
 from qolmat.imputations import imputers_pytorch
 from qolmat.imputations.diffusions import diffusions
 from qolmat.utils.exceptions import PyTorchExtraNotInstalled
-from qolmat.benchmark import metrics
 
 try:
     import torch as nn
