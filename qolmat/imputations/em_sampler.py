@@ -1,15 +1,13 @@
 from abc import abstractmethod
 from typing import Dict, List, Literal, Union
-from typing_extensions import Self
 
 import numpy as np
+from numpy.typing import NDArray
 from scipy import linalg as spl
 from scipy import optimize as spo
-from numpy.typing import NDArray
 from sklearn import utils as sku
 from sklearn.base import BaseEstimator, TransformerMixin
-from statsmodels.tsa.api import VAR
-from statsmodels.tsa.vector_ar.var_model import VARResultsWrapper
+from typing_extensions import Self
 
 from qolmat.utils import utils
 
@@ -59,32 +57,6 @@ def _conjugate_gradient(A: NDArray, X: NDArray, mask: NDArray) -> NDArray:
     X_final[rows_imputed, :] = X_temp
 
     return X_final
-
-
-def fit_var_model(data: NDArray, p: int, criterion: str = "aic") -> VARResultsWrapper:
-    model = VAR(data)
-    result = model.fit(maxlags=p, ic=criterion)
-    return result
-
-
-def get_lag_p(X: NDArray, max_lag_order: int = 10, criterion: str = "aic") -> int:
-    if criterion not in ["aic", "bic"]:
-        raise AssertionError("Invalid criterion. `criterion` must be `aic`or `bic`.")
-
-    best_p = 1
-    best_criteria_value = float("inf")
-    for p in range(1, max_lag_order + 1):
-        model_result = fit_var_model(X, p, criterion=criterion)
-        if criterion == "aic":
-            criteria_value = model_result.aic
-        else:
-            criteria_value = model_result.bic
-
-        if criteria_value < best_criteria_value:
-            best_p = p
-            best_criteria_value = criteria_value
-
-    return best_p
 
 
 def min_diff_Linf(list_params: List[NDArray], n_steps: int, order: int = 1) -> float:
@@ -145,7 +117,7 @@ class EM(BaseEstimator, TransformerMixin):
         Threshold below which an absolute difference of the log likelihood indicates the
         convergence of the parameters
     period : int, optional
-        Integer used to fold the temporal data periodically before applying the RPCA
+        Integer used to fold the temporal data periodically
     verbose : bool, optional
         Verbosity level, if False the warnings are silenced
     """
@@ -216,7 +188,7 @@ class EM(BaseEstimator, TransformerMixin):
         self,
         X: NDArray,
     ) -> NDArray:
-        return np.empty
+        return np.empty  # type: ignore #noqa
 
     def get_gamma(self) -> NDArray:
         n_rows, n_cols = self.shape_original
@@ -306,6 +278,29 @@ class EM(BaseEstimator, TransformerMixin):
 
         return X
 
+    def fit_X(self, X: NDArray) -> None:
+        mask_na = np.isnan(X)
+
+        # first imputation
+        X = utils.linear_interpolation(X)
+        self.fit_parameters(X)
+
+        if not np.any(mask_na):
+            self.X = X
+
+        for iter_em in range(self.max_iter_em):
+            X = self._sample_ou(X, mask_na)
+            self.combine_parameters()
+
+            # Stop criteria
+            self.update_criteria_stop(X)
+            if self._check_convergence():
+                print(f"EM converged after {iter_em} iterations.")
+                break
+
+        self.dict_criteria_stop = {key: [] for key in self.dict_criteria_stop}
+        self.X = X
+
     def fit(self, X: NDArray) -> Self:
         """
         Fit the statistical distribution with the input X array.
@@ -324,31 +319,16 @@ class EM(BaseEstimator, TransformerMixin):
 
         X = utils.prepare_data(X, self.period)
 
-        if hasattr(self, "p") and self.p is None:  # type: ignore # noqa
-            self.p = get_lag_p(utils.linear_interpolation(X))
+        if hasattr(self, "p_to_fit") and self.p_to_fit:
+            for p in [1, 2]:  # test only lag 1 and 2
+                self.p = p
+                self.fit_X(X)
+                self.loglik_for_p[self.p] = self.get_loglikelihood(self.X)
+            self.p = min(self.loglik_for_p, key=self.loglik_for_p.get)
+            self.fit_X(X)
 
-        mask_na = np.isnan(X)
-
-        # first imputation
-        X = utils.linear_interpolation(X)
-        self.fit_parameters(X)
-
-        if not np.any(mask_na):
-            self.X_sample_last = X
-            return self
-
-        for iter_em in range(self.max_iter_em):
-            X = self._sample_ou(X, mask_na)
-            self.combine_parameters()
-
-            # Stop criteria
-            self.update_criteria_stop(X)
-            if self._check_convergence():
-                print(f"EM converged after {iter_em} iterations.")
-                break
-
-        self.dict_criteria_stop = {key: [] for key in self.dict_criteria_stop}
-        self.X_sample_last = X
+        else:
+            self.fit_X(X)
 
         return self
 
@@ -368,14 +348,12 @@ class EM(BaseEstimator, TransformerMixin):
         """
         # shape_original = X.shape
         if hash(X.tobytes()) == self.hash_fit:
-            X = self.X_sample_last
+            X = self.X
         else:
             X = utils.prepare_data(X, self.period)
             # X = self.scaler.transform(X)
             X = utils.linear_interpolation(X)
             if hasattr(self, "p"):
-                if self.p is None:
-                    self.p = get_lag_p(utils.linear_interpolation(X))
                 X = self.create_lag_matrix_X(X)
 
         mask_na = np.isnan(X)
@@ -423,7 +401,7 @@ class MultiNormalEM(EM):
         Threshold below which an absolute difference of the log likelihood indicates the
         convergence of the parameters
     period : int, optional
-        Integer used to fold the temporal data periodically before applying the RPCA
+        Integer used to fold the temporal data periodically
     verbose : bool, optional
         Verbosity level, if False the warnings are silenced
     """
@@ -670,7 +648,7 @@ class VARpEM(EM):
         Threshold below which an absolute difference of the log likelihood indicates the
         convergence of the parameters
     period : int, optional
-        Integer used to fold the temporal data periodically before applying the RPCA
+        Integer used to fold the temporal data periodically
     verbose: bool
         default `False`
     """
@@ -704,7 +682,11 @@ class VARpEM(EM):
             verbose=verbose,
         )
         self.dict_criteria_stop = {"logliks": [], "S": [], "B": []}
+        self.p_to_fit = False
         self.p = p  # type: ignore #noqa
+        if self.p is None:
+            self.p_to_fit = True
+            self.loglik_for_p = {}
 
     def get_loglikelihood(self, X: NDArray) -> float:
         """

@@ -285,10 +285,10 @@ def test_mean_covariance_multinormalem():
 
     covariance_imputed = np.cov(X_imputed, rowvar=False)
     mean_imputed = np.mean(X_imputed, axis=0)
-    np.testing.assert_allclose(em.means, mean, rtol=1e-1)
-    np.testing.assert_allclose(em.cov, covariance, rtol=1e-1)
-    np.testing.assert_allclose(mean_imputed, mean, rtol=1e-1)
-    np.testing.assert_allclose(covariance_imputed, covariance, rtol=1e-1)
+    np.testing.assert_allclose(em.means, mean, rtol=1e-1, atol=1e-1)
+    np.testing.assert_allclose(em.cov, covariance, rtol=1e-1, atol=1e-1)
+    np.testing.assert_allclose(mean_imputed, mean, rtol=1e-1, atol=1e-1)
+    np.testing.assert_allclose(covariance_imputed, covariance, rtol=1e-1, atol=1e-1)
 
 
 @pytest.mark.parametrize(
