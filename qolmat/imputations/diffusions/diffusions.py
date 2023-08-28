@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import time
 from datetime import timedelta
+from tqdm import tqdm
 
 import torch
 from torch.utils.data import DataLoader, TensorDataset
@@ -34,29 +35,38 @@ class TabDDPM(DDPM):
         dim_embedding: int = 128,
         num_blocks: int = 1,
         p_dropout: float = 0.0,
+        num_sampling: int = 1,
+        is_clip: bool = True,
     ):
-        """_summary_
+        """Diffusion model for tabular data based on the works of
+        Ho et al., 2020 (https://arxiv.org/abs/2006.11239),
+        Tashiro et al., 2021 (https://arxiv.org/abs/2107.03502).
+        This implementation follows the implementations found in
+        https://github.com/quickgrid/pytorch-diffusion/tree/main,
+        https://github.com/ermongroup/CSDI/tree/main
 
         Parameters
         ----------
         dim_input : int
-            _description_
+            Input dimension
         num_noise_steps : int, optional
-            _description_, by default 50
+            Number of noise steps, by default 50
         beta_start : float, optional
-            _description_, by default 1e-4
+            Range of beta (noise scale value), by default 1e-4
         beta_end : float, optional
-            _description_, by default 0.02
+            Range of beta (noise scale value), by default 0.02
         lr : float, optional
-            _description_, by default 0.001
+            Learning rate, by default 0.001
         ratio_masked : float, optional
-            _description_, by default 0.1
+            Ratio of artificial nan for training and validation, by default 0.1
         dim_embedding : int, optional
-            _description_, by default 128
+            Embedding dimension, by default 128
         num_blocks : int, optional
-            _description_, by default 1
+            Number of residual block in epsilon model, by default 1
         p_dropout : float, optional
-            _description_, by default 0.0
+            Dropout probability, by default 0.0
+        num_sampling : int, optional
+            Number of samples generated for each cell, by default 1
         """
 
         super().__init__(num_noise_steps, beta_start, beta_end)
@@ -68,11 +78,12 @@ class TabDDPM(DDPM):
         self.dim_embedding = dim_embedding
         self.num_blocks = num_blocks
         self.p_dropout = p_dropout
+        self.num_sampling = num_sampling
+        self.is_clip = is_clip
 
-        self.normalizer_x = preprocessing.MinMaxScaler(feature_range=(-1, 1.0))
+        self.normalizer_x = preprocessing.StandardScaler()
 
     def _set_eps_model(self):
-        """_summary_"""
         self.eps_model = AutoEncoder(
             self.num_noise_steps,
             self.dim_input,
@@ -103,27 +114,39 @@ class TabDDPM(DDPM):
         round: int = 10,
         cols_imputed: Tuple[str, ...] = (),
     ):
-        """_summary_
+
+        """Fit data
 
         Parameters
         ----------
         x : pd.DataFrame
-            _description_
+            Input dataframe
         epochs : int, optional
-            _description_, by default 10
+            Number of epochs, by default 10
         batch_size : int, optional
-            _description_, by default 100
+            Batch size, by default 100
         print_valid : bool, optional
-            _description_, by default False
+            Print model performance for after several epochs, by default False
         x_valid : pd.DataFrame, optional
-            _description_, by default None
+            Dataframe for validation, by default None
         x_valid_mask : pd.DataFrame, optional
-            _description_, by default None
-        metrics_valid : _type_, optional
-            _description_, by default {"mae": metrics.mean_absolute_error}
+            Artificial nan for validation dataframe, by default None
+        metrics_valid : Tuple[Tuple[str, Callable], ...], optional
+            Set of validation metrics, by default ( ("mae", metrics.mean_absolute_error),
+            ("wasser", metrics.wasserstein_distance), )
+        round : int, optional
+            Number of decimal places to round to, by default 10
+        cols_imputed : Tuple[str, ...], optional
+            Name of columns that need to be imputed, by default ()
+
+        Raises
+        ------
+        ValueError
+            Batch size is larger than data size
         """
         self.epochs = epochs
         self.batch_size = batch_size
+        self.batch_size_predict = batch_size
         self.columns = x.columns.tolist()
         self.metrics_valid = dict((x, y) for x, y in metrics_valid)
         self.print_valid = print_valid
@@ -148,6 +171,7 @@ class TabDDPM(DDPM):
         if self.batch_size >= x.shape[0]:
             raise ValueError(f"Batch size {self.batch_size} larger than x size {x.shape[0]}")
 
+        self.interval_x = {col: [x[col].min(), x[col].max()] for col in self.columns}
         self.normalizer_x.fit(x.values)
 
         x_processed, x_mask = self._process_data(x)
@@ -206,7 +230,16 @@ class TabDDPM(DDPM):
 
             self._print_valid(epoch, time_duration)
 
-    def _print_valid(self, epoch: int, time_duration: float):
+    def _print_valid(self, epoch: int, time_duration: float) -> None:
+        """Print model performance on validation data
+
+        Parameters
+        ----------
+        epoch : int
+            Epoch of the printed performance
+        time_duration : float
+            Duration for training step
+        """
         self.time_durations.append(time_duration)
         print_step = 1 if int(self.epochs / 10) == 0 else int(self.epochs / 10)
         if self.print_valid and epoch == 0:
@@ -216,17 +249,31 @@ class TabDDPM(DDPM):
             for s in self.summary:
                 if s not in ["num_params"]:
                     string_valid += f" {s}={round(self.summary[s][epoch], self.round)}"
-            string_valid += f" | in {round(time_duration, 3)} secs"
+            # string_valid += f" | in {round(time_duration, 3)} secs"
             remaining_duration = np.mean(self.time_durations) * (self.epochs - epoch)
-            string_valid += f" remaining {timedelta(seconds=remaining_duration)}"
+            string_valid += f"| remaining {timedelta(seconds=remaining_duration)}"
             print(string_valid)
 
     def _impute(self, x: np.ndarray, x_mask_obs: np.ndarray) -> np.ndarray:
+        """Impute data array
+
+        Parameters
+        ----------
+        x : np.ndarray
+            Input data
+        x_mask_obs : np.ndarray
+            Observed value mask
+
+        Returns
+        -------
+        np.ndarray
+            Imputed data
+        """
         x_tensor = torch.from_numpy(x).float().to(self.device)
         x_mask_tensor = torch.from_numpy(x_mask_obs).float().to(self.device)
         dataloader = DataLoader(
             TensorDataset(x_tensor, x_mask_tensor),
-            batch_size=self.batch_size,
+            batch_size=self.batch_size_predict,
             drop_last=False,
             shuffle=False,
         )
@@ -258,7 +305,7 @@ class TabDDPM(DDPM):
                     noise = mask_x_batch * x_batch + (1.0 - mask_x_batch) * noise
 
                 # Generate data output, this activation function depends on normalizer_x
-                x_out = torch.nn.Tanh()(noise)
+                x_out = noise
                 outputs.append(x_out.detach().cpu().numpy())
 
         outputs = np.concatenate(outputs)
@@ -271,63 +318,103 @@ class TabDDPM(DDPM):
         x_df: pd.DataFrame,
         x_mask_obs_df: pd.DataFrame,
     ) -> Dict:
-        """_summary_
+        """Evaluate the model
 
         Parameters
         ----------
         x : np.ndarray
-            _description_
+            Input data - Array (after pre-processing)
         x_mask_obs : np.ndarray
-            Mask for x, cells for metric input are set to True
+            Observed value mask (after pre-processing)
         x_df : pd.DataFrame
-            _description_
+            Reference dataframe before pre-processing
         x_mask_obs_df : pd.DataFrame
-            _description_
+            Observed value mask before pre-processing
 
         Returns
         -------
-        _type_
-            _description_
+        Dict
+            Scores
         """
-        x_imputed = self._impute(x, x_mask_obs)
-        x_normalized = pd.DataFrame(
-            self.normalizer_x.inverse_transform(x_imputed), columns=self.columns, index=x_df.index
-        )
+
+        list_x_imputed = []
+        for i in tqdm(range(self.num_sampling)):
+            x_imputed = self._impute(x, x_mask_obs)
+            list_x_imputed.append(x_imputed)
+        x_imputed = np.mean(np.array(list_x_imputed), axis=0)
+        x_normalized = self.normalizer_x.inverse_transform(x_imputed)
+        x_out = pd.DataFrame(x_normalized, columns=self.columns, index=x_df.index)
+        if self.is_clip:
+            for col, interval in self.interval_x.items():
+                x_out[col] = np.clip(x_out[col], interval[0], interval[1])
 
         columns_with_True = x_mask_obs_df.columns[(x_mask_obs_df == True).any()]
         scores = {}
         for name, metric in self.metrics_valid.items():
             scores[name] = metric(
                 x_df[columns_with_True],
-                x_normalized[columns_with_True],
+                x_out[columns_with_True],
                 x_mask_obs_df[columns_with_True],
             ).mean()
         return scores
 
-    def predict(self, x: pd.DataFrame):
-        """_summary_
+    def _set_hyperparams_predict(self, **kwargs) -> None:
+        """Reset hyperparams for predition step"""
+        if "num_sampling" in kwargs:
+            self.num_sampling = kwargs["num_sampling"]
+        if "is_clip" in kwargs:
+            self.is_clip = kwargs["is_clip"]
+        if "batch_size_predict" in kwargs:
+            self.batch_size_predict = kwargs["batch_size_predict"]
+
+    def predict(self, x: pd.DataFrame) -> pd.DataFrame:
+        """Predict/impute data
 
         Parameters
         ----------
         x : pd.DataFrame
-            _description_
+            Data needs to be imputed
 
         Returns
         -------
-        _type_
-            _description_
+        pd.DataFrame
+            Imputed data
         """
         self.eps_model.eval()
 
         x_processed, x_mask = self._process_data(x)
-        x_imputed = self._impute(x_processed, x_mask)
 
-        x_out = self.normalizer_x.inverse_transform(x_imputed)
-        x_out = pd.DataFrame(x_out, columns=x.columns, index=x.index)
+        list_x_imputed = []
+        for i in tqdm(range(self.num_sampling)):
+            x_imputed = self._impute(x_processed, x_mask)
+            list_x_imputed.append(x_imputed)
+        x_imputed = np.mean(np.array(list_x_imputed), axis=0)
+
+        x_normalized = self.normalizer_x.inverse_transform(x_imputed)
+        x_out = pd.DataFrame(x_normalized, columns=x.columns, index=x.index)
+        if self.is_clip:
+            for col, interval in self.interval_x.items():
+                x_out[col] = np.clip(x_out[col], interval[0], interval[1])
         x_out = x.fillna(x_out)
         return x_out
 
-    def _process_data(self, x: pd.DataFrame, mask: pd.DataFrame = None):
+    def _process_data(
+        self, x: pd.DataFrame, mask: pd.DataFrame = None
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Pre-process data
+
+        Parameters
+        ----------
+        x : pd.DataFrame
+            Input data
+        mask : pd.DataFrame, optional
+            Observed value mask, by default None
+
+        Returns
+        -------
+        Tuple[np.ndarray, np.ndarray]
+            Data and mask pre-processed
+        """
         x_windows_processed = self.normalizer_x.transform(x.fillna(x.mean()).values)
         x_windows_mask_processed = ~x.isna().to_numpy()
         if mask is not None:
@@ -360,39 +447,47 @@ class TabDDPMTS(TabDDPM):
         nheads_time: int = 8,
         num_layers_transformer: int = 1,
         p_dropout: float = 0.0,
+        num_sampling: int = 1,
     ):
-        """_summary_
+        """Diffusion model for time-series data based on the works of
+        Ho et al., 2020 (https://arxiv.org/abs/2006.11239),
+        Tashiro et al., 2021 (https://arxiv.org/abs/2107.03502).
+        This implementation follows the implementations found in
+        https://github.com/quickgrid/pytorch-diffusion/tree/main,
+        https://github.com/ermongroup/CSDI/tree/main
 
         Parameters
         ----------
         dim_input : int
-            _description_
+            Input dimension
         num_noise_steps : int, optional
-            _description_, by default 50
+            Number of noise steps, by default 50
         size_window : int, optional
-            _description_, by default 10
+            Size of window, by default 10
         beta_start : float, optional
-            _description_, by default 1e-4
+            Range of beta (noise scale value), by default 1e-4
         beta_end : float, optional
-            _description_, by default 0.02
+            Range of beta (noise scale value), by default 0.02
         lr : float, optional
-            _description_, by default 0.001
+            Learning rate, by default 0.001
         ratio_masked : float, optional
-            _description_, by default 0.1
+            Ratio of artificial nan for training and validation, by default 0.1
         dim_embedding : int, optional
-            _description_, by default 128
+            Embedding dimension, by default 128
         dim_feedforward : int, optional
-            _description_, by default 64
+            Feedforward layer dimension in Transformers, by default 64
         num_blocks : int, optional
-            _description_, by default 1
+            Number of residual blocks, by default 1
         nheads_feature : int, optional
-            _description_, by default 5
+            Number of heads to encode feature-based context, by default 5
         nheads_time : int, optional
-            _description_, by default 8
+            Number of heads to encode time-based context, by default 8
         num_layers_transformer : int, optional
-            _description_, by default 1
+            Number of transformer layer, by default 1
         p_dropout : float, optional
-            _description_, by default 0.0
+            Dropout probability, by default 0.0
+        num_sampling : int, optional
+            Number of samples generated for each cell, by default 1
         """
         super().__init__(
             dim_input,
@@ -404,6 +499,7 @@ class TabDDPMTS(TabDDPM):
             dim_embedding,
             num_blocks,
             p_dropout,
+            num_sampling,
         )
 
         self.size_window = size_window
@@ -434,11 +530,26 @@ class TabDDPMTS(TabDDPM):
         # )
 
     def _impute(self, x: np.ndarray, x_mask_obs: np.ndarray) -> np.ndarray:
+        """Impute data array
+
+        Parameters
+        ----------
+        x : np.ndarray
+            Input data
+        x_mask_obs : np.ndarray
+            Observed value mask
+
+        Returns
+        -------
+        np.ndarray
+            Imputed data
+        """
+
         x_tensor = torch.from_numpy(x).float().to(self.device)
         x_mask_tensor = torch.from_numpy(x_mask_obs).float().to(self.device)
         dataloader = DataLoader(
             TensorDataset(x_tensor, x_mask_tensor),
-            batch_size=self.batch_size,
+            batch_size=self.batch_size_predict,
             drop_last=False,
             shuffle=False,
         )
@@ -470,7 +581,7 @@ class TabDDPMTS(TabDDPM):
                     noise = mask_x_batch * x_batch + (1.0 - mask_x_batch) * noise
 
                 # Generate data output, this activation function depends on normalizer_x
-                x_out = torch.nn.Tanh()(noise)
+                x_out = noise
                 for id_window, x_window in enumerate(x_out.detach().cpu().numpy()):
                     if id_batch == 0 and id_window == 0:
                         outputs += list(x_window)
@@ -479,7 +590,23 @@ class TabDDPMTS(TabDDPM):
 
         return np.array(outputs)
 
-    def _process_data(self, x: pd.DataFrame, mask: pd.DataFrame = None):
+    def _process_data(
+        self, x: pd.DataFrame, mask: pd.DataFrame = None
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Pre-process data
+
+        Parameters
+        ----------
+        x : pd.DataFrame
+            Input data
+        mask : pd.DataFrame, optional
+            Observed value mask, by default None
+
+        Returns
+        -------
+        Tuple[np.ndarray, np.ndarray]
+            Data and mask pre-processed
+        """
         x_windows = list(x.rolling(window=self.size_window))[self.size_window - 1 :]
 
         x_windows_processed = []

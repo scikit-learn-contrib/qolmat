@@ -1,7 +1,8 @@
 from typing import Tuple
 import torch
 import math
-import gc
+
+# import gc
 
 
 class DDPM:
@@ -11,7 +12,21 @@ class DDPM:
     https://github.com/quickgrid/pytorch-diffusion/tree/main
     """
 
-    def __init__(self, num_noise_steps, beta_start: float = 1e-4, beta_end: float = 0.02):
+    def __init__(self, num_noise_steps: int, beta_start: float = 1e-4, beta_end: float = 0.02):
+        """Diffusion model based on the works of
+        Ho et al., 2020 (https://arxiv.org/abs/2006.11239)
+        This implementation follows the implementation found in
+        https://github.com/quickgrid/pytorch-diffusion/tree/main
+
+        Parameters
+        ----------
+        num_noise_steps : int
+            Number of steps in forward/reverse processes
+        beta_start : float, optional
+            Range of beta (noise scale value), by default 1e-4
+        beta_end : float, optional
+            Range of beta (noise scale value), by default 0.02
+        """
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
         self.loss_func = torch.nn.MSELoss(reduction="none")
@@ -46,14 +61,14 @@ class DDPM:
         Parameters
         ----------
         x : torch.Tensor
-            _description_
+            Data input
         t : torch.Tensor
-            _description_
+            Noise step
 
         Returns
         -------
         Tuple[torch.Tensor, torch.Tensor]
-            _description_
+            Noised data at noise step t
         """
 
         sqrt_alpha_hat = self.sqrt_alpha_hat[t].view(-1, 1)
@@ -65,53 +80,68 @@ class DDPM:
         epsilon = torch.randn_like(x, device=self.device)
         return sqrt_alpha_hat * x + sqrt_one_minus_alpha_hat * epsilon, epsilon
 
-    def _cuda_empty_cache(self):
-        del self.eps_model
-        del self.optimiser
-        gc.collect()
-        torch.cuda.empty_cache()
+    # def _cuda_empty_cache(self) -> None:
+    #     if self.eps_model is not None:
+    #         del self.eps_model
+    #     if self.optimiser is not None:
+    #         del self.optimiser
+    #     gc.collect()
+    #     torch.cuda.empty_cache()
+
+    # def _set_device(self, device="cpu") -> None:
+    #     self.device = torch.device(device)
+    #     self.eps_model = self.eps_model.to(self.device)
 
 
 class ResidualBlock(torch.nn.Module):
-    """_summary_"""
+    """Residual block based on the work of Gorishniy et al., 2023
+    (https://arxiv.org/abs/2106.11959).
+    We follow the implementation found in
+    https://github.com/Yura52/rtdl/blob/main/rtdl/nn/_backbones.py"""
 
-    def __init__(self, dim_input, dim_embedding=128, p_dropout=0.1):
-        """_summary_
+    def __init__(self, dim_input: int, dim_embedding: int = 128, p_dropout: float = 0.1):
+        """Residual block based on the work of Gorishniy et al., 2023
+        (https://arxiv.org/abs/2106.11959).
+        We follow the implementation found in
+        https://github.com/Yura52/rtdl/blob/main/rtdl/nn/_backbones.py
 
         Parameters
         ----------
-        dim_input : _type_
-            _description_
+        dim_input : int
+            Input dimension
         dim_embedding : int, optional
-            _description_, by default 128
+            Embedding dimension, by default 128
         p_dropout : float, optional
-            _description_, by default 0.1
+            Dropout probability, by default 0.1
         """
+
         super().__init__()
 
+        self.layer_norm = torch.nn.LayerNorm(dim_input)
         self.linear_in = torch.nn.Linear(dim_input, dim_embedding)
         self.linear_out = torch.nn.Linear(dim_embedding, dim_input)
         self.dropout = torch.nn.Dropout(p_dropout)
 
         self.linear_out = torch.nn.Linear(dim_embedding, dim_input)
 
-    def forward(self, x, t):
-        """_summary_
+    def forward(self, x: torch.Tensor, t: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Return an output of a residual block
 
         Parameters
         ----------
-        x : _type_
-            _description_
-        t : _type_
-            _description_
+        x : torch.Tensor
+            Data input
+        t : torch.Tensor
+            Noise step
 
         Returns
         -------
-        _type_
-            _description_
+        Tuple[torch.Tensor, torch.Tensor]
+            Output data at noise step t
         """
 
         x_t = x + t
+        x_t = self.layer_norm(x_t)
         x_t_emb = torch.nn.functional.relu(self.linear_in(x_t))
         x_t_emb = self.dropout(x_t_emb)
         x_t_emb = self.linear_out(x_t_emb)
@@ -120,23 +150,35 @@ class ResidualBlock(torch.nn.Module):
 
 
 class AutoEncoder(torch.nn.Module):
-    """_summary_"""
+    """Epsilon_theta model of the Algorithm 1 in
+    Ho et al., 2020 (https://arxiv.org/abs/2006.11239).
+    This implementation is based on the work of
+    Tashiro et al., 2021 (https://arxiv.org/abs/2107.03502).
+    Their code: https://github.com/ermongroup/CSDI/blob/main/diff_models.py"""
 
-    def __init__(self, num_noise_steps, dim_input, dim_embedding=128, num_blocks=1, p_dropout=0.0):
-        """_summary_
+    def __init__(
+        self,
+        num_noise_steps: int,
+        dim_input: int,
+        dim_embedding: int = 128,
+        num_blocks: int = 1,
+        p_dropout: float = 0.0,
+    ):
+        """Epsilon_theta model in Algorithm 1 in
+        Ho et al., 2020 (https://arxiv.org/abs/2006.11239)
 
         Parameters
         ----------
-        num_noise_steps : _type_
-            _description_
-        dim_input : _type_
-            _description_
+        num_noise_steps : int
+            Number of steps in forward/reverse processes
+        dim_input : int
+            Input dimension
         dim_embedding : int, optional
-            _description_, by default 128
+            Embedding dimension, by default 128
         num_blocks : int, optional
-            _description_, by default 1
+            Number of residual blocks, by default 1
         p_dropout : float, optional
-            _description_, by default 0.0
+            Dropout probability, by default 0.0
         """
         super().__init__()
 
@@ -144,7 +186,7 @@ class AutoEncoder(torch.nn.Module):
 
         self.register_buffer(
             "embedding_noise_step",
-            self._build_embedding(num_noise_steps, dim_embedding / 2),
+            self._build_embedding(num_noise_steps, int(dim_embedding / 2)),
             persistent=False,
         )
         self.layer_t_1 = torch.nn.Linear(dim_embedding, dim_embedding)
@@ -159,22 +201,21 @@ class AutoEncoder(torch.nn.Module):
         )
 
     def forward(self, x: torch.Tensor, t: torch.LongTensor) -> torch.Tensor:
-        """_summary_
+        """Predict a noise
 
         Parameters
         ----------
         x : torch.Tensor
-            _description_
+            Data input
         t : torch.LongTensor
-            _description_
+            Noise step
 
         Returns
         -------
         torch.Tensor
-            _description_
+            Data output, noise predicted
         """
         # Noise step embedding
-
         t_emb = torch.as_tensor(self.embedding_noise_step)[t].squeeze()
         t_emb = self.layer_t_1(t_emb)
         t_emb = torch.nn.functional.silu(t_emb)
@@ -195,7 +236,23 @@ class AutoEncoder(torch.nn.Module):
 
         return out
 
-    def _build_embedding(self, num_noise_steps, dim=64) -> torch.Tensor:
+    def _build_embedding(self, num_noise_steps: int, dim: int = 64) -> torch.Tensor:
+        """Build an embedding for noise step.
+        More details in section E.1 of Tashiro et al., 2021
+        (https://arxiv.org/abs/2107.03502)
+
+        Parameters
+        ----------
+        num_noise_steps : int
+            Number of noise steps
+        dim : int, optional
+            output dimension, by default 64
+
+        Returns
+        -------
+        torch.Tensor
+            _description_
+        """
         steps = torch.arange(num_noise_steps).unsqueeze(1)  # (T,1)
         frequencies = 10.0 ** (torch.arange(dim) / (dim - 1) * 4.0).unsqueeze(0)  # (1,dim)
         table = steps * frequencies  # (T,dim)
@@ -204,17 +261,50 @@ class AutoEncoder(torch.nn.Module):
 
 
 class ResidualBlockTS(torch.nn.Module):
+    """Residual block based on the work of Gorishniy et al., 2023
+    (https://arxiv.org/abs/2106.11959).
+    We follow the implementation found in
+    https://github.com/Yura52/rtdl/blob/main/rtdl/nn/_backbones.py
+    This class is for Time-Series data where we add Tranformers to
+    encode time-based/feature-based context."""
+
     def __init__(
         self,
-        dim_input,
-        size_window=10,
-        dim_embedding=128,
-        dim_feedforward=64,
-        nheads_feature=5,
-        nheads_time=8,
-        num_layers_transformer=1,
+        dim_input: int,
+        size_window: int = 10,
+        dim_embedding: int = 128,
+        dim_feedforward: int = 64,
+        nheads_feature: int = 5,
+        nheads_time: int = 8,
+        num_layers_transformer: int = 1,
     ):
+        """Residual block based on the work of Gorishniy et al., 2023
+        (https://arxiv.org/abs/2106.11959).
+        We follow the implementation found in
+        https://github.com/Yura52/rtdl/blob/main/rtdl/nn/_backbones.py
+        This class is for Time-Series data where we add Tranformers to
+        encode time-based/feature-based context.
+
+        Parameters
+        ----------
+        dim_input : int
+            Input dimension
+        size_window : int, optional
+            Size of window, by default 10
+        dim_embedding : int, optional
+            Embedding dimension, by default 128
+        dim_feedforward : int, optional
+            Feedforward layer dimension, by default 64
+        nheads_feature : int, optional
+            Number of heads to encode feature-based context, by default 5
+        nheads_time : int, optional
+            Number of heads to encode time-based context, by default 8
+        num_layers_transformer : int, optional
+            Number of transformer layer, by default 1
+        """
         super().__init__()
+
+        self.layer_norm = torch.nn.LayerNorm(dim_input)
 
         # encoder_layer_feature = torch.nn.TransformerEncoderLayer(
         #     d_model=size_window,
@@ -242,36 +332,89 @@ class ResidualBlockTS(torch.nn.Module):
 
         self.linear_out = torch.nn.Linear(dim_embedding, dim_input)
 
-    def forward(self, x, t):
+    def forward(self, x: torch.Tensor, t: torch.LongTensor) -> torch.Tensor:
+        """Return an output of a residual block
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Data input
+        t : torch.LongTensor
+            Noise step
+
+        Returns
+        -------
+        torch.Tensor
+            Data output, noise predicted
+        """
         batch_size, size_window, dim_emb = x.shape
 
-        # x_emb = x.permute(0, 2, 1)
-        # x_emb = self.feature_layer(x_emb)
-        # x_emb = x_emb.permute(0, 2, 1)
-        x_emb = x
-        x_emb = self.time_layer(x_emb)
+        x_emb = self.layer_norm(x)
+
+        # x_emb_feat = x_emb.permute(0, 2, 1)
+        # x_emb_feat = self.feature_layer(x_emb_feat)
+        # x_emb_feat = x_emb_feat.permute(0, 2, 1)
+
+        x_emb_time = self.time_layer(x_emb)
         t_emb = t.repeat(1, size_window).reshape(batch_size, size_window, dim_emb)
 
-        x_t = x + x_emb + t_emb
+        x_t = x + x_emb_time + t_emb
         x_t = self.linear_out(x_t)
 
         return x + x_t, x_t
 
 
 class AutoEncoderTS(AutoEncoder):
+    """Epsilon_theta model of the Algorithm 1 in
+    Ho et al., 2020 (https://arxiv.org/abs/2006.11239).
+    This is for Time-series data.
+    This implementation is based on the work of
+    Tashiro et al., 2021 (https://arxiv.org/abs/2107.03502).
+    Their code: https://github.com/ermongroup/CSDI/blob/main/diff_models.py"""
+
     def __init__(
         self,
-        num_noise_steps,
-        dim_input,
-        size_window=10,
-        dim_embedding=128,
-        dim_feedforward=64,
-        num_blocks=1,
-        nheads_feature=5,
-        nheads_time=8,
-        num_layers_transformer=1,
-        p_dropout=0.0,
+        num_noise_steps: int,
+        dim_input: int,
+        size_window: int = 10,
+        dim_embedding: int = 128,
+        dim_feedforward: int = 64,
+        num_blocks: int = 1,
+        nheads_feature: int = 5,
+        nheads_time: int = 8,
+        num_layers_transformer: int = 1,
+        p_dropout: float = 0.0,
     ):
+        """Epsilon_theta model of the Algorithm 1 in
+        Ho et al., 2020 (https://arxiv.org/abs/2006.11239).
+        This is for Time-series data.
+        This implementation is based on the work of
+        Tashiro et al., 2021 (https://arxiv.org/abs/2107.03502).
+        Their code: https://github.com/ermongroup/CSDI/blob/main/diff_models.py
+
+        Parameters
+        ----------
+        num_noise_steps : int
+            Number of noise steps
+        dim_input : int
+            Input dimension
+        size_window : int, optional
+            Size of window, by default 10
+        dim_embedding : int, optional
+            Embedding dimension, by default 128
+        dim_feedforward : int, optional
+            Feedforward layer dimension, by default 64
+        num_blocks : int, optional
+            Number of residual blocks, by default 1
+        nheads_feature : int, optional
+            Number of heads to encode feature-based context, by default 5
+        nheads_time : int, optional
+            Number of heads to encode time-based context, by default 8
+        num_layers_transformer : int, optional
+            Number of transformer layer, by default 1
+        p_dropout : float, optional
+            Dropout probability, by default 0.0
+        """
         super().__init__(num_noise_steps, dim_input, dim_embedding, num_blocks, p_dropout)
 
         self.residual_layers = torch.nn.ModuleList(
@@ -290,6 +433,20 @@ class AutoEncoderTS(AutoEncoder):
         )
 
     def forward(self, x: torch.Tensor, t: torch.LongTensor) -> torch.Tensor:
+        """Predict a noise
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Data input
+        t : torch.LongTensor
+            Noise step
+
+        Returns
+        -------
+        torch.Tensor
+            Data output, noise predicted
+        """
         # Noise step embedding
         t_emb = torch.as_tensor(self.embedding_noise_step)[t].squeeze()
         t_emb = self.layer_t_1(t_emb)

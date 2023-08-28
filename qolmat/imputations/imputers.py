@@ -1337,8 +1337,8 @@ class ImputerMICE(_Imputer):
 
     def _transform_element(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
         """
-        Transforms the fataframe `df`, at the group and/or column level depending onself.groups and
-        self.columnwise.
+        Transforms the dataframe `df`, at the group and/or column level depending on self.groups
+        and self.columnwise.
 
         Parameters
         ----------
