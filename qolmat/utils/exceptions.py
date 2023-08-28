@@ -38,3 +38,11 @@ class NotDimension2(Exception):
 class NotDataFrame(Exception):
     def __init__(self, X_type: Type[Any]):
         super().__init__(f"Input musr be a dataframe, not a {X_type}")
+
+
+class NotEnoughSamples(Exception):
+    def __init__(self, max_num_row: int, min_n_rows: int):
+        super().__init__(
+            f"Not enough valid patterns found. Largest found pattern has {max_num_row} rows, when "
+            f"they should have at least min_n_rows={min_n_rows}."
+        )

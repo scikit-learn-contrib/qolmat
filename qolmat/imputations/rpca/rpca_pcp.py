@@ -57,8 +57,8 @@ class RPCAPCP(RPCA):
 
         D_norm = np.linalg.norm(D, "fro")
 
-        A: NDArray = np.full_like(D, 0)
-        Y: NDArray = np.full_like(D, 0)
+        A = np.array(np.full_like(D, 0))
+        Y = np.array(np.full_like(D, 0))
 
         errors: NDArray = np.full((self.max_iterations,), fill_value=np.nan)
 

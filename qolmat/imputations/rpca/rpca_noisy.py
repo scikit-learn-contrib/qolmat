@@ -87,9 +87,9 @@ class RPCANoisy(RPCA):
         Omega : np.ndarray
             Binary matrix indicating the observed entries of D, shape (m, n).
         lam : float
-            Regularization parameter for the L1 norm.
+            Regularization parameter for the sparse part.
         tau : float
-            Regularization parameter for the temporal correlations.
+            Regularization parameter for the low rank part.
         rank : int
             Rank parameter for low-rank matrix decomposition.
 
@@ -107,8 +107,8 @@ class RPCANoisy(RPCA):
             Basis Unitary array of shape (n, rank).
         errors : np.ndarray
             Array of iterative errors.
-
         """
+
         m, n = D.shape
         rho = 1.1
         mu = self.mu or 1e-2
@@ -208,9 +208,9 @@ class RPCANoisy(RPCA):
         Omega : np.ndarray
             Binary matrix indicating the observed entries of D, shape (m, n).
         lam : float
-            Regularization parameter for the L2 norm.
+            Regularization parameter for the sparse part.
         tau : float
-            Regularization parameter for the temporal correlations.
+            Regularization parameter for low rank part.
         rank : int
             Rank parameter for low-rank matrix decomposition.
 
@@ -230,6 +230,7 @@ class RPCANoisy(RPCA):
             Array of iterative errors.
 
         """
+
         rho = 1.1
         m, n = D.shape
 
@@ -320,12 +321,12 @@ class RPCANoisy(RPCA):
         -------
         dict
             A dictionary containing the following parameters:
-            - "rank" : int
-                Rank estimate for low-rank matrix decomposition.
-            - "tau" : float
-                Regularization parameter for the temporal correlations.
-            - "lam" : float
-                Regularization parameter for the L1 norm.
+                - "rank" : int
+                    Rank estimate for low-rank matrix decomposition.
+                - "tau" : float
+                    Regularization parameter for the temporal correlations.
+                - "lam" : float
+                    Regularization parameter for the L1 norm.
 
         """
         rank = rpca_utils.approx_rank(D)
@@ -390,6 +391,30 @@ class RPCANoisy(RPCA):
         tau: float,
         lam: float,
     ):
+        """
+        Compute cost function for different RPCA algorithm
+
+        Parameters
+        ----------
+        observations : NDArray
+            Matrix of observations
+        low_rank : NDArray
+            Low-rank signal
+        anomalies : NDArray
+            Anomalies
+        Omega : NDArray
+            Mask for observations
+        tau : float
+            Regularization parameter for the low rank part
+        lam : float
+            Regularization parameter for the sparse part
+
+        Returns
+        -------
+        float
+            Cost
+        """
+
         temporal_norm: float = 0
         if len(self.list_etas) > 0:
             # matrices for temporal correlation

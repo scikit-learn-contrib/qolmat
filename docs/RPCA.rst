@@ -9,12 +9,12 @@ which allows to work with grossly corrupted observations.
 Suppose we are given a large data matrix :math:`\mathbf{D}`, and know
 that it may be decomposed as
 
-.. math:: 
+.. math::
 
    \mathbf{D} = \mathbf{X}^* + \mathbf{A}^*
 
 where :math:`\mathbf{X}^*` has low-rank and :math:`\mathbf{A}^*` is
-sparse. 
+sparse.
 
 .. image:: images/explanation_1.png
 
@@ -30,7 +30,7 @@ See `here <https://arxiv.org/abs/0912.3599>`__ for more details.
 
 Formally, the problem is expressed as
 
-.. math:: 
+.. math::
 
    \begin{align*}
    & \text{minimise} \quad \text{rank} (\mathbf{X}) + \lambda \Vert \mathbf{A} \Vert_0 \\
@@ -45,7 +45,7 @@ penalty is replaced with the :math:`\ell_1`-norm, which is good at
 modeling the sparse noise and has high efficient solution. Therefore,
 the problem becomes
 
-.. math:: 
+.. math::
 
    \begin{align*}
    & \text{minimise} \quad \Vert \mathbf{X} \Vert_* + \lambda \Vert \mathbf{A} \Vert_1 \\
@@ -66,77 +66,62 @@ video surveillance, face recognition, speech recognition. We here focus
 on anomaly detection in time series.
 
 
-Some algorithms are implemented: 
+Some algorithms are implemented:
 
-* :class:`PcpRPCA` class (see p.29 of this `paper <https://arxiv.org/abs/0912.3599>`__). The optimisation problem is the following
+* :class:`RPCAPCP` class (see p.29 of this `paper <https://arxiv.org/abs/0912.3599>`__). The optimisation problem is the following
 
-.. math:: 
+.. math::
 
    \begin{align*}
    & \text{minimise} \quad \Vert \mathbf{X} \Vert_* + \lambda \Vert \mathbf{A} \Vert_1 \\
    & \text{s.t.} \quad \mathbf{D} = \mathbf{X} + \mathbf{A}
    \end{align*}
 
-..
-   * :class:`GraphRPCA` class (based on this `paper <https://arxiv.org/abs/1507.08173>`__). The optimisation problem is the following
 
-.. math:: 
+* :class:`RPCANoisy` class (based on this `paper <https://arxiv.org/abs/2001.05484>`__ and this `paper <https://www.hindawi.com/journals/jat/2018/7191549/>`__). The idea is to adapt basic RPCA to time series by adding a constraint to maintain consistency between the columns of the low-rank matrix. By defining :math:`\Vert \mathbf{XH_k} \Vert_p` is either :math:`\Vert \mathbf{XH_k} \Vert_1` or  :math:`\Vert \mathbf{XH_k} \Vert_F^2`, the optimisation problem is the following
 
-   \begin{align*}
-   & \text{minimise} \quad  \Vert \mathbf{A} \Vert_1 + \gamma_1 \text{tr}(\mathbf{X} \mathbf{\mathcal{L}_1} \mathbf{X}^T) + \gamma_2 \text{tr}(\mathbf{X}^T \mathbf{\mathcal{L}_2} \mathbf{X}) \\
-   & \text{s.t.} \quad \mathbf{D} = \mathbf{X} + \mathbf{A}
-   \end{align*}
-
-* :class:`TemporalRPCA` class (based on this `paper <https://arxiv.org/abs/2001.05484>`__ and this `paper <https://www.hindawi.com/journals/jat/2018/7191549/>`__). 
-The idea is to adapt basic RPCA to time series by adding a constraint to maintain consistency between the columns of the low-rank matrix.
-By defining :math:`\Vert \mathbf{XH_k} \Vert_p` is either :math:`\Vert \mathbf{XH_k} \Vert_1` or  :math:`\Vert \mathbf{XH_k} \Vert_F^2`, the optimisation problem is the following
-
-.. math:: 
+.. math::
 
    \text{minimise} \quad \Vert P_{\Omega}(\mathbf{X}+\mathbf{A}-\mathbf{D}) \Vert_F^2 + \lambda_1 \Vert \mathbf{X} \Vert_* + \lambda_2 \Vert \mathbf{A} \Vert_1 + \sum_{k=1}^K \eta_k \Vert \mathbf{XH_k} \Vert_p
 
 
-..
-   * :class:`OnlineTemporalRPCA` class. This class implements the online version of the above problem using stochastic optimisation (based on this `paper <https://www.hindawi.com/journals/jat/2018/7191549/>`__  and this `paper <https://dl.acm.org/doi/10.5555/2999611.2999657>`__). This allows to deal with large ammount of data or data that arrives continuously and does not assume a stable subspace.
-
-
-The operator :math:`P_{\Omega}` is the projection operator such that 
+The operator :math:`P_{\Omega}` is the projection operator such that
 :math:`P_{\Omega}(\mathbf{M})` is the projection of
 :math:`\mathbf{M}` on the set of observed data :math:`\Omega`. This
 allows to deal with missing values. Each of these classes is adapted to
 take as input either a time series or a matrix directly. If a time
 series is passed, a pre-processing is done, as illustrated below:
-(a) take a time series with some seasonnalities (shaded blue area for 
-daily seasonnalities and red vertical lines for weekly seasonnalities); 
-(b) compute the autocorrelation function and keep the lag that gives the 
-highest autocorrelation value. This lag is a good indicator for the 
-dimension of the matrix on which a RPCA algorithm will be apply; 
+(a) take a time series with some seasonnalities (shaded blue area for
+daily seasonnalities and red vertical lines for weekly seasonnalities);
+(b) compute the autocorrelation function and keep the lag that gives the
+highest autocorrelation value. This lag is a good indicator for the
+dimension of the matrix on which a RPCA algorithm will be apply;
 (c) reshape the initial time series into a matrix of appropriate dimensions.
 
 .. image:: images/explanation_2.png
 
-Until now, we only consider a univariate time series, which requires a resizing. 
-But RPCA can also be applied on mutlivariate time series where each time series represents a column/row of 
+Until now, we only consider a univariate time series, which requires a resizing.
+But RPCA can also be applied on mutlivariate time series where each time series represents a column/row of
 the matrix. In this way, RPCA can be applied both univariate and multivariate time series.
 
 
 References
 ----------
 
-[1] Candès, Emmanuel J., et al. “Robust principal component analysis?.”
+[1] Candès, Emmanuel J., et al. “Robust principal component analysis?.”
 Journal of the ACM (JACM) 58.3 (2011): 1-37,
 (`pdf <https://arxiv.org/abs/0912.3599>`__)
 
-[2] Wang, Xuehui, et al. “An improved robust principal component
+[2] Wang, Xuehui, et al. “An improved robust principal component
 analysis model for anomalies detection of subway passenger flow.”
 Journal of advanced transportation 2018 (2018).
 (`pdf <https://www.hindawi.com/journals/jat/2018/7191549/>`__)
 
-[3] Chen, Yuxin, et al. “Bridging convex and nonconvex optimization in
+[3] Chen, Yuxin, et al. “Bridging convex and nonconvex optimization in
 robust PCA: Noise, outliers, and missing data.” arXiv preprint
 arXiv:2001.05484 (2020), (`pdf <https://arxiv.org/abs/2001.05484>`__)
 
-[4] Shahid, Nauman, et al. “Fast robust PCA on graphs.” IEEE Journal of
+[4] Shahid, Nauman, et al. “Fast robust PCA on graphs.” IEEE Journal of
 Selected Topics in Signal Processing 10.4 (2016): 740-756.
 (`pdf <https://arxiv.org/abs/1507.08173>`__)
 
