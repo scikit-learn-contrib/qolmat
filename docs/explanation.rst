@@ -4,7 +4,7 @@
 General approach
 ================
 
-Let :math:`X \in \mathbb{R}^{n,m}` be a dataset with missing data. We observe only the matrix :math:`X_{obs} = X \odot M \in (\mathbb{R} \cup \{NA\})^{n \times m}` with :math:`M` the mask such that :math:`M_{ij} = 1` if :math:`X_{ij}` is missing and 0 otherwise. Let :math:`f` be an imputation function which outputs a complete dataset based on the observed ones and the mask, i.e.
+Let :math:`X \in \mathbb{R}^{n \times m}` be a dataset with missing data. We observe only the matrix :math:`X_{obs} = X \odot M \in (\mathbb{R} \cup \{NA\})^{n \times m}` with :math:`M` the mask such that :math:`M_{ij} = 1` if :math:`X_{ij}` is missing and 0 otherwise. Let :math:`f` be an imputation function which outputs a complete dataset based on the observed ones and the mask, i.e.
 
 .. math::
     f: (\mathbb{R} \cup \{NA\})^{n \times m} \rightarrow \mathbb{R}^{n \times m}: X_{obs} \mapsto \hat{X} = \left\{
@@ -53,7 +53,7 @@ The observations are said to be Missing at Random (MAR) if the probability of an
 
 Finally, the observations are said to be Missing Not at Random (MNAR) in all other cases.
 
-Qolmat allows to generate new missing values on a an existing dataset, but only in the MNAR case.
+Qolmat allows to generate new missing values on a an existing dataset, but only in the MCAR case.
 
 Here are the different classes to generate missing data.
 
