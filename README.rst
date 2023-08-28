@@ -219,6 +219,11 @@ The full documentation can be found `on this link <https://qolmat.readthedocs.io
 
 Qolmat simplifies the selection process of a data imputation algorithm. It does so by comparing of various methods based on different evaluation metrics.
 It is compatible with scikit-learn.
+Evaluation and comparison are based on the standard approach to select some observations, set their status to missing, and compare
+their imputation with their true values.
+
+More specifically, from the initial dataframe with missing value, we generate additional missing values (N samples).
+On each sample, different imputation models are tested and reconstruction errors are computed on these artificially missing entries. Then the errors of each imputation model are averaged and we eventually obtained a unique error score per model. This procedure allows the comparison of different models on the same dataset.
 
 .. image:: https://raw.githubusercontent.com/Quantmetry/qolmat/main/docs/images/schema_qolmat.png
     :align: center
@@ -227,19 +232,71 @@ It is compatible with scikit-learn.
 
 The following table contains the available imputation methods:
 
-| methods | description | tabular | time series | minimized criterion |
-| --- | --- | --- | --- | --- |
-| mean | Imputes the missing values using the mean along each column | yes | no | point |
-| median | Imputes the missing values using the median along each column | yes | no | point |
-| LOCF | Imputes missing entries by carrying the last observation forward for each columns | yes | yes | point |
-| shuffle | Imputes missing entries with the random value of each column | yes | no | point |
-| interpolation | IMputes missing using some interpolation strategies supported by pd.Series.interpolate |  | ues | point |
-| impute on residuals | The series are de-seasonalised, residuals are imputed via linear interpolation, then residuals are re-seasonalised | no | yes | point |
-| MICE | Multiple Imputation by Chained Equation | yes |  | point |
-| RPCA | Robust Principal Component Analysis | yes | yes | point |
-| KNN | K-nearest kneighbors | yes |  | point |
-| EM sampler | Imputes missing values via EM algorithm | yes | yes | point/distribution |
-| TabDDPM | Imputer based on Denoising Diffusion Probabilistic Models |  |  | distribution |
+.. list-table::
+   :widths: 25 70 15 15 20
+   :header-rows: 1
+
+   * - Method
+     - Description
+     - Tabular
+     - Time series
+     - Minimised criterion
+   * - mean
+     - Imputes the missing values using the mean along each column
+     - yes
+     - no
+     - point
+   * - median
+     - Imputes the missing values using the median along each column
+     - yes
+     - no
+     - point
+   * - LOCF
+     - Imputes missing entries by carrying the last observation forward for each columns
+     - yes
+     - yes
+     - point
+   * - shuffle
+     - Imputes missing entries with the random value of each column
+     - yes
+     - no
+     - point
+   * - interpolation
+     - Imputes missing using some interpolation strategies supported by pd.Series.interpolate
+     - yes
+     - yes
+     - point
+   * - impute on residuals
+     - The series are de-seasonalised, residuals are imputed via linear interpolation, then residuals are re-seasonalised
+     - no
+     - yes
+     - point
+   * - MICE
+     - Multiple Imputation by Chained Equation
+     - yes
+     - no
+     - point
+   * - RPCA
+     - Robust Principal Component Analysis
+     - yes
+     - yes
+     - point
+   * - KNN
+     - K-nearest kneighbors
+     - yes
+     - no
+     - point
+   * - EM sampler
+     - Imputes missing values via EM algorithm
+     - yes
+     - yes
+     - point/distribution
+   * - TabDDPM
+     - Imputer based on Denoising Diffusion Probabilistic Models
+     - yes
+     - yes
+     - distribution
+
 
 
 📝 Contributing

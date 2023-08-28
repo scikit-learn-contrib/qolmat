@@ -3,12 +3,10 @@
 .. toctree::
    :maxdepth: 2
    :hidden:
-   :caption: Brief explanation
+   :caption: MODEL SELECTION FOR IMPUTATION
 
    explanation
-   RPCA
-   EM_sampler
-   hole_generator
+   imputers
 
 .. toctree::
    :maxdepth: 2
