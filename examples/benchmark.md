@@ -142,9 +142,8 @@ dict_config_opti["RPCA_opticw"] = {
 }
 
 imputer_ou = imputers.ImputerEM(groups=("station",), model="multinormal", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
-imputer_tsou = imputers.ImputerEM(groups=("station",), model="VAR1", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
-imputer_tsmle = imputers.ImputerEM(groups=("station",), model="VAR1", method="mle", max_iter_em=100, n_iter_ou=15, dt=1e-3)
-
+imputer_tsou = imputers.ImputerEM(groups=("station",), model="VAR", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3, p=1)
+imputer_tsmle = imputers.ImputerEM(groups=("station",), model="VAR", method="mle", max_iter_em=100, n_iter_ou=15, dt=1e-3, p=1)
 
 imputer_knn = imputers.ImputerKNN(groups=("station",), n_neighbors=10)
 imputer_mice = imputers.ImputerMICE(groups=("station",), estimator=LinearRegression(), sample_posterior=False, max_iter=100)
@@ -160,7 +159,7 @@ dict_imputers = {
     "mean": imputer_mean,
     # "median": imputer_median,
     # "mode": imputer_mode,
-    "interpolation": imputer_interpol,
+    # "interpolation": imputer_interpol,
     # "spline": imputer_spline,
     # "shuffle": imputer_shuffle,
     "residuals": imputer_residuals,
@@ -215,7 +214,7 @@ for i, metric in enumerate(metrics):
     plot.multibar(df, decimals=2)
     plt.ylabel(metric)
 
-plt.savefig("figures/imputations_benchmark_errors.png")
+#plt.savefig("figures/imputations_benchmark_errors.png")
 plt.show()
 ```
 
