@@ -332,7 +332,7 @@ class ResidualBlockTS(torch.nn.Module):
 
         self.linear_out = torch.nn.Linear(dim_embedding, dim_input)
 
-    def forward(self, x: torch.Tensor, t: torch.LongTensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, t: torch.LongTensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """Return an output of a residual block
 
         Parameters
