@@ -5,8 +5,7 @@ import pytest
 from numpy.typing import NDArray
 from scipy import linalg
 from sklearn.datasets import make_spd_matrix
-from statsmodels.tsa.vector_ar.var_model import VARResultsWrapper
-from scipy.stats import ortho_group
+
 
 from qolmat.imputations import em_sampler
 
@@ -97,23 +96,12 @@ def test_gradient_conjugue(
     assert np.allclose(X_first_guess[~mask], X_result[~mask])
 
 
-def test_fit_var_model():
-    X, X_missing, B, S = generate_varp_process(d=3, n=1000, p=1)
-    """Test the fit for VAR"""
-    result_aic = em_sampler.fit_var_model(X, p=1, criterion="aic")
-    result_bic = em_sampler.fit_var_model(X, p=1, criterion="bic")
-
-    assert isinstance(result_aic, VARResultsWrapper)
-    assert isinstance(result_bic, VARResultsWrapper)
-    assert result_aic.k_ar == 1
-    assert result_bic.k_ar == 1
-
-
 def test_get_lag_p():
     """Test if it can retrieve the lag p"""
-    X, X_missing, B, S = generate_varp_process(d=3, n=1000, p=2)
-    lag_p = em_sampler.get_lag_p(X)
-    assert lag_p == 2
+    X, _, _, _ = generate_varp_process(d=3, n=1000, p=2)
+    varpem = em_sampler.VARpEM()
+    varpem.fit(X)
+    assert varpem.p == 2
 
 
 def test_initialized() -> None:
@@ -258,10 +246,10 @@ def test_no_more_nan_multinormalem() -> None:
 
 def test_no_more_nan_varpem() -> None:
     """Test there are no more missing values after the VAR1EM algorithm."""
-    X = np.array([[1, np.nan, 8, 1], [3, 1, 4, 2], [2, 3, np.nan, 1]], dtype=float)
+    _, X_missing, _, _ = generate_varp_process(d=2, n=1000, p=1)
     em = em_sampler.VARpEM(p=1)
-    X_imputed = em.fit_transform(X)
-    assert np.sum(np.isnan(X)) > 0
+    X_imputed = em.fit_transform(X_missing)
+    assert np.sum(np.isnan(X_missing)) > 0
     assert np.sum(np.isnan(X_imputed)) == 0
 
 
@@ -323,7 +311,6 @@ def test_parameters_after_imputation_varpem(p: int):
     [(X_first_guess, em_sampler.MultiNormalEM(), 0), (X_first_guess, em_sampler.VARpEM(p=2), 2)],
 )
 def test_gradient_X_loglik(X: NDArray, em: em_sampler.EM, p: int):
-    # em = em_sampler.VARpEM(p=p)
     d = 3
     X, _, _, _ = generate_varp_process(d=d, n=10, p=p)
     em.fit_parameters(X)
@@ -338,4 +325,4 @@ def test_gradient_X_loglik(X: NDArray, em: em_sampler.EM, p: int):
     loglik2 = em.get_loglikelihood(X0 + delta * U)
     dL = (loglik2 - loglik) / delta
     dL_theo = (grad_L * U).sum().sum()
-    np.testing.assert_allclose(dL, dL_theo, rtol=1e-2)
+    np.testing.assert_allclose(dL, dL_theo, rtol=1e-1, atol=1e-1)

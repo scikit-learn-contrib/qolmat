@@ -324,7 +324,8 @@ class EM(BaseEstimator, TransformerMixin):
                 self.p = p
                 self.fit_X(X)
                 self.loglik_for_p[self.p] = self.get_loglikelihood(self.X)
-            self.p = min(self.loglik_for_p, key=self.loglik_for_p.get)
+            print(self.loglik_for_p)
+            self.p = max(self.loglik_for_p, key=self.loglik_for_p.get)
             self.fit_X(X)
 
         else:
@@ -769,6 +770,7 @@ class VARpEM(EM):
         self.list_ZY = []
         self.list_B = []
         self.list_S = []
+        self.list_YY = []
 
     def update_parameters(self, X: NDArray) -> None:
         """
@@ -788,20 +790,22 @@ class VARpEM(EM):
         B = ZZ_inv @ ZY
         U = Y - Z @ B
         S = U.T @ U / n_obs
+        YY = Y.T @ Y / n_obs
 
         self.list_ZZ.append(ZZ)
         self.list_ZY.append(ZY)
         self.list_B.append(B)
         self.list_S.append(S)
+        self.list_YY.append(YY)
 
     def combine_parameters(self) -> None:
         """
         Combine all statistics computed for each sample in the update step. The estimation of `nu`
-         and `B` corresponds to the MLE, whereas `S`is approximated.
+         and `B` corresponds to the MLE, whereas `S` is approximated.
         """
         list_ZZ = self.list_ZZ[-self.n_samples :]
         list_ZY = self.list_ZY[-self.n_samples :]
-        list_S = self.list_S[-self.n_samples :]
+        list_YY = self.list_YY[-self.n_samples :]
 
         stack_ZZ = np.stack(list_ZZ)
         self.ZZ = np.mean(stack_ZZ, axis=0)
@@ -809,11 +813,10 @@ class VARpEM(EM):
         self.ZY = np.mean(stack_ZY, axis=0)
         self.ZZ_inv = np.linalg.pinv(self.ZZ)
         self.B = self.ZZ_inv @ self.ZY
-
-        # do not account for inter-group variance
-        stack_S = np.stack(list_S)
-        self.S = np.mean(stack_S, axis=0)
-        self.S_inv = np.linalg.pinv(self.S)
+        stack_YY = np.stack(list_YY)
+        self.YY = np.mean(stack_YY, axis=0)
+        self.S = self.YY - self.ZY.T @ self.B - self.B.T @ self.ZY + self.B.T @ self.ZZ @ self.B
+        self.S_inv = np.linalg.pinv(self.S, rcond=1e-10)
 
     def _check_convergence(self) -> bool:
         """
