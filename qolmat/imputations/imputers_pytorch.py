@@ -159,6 +159,8 @@ class ImputerGenerativeModelPytorch(ImputerGenerativeModel):
         ),
         round: int = 10,
         cols_imputed: Tuple[str, ...] = (),
+        index_datetime: str = "",
+        freq_str: str = "1D",
     ):
         super().__init__(groups=groups, model=model)
         self.epochs = epochs
@@ -169,8 +171,21 @@ class ImputerGenerativeModelPytorch(ImputerGenerativeModel):
         self.metrics_valid = metrics_valid
         self.round = round
         self.cols_imputed = cols_imputed
+        self.index_datetime = index_datetime
+        self.freq_str = freq_str
 
     def _get_params_fit(self) -> Dict:
+        if self.index_datetime == "":
+            return {
+                "epochs": self.epochs,
+                "batch_size": self.batch_size,
+                "x_valid": self.x_valid,
+                "x_valid_mask": self.x_valid_mask,
+                "print_valid": self.print_valid,
+                "metrics_valid": self.metrics_valid,
+                "round": self.round,
+                "cols_imputed": self.cols_imputed,
+            }
         return {
             "epochs": self.epochs,
             "batch_size": self.batch_size,
@@ -180,4 +195,6 @@ class ImputerGenerativeModelPytorch(ImputerGenerativeModel):
             "metrics_valid": self.metrics_valid,
             "round": self.round,
             "cols_imputed": self.cols_imputed,
+            "index_datetime": self.index_datetime,
+            "freq_str": self.freq_str,
         }

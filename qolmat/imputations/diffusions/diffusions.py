@@ -161,20 +161,13 @@ class TabDDPM(DDPM):
                 idx for idx, col in enumerate(self.columns) if col not in self.cols_imputed
             ]
 
-        self._set_eps_model()
-
-        self.summary: Dict[str, List] = {
-            "epoch_loss": [],
-            "num_params": [get_num_params(self.eps_model)],
-        }
-
-        if self.batch_size >= x.shape[0]:
-            raise ValueError(f"Batch size {self.batch_size} larger than x size {x.shape[0]}")
-
         self.interval_x = {col: [x[col].min(), x[col].max()] for col in self.columns}
         self.normalizer_x.fit(x.values)
 
         x_processed, x_mask = self._process_data(x)
+
+        if self.batch_size >= x_processed.shape[0]:
+            raise ValueError(f"Batch size {self.batch_size} larger than x size {x.shape[0]}")
 
         if x_valid is not None:
             if x_valid_mask is None:
@@ -192,6 +185,13 @@ class TabDDPM(DDPM):
             drop_last=True,
             shuffle=True,
         )
+
+        self._set_eps_model()
+        self.summary: Dict[str, List] = {
+            "epoch_loss": [],
+            "num_params": [get_num_params(self.eps_model)],
+        }
+
         for epoch in range(epochs):
             loss_epoch = 0.0
             time_start = time.time()
@@ -435,7 +435,6 @@ class TabDDPMTS(TabDDPM):
         self,
         dim_input: int,
         num_noise_steps: int = 50,
-        size_window: int = 10,
         beta_start: float = 1e-4,
         beta_end: float = 0.02,
         lr: float = 0.001,
@@ -462,8 +461,6 @@ class TabDDPMTS(TabDDPM):
             Input dimension
         num_noise_steps : int, optional
             Number of noise steps, by default 50
-        size_window : int, optional
-            Size of window, by default 10
         beta_start : float, optional
             Range of beta (noise scale value), by default 1e-4
         beta_end : float, optional
@@ -502,7 +499,6 @@ class TabDDPMTS(TabDDPM):
             num_sampling,
         )
 
-        self.size_window = size_window
         self.dim_feedforward = dim_feedforward
         self.nheads_feature = nheads_feature
         self.nheads_time = nheads_time
@@ -590,6 +586,73 @@ class TabDDPMTS(TabDDPM):
 
         return np.array(outputs)
 
+    def fit(
+        self,
+        x: pd.DataFrame,
+        epochs: int = 10,
+        batch_size: int = 100,
+        print_valid: bool = False,
+        x_valid: pd.DataFrame = None,
+        x_valid_mask: pd.DataFrame = None,
+        metrics_valid: Tuple[Tuple[str, Callable], ...] = (
+            ("mae", metrics.mean_absolute_error),
+            ("wasser", metrics.dist_wasserstein),
+        ),
+        round: int = 10,
+        cols_imputed: Tuple[str, ...] = (),
+        index_datetime: str = "",
+        freq_str: str = "1D",
+    ):
+        """Fit data
+
+        Parameters
+        ----------
+        x : pd.DataFrame
+            Input dataframe
+        epochs : int, optional
+            Number of epochs, by default 10
+        batch_size : int, optional
+            Batch size, by default 100
+        print_valid : bool, optional
+            Print model performance for after several epochs, by default False
+        x_valid : pd.DataFrame, optional
+            Dataframe for validation, by default None
+        x_valid_mask : pd.DataFrame, optional
+            Artificial nan for validation dataframe, by default None
+        metrics_valid : Tuple[Tuple[str, Callable], ...], optional
+            Set of validation metrics, by default ( ("mae", metrics.mean_absolute_error),
+            ("wasser", metrics.dist_wasserstein), )
+        round : int, optional
+            Number of decimal places to round to, by default 10
+        cols_imputed : Tuple[str, ...], optional
+            Name of columns that need to be imputed, by default ()
+        index_datetime : str
+            Name of datetime-like index
+        freq_str : str
+            Frequency string of DateOffset
+        Raises
+        ------
+        ValueError
+            Batch size is larger than data size
+        """
+        if index_datetime == "":
+            raise ValueError(
+                f"Please set the name of datatime-like index column. Suggestions: {x.index.names}"
+            )
+        self.index_datetime = index_datetime
+        self.freq_str = freq_str
+        super().fit(
+            x,
+            epochs,
+            batch_size,
+            print_valid,
+            x_valid,
+            x_valid_mask,
+            metrics_valid,
+            round,
+            cols_imputed,
+        )
+
     def _process_data(
         self, x: pd.DataFrame, mask: pd.DataFrame = None
     ) -> Tuple[np.ndarray, np.ndarray]:
@@ -607,21 +670,35 @@ class TabDDPMTS(TabDDPM):
         Tuple[np.ndarray, np.ndarray]
             Data and mask pre-processed
         """
-        x_windows = list(x.rolling(window=self.size_window))[self.size_window - 1 :]
-
+        x_windows = list(x.resample(rule=self.freq_str, level=self.index_datetime))
         x_windows_processed = []
         x_windows_mask_processed = []
+        self.size_window = x_windows[0][1].shape[0]
         for x_w in x_windows:
-            x_windows_mask_processed.append(~x_w.isna().to_numpy())
+            x_w = x_w[1]
             x_w_fillna = x_w.fillna(x_w.mean())
             x_w_fillna = x_w_fillna.fillna(x.mean())
             x_w_norm = self.normalizer_x.transform(x_w_fillna.values)
+            x_w_mask = ~x_w.isna().to_numpy()
+
+            x_w_shape = x_w.shape
+            npad = [(0, self.size_window - x_w_shape[0]), (0, 0)]
+            if x_w_shape[0] < self.size_window:
+                x_w_norm = np.pad(x_w_norm, pad_width=npad, mode="mean")
+                x_w_mask = np.pad(x_w_mask, pad_width=npad, mode="constant", constant_values=0)
             x_windows_processed.append(x_w_norm)
+            x_windows_mask_processed.append(x_w_mask)
 
         if mask is not None:
-            x_masks = list(mask.rolling(window=self.size_window))[self.size_window - 1 :]
+            x_masks = list(mask.resample(rule=self.freq_str, level=self.index_datetime))
             x_windows_mask_processed = []
             for x_m in x_masks:
-                x_windows_mask_processed.append(x_m.to_numpy())
+                x_m = x_m[1]
+                x_m_mask = x_m.to_numpy()
+
+                x_m_shape = x_m.shape
+                if x_m_shape[0] < self.size_window:
+                    x_w_mask = np.pad(x_w_mask, pad_width=npad, mode="constant", constant_values=0)
+                x_windows_mask_processed.append(x_m_mask)
 
         return np.array(x_windows_processed), np.array(x_windows_mask_processed)
