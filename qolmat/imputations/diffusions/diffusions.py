@@ -583,8 +583,10 @@ class TabDDPMTS(TabDDPM):
 
         outputs = np.concatenate(outputs)
         outputs_shape = np.shape(outputs)
-        outputs = np.reshape(outputs, (outputs_shape[0] * outputs_shape[1], outputs_shape[2]))
-        return np.array(outputs)
+        outputs_reshaped = np.reshape(
+            outputs, (outputs_shape[0] * outputs_shape[1], outputs_shape[2])
+        )
+        return np.array(outputs_reshaped)
 
     def fit(
         self,

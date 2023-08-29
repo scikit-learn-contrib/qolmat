@@ -18,8 +18,10 @@ df_incomplete = pd.DataFrame(
         "col3": [174, 166, 182, 177, np.nan],
         "col4": [9, 12, 11, 12, 8],
         "col5": [93, 75, np.nan, 12, np.nan],
-    }
+    },
+    index=pd.date_range("2023-04-17", periods=5, freq="D"),
 )
+df_incomplete.index = df_incomplete.index.set_names("datetime")
 
 
 @pytest.mark.parametrize("df", [df_incomplete])
@@ -42,11 +44,14 @@ def test_ImputerGenerativeModelPytorch_fit_transform(df: pd.DataFrame) -> None:
     result = imputer.fit_transform(df)
     np.testing.assert_array_equal(np.isnan(result).any(), expected)
 
-    model = diffusions.TabDDPMTS(
-        dim_input=5, num_noise_steps=10, num_blocks=1, dim_embedding=64, size_window=2
-    )
+    model = diffusions.TabDDPMTS(dim_input=5, num_noise_steps=10, num_blocks=1, dim_embedding=64)
     imputer = imputers_pytorch.ImputerGenerativeModelPytorch(
-        model=model, batch_size=2, epochs=2, x_valid=df, print_valid=True
+        model=model,
+        batch_size=2,
+        epochs=2,
+        x_valid=df,
+        print_valid=True,
+        index_datetime="datetime",
     )
 
     result = imputer.fit_transform(df)
