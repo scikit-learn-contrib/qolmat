@@ -217,7 +217,6 @@ class TabDDPM(DDPM):
                 loss_epoch += loss.item()
 
             # self.lr_scheduler.step()
-            time_duration = time.time() - time_start
             self.summary["epoch_loss"].append(np.mean(loss_epoch))
             if x_valid is not None:
                 self.eps_model.eval()
@@ -227,7 +226,7 @@ class TabDDPM(DDPM):
                         self.summary[name_loss] = [value_loss]
                     else:
                         self.summary[name_loss].append(value_loss)
-
+            time_duration = time.time() - time_start
             self._print_valid(epoch, time_duration)
 
     def _print_valid(self, epoch: int, time_duration: float) -> None:
@@ -338,11 +337,12 @@ class TabDDPM(DDPM):
         """
 
         list_x_imputed = []
-        for i in tqdm(range(self.num_sampling)):
+        for i in tqdm(range(self.num_sampling), disable=True):
             x_imputed = self._impute(x, x_mask_obs)
             list_x_imputed.append(x_imputed)
         x_imputed = np.mean(np.array(list_x_imputed), axis=0)
         x_normalized = self.normalizer_x.inverse_transform(x_imputed)
+        x_normalized = x_normalized[: x_df.shape[0]]
         x_out = pd.DataFrame(x_normalized, columns=self.columns, index=x_df.index)
         if self.is_clip:
             for col, interval in self.interval_x.items():
@@ -391,6 +391,7 @@ class TabDDPM(DDPM):
         x_imputed = np.mean(np.array(list_x_imputed), axis=0)
 
         x_normalized = self.normalizer_x.inverse_transform(x_imputed)
+        x_normalized = x_normalized[: x.shape[0]]
         x_out = pd.DataFrame(x_normalized, columns=x.columns, index=x.index)
         if self.is_clip:
             for col, interval in self.interval_x.items():
@@ -577,13 +578,12 @@ class TabDDPMTS(TabDDPM):
                     noise = mask_x_batch * x_batch + (1.0 - mask_x_batch) * noise
 
                 # Generate data output, this activation function depends on normalizer_x
-                x_out = noise
-                for id_window, x_window in enumerate(x_out.detach().cpu().numpy()):
-                    if id_batch == 0 and id_window == 0:
-                        outputs += list(x_window)
-                    else:
-                        outputs += [x_window[-1, :]]
+                x_out = noise.detach().cpu().numpy()
+                outputs.append(x_out)
 
+        outputs = np.concatenate(outputs)
+        outputs_shape = np.shape(outputs)
+        outputs = np.reshape(outputs, (outputs_shape[0] * outputs_shape[1], outputs_shape[2]))
         return np.array(outputs)
 
     def fit(
@@ -637,7 +637,8 @@ class TabDDPMTS(TabDDPM):
         """
         if index_datetime == "":
             raise ValueError(
-                f"Please set the name of datatime-like index column. Suggestions: {x.index.names}"
+                "Please set the params index_datetime (the name of datatime-like index column)."
+                + f" Suggestions: {x.index.names}"
             )
         self.index_datetime = index_datetime
         self.freq_str = freq_str
@@ -682,10 +683,11 @@ class TabDDPMTS(TabDDPM):
             x_w_mask = ~x_w.isna().to_numpy()
 
             x_w_shape = x_w.shape
-            npad = [(0, self.size_window - x_w_shape[0]), (0, 0)]
             if x_w_shape[0] < self.size_window:
+                npad = [(0, self.size_window - x_w_shape[0]), (0, 0)]
                 x_w_norm = np.pad(x_w_norm, pad_width=npad, mode="mean")
-                x_w_mask = np.pad(x_w_mask, pad_width=npad, mode="constant", constant_values=0)
+                x_w_mask = np.pad(x_w_mask, pad_width=npad, mode="constant", constant_values=1)
+
             x_windows_processed.append(x_w_norm)
             x_windows_mask_processed.append(x_w_mask)
 
@@ -698,7 +700,7 @@ class TabDDPMTS(TabDDPM):
 
                 x_m_shape = x_m.shape
                 if x_m_shape[0] < self.size_window:
-                    x_w_mask = np.pad(x_w_mask, pad_width=npad, mode="constant", constant_values=0)
+                    x_m_mask = np.pad(x_m_mask, pad_width=npad, mode="constant", constant_values=1)
                 x_windows_mask_processed.append(x_m_mask)
 
         return np.array(x_windows_processed), np.array(x_windows_mask_processed)
