@@ -37,7 +37,7 @@ def test_ImputerGenerativeModelPytorch_fit_transform(df: pd.DataFrame) -> None:
     )
 
     model = diffusions.TabDDPM(dim_input=5, num_noise_steps=10, num_blocks=1, dim_embedding=64)
-    imputer = imputers_pytorch.ImputerGenerativeModelPytorch(
+    imputer = imputers_pytorch.ImputerDiffusion(
         model=model, batch_size=2, epochs=2, x_valid=df, print_valid=True
     )
 
@@ -45,7 +45,7 @@ def test_ImputerGenerativeModelPytorch_fit_transform(df: pd.DataFrame) -> None:
     np.testing.assert_array_equal(np.isnan(result).any(), expected)
 
     model = diffusions.TabDDPMTS(dim_input=5, num_noise_steps=10, num_blocks=1, dim_embedding=64)
-    imputer = imputers_pytorch.ImputerGenerativeModelPytorch(
+    imputer = imputers_pytorch.ImputerDiffusion(
         model=model,
         batch_size=2,
         epochs=2,
