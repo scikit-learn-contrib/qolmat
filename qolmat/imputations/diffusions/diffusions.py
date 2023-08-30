@@ -162,12 +162,15 @@ class TabDDPM(DDPM):
             ]
 
         self.interval_x = {col: [x[col].min(), x[col].max()] for col in self.columns}
-        self.normalizer_x.fit(x.values)
 
-        x_processed, x_mask = self._process_data(x)
+        x_processed, x_mask = self._process_data(x, is_training=True)
 
         if self.batch_size >= x_processed.shape[0]:
-            raise ValueError(f"Batch size {self.batch_size} larger than x size {x.shape[0]}")
+            raise ValueError(
+                f"Batch size {self.batch_size} larger than size of pre-processed x"
+                + f" size={x_processed.shape[0]}. Please reduce batch_size."
+                + " In the case of TabDDPMTS, you can also reduce freq_str."
+            )
 
         if x_valid is not None:
             if x_valid_mask is None:
@@ -400,7 +403,7 @@ class TabDDPM(DDPM):
         return x_out
 
     def _process_data(
-        self, x: pd.DataFrame, mask: pd.DataFrame = None
+        self, x: pd.DataFrame, mask: pd.DataFrame = None, is_training: bool = False
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Pre-process data
 
@@ -410,12 +413,16 @@ class TabDDPM(DDPM):
             Input data
         mask : pd.DataFrame, optional
             Observed value mask, by default None
+        is_training : bool
+            Processing data for training step
 
         Returns
         -------
         Tuple[np.ndarray, np.ndarray]
             Data and mask pre-processed
         """
+        if is_training:
+            self.normalizer_x.fit(x.values)
         x_windows_processed = self.normalizer_x.transform(x.fillna(x.mean()).values)
         x_windows_mask_processed = ~x.isna().to_numpy()
         if mask is not None:
@@ -448,6 +455,7 @@ class TabDDPMTS(TabDDPM):
         num_layers_transformer: int = 1,
         p_dropout: float = 0.0,
         num_sampling: int = 1,
+        is_rolling: bool = False,
     ):
         """Diffusion model for time-series data based on the works of
         Ho et al., 2020 (https://arxiv.org/abs/2006.11239),
@@ -486,6 +494,8 @@ class TabDDPMTS(TabDDPM):
             Dropout probability, by default 0.0
         num_sampling : int, optional
             Number of samples generated for each cell, by default 1
+        is_rolling : bool, optional
+            Use pandas.DataFrame.rolling for preprocessing data, by default False
         """
         super().__init__(
             dim_input,
@@ -504,6 +514,7 @@ class TabDDPMTS(TabDDPM):
         self.nheads_feature = nheads_feature
         self.nheads_time = nheads_time
         self.num_layers_transformer = num_layers_transformer
+        self.is_rolling = is_rolling
 
     def _set_eps_model(self):
         self.eps_model = AutoEncoderTS(
@@ -657,7 +668,7 @@ class TabDDPMTS(TabDDPM):
         )
 
     def _process_data(
-        self, x: pd.DataFrame, mask: pd.DataFrame = None
+        self, x: pd.DataFrame, mask: pd.DataFrame = None, is_training: bool = False
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Pre-process data
 
@@ -667,18 +678,39 @@ class TabDDPMTS(TabDDPM):
             Input data
         mask : pd.DataFrame, optional
             Observed value mask, by default None
+        is_training : bool
+            Processing data for training step
 
         Returns
         -------
         Tuple[np.ndarray, np.ndarray]
             Data and mask pre-processed
         """
-        x_windows = list(x.resample(rule=self.freq_str, level=self.index_datetime))
+        x_windows: List = []
+        if is_training:
+            self.normalizer_x.fit(x.values)
+
+        if is_training and self.is_rolling:
+            if self.print_valid:
+                print(
+                    "Preprocessing data with sliding window (pandas.DataFrame.rolling)"
+                    + " can require more times than usual. Please be patient!"
+                )
+            columns_index = [col for col in x.index.names if col != self.index_datetime]
+            x_windows = []
+            for x_group in x.groupby(by=columns_index):
+                x_windows += list(
+                    x_group[1].droplevel(columns_index).rolling(window=self.freq_str)
+                )
+        else:
+            x_windows += [
+                x_w[1] for x_w in x.resample(rule=self.freq_str, level=self.index_datetime)
+            ]
+
         x_windows_processed = []
         x_windows_mask_processed = []
-        self.size_window = x_windows[0][1].shape[0]
+        self.size_window = np.max([w.shape[0] for w in x_windows])
         for x_w in x_windows:
-            x_w = x_w[1]
             x_w_fillna = x_w.fillna(x_w.mean())
             x_w_fillna = x_w_fillna.fillna(x.mean())
             x_w_norm = self.normalizer_x.transform(x_w_fillna.values)
