@@ -1,4 +1,5 @@
 from typing import Dict, List, Callable, Tuple
+from typing_extensions import Self
 import math
 import numpy as np
 import pandas as pd
@@ -113,7 +114,7 @@ class TabDDPM(DDPM):
         ),
         round: int = 10,
         cols_imputed: Tuple[str, ...] = (),
-    ):
+    ) -> Self:
 
         """Fit data
 
@@ -143,6 +144,10 @@ class TabDDPM(DDPM):
         ------
         ValueError
             Batch size is larger than data size
+        Returns
+        -------
+        Self
+            Return Self
         """
         self.epochs = epochs
         self.batch_size = batch_size
@@ -232,6 +237,8 @@ class TabDDPM(DDPM):
             time_duration = time.time() - time_start
             self._print_valid(epoch, time_duration)
 
+        return self
+
     def _print_valid(self, epoch: int, time_duration: float) -> None:
         """Print model performance on validation data
 
@@ -245,7 +252,7 @@ class TabDDPM(DDPM):
         self.time_durations.append(time_duration)
         print_step = 1 if int(self.epochs / 10) == 0 else int(self.epochs / 10)
         if self.print_valid and epoch == 0:
-            print(f'Num params: {self.summary["num_params"][0]}')
+            print(f'Num params of {self.__class__.__name__}: {self.summary["num_params"][0]}')
         if self.print_valid and epoch % print_step == 0:
             string_valid = f"Epoch {epoch}: "
             for s in self.summary:
@@ -615,7 +622,7 @@ class TabDDPMTS(TabDDPM):
         cols_imputed: Tuple[str, ...] = (),
         index_datetime: str = "",
         freq_str: str = "1D",
-    ):
+    ) -> Self:
         """Fit data
 
         Parameters
@@ -647,6 +654,10 @@ class TabDDPMTS(TabDDPM):
         ------
         ValueError
             Batch size is larger than data size
+        Returns
+        -------
+        Self
+            Return Self
         """
         if index_datetime == "":
             raise ValueError(
@@ -666,6 +677,7 @@ class TabDDPMTS(TabDDPM):
             round,
             cols_imputed,
         )
+        return self
 
     def _process_data(
         self, x: pd.DataFrame, mask: pd.DataFrame = None, is_training: bool = False

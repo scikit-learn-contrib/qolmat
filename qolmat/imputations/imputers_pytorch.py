@@ -1,9 +1,10 @@
 import pandas as pd
 import numpy as np
-from typing import Callable, List, Optional, Tuple, Dict
+from typing import Callable, List, Optional, Tuple, Dict, Union
 
 from sklearn.base import BaseEstimator
-from qolmat.imputations.imputers import ImputerRegressor, ImputerGenerativeModel
+from qolmat.imputations.imputers import _Imputer, ImputerRegressor
+from qolmat.imputations.diffusions.diffusions import TabDDPM, TabDDPMTS
 from qolmat.utils.exceptions import PyTorchExtraNotInstalled
 from qolmat.benchmark import metrics
 
@@ -143,7 +144,7 @@ class ImputerRegressorPyTorch(ImputerRegressor):
         assert AssertionError("Estimator is not provided.")
 
 
-class ImputerGenerativeModelPytorch(ImputerGenerativeModel):
+class ImputerDiffusion(_Imputer):
     def __init__(
         self,
         groups: Tuple[str, ...] = (),
@@ -162,7 +163,8 @@ class ImputerGenerativeModelPytorch(ImputerGenerativeModel):
         index_datetime: str = "",
         freq_str: str = "1D",
     ):
-        super().__init__(groups=groups, model=model)
+        super().__init__(groups=groups, columnwise=False)
+        self.model = model
         self.epochs = epochs
         self.batch_size = batch_size
         self.x_valid = x_valid
@@ -173,6 +175,63 @@ class ImputerGenerativeModelPytorch(ImputerGenerativeModel):
         self.cols_imputed = cols_imputed
         self.index_datetime = index_datetime
         self.freq_str = freq_str
+
+    def _fit_element(self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0):
+        """
+        Fits the imputer on `df`, at the group and/or column level depending onself.groups and
+        self.columnwise.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe on which the imputer is fitted
+        col : str, optional
+            Column on which the imputer is fitted, by default "__all__"
+        ngroup : int, optional
+            Id of the group on which the method is applied
+
+        Returns
+        -------
+        Any
+            Return fitted model
+
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
+        """
+        self._check_dataframe(df)
+        hp = self._get_params_fit()
+        return self.model.fit(df, **hp)
+
+    def _transform_element(
+        self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
+    ) -> pd.DataFrame:
+        """
+        Transforms the dataframe `df`, at the group and/or column level depending on self.groups
+        and self.columnwise.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe or column to impute
+        col : str, optional
+            Column transformed by the imputer, by default "__all__"
+        ngroup : int, optional
+            Id of the group on which the method is applied
+
+        Returns
+        -------
+        pd.DataFrame
+            Imputed dataframe
+
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
+        """
+        df_imputed = self.model.predict(df)
+        return df_imputed
 
     def _get_params_fit(self) -> Dict:
         if self.index_datetime == "":
