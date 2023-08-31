@@ -347,7 +347,7 @@ class TabDDPM(DDPM):
         """
 
         list_x_imputed = []
-        for i in tqdm(range(self.num_sampling), disable=True):
+        for i in tqdm(range(self.num_sampling), disable=True, leave=False):
             x_imputed = self._impute(x, x_mask_obs)
             list_x_imputed.append(x_imputed)
         x_imputed = np.mean(np.array(list_x_imputed), axis=0)
@@ -395,7 +395,7 @@ class TabDDPM(DDPM):
         x_processed, x_mask = self._process_data(x)
 
         list_x_imputed = []
-        for i in tqdm(range(self.num_sampling)):
+        for i in tqdm(range(self.num_sampling), leave=False):
             x_imputed = self._impute(x_processed, x_mask)
             list_x_imputed.append(x_imputed)
         x_imputed = np.mean(np.array(list_x_imputed), axis=0)
