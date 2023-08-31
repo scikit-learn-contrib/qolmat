@@ -244,9 +244,9 @@ class EM(BaseEstimator, TransformerMixin):
         if hasattr(self, "p"):
             X_transformed = self.get_X(X_transformed)
             self.get_parameters_ABomega()
-            self.dict_criteria_stop["As"] = self.A
-            self.dict_criteria_stop["Bs"] = self.B
-            self.dict_criteria_stop["omegas"] = self.omega
+            self.dict_criteria_stop["As"] = [self.A]
+            self.dict_criteria_stop["Bs"] = [self.B]
+            self.dict_criteria_stop["omegas"] = [self.omega]
 
         X_transformed = self.scaler.inverse_transform(X_transformed.T).T
 
