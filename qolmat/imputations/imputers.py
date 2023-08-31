@@ -1729,10 +1729,11 @@ class ImputerEM(_Imputer):
                 random_state=self.rng_, verbose=self.verbose, **hyperparams
             )
         elif self.model == "VAR":
+            hyperparams["p"] = self.p
             return em_sampler.VARpEM(
                 random_state=self.rng_,
                 verbose=self.verbose,
-                **(hyperparams | {"p": self.p}),  # type: ignore #noqa
+                **hyperparams,  # type: ignore #noqa
             )
         else:
             raise ValueError(
