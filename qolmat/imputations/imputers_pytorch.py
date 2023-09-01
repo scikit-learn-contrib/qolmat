@@ -152,11 +152,10 @@ class ImputerDiffusion(_Imputer):
         epochs: int = 100,
         batch_size: int = 100,
         x_valid: pd.DataFrame = None,
-        x_valid_mask: pd.DataFrame = None,
         print_valid: bool = False,
-        metrics_valid: Tuple[Tuple[str, Callable], ...] = (
-            ("mae", metrics.mean_absolute_error),
-            ("wasser", metrics.dist_wasserstein),
+        metrics_valid: Tuple[Callable, ...] = (
+            metrics.mean_absolute_error,
+            metrics.dist_wasserstein,
         ),
         round: int = 10,
         cols_imputed: Tuple[str, ...] = (),
@@ -168,7 +167,6 @@ class ImputerDiffusion(_Imputer):
         self.epochs = epochs
         self.batch_size = batch_size
         self.x_valid = x_valid
-        self.x_valid_mask = x_valid_mask
         self.print_valid = print_valid
         self.metrics_valid = metrics_valid
         self.round = round
@@ -239,7 +237,6 @@ class ImputerDiffusion(_Imputer):
                 "epochs": self.epochs,
                 "batch_size": self.batch_size,
                 "x_valid": self.x_valid,
-                "x_valid_mask": self.x_valid_mask,
                 "print_valid": self.print_valid,
                 "metrics_valid": self.metrics_valid,
                 "round": self.round,
@@ -249,7 +246,6 @@ class ImputerDiffusion(_Imputer):
             "epochs": self.epochs,
             "batch_size": self.batch_size,
             "x_valid": self.x_valid,
-            "x_valid_mask": self.x_valid_mask,
             "print_valid": self.print_valid,
             "metrics_valid": self.metrics_valid,
             "round": self.round,

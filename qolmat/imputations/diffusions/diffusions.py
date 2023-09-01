@@ -32,7 +32,7 @@ class TabDDPM(DDPM):
         beta_start: float = 1e-4,
         beta_end: float = 0.02,
         lr: float = 0.001,
-        ratio_masked: float = 0.1,
+        ratio_nan: float = 0.1,
         dim_embedding: int = 128,
         num_blocks: int = 1,
         p_dropout: float = 0.0,
@@ -58,7 +58,7 @@ class TabDDPM(DDPM):
             Range of beta (noise scale value), by default 0.02
         lr : float, optional
             Learning rate, by default 0.001
-        ratio_masked : float, optional
+        ratio_nan : float, optional
             Ratio of artificial nan for training and validation, by default 0.1
         dim_embedding : int, optional
             Embedding dimension, by default 128
@@ -73,7 +73,7 @@ class TabDDPM(DDPM):
         super().__init__(num_noise_steps, beta_start, beta_end)
 
         self.lr = lr
-        self.ratio_masked = ratio_masked
+        self.ratio_nan = ratio_nan
         self.num_noise_steps = num_noise_steps
         self.dim_input = dim_input
         self.dim_embedding = dim_embedding
@@ -107,10 +107,9 @@ class TabDDPM(DDPM):
         batch_size: int = 100,
         print_valid: bool = False,
         x_valid: pd.DataFrame = None,
-        x_valid_mask: pd.DataFrame = None,
-        metrics_valid: Tuple[Tuple[str, Callable], ...] = (
-            ("mae", metrics.mean_absolute_error),
-            ("wasser", metrics.dist_wasserstein),
+        metrics_valid: Tuple[Callable, ...] = (
+            metrics.mean_absolute_error,
+            metrics.dist_wasserstein,
         ),
         round: int = 10,
         cols_imputed: Tuple[str, ...] = (),
@@ -130,11 +129,9 @@ class TabDDPM(DDPM):
             Print model performance for after several epochs, by default False
         x_valid : pd.DataFrame, optional
             Dataframe for validation, by default None
-        x_valid_mask : pd.DataFrame, optional
-            Artificial nan for validation dataframe, by default None
-        metrics_valid : Tuple[Tuple[str, Callable], ...], optional
-            Set of validation metrics, by default ( ("mae", metrics.mean_absolute_error),
-            ("wasser", metrics.dist_wasserstein), )
+        metrics_valid : Tuple[Callable, ...], optional
+            Set of validation metrics, by default ( metrics.mean_absolute_error,
+            metrics.dist_wasserstein )
         round : int, optional
             Number of decimal places to round to, by default 10
         cols_imputed : Tuple[str, ...], optional
@@ -153,11 +150,10 @@ class TabDDPM(DDPM):
         self.batch_size = batch_size
         self.batch_size_predict = batch_size
         self.columns = x.columns.tolist()
-        self.metrics_valid = dict((x, y) for x, y in metrics_valid)
+        self.metrics_valid = metrics_valid
         self.print_valid = print_valid
         self.cols_imputed = cols_imputed
         self.round = round
-
         self.time_durations: List = []
         self.cols_idx_not_imputed: List = []
 
@@ -168,6 +164,7 @@ class TabDDPM(DDPM):
 
         self.interval_x = {col: [x[col].min(), x[col].max()] for col in self.columns}
 
+        # x_mask: 1 for observed values, 0 for nan
         x_processed, x_mask = self._process_data(x, is_training=True)
 
         if self.batch_size >= x_processed.shape[0]:
@@ -178,12 +175,14 @@ class TabDDPM(DDPM):
             )
 
         if x_valid is not None:
-            if x_valid_mask is None:
-                x_valid_mask = missing_patterns.UniformHoleGenerator(
-                    n_splits=1,
-                    ratio_masked=self.ratio_masked,
-                ).split(x_valid)[0]
-            x_processed_valid, x_mask_valid = self._process_data(x_valid, x_valid_mask)
+            x_valid_mask = missing_patterns.UniformHoleGenerator(
+                n_splits=1, ratio_masked=self.ratio_nan
+            ).split(x_valid)[0]
+            # x_valid_obs_mask is the mask for observed values
+            x_valid_obs_mask = ~x_valid_mask
+            x_processed_valid, x_processed_valid_obs_mask = self._process_data(
+                x_valid, x_valid_obs_mask
+            )
 
         x_tensor = torch.from_numpy(x_processed).float().to(self.device)
         x_mask_tensor = torch.from_numpy(x_mask).float().to(self.device)
@@ -205,10 +204,10 @@ class TabDDPM(DDPM):
             time_start = time.time()
             self.eps_model.train()
             for id_batch, (x_batch, mask_x_batch) in enumerate(dataloader):
-                mask_rand = torch.FloatTensor(mask_x_batch.size()).uniform_() > self.ratio_masked
+                mask_obs_rand = torch.FloatTensor(mask_x_batch.size()).uniform_() > self.ratio_nan
                 for col in self.cols_idx_not_imputed:
-                    mask_rand[:, col] = 0.0
-                mask_x_batch = mask_x_batch * mask_rand.to(self.device)
+                    mask_obs_rand[:, col] = 0.0
+                mask_x_batch = mask_x_batch * mask_obs_rand.to(self.device)
 
                 self.optimiser.zero_grad()
                 t = torch.randint(
@@ -228,7 +227,9 @@ class TabDDPM(DDPM):
             self.summary["epoch_loss"].append(np.mean(loss_epoch))
             if x_valid is not None:
                 self.eps_model.eval()
-                dict_loss = self._eval(x_processed_valid, x_mask_valid, x_valid, x_valid_mask)
+                dict_loss = self._eval(
+                    x_processed_valid, x_processed_valid_obs_mask, x_valid, x_valid_obs_mask
+                )
                 for name_loss, value_loss in dict_loss.items():
                     if name_loss not in self.summary:
                         self.summary[name_loss] = [value_loss]
@@ -260,7 +261,7 @@ class TabDDPM(DDPM):
                     string_valid += f" {s}={round(self.summary[s][epoch], self.round)}"
             # string_valid += f" | in {round(time_duration, 3)} secs"
             remaining_duration = np.mean(self.time_durations) * (self.epochs - epoch)
-            string_valid += f"| remaining {timedelta(seconds=remaining_duration)}"
+            string_valid += f" | remaining {timedelta(seconds=remaining_duration)}"
             print(string_valid)
 
     def _impute(self, x: np.ndarray, x_mask_obs: np.ndarray) -> np.ndarray:
@@ -358,13 +359,14 @@ class TabDDPM(DDPM):
             for col, interval in self.interval_x.items():
                 x_out[col] = np.clip(x_out[col], interval[0], interval[1])
 
-        columns_with_True = x_mask_obs_df.columns[(x_mask_obs_df == True).any()]
+        x_mask_imputed_df = ~x_mask_obs_df
+        columns_with_True = x_mask_imputed_df.columns[(x_mask_imputed_df == True).any()]
         scores = {}
-        for name, metric in self.metrics_valid.items():
-            scores[name] = metric(
+        for metric in self.metrics_valid:
+            scores[metric.__name__] = metric(
                 x_df[columns_with_True],
                 x_out[columns_with_True],
-                x_mask_obs_df[columns_with_True],
+                x_mask_imputed_df[columns_with_True],
             ).mean()
         return scores
 
@@ -613,10 +615,9 @@ class TabDDPMTS(TabDDPM):
         batch_size: int = 100,
         print_valid: bool = False,
         x_valid: pd.DataFrame = None,
-        x_valid_mask: pd.DataFrame = None,
-        metrics_valid: Tuple[Tuple[str, Callable], ...] = (
-            ("mae", metrics.mean_absolute_error),
-            ("wasser", metrics.dist_wasserstein),
+        metrics_valid: Tuple[Callable, ...] = (
+            metrics.mean_absolute_error,
+            metrics.dist_wasserstein,
         ),
         round: int = 10,
         cols_imputed: Tuple[str, ...] = (),
@@ -637,11 +638,9 @@ class TabDDPMTS(TabDDPM):
             Print model performance for after several epochs, by default False
         x_valid : pd.DataFrame, optional
             Dataframe for validation, by default None
-        x_valid_mask : pd.DataFrame, optional
-            Artificial nan for validation dataframe, by default None
-        metrics_valid : Tuple[Tuple[str, Callable], ...], optional
-            Set of validation metrics, by default ( ("mae", metrics.mean_absolute_error),
-            ("wasser", metrics.dist_wasserstein), )
+        metrics_valid : Tuple[Callable, ...], optional
+            Set of validation metrics, by default ( metrics.mean_absolute_error,
+            metrics.dist_wasserstein )
         round : int, optional
             Number of decimal places to round to, by default 10
         cols_imputed : Tuple[str, ...], optional
@@ -672,7 +671,6 @@ class TabDDPMTS(TabDDPM):
             batch_size,
             print_valid,
             x_valid,
-            x_valid_mask,
             metrics_valid,
             round,
             cols_imputed,
