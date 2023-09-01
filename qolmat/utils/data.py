@@ -1,11 +1,10 @@
 import os
 import sys
 import zipfile
+from datetime import datetime
 from math import pi
 from typing import List
 from urllib import request
-from datetime import datetime
-from distutils.util import strtobool
 
 import numpy as np
 import pandas as pd
@@ -241,10 +240,17 @@ def add_holes(df: pd.DataFrame, ratio_masked: float, mean_size: int) -> pd.DataF
     pd.DataFrame
         dataframe with missing values
     """
-    groups = df.index.names.difference(["datetime", "date", "index"])
-    generator = missing_patterns.GeometricHoleGenerator(
-        1, ratio_masked=ratio_masked, subset=df.columns, groups=groups
-    )
+    try:
+        groups = df.index.names.difference(["datetime", "date", "index"])
+        generator = missing_patterns.GeometricHoleGenerator(
+            1, ratio_masked=ratio_masked, subset=df.columns, groups=groups
+        )
+    except ValueError:
+        print("No group")
+    else:
+        generator = missing_patterns.GeometricHoleGenerator(
+            1, ratio_masked=ratio_masked, subset=df.columns
+        )
 
     generator.dict_probas_out = {column: 1 / mean_size for column in df.columns}
     generator.dict_ratios = {column: 1 / len(df.columns) for column in df.columns}
@@ -448,7 +454,3 @@ def convert_tsf_to_dataframe(
         loaded_data = pd.DataFrame(all_data)
 
         return loaded_data
-        #     frequency,
-        #     forecast_horizon,
-        #     contain_missing_values,
-        #     contain_equal_length,
