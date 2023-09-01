@@ -1,8 +1,13 @@
 
+Model Selection
+===============
+
+Qolmat provides a convenient way to estimate optimal data imputation techniques by leveraging scikit-learn-compatible algorithms. Users can compare various methods based on different evaluation metrics.
+
 .. _general_approach:
 
-General approach
-================
+1. General approach
+-------------------
 
 Let :math:`X \in \mathbb{R}^{n \times m}` be a dataset with missing data. We observe only the matrix :math:`X_{obs} = X \odot M \in (\mathbb{R} \cup \{NA\})^{n \times m}` with :math:`M` the mask such that :math:`M_{ij} = 1` if :math:`X_{ij}` is missing and 0 otherwise. Let :math:`f` be an imputation function which outputs a complete dataset based on the observed ones and the mask, i.e.
 
@@ -23,15 +28,15 @@ It is then easy to compare different imputation functions.
 
 .. _metrics:
 
-Metrics
-=======
+2. Metrics
+----------
 
 
 
 .. _hole_generator:
 
-Hole generator
-==============
+3. Hole generator
+-----------------
 
 In order to evaluate imputers, it is important to analyse the patterns and the mechanism of missing values.
 A common way to diffenrentiate the mechanisms is the classification proposed by Rubin [1], namely MCAR, MAR and MNAR.
@@ -64,8 +69,8 @@ Here are the different classes to generate missing data.
 5. :class:`GroupedHoleGenerator`: The holes are generated from groups, specified by the user.
 
 
-Cross-validation
-================
+4. Cross-validation
+-------------------
 
 Qolmat can be used to search for hyperparameters in imputation functions. Let say the imputation function :math:`f_{\theta}` has :math:`n` hyperparameters :math:`\theta = (\theta_1, ..., \theta_n)` and configuration space :math:`\Theta = \Theta_1 \times ... \times \Theta_n`. The procedure to find the best hyperparameters set :math:`\theta^*` is based on cross-validation, and is the same as that explained in the :ref:`general_approach` section, i.e. via the creation of :math:`L` additional masks :math:`M^{(l)}, \, l=1,...,L`. We use Bayesian optimisation with Gaussian process where the function to minimise is the average reconstruction error over the :math:`L` realisations, i.e.
 
@@ -74,4 +79,4 @@ Qolmat can be used to search for hyperparameters in imputation functions. Let sa
 
 
 
-[1] Rubin, Donald B. [Inference and missing data.](https://www.math.wsu.edu/faculty/xchen/stat115/lectureNotes3/Rubin%20Inference%20and%20Missing%20Data.pdf) Biometrika 63.3 (1976): 581-592.
+[1] Rubin, Donald B. `Inference and missing data. <https://www.math.wsu.edu/faculty/xchen/stat115/lectureNotes3/Rubin%20Inference%20and%20Missing%20Data.pdf>`_ Biometrika 63.3 (1976): 581-592.

@@ -6,7 +6,15 @@
    :caption: MODEL SELECTION FOR IMPUTATION
 
    explanation
+   examples/tutorials/tuto_mean_median
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+   :caption: IMPUTERS
+
    imputers
+
 
 .. toctree::
    :maxdepth: 2
