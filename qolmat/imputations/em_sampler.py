@@ -262,7 +262,8 @@ class EM(BaseEstimator, TransformerMixin):
         NDArray
             Sampled data matrix
         """
-        n_variables, n_samples = X.shape
+        X_copy = X.copy()
+        n_variables, n_samples = X_copy.shape
         if estimate_params:
             self.reset_learned_parameters()
         X_init = X.copy()
@@ -270,13 +271,13 @@ class EM(BaseEstimator, TransformerMixin):
         sqrt_gamma = np.real(spl.sqrtm(gamma))
         for _ in range(self.n_iter_ou):
             noise = self.ampli * self.rng.normal(0, 1, size=(n_variables, n_samples))
-            grad_X = self.gradient_X_loglik(X)
-            X += self.dt * grad_X @ gamma + np.sqrt(2 * self.dt) * noise @ sqrt_gamma
-            X[~mask_na] = X_init[~mask_na]
+            grad_X = self.gradient_X_loglik(X_copy)
+            X_copy += self.dt * grad_X @ gamma + np.sqrt(2 * self.dt) * noise @ sqrt_gamma
+            X_copy[~mask_na] = X_init[~mask_na]
             if estimate_params:
-                self.update_parameters(X)
+                self.update_parameters(X_copy)
 
-        return X
+        return X_copy
 
     def fit_X(self, X: NDArray) -> None:
         mask_na = np.isnan(X)
