@@ -358,11 +358,11 @@ class RPCANoisy(RPCA):
             Ac = np.linalg.norm(A - A_temp, np.inf)
             Lc = np.linalg.norm(L - L_temp, np.inf)
             Qc = np.linalg.norm(Q - Q_temp, np.inf)
-            tol = max([Xc, Ac, Lc, Qc])
+            tol = max([Xc, Ac, Lc, Qc])  # type: ignore #noqa
             if norm == "L1":
                 for i_period, _ in enumerate(list_periods):
                     Rc = np.linalg.norm(R[i_period] - R_temp[i_period], np.inf)
-                    tol = max(tol, Rc)
+                    tol = max(tol, Rc)  # type: ignore #noqa
 
             if tol < tol:
                 break
