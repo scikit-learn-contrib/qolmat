@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, TypeVar, Union
 
 import numpy as np
 import scipy as scp
@@ -358,13 +358,13 @@ class RPCANoisy(RPCA):
             Ac = np.linalg.norm(A - A_temp, np.inf)
             Lc = np.linalg.norm(L - L_temp, np.inf)
             Qc = np.linalg.norm(Q - Q_temp, np.inf)
-            tol = max([Xc, Ac, Lc, Qc])  # type: ignore #noqa
+            tolerance = max([Xc, Ac, Lc, Qc])  # type: ignore # noqa
             if norm == "L1":
                 for i_period, _ in enumerate(list_periods):
                     Rc = np.linalg.norm(R[i_period] - R_temp[i_period], np.inf)
-                    tol = max(tol, Rc)  # type: ignore #noqa
+                    tolerance = max(tolerance, Rc)  # type: ignore # noqa
 
-            if tol < tol:
+            if tolerance < tol:
                 break
 
         X = L @ Q

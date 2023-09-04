@@ -321,12 +321,19 @@ class EM(BaseEstimator, TransformerMixin):
         X = utils.prepare_data(X, self.period)
 
         if hasattr(self, "p_to_fit") and self.p_to_fit:
-            for p in [1, 2]:  # test only lag 1 and 2
+            loglik_for_p = []
+            for p in range(self.max_lagp + 1):
                 self.p = p
                 self.fit_X(X)
-                self.loglik_for_p[self.p] = self.get_loglikelihood(self.X)
-            print(self.loglik_for_p)
-            self.p = max(self.loglik_for_p, key=self.loglik_for_p.get)
+
+                n1, _ = self.X.shape
+                Z, Y = utils.create_lag_matrices(self.X, self.p)
+                U = Y - Z @ self.B
+                _, logdet_S_inv = np.linalg.slogdet(self.S_inv)
+                log_likelihood = -0.5 * (n1 * logdet_S_inv + (U @ self.S_inv * U).sum().sum())
+                loglik_for_p.append(log_likelihood)
+            print(loglik_for_p)
+            self.p = np.argmin(loglik_for_p)
             self.fit_X(X)
 
         else:
@@ -669,6 +676,7 @@ class VARpEM(EM):
         period: int = 1,
         verbose: bool = False,
         p: Union[None, int] = None,
+        max_lagp: int = 2,
     ) -> None:
         super().__init__(
             method=method,
@@ -686,9 +694,9 @@ class VARpEM(EM):
         self.dict_criteria_stop = {"logliks": [], "S": [], "B": []}
         self.p_to_fit = False
         self.p = p  # type: ignore #noqa
+        self.max_lagp = max_lagp
         if self.p is None:
             self.p_to_fit = True
-            self.loglik_for_p = {}
 
     def get_loglikelihood(self, X: NDArray) -> float:
         """
