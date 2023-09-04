@@ -332,8 +332,7 @@ class EM(BaseEstimator, TransformerMixin):
                 _, logdet_S_inv = np.linalg.slogdet(self.S_inv)
                 log_likelihood = -0.5 * (n1 * logdet_S_inv + (U @ self.S_inv * U).sum().sum())
                 loglik_for_p.append(log_likelihood)
-            print(loglik_for_p)
-            self.p = np.argmin(loglik_for_p)
+            self.p = int(np.argmin(loglik_for_p))
             self.fit_X(X)
 
         else:

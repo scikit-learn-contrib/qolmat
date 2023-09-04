@@ -83,8 +83,4 @@ def test_rpca_utils_toeplitz_matrix(T: int, dimension: int):
     X_exp = np.array(
         [[1, 0, -1, 0, 0], [0, 1, 0, -1, 0], [0, 0, 1, 0, -1], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]]
     )
-
-    print(result_np)
-    print(X_exp)
-
     np.testing.assert_allclose(result_np, X_exp)
