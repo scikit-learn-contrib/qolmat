@@ -22,7 +22,7 @@ Multiple Imputation by Chained Equation: multiple imputations based on ICE. It u
 
 5. RPCA
 -------
-Robust Principal Component Analysis (RPCA) is a modification of the statistical procedure of PCA which allows to work with grossly corrupted observations. Suppose we are given a large data matrix :math:`\mathbf{D}`, and know that it may be decomposed as :math:`\mathbf{D} = \mathbf{X}^* + \mathbf{A}^*` where :math:`\mathbf{X}^*` has low-rank and :math:`\mathbf{A}^*` is sparse [1].
+Robust Principal Component Analysis (RPCA) is a modification of the statistical procedure of PCA which allows to work with grossly corrupted observations. Suppose we are given a large data matrix :math:`\mathbf{D}`, and know that it may be decomposed as :math:`\mathbf{D} = \mathbf{X}^* + \mathbf{A}^*` where :math:`\mathbf{X}^*` has low-rank and :math:`\mathbf{A}^*` is sparse [1]. See the :class:`~qolmat.imputations.imputers.ImputerRPCA` class.
 
 Two cases are considered:
 
@@ -45,7 +45,7 @@ K-nearest neighbors, based on `KNNImputer <https://scikit-learn.org/stable/modul
 
 7. EM sampler
 -------------
-Imputes missing values via EM algorithm [4], and more precisely via MCEM algorithm [5].
+Imputes missing values via EM algorithm [4], and more precisely via MCEM algorithm [5]. See the :class:`~qolmat.imputations.imputers.ImputerEM` class.
 Suppose the data :math:`\mathbf{X}` has a density parametrized by some parameter :math:`\theta`.
 
 **Sampling**: The Ornstein-Uhlenbeck (OU) process is often used to model mean-reverting behavior in continuous-time stochastic systems. The process can be written in the following for: :math:`dX = \alpha * (\mu - X) * dt + \beta * dW`, where :math:`X` is the state process; :math:`\alpha, \, \mu, \, \beta` are the rate of mean reversion, the mean of the target distribution and the volatility parameter respectively; :math:`dt` is the time step and :math:`dW` is the increment of a Wiener process representing the random noise.
