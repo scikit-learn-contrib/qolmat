@@ -41,6 +41,7 @@ extensions = [
     "sphinx.ext.doctest",
     "sphinx.ext.viewcode",
     "sphinx.ext.mathjax",
+    "sphinx.ext.intersphinx",
     "numpydoc",
     "sphinx_markdown_tables",
     "sphinx_gallery.gen_gallery",
@@ -51,7 +52,17 @@ mathjax_path = "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS
 # see https://github.com/numpy/numpydoc/issues/69
 numpydoc_show_class_members = False
 
-utodoc_default_flags = ["members", "inherited-members"]
+from distutils.version import LooseVersion
+
+# pngmath / imgmath compatibility layer for different sphinx versions
+import sphinx
+
+if LooseVersion(sphinx.__version__) < LooseVersion("1.4"):
+    extensions.append("sphinx.ext.pngmath")
+else:
+    extensions.append("sphinx.ext.imgmath")
+
+autodoc_default_flags = ["members", "inherited-members"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -90,7 +101,7 @@ html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 html_static_path = ["_static"]
 
 # Generate the plots for the gallery
-plot_gallery = "True"
+plot_gallery = True
 
 # Example configuration for intersphinx: refer to the Python standard library.
 # intersphinx configuration
@@ -108,7 +119,7 @@ intersphinx_mapping = {
 sphinx_gallery_conf = {
     "examples_dirs": ["../examples"],
     "gallery_dirs": ["examples"],
-    "doc_module": "qolmat",
+    "doc_module": ("sphinx_gallery", "numpy"),
     "backreferences_dir": os.path.join("generated"),
     "reference_url": {"qolmat": None},
 }

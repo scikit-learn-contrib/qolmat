@@ -17,9 +17,9 @@ dependencies:
     - pip=23.0.1
     - scipy=1.10.1
     - scikit-learn=1.2.2
-    - sphinx=6.2.1
-    - sphinx-gallery=0.13.0
-    - sphinx_rtd_theme=1.2.0
+    - sphinx=4.3.2
+    - sphinx-gallery=0.10.1
+    - sphinx_rtd_theme=1.0.0
     - statsmodels=0.14.0
     - twine=3.7.1
     - wheel=0.37.1

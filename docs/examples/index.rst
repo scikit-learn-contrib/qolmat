@@ -1,5 +1,9 @@
 :orphan:
 
+
+
+.. _sphx_glr_examples:
+
 .. _general_examples:
 
 General examples
@@ -8,13 +12,13 @@ General examples
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbnails">
+    <div class="sphx-glr-clear"></div>
 
 
-.. raw:: html
 
-    </div>
+.. _sphx_glr_examples_tutorials:
 
+.. _example_model_selection:
 
 Tutorials
 ---------
@@ -22,27 +26,17 @@ Tutorials
 The following examples present pedagogical tutorials explaining how to use Qolmat to select the best imputer given a dataset.
 
 
-.. raw:: html
-
-    <div class="sphx-glr-thumbnails">
-
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="In this tutorial, we show how to use the Qolmat comparator (~qolmat.benchmark.comparator) to ch...">
+    <div class="sphx-glr-thumbcontainer" tooltip="In this tutorial, we show how to use the Qolmat comparator (:class:`~qolmat.benchmark.comparato...">
 
 .. only:: html
 
-  .. image:: /examples/tutorials/images/thumb/sphx_glr_tuto_mean_median_thumb.png
-    :alt:
+ .. figure:: /examples/tutorials/images/thumb/sphx_glr_tuto_mean_median_thumb.png
+     :alt: Tutorial for comparison between mean and median imputations with uniform hole geneation
 
-  :ref:`sphx_glr_examples_tutorials_tuto_mean_median.py`
-
-.. raw:: html
-
-      <div class="sphx-glr-thumbnail-title">Tutorial for comparison between mean and median imputations with uniform hole geneation</div>
-    </div>
-
+     :ref:`sphx_glr_examples_tutorials_tuto_mean_median.py`
 
 .. raw:: html
 
@@ -51,23 +45,50 @@ The following examples present pedagogical tutorials explaining how to use Qolma
 
 .. toctree::
    :hidden:
-   :includehidden:
 
+   /examples/tutorials/tuto_mean_median
 
-   /examples/tutorials/index.rst
+.. raw:: html
 
+    <div class="sphx-glr-thumbcontainer" tooltip="In this tutorial, we show how to use the different hole generator classes in a tabular data cas...">
 
 .. only:: html
 
-  .. container:: sphx-glr-footer sphx-glr-footer-gallery
+ .. figure:: /examples/tutorials/images/thumb/sphx_glr_tuto_tabular_hole_generator_thumb.png
+     :alt: Tutorial for hole generation in tabular data
 
-    .. container:: sphx-glr-download sphx-glr-download-python
+     :ref:`sphx_glr_examples_tutorials_tuto_tabular_hole_generator.py`
 
-      :download:`Download all examples in Python source code: examples_python.zip </examples/examples_python.zip>`
+.. raw:: html
 
-    .. container:: sphx-glr-download sphx-glr-download-jupyter
+    </div>
 
-      :download:`Download all examples in Jupyter notebooks: examples_jupyter.zip </examples/examples_jupyter.zip>`
+
+.. toctree::
+   :hidden:
+
+   /examples/tutorials/tuto_tabular_hole_generator
+.. raw:: html
+
+    <div class="sphx-glr-clear"></div>
+
+
+
+.. only :: html
+
+ .. container:: sphx-glr-footer
+    :class: sphx-glr-footer-gallery
+
+
+  .. container:: sphx-glr-download sphx-glr-download-python
+
+    :download:`Download all examples in Python source code: examples_python.zip </examples/examples_python.zip>`
+
+
+
+  .. container:: sphx-glr-download sphx-glr-download-jupyter
+
+    :download:`Download all examples in Jupyter notebooks: examples_jupyter.zip </examples/examples_jupyter.zip>`
 
 
 .. only:: html

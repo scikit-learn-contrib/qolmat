@@ -14,8 +14,8 @@ We generate holes uniformly at random via
 :class:`~qolmat.benchmark.missing_patterns.UniformHoleGenerator`
 """
 
+import matplotlib
 import matplotlib.pyplot as plt
-import matplotlib.ticker as plticker
 import numpy as np
 import pandas as pd
 
@@ -24,7 +24,7 @@ from qolmat.imputations import imputers
 from qolmat.utils import data, plot
 
 
-#################################################################
+# %%
 # 1. Data
 # ---------------------------------------------------------------
 # The data contains information on 21263 superconductors.
@@ -33,7 +33,7 @@ from qolmat.utils import data, plot
 # target variable. The original data from which the features were extracted
 # comes from http://supercon.nims.go.jp/index_en.html, which is public.
 # The data does not contain missing values; so for the purpose of this notebook,
-# we corrupt the data, with the `~qolmat.utils.data.add_holes` function.
+# we corrupt the data, with the ``qolmat.utils.data.add_holes`` function.
 # In this way, each column has missing values.
 
 csv_url = (
@@ -43,14 +43,13 @@ csv_url = (
 df_data = pd.read_csv(csv_url, index_col=0)
 df = data.add_holes(df_data, ratio_masked=0.2, mean_size=120)
 
-#################################################################
+# %%
 # The dataset contains 82 columns. For simplicity,
 # we only consider some.
 
 columns = [
     "criticaltemp",
     "mean_atomic_mass",
-    "mean_Density",
     "mean_FusionHeat",
     "mean_ThermalConductivity",
     "mean_Valence",
@@ -58,16 +57,19 @@ columns = [
 df = df[columns]
 cols_to_impute = df.columns
 
-#################################################################
-# Let's take a look at variables to impute.
+# %%
+# Let's take a look at the missing data.
+# In this plot, a white (resp. black) box represents
+# a missing (resp. observed) value.
 
-fig, axs = plt.subplots(len(cols_to_impute), 1, figsize=(13, 3 * len(cols_to_impute)))
-for ax, col in zip(axs.flatten(), cols_to_impute):
-    ax.plot(df[col], "o", ms=2)
-    ax.set_ylabel(col.replace("_", " "))
+plt.figure(figsize=(15, 4))
+plt.imshow(df.notna().values.T, aspect="auto", cmap="binary", interpolation="none")
+plt.yticks(range(len(df.columns)), df.columns)
+plt.xlabel("Samples", fontsize=12)
+plt.grid(False)
 plt.show()
 
-#################################################################
+# %%
 # 2. Imputation
 # ---------------------------------------------------------------
 # This part is devoted to the imputation methods.
@@ -86,12 +88,43 @@ generator_holes = missing_patterns.UniformHoleGenerator(
 
 metrics = ["mae", "wmape", "KL_columnwise"]
 
-#################################################################
+# %%
 # Concretely, the comparator takes as input a dataframe to impute,
 # a proportion of nan to create, a dictionary of imputers
 # (those previously mentioned),
 # a list with the columns names to impute,
 # a generator of holes specifying the type of holes to create.
+# Just a few words about hole generation.
+# in this example, we have chosen the uniform hole generator.
+# You can see what this looks like.
+# For example, by imposing that 10% of missing data be created
+# ``ratio_masked=0.1`` and creating missing values in columns
+# ``subset=cols_to_impute``:
+
+generator_holes = missing_patterns.UniformHoleGenerator(
+    n_splits=2, subset=cols_to_impute, ratio_masked=0.1
+)
+df_mask = generator_holes.generate_mask(df)
+df_mask = np.invert(df_mask).astype("int")
+
+df_tot = df.copy()
+df_tot[df.notna()] = 0
+df_tot[df.isna()] = 2
+df_tot += df_mask
+
+colorsList = [(1, 0, 0), (0, 0, 0), (1, 1, 1)]
+custom_cmap = matplotlib.colors.ListedColormap(colorsList)
+
+plt.figure(figsize=(15, 4))
+plt.imshow(df_tot.values.T, aspect="auto", cmap=custom_cmap, interpolation="none")
+plt.yticks(range(len(df_tot.columns)), df_tot.columns)
+plt.xlabel("Samples", fontsize=12)
+plt.grid(False)
+plt.show()
+
+# %%
+# Now that we've seen how hole generation behaves,
+# we can use it in the comparator.
 
 comparison = comparator.Comparator(
     dict_imputers,
@@ -101,15 +134,16 @@ comparison = comparator.Comparator(
     max_evals=5,
 )
 
-#################################################################
-# On the basis of the results, we can see that imputation by the median provides
-# lower reconstruction errors than those obtained by imputation by the mean,
-# whatever the metric and for all the columns to be imputed.
+# %%
+# On the basis of the results, we can see that imputation by
+# the median provides lower reconstruction errors
+# than those obtained by imputation by the mean,
+# except for the `mean_atomic_mass` with MAE.
 
 results = comparison.compare(df)
-results.style.highlight_min(color="lightgreen", axis=1)
+results.style.highlight_min(color="lime", axis=1)
 
-#################################################################
+# %%
 # Let's visualize this dataframe.
 
 n_metrics = len(metrics)
@@ -119,3 +153,24 @@ for i, metric in enumerate(metrics):
     plot.multibar(results.loc[metric], decimals=2)
     plt.ylabel(metric)
 plt.show()
+
+
+# %%
+# And finally, let's take a look at the imputations.
+# Whatever the method, we observe that the imputations
+# are relatively poor. Other imputation methods are therefore
+# necessary (see folder `imputations`).
+
+dfs_imputed = {name: imp.fit_transform(df) for name, imp in dict_imputers.items()}
+
+for col in cols_to_impute:
+    fig, ax = plt.subplots(figsize=(10, 3))
+    values_orig = df[col]
+    plt.plot(values_orig[15000:], ".", color="black", label="original")
+    for ind, (name, model) in enumerate(list(dict_imputers.items())):
+        values_imp = dfs_imputed[name][col].copy()
+        values_imp[values_orig.notna()] = np.nan
+        plt.plot(values_imp[15000:], ".", label=name, alpha=1)
+    plt.ylabel(col, fontsize=16)
+    plt.legend()
+    plt.show()

@@ -7,6 +7,7 @@
 
    explanation
    examples/tutorials/tuto_mean_median
+   examples/tutorials/tuto_tabular_hole_generator
 
 .. toctree::
    :maxdepth: 2
@@ -14,16 +15,6 @@
    :caption: IMPUTERS
 
    imputers
-
-
-.. toctree::
-   :maxdepth: 2
-   :hidden:
-   :caption: Simple examples
-
-   examples/imputation_example
-   examples/imputer_keras
-   examples/RPCA_example
 
 .. toctree::
    :maxdepth: 2

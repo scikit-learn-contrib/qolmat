@@ -9,8 +9,8 @@ Imputers
 
 .. autosummary::
     :toctree: generated/
-    :template: class.rst    
-    
+    :template: class.rst
+
     imputations.imputers.ImputerEM
     imputations.imputers.ImputerKNN
     imputations.imputers.ImputerInterpolation
@@ -31,8 +31,8 @@ Comparator
 
 .. autosummary::
     :toctree: generated/
-    :template: class.rst    
-    
+    :template: class.rst
+
     benchmark.comparator.Comparator
 
 Missing Patterns
@@ -40,8 +40,8 @@ Missing Patterns
 
 .. autosummary::
     :toctree: generated/
-    :template: class.rst    
-    
+    :template: class.rst
+
     benchmark.missing_patterns.UniformHoleGenerator
     benchmark.missing_patterns.GeometricHoleGenerator
     benchmark.missing_patterns.EmpiricalHoleGenerator
