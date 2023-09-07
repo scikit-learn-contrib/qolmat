@@ -2,7 +2,7 @@ from typing import Tuple
 import torch
 import math
 
-# import gc
+import gc
 
 
 class DDPM:
@@ -79,18 +79,6 @@ class DDPM:
 
         epsilon = torch.randn_like(x, device=self.device)
         return sqrt_alpha_hat * x + sqrt_one_minus_alpha_hat * epsilon, epsilon
-
-    # def _cuda_empty_cache(self) -> None:
-    #     if self.eps_model is not None:
-    #         del self.eps_model
-    #     if self.optimiser is not None:
-    #         del self.optimiser
-    #     gc.collect()
-    #     torch.cuda.empty_cache()
-
-    # def _set_device(self, device="cpu") -> None:
-    #     self.device = torch.device(device)
-    #     self.eps_model = self.eps_model.to(self.device)
 
 
 class ResidualBlock(torch.nn.Module):

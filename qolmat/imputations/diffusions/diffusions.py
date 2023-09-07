@@ -6,6 +6,7 @@ import pandas as pd
 import time
 from datetime import timedelta
 from tqdm import tqdm
+import gc
 
 import torch
 from torch.utils.data import DataLoader, TensorDataset
@@ -99,6 +100,19 @@ class TabDDPM(DDPM):
         # self.lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
         #     self.optimiser, milestones=[p1, p2], gamma=0.1
         # )
+
+    def _cuda_empty_cache(self) -> None:
+        if self.eps_model is not None:
+            del self.eps_model
+        if self.optimiser is not None:
+            del self.optimiser
+        gc.collect()
+        torch.cuda.empty_cache()
+
+    def _set_device(self, device="cpu") -> None:
+        self.device = torch.device(device)
+        if self.eps_model is not None:
+            self.eps_model = self.eps_model.to(self.device)
 
     def fit(
         self,
