@@ -744,7 +744,7 @@ class TabDDPMTS(TabDDPM):
 
                 x_m_shape = x_m.shape
                 if x_m_shape[0] < self.size_window:
+                    npad = [(0, self.size_window - x_m_shape[0]), (0, 0)]
                     x_m_mask = np.pad(x_m_mask, pad_width=npad, mode="constant", constant_values=1)
                 x_windows_mask_processed.append(x_m_mask)
-
         return np.array(x_windows_processed), np.array(x_windows_mask_processed)
