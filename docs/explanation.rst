@@ -60,13 +60,14 @@ Finally, the observations are said to be Missing Not at Random (MNAR) in all oth
 
 Qolmat allows to generate new missing values on a an existing dataset, but only in the MCAR case.
 
-Here are the different classes to generate missing data.
+Here are the different classes to generate missing data. We recommend the last 3 for time series. 
 
 1. :class:`UniformHoleGenerator`: This is the simplest way to generate missing data, i.e. the holes are generated uniformly at random.
-2. :class:`GeometricHoleGenerator`: The holes are generated following a Markov 1D process. It means that missing data are created in a columnwise fashion. Given the mask :math:`M` corresponding to the dataset observed. For each column of :math:`M`, we associate a two-state transition matrix (0, 1 for observed or missing). We then construct a Markov process from this transition matrix. In total, :math:`m` processes are created (:math:`m` = number of columns) to form the final mask.
-3. :class:`MultiMarkovHoleGenerator`: This method is similar to :class:`GeometricHoleGenerator` except that each row of the mask (vector) represents a state in the markov chain; we no longer proceed column by column. In the end, a single Markov chain is created to obtain the final mask.
-4. :class:`EmpiricalHoleGenerator`: The distribution of holes is learned from the data. It allows to create missing data based on the holes size distribution, column by column. This class is well suited for time series.
-5. :class:`GroupedHoleGenerator`: The holes are generated from groups, specified by the user.
+2. :class:`GroupedHoleGenerator`: The holes are generated from groups, specified by the user.
+3. :class:`GeometricHoleGenerator`: The holes are generated following a Markov 1D process. It means that missing data are created in a columnwise fashion. Given the mask :math:`M` corresponding to the dataset bserved. For each column of :math:`M`, we associate a two-state transition matrix (0, 1 for observed or missing). We then construct a Markov process from this transition matrix. In total, :math:`m` processes are created (:math:`m` = number of columns) to form the final mask.
+4. :class:`MultiMarkovHoleGenerator`: This method is similar to :class:`GeometricHoleGenerator` except that each row of the mask (vector) represents a state in the markov chain; we no longer proceed column by column. In the end, a single Markov chain is created to obtain the final mask.
+5. :class:`EmpiricalHoleGenerator`: The distribution of holes is learned from the data. It allows to create missing data based on the holes size distribution, column by column. y
+
 
 
 4. Cross-validation

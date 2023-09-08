@@ -117,9 +117,9 @@ intersphinx_mapping = {
 
 # sphinx-gallery configuration
 sphinx_gallery_conf = {
-    "examples_dirs": ["../examples"],
-    "gallery_dirs": ["examples"],
-    "doc_module": ("sphinx_gallery", "numpy"),
+    "examples_dirs": ["../examples/tutorials/"],
+    "gallery_dirs": ["examples/tutorials/"],
+    "doc_module": "qolmat",
     "backreferences_dir": os.path.join("generated"),
     "reference_url": {"qolmat": None},
 }

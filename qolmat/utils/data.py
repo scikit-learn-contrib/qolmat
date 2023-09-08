@@ -77,8 +77,10 @@ def get_data(
     """
     urllink1 = "https://zenodo.org/record/"
     if name_data == "Beijing":
-        urllink = "https://archive.ics.uci.edu/static/public/381/"
-        zipname = "beijing+pm2+5+data"
+        # urllink = "https://archive.ics.uci.edu/static/public/381/"
+        # zipname = "beijing+pm2+5+data"
+        urllink = "https://archive.ics.uci.edu/static/public/501/"
+        zipname = "beijing+multi+site+air+quality+data"
 
         list_df = download_data(zipname, urllink, datapath=datapath)
         list_df = [preprocess_data_beijing(df) for df in list_df]

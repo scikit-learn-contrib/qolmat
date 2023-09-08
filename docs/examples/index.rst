@@ -50,14 +50,14 @@ The following examples present pedagogical tutorials explaining how to use Qolma
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="In this tutorial, we show how to use the different hole generator classes in a tabular data cas...">
+    <div class="sphx-glr-thumbcontainer" tooltip="In this tutorial, we show how to use the different hole generator classes in a time series data...">
 
 .. only:: html
 
- .. figure:: /examples/tutorials/images/thumb/sphx_glr_tuto_tabular_hole_generator_thumb.png
+ .. figure:: /examples/tutorials/images/thumb/sphx_glr_tuto_hole_generator_thumb.png
      :alt: Tutorial for hole generation in tabular data
 
-     :ref:`sphx_glr_examples_tutorials_tuto_tabular_hole_generator.py`
+     :ref:`sphx_glr_examples_tutorials_tuto_hole_generator.py`
 
 .. raw:: html
 
@@ -67,7 +67,28 @@ The following examples present pedagogical tutorials explaining how to use Qolma
 .. toctree::
    :hidden:
 
-   /examples/tutorials/tuto_tabular_hole_generator
+   /examples/tutorials/tuto_hole_generator
+
+.. raw:: html
+
+    <div class="sphx-glr-thumbcontainer" tooltip="# In this tutorial, we show how to use Qolmat to benchmark several # imputation methods and a m...">
+
+.. only:: html
+
+ .. figure:: /examples/tutorials/images/thumb/sphx_glr_tuto_benchmark_TS_thumb.png
+     :alt: Benchmark for time series
+
+     :ref:`sphx_glr_examples_tutorials_tuto_benchmark_TS.py`
+
+.. raw:: html
+
+    </div>
+
+
+.. toctree::
+   :hidden:
+
+   /examples/tutorials/tuto_benchmark_TS
 .. raw:: html
 
     <div class="sphx-glr-clear"></div>
