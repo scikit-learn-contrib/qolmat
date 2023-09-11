@@ -29,6 +29,7 @@ from math import pi
 from qolmat.utils import plot, data
 from qolmat.imputations.rpca.rpca_pcp import RPCAPCP
 from qolmat.imputations.rpca.rpca_noisy import RPCANoisy
+from qolmat.imputations.rpca import rpca_utils
 from qolmat.utils.data import generate_artificial_ts
 ```
 
@@ -91,15 +92,22 @@ plt.plot(imputed)
 ## Temporal RPCA
 
 ```python
+signal.shape
+```
+
+```python
 %%time
-rpca_noisy = RPCANoisy(period=10, tau=1, lam=0.4, list_periods=[10], list_etas=[0.01], norm="L2")
+# rpca_noisy = RPCANoisy(period=10, tau=1, lam=0.4, rank=2, list_periods=[10], list_etas=[0.01], norm="L2")
+rpca_noisy = RPCANoisy(period=10, tau=1, lam=0.4, rank=2, norm="L2")
 X, A = rpca_noisy.decompose_rpca_signal(signal)
+imputed =
 ```
 
 ```python
 fig = plt.figure(figsize=(12, 4))
-plt.plot(X, color="black")
-plt.plot(imputed)
+plt.plot(signal, color="black")
+plt.plot(X_true)
+plt.plot(X)
 ```
 
 ```python
