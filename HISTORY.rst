@@ -2,6 +2,14 @@
 History
 =======
 
+0.0.16 (2023-??-??)
+-------------------
+
+* VAR(p) EM sampler implemented, founding on a VAR(p) modelization such as the one described in `Lütkepohl (2005) New Introduction to Multiple Time Series Analysis`
+* EM and RPCA matrices transposed in the low-level impelmentation, however the API remains unchanged
+* Sparse matrices introduced in the RPCA impletation so as to speed up the execution
+* Docstrings and tests improved for the EM sampler
+
 0.0.15 (2023-08-03)
 -------------------
 
