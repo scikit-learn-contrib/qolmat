@@ -5,7 +5,7 @@ Qolmat proposes two imputers based on Denoising Diffusion Probabilistic Models (
 
 1. Denoising Diffusion Probabilistic Models (DDPMs)
 ***************************************************
-Diffusion models are a class of probabilistic generative models used to describe the dynamic evolution of data over time or space. Inspired by physical processes like diffusion, these models capture how information, attributes, or features spread gradually through a sequence of steps. Instead of explicitly modeling the data's generation process, diffusion models focus on modeling the process of data transitions from noisy or incomplete observations to the underlying true data. They find applications in diverse fields such as image synthesis, anomaly detection, time series prediction and particularly data imputation.
+Diffusion models are a class of generative models used to describe the dynamic evolution of data. Inspired by physical processes like diffusion, these models capture how information (e.g., features in tabular data) spread gradually through a sequence of steps. Instead of explicitly modeling the data's generation process, diffusion models focus on modeling the process of data transitions from noisy or incomplete observations to the underlying true data. They find applications in diverse fields such as image synthesis, anomaly detection, time series prediction and particularly data imputation.
 
 Introduced by Jonathan Ho et al. (2020), Denoising Diffusion Probabilistic Models (DDPMs) tackle data synthesis by leveraging the concept of diffusion, wherein a noisy data is iteratively transformed to remove noise, revealing the underlying true data.
 
@@ -27,6 +27,7 @@ Introduced by Jonathan Ho et al. (2020), Denoising Diffusion Probabilistic Model
     - 
 1.1. TabDDPM architecture
 =========================
+
 In training, several key preprocessing and model architecture choices are employed to ensure the robustness and effectiveness of the neural network. First and foremost, the presence of missing values, represented as "nan," is addressed by filling them with the mean value of the observed data. This imputation technique helps prevent the network from being adversely affected by missing information and ensures that the training process can proceed smoothly.
 
 One of the innovative techniques applied during self-training, referred to as Compute-only loss values from observed data, plays a pivotal role in the training pipeline. CSDI focuses on computing loss values exclusively from the observed data, effectively allowing the model to concentrate on the available information while disregarding the missing data points.
