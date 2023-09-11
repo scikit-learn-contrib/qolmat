@@ -23,7 +23,8 @@ from qolmat.utils.utils import HyperValue
 
 
 class _Imputer(_BaseImputer):
-    """Base class for all imputers.
+    """
+    Base class for all imputers.
 
     Parameters
     ----------
@@ -107,6 +108,7 @@ class _Imputer(_BaseImputer):
             df = pd.DataFrame(X_np, columns=[i for i in range(X_np.shape[1])])
         else:
             df = X
+        df = df.astype(float)
         return df
 
     def _check_dataframe(self, X: NDArray):
@@ -127,7 +129,8 @@ class _Imputer(_BaseImputer):
             raise NotDataFrame(type(X))
 
     def fit(self, X: pd.DataFrame, y=None) -> Self:
-        """Fit the imputer on X.
+        """
+        Fit the imputer on X.
 
         Parameters
         ----------
@@ -185,7 +188,6 @@ class _Imputer(_BaseImputer):
         """
 
         df = self._check_input(X)
-
         if tuple(df.columns) != self.columns_:
             raise ValueError(
                 """The number of features is different from the counterpart in fit.
@@ -253,7 +255,8 @@ class _Imputer(_BaseImputer):
         return df.fillna(df.median())
 
     def _fit_allgroups(self, df: pd.DataFrame, col: str = "__all__") -> Self:
-        """Fits the Imputer either on a column, for a columnwise setting, on or all columns.
+        """
+        Fits the Imputer either on a column, for a columnwise setting, on or all columns.
 
         Parameters
         ----------
@@ -472,7 +475,8 @@ class ImputerOracle(_Imputer):
 
 
 class ImputerMean(_Imputer):
-    """Impute by the mean of the column.
+    """
+    Impute by the mean of the column.
 
     Parameters
     ----------
@@ -573,7 +577,8 @@ class ImputerMean(_Imputer):
 
 
 class ImputerMedian(_Imputer):
-    """Impute by the median of the column.
+    """
+    Impute by the median of the column.
 
     Parameters
     ----------
@@ -674,7 +679,8 @@ class ImputerMedian(_Imputer):
 
 
 class ImputerMode(_Imputer):
-    """Impute by the mode of the column, which is the most represented value.
+    """
+    Impute by the mode of the column, which is the most represented value.
 
     Parameters
     ----------
@@ -775,7 +781,8 @@ class ImputerMode(_Imputer):
 
 
 class ImputerShuffle(_Imputer):
-    """Impute using random samples from the considered column.
+    """
+    Impute using random samples from the considered column.
 
     Parameters
     ----------
@@ -850,7 +857,8 @@ class ImputerShuffle(_Imputer):
 
 
 class ImputerLOCF(_Imputer):
-    """Impute by the last available value of the column. Relevent for time series.
+    """
+    Impute by the last available value of the column. Relevent for time series.
 
     If the first observations are missing, it is imputed by a NOCB
 
@@ -918,7 +926,8 @@ class ImputerLOCF(_Imputer):
 
 
 class ImputerNOCB(_Imputer):
-    """Impute by the next available value of the column. Relevent for time series.
+    """
+    Impute by the next available value of the column. Relevent for time series.
     If the last observation is missing, it is imputed by a LOCF.
 
     Parameters
@@ -1203,16 +1212,16 @@ class ImputerKNN(_Imputer):
         List of column names to group by, by default []
     n_neighbors : int, default=5
         Number of neighbors to use by default for `kneighbors` queries.
-    weights : {'uniform', 'distance'}, callable or None, default='uniform'
+    weights : {`uniform`, `distance`}, callable or None, default=`uniform`
         Weight function used in prediction.  Possible values:
-        - 'uniform' : uniform weights.  All points in each neighborhood
-          are weighted equally.
-        - 'distance' : weight points by the inverse of their distance.
-          in this case, closer neighbors of a query point will have a
-          greater influence than neighbors which are further away.
-        - [callable] : a user-defined function which accepts an
-          array of distances, and returns an array of the same shape
-          containing the weights.
+            - `uniform` : uniform weights. All points in each neighborhood
+                are weighted equally.
+            - `distance` : weight points by the inverse of their distance.
+                in this case, closer neighbors of a query point will have a
+                greater influence than neighbors which are further away.
+            - [callable] : a user-defined function which accepts an
+                array of distances, and returns an array of the same shape
+                containing the weights.
 
     Examples
     --------
@@ -1452,7 +1461,7 @@ class ImputerRegressor(_Imputer):
         - if `fit`, the estimator is assumed to be fitted on parcelar data,
         - if `row` all non complete rows will be removed from the train dataset, and will not be
         used for the inferance,
-        - if `column`all non complete columns will be ignored.
+        - if `column` all non complete columns will be ignored.
 
     Examples
     --------
@@ -1679,7 +1688,8 @@ class ImputerRPCA(_Imputer):
         self.verbose = verbose
 
     def get_model(self, **hyperparams) -> rpca.RPCA:
-        """Get the underlying model of the imputer based on its attributes.
+        """
+        Get the underlying model of the imputer based on its attributes.
 
         Returns
         -------
@@ -1753,9 +1763,9 @@ class ImputerRPCA(_Imputer):
 
         hyperparams = self.get_hyperparams(col=col)
         model = self.get_model(random_state=self._rng, **hyperparams)
-        X = df.astype(float).values.T
+        X = df.astype(float).values
         M, A = model.decompose_rpca_signal(X)
-        X_imputed = (M + A).T
+        X_imputed = M + A
         df_imputed = pd.DataFrame(X_imputed, index=df.index, columns=df.columns)
         df_imputed = df.where(~df.isna(), df_imputed)
 
@@ -1771,11 +1781,11 @@ class ImputerEM(_Imputer):
     ----------
     groups: Tuple[str, ...]
         List of column names to group by, by default []
-    method : {'multinormal', 'VAR1'}, default='multinormal'
+    method : {'multinormal', 'VAR'}, default='multinormal'
         Method defining the hypothesis made on the data distribution. Possible values:
         - 'multinormal' : the data points a independent and uniformly distributed following a
         multinormal distribution
-        - 'VAR1' : the data is a time series modeled by a VAR(1) process
+        - 'VAR' : the data is a time series modeled by a VAR(p) process
     columnwise : bool
         If False, correlations between variables will be used, which is advised.
         If True, each column is imputed independently. For the multinormal case each
@@ -1801,6 +1811,7 @@ class ImputerEM(_Imputer):
         stagnation_loglik: float = 2,
         period: int = 1,
         verbose: bool = False,
+        p: Union[None, int] = None,
     ):
         super().__init__(
             imputer_params=(
@@ -1812,6 +1823,7 @@ class ImputerEM(_Imputer):
                 "stagnation_threshold",
                 "stagnation_loglik",
                 "period",
+                "p",
             ),
             groups=groups,
             columnwise=columnwise,
@@ -1828,6 +1840,7 @@ class ImputerEM(_Imputer):
         self.stagnation_loglik = stagnation_loglik
         self.period = period
         self.verbose = verbose
+        self.p = p
 
     def get_model(self, **hyperparams) -> em_sampler.EM:
         """Get the underlying model of the imputer based on its attributes.
@@ -1838,11 +1851,20 @@ class ImputerEM(_Imputer):
             EM model to be used in the fit and transform methods.
         """
         if self.model == "multinormal":
+            hyperparams.pop("p")
             return em_sampler.MultiNormalEM(
-                random_state=self._rng, verbose=self.verbose, **hyperparams
+                random_state=self.random_state,
+                method=self.method,
+                verbose=self.verbose,
+                **hyperparams,
             )
-        elif self.model == "VAR1":
-            return em_sampler.VAR1EM(random_state=self._rng, verbose=self.verbose, **hyperparams)
+        elif self.model == "VAR":
+            return em_sampler.VARpEM(
+                random_state=self.random_state,
+                method=self.method,
+                verbose=self.verbose,
+                **(hyperparams),  # type: ignore #noqa
+            )
         else:
             raise ValueError(
                 f"Model argument `{self.model}` is invalid!"
@@ -1878,7 +1900,7 @@ class ImputerEM(_Imputer):
         self._check_dataframe(df)
         hyperparams = self.get_hyperparams()
         model = self.get_model(**hyperparams)
-        model = model.fit(df.values.T)
+        model = model.fit(df.values)
         return model
 
     def _transform_element(
@@ -1911,9 +1933,8 @@ class ImputerEM(_Imputer):
 
         model = self._dict_fitting[col][ngroup]
 
-        X = df.values.T.astype(float)
+        X = df.values.astype(float)
         X_imputed = model.transform(X)
-        X_imputed = X_imputed.T
 
         df_transformed = pd.DataFrame(X_imputed, columns=df.columns, index=df.index)
 

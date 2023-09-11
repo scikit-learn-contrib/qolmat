@@ -142,9 +142,8 @@ dict_config_opti["RPCA_opticw"] = {
 }
 
 imputer_ou = imputers.ImputerEM(groups=("station",), model="multinormal", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
-imputer_tsou = imputers.ImputerEM(groups=("station",), model="VAR1", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
-imputer_tsmle = imputers.ImputerEM(groups=("station",), model="VAR1", method="mle", max_iter_em=100, n_iter_ou=15, dt=1e-3)
-
+imputer_tsou = imputers.ImputerEM(groups=("station",), model="VAR", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3, p=1)
+imputer_tsmle = imputers.ImputerEM(groups=("station",), model="VAR", method="mle", max_iter_em=100, n_iter_ou=15, dt=1e-3, p=1)
 
 imputer_knn = imputers.ImputerKNN(groups=("station",), n_neighbors=10)
 imputer_mice = imputers.ImputerMICE(groups=("station",), estimator=LinearRegression(), sample_posterior=False, max_iter=100)
@@ -160,14 +159,14 @@ dict_imputers = {
     "mean": imputer_mean,
     # "median": imputer_median,
     # "mode": imputer_mode,
-    "interpolation": imputer_interpol,
+    # "interpolation": imputer_interpol,
     # "spline": imputer_spline,
     # "shuffle": imputer_shuffle,
     "residuals": imputer_residuals,
     # "OU": imputer_ou,
     "TSOU": imputer_tsou,
     "TSMLE": imputer_tsmle,
-    # "RPCA": imputer_rpca,
+    "RPCA": imputer_rpca,
     # "RPCA_opti": imputer_rpca,
     # "RPCA_opticw": imputer_rpca_opti2,
     # "locf": imputer_locf,
@@ -203,7 +202,7 @@ comparison = comparator.Comparator(
     dict_config_opti=dict_config_opti,
 )
 results = comparison.compare(df_data)
-results
+results.style.highlight_min(color="lightgreen", axis=1)
 ```
 
 ```python
@@ -215,7 +214,7 @@ for i, metric in enumerate(metrics):
     plot.multibar(df, decimals=2)
     plt.ylabel(metric)
 
-plt.savefig("figures/imputations_benchmark_errors.png")
+#plt.savefig("figures/imputations_benchmark_errors.png")
 plt.show()
 ```
 
@@ -290,9 +289,8 @@ for i_col, col in enumerate(cols_to_impute):
         loc = plticker.MultipleLocator(base=2*365)
         ax.xaxis.set_major_locator(loc)
         ax.tick_params(axis='both', which='major')
-        # plt.xlim(datetime(2019, 2, 1), datetime(2019, 3, 1))
         i_plot += 1
-plt.savefig("figures/imputations_benchmark.png")
+
 plt.show()
 
 ```

@@ -3,11 +3,10 @@ from typing import Any, Dict
 import numpy as np
 import pandas as pd
 import pytest
+from sklearn.ensemble import ExtraTreesRegressor
+from sklearn.linear_model import LinearRegression
 from sklearn.utils.estimator_checks import check_estimator, parametrize_with_checks
 from qolmat.benchmark.hyperparameters import HyperValue
-from sklearn.linear_model import LinearRegression
-from sklearn.ensemble import ExtraTreesRegressor
-
 
 from qolmat.imputations import imputers
 
@@ -176,7 +175,7 @@ def test_ImputerShuffle_fit_transform2(df: pd.DataFrame) -> None:
     imputer = imputers.ImputerShuffle(random_state=42)
     result = imputer.fit_transform(df)
     print(result)
-    expected = pd.DataFrame({"col1": [0, 0, 2, 3, 3], "col2": [-1, 1.5, 0.5, -1, 1.5]})
+    expected = pd.DataFrame({"col1": [0, 3, 2, 3, 0], "col2": [-1, 1.5, 0.5, 1.5, 1.5]})
     np.testing.assert_allclose(result, expected)
 
 
@@ -278,12 +277,13 @@ def test_ImputerRPCA_fit_transform(df: pd.DataFrame) -> None:
 
 @pytest.mark.parametrize("df", [df_timeseries])
 def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
-    imputer = imputers.ImputerEM(method="sample", random_state=42)
+    imputer = imputers.ImputerEM(method="sample", dt=1e-3, random_state=42)
     result = imputer.fit_transform(df)
+    print(result)
     expected = pd.DataFrame(
         {
             "col1": [i for i in range(20)],
-            "col2": [0, 13.959, 2, 13.481, 2] + [i for i in range(5, 20)],
+            "col2": [0, 0.773, 2, 2.621, 2] + [i for i in range(5, 20)],
         }
     )
     print(result)
@@ -330,7 +330,7 @@ def test_models_fit_transform_grouped(imputer):
         imputers.ImputerNOCB(),
         imputers.ImputerInterpolation(),
         imputers.ImputerResiduals(period=2),
-        imputers.ImputerKNN(),
+        imputers.KNNImputer(),
         imputers.ImputerMICE(),
         imputers.ImputerRegressor(),
         imputers.ImputerRPCA(tau=0, lam=0),

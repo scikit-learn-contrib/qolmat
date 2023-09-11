@@ -37,38 +37,47 @@ def test_utils_utils_acf(values, lag_max):
 
 X_incomplete = np.array(
     [
-        [1, np.nan, 3, 2, np.nan],
-        [7, 2, np.nan, 1, 1],
-        [np.nan, 4, 3, np.nan, 5],
-        [np.nan, 4, 3, 5, 5],
-        [4, 4, 3, np.nan, 5],
+        [1, np.nan, 3, 0],
+        [7, 2, np.nan, 1],
+        [np.nan, 4, 3, np.nan],
+        [np.nan, 4, 3, 5],
+        [4, 4, 3, np.nan],
     ]
 )
 X_exp_mean = np.array(
     [
-        [1.0, 3.5, 3.0, 2.0, 4.0],
-        [7.0, 2.0, 3.0, 1.0, 1.0],
-        [4.0, 4.0, 3.0, 2.66666667, 5.0],
-        [4.0, 4.0, 3.0, 5.0, 5.0],
-        [4.0, 4.0, 3.0, 2.66666667, 5.0],
+        [1, 3.5, 3, 0],
+        [7, 2, 3, 1],
+        [4, 4, 3, 2],
+        [4, 4, 3, 5],
+        [4, 4, 3, 2],
     ]
 )
 X_exp_median = np.array(
     [
-        [1.0, 4.0, 3.0, 2.0, 5.0],
-        [7.0, 2.0, 3.0, 1.0, 1.0],
-        [4.0, 4.0, 3.0, 2.0, 5.0],
-        [4.0, 4.0, 3.0, 5.0, 5.0],
-        [4.0, 4.0, 3.0, 2.0, 5.0],
+        [1, 4, 3, 0],
+        [7, 2, 3, 1],
+        [4, 4, 3, 1],
+        [4, 4, 3, 5],
+        [4, 4, 3, 1],
     ]
 )
 X_exp_zeros = np.array(
     [
-        [1.0, 0.0, 3.0, 2.0, 0.0],
-        [7.0, 2.0, 0.0, 1.0, 1.0],
-        [0.0, 4.0, 3.0, 0.0, 5.0],
-        [0.0, 4.0, 3.0, 5.0, 5.0],
-        [4.0, 4.0, 3.0, 0.0, 5.0],
+        [1, 0, 3, 0],
+        [7, 2, 0, 1],
+        [0, 4, 3, 0],
+        [0, 4, 3, 5],
+        [4, 4, 3, 0],
+    ]
+)
+X_exp_interp = np.array(
+    [
+        [1, 2, 3, 0],
+        [7, 2, 3, 1],
+        [6, 4, 3, 3],
+        [5, 4, 3, 5],
+        [4, 4, 3, 5],
     ]
 )
 
@@ -85,16 +94,7 @@ def test_utils_utils_impute_nans(X: NDArray, method: str, X_expected: NDArray):
 @pytest.mark.parametrize("X", [X_incomplete])
 def test_utils_linear_interpolation(X: NDArray):
     result = utils.linear_interpolation(X_incomplete)
-    expected = np.array(
-        [
-            [1, 2, 3, 2, 2],
-            [7, 2, 1.5, 1, 1],
-            [4, 4, 3, 4, 5],
-            [4, 4, 3, 5, 5],
-            [4, 4, 3, 4, 5],
-        ]
-    )
-    np.testing.assert_allclose(result, expected)
+    np.testing.assert_allclose(result, X_exp_interp)
 
 
 signal = np.array([1, 4, np.nan, 3, 2])
@@ -104,13 +104,13 @@ X_expected3 = np.array(
         [1.0, np.nan, 4.0, 3.0, np.nan, 5.0, np.nan, 4.0, 3.0],
         [5.0, 5.0, 4.0, 4.0, 3.0, np.nan, 5.0, np.nan, np.nan],
     ]
-)
+).T
 X_expected2 = np.array(
     [
         [1, 4, np.nan],
         [3, 2, np.nan],
     ]
-)
+).T
 
 
 @pytest.mark.parametrize("X", [X_incomplete])
@@ -122,14 +122,14 @@ def test_utils_prepare_data_2D_succeed(X: NDArray):
 @pytest.mark.parametrize("X", [X_incomplete])
 def test_utils_prepare_data_1D_succeed(X: NDArray):
     X = X.flatten()
-    result = utils.prepare_data(X, 5)
+    result = utils.prepare_data(X, 4)
     np.testing.assert_allclose(result, X_incomplete)
 
 
 @pytest.mark.parametrize("X", [X_incomplete])
 def test_utils_prepare_data_2D_uneven(X: NDArray):
     result = utils.prepare_data(X, 3)
-    np.testing.assert_allclose(result.shape, (15, 2))
+    np.testing.assert_allclose(result.shape, (2, 12))
 
 
 @pytest.mark.parametrize("X", [X_incomplete])
@@ -143,3 +143,19 @@ def test_utils_prepare_data_consistant(X: NDArray):
 @pytest.mark.parametrize("X", [signal])
 def test_utils_fold_signal_1D_fail(X: NDArray):
     np.testing.assert_raises(NotDimension2, utils.fold_signal, X, 100)
+
+
+X_small = np.array([[0, 1], [2, 3], [4, 5], [6, 7]])
+
+
+def test_create_lag_matrices():
+    Z_result, Y_result = utils.create_lag_matrices(X_small, p=2)
+    Z_expected = np.array(
+        [
+            [1, 2, 3, 0, 1],
+            [1, 4, 5, 2, 3],
+        ]
+    )
+    Y_expected = np.array([[4, 5], [6, 7]])
+    np.testing.assert_allclose(Z_result, Z_expected)
+    np.testing.assert_allclose(Y_result, Y_expected)

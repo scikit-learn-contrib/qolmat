@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import warnings
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, TypeVar, Union
 
 import numpy as np
 import scipy as scp
+from scipy import linalg as lscp
+from scipy.sparse import dok_matrix
 from numpy.typing import NDArray
 from sklearn import utils as sku
 
@@ -28,10 +30,14 @@ class RPCANoisy(RPCA):
 
     Parameters
     ----------
+    random_state : int, optional
+        The seed of the pseudo random number generator to use, for reproductibility.
     period: Optional[int]
         number of rows of the reshaped matrix if the signal is a 1D-array
     rank: Optional[int]
         (estimated) low-rank of the matrix D
+    mu: Optional[float]
+        initial stiffness parameter for the constraint on X, L and Q
     tau: Optional[float]
         penalizing parameter for the nuclear norm
     lam: Optional[float]
@@ -45,8 +51,10 @@ class RPCANoisy(RPCA):
     tol: Optional[float]
         stoppign critera, minimum difference between 2 consecutive iterations. By default,
         the value is set to 1e-6
-    norm: str
+    norm: Optional[str]
         error norm, can be "L1" or "L2". By default, the value is set to "L2"
+    verbose: Optional[bool]
+        verbosity level, if False the warnings are silenced
     """
 
     def __init__(
@@ -74,239 +82,6 @@ class RPCANoisy(RPCA):
         self.list_etas = list_etas
         self.norm = norm
 
-    def decompose_rpca_L1(
-        self, D: NDArray, Omega: NDArray, lam: float, tau: float, rank: int
-    ) -> Tuple:
-        """
-        Compute the noisy RPCA with a L1 time penalisation
-
-        Parameters
-        ----------
-        D : np.ndarray
-            Observations matrix of shape (m, n).
-        Omega : np.ndarray
-            Binary matrix indicating the observed entries of D, shape (m, n).
-        lam : float
-            Regularization parameter for the L1 norm.
-        tau : float
-            Regularization parameter for the temporal correlations.
-        rank : int
-            Rank parameter for low-rank matrix decomposition.
-
-        Returns
-        -------
-        Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
-            A tuple containing:
-        M : np.ndarray
-            Low-rank signal matrix of shape (m, n).
-        A : np.ndarray
-            Anomalies matrix of shape (m, n).
-        U : np.ndarray
-            Basis Unitary array of shape (m, rank).
-        V : np.ndarray
-            Basis Unitary array of shape (n, rank).
-        errors : np.ndarray
-            Array of iterative errors.
-
-        """
-        m, n = D.shape
-        rho = 1.1
-        mu = self.mu or 1e-2
-        mu_bar = mu * 1e3
-
-        # init
-        Y = np.ones((m, n))
-        Y_ = [np.ones((m, n - period)) for period in self.list_periods]
-
-        X = D.copy()
-        A = np.zeros((m, n))
-        L = np.ones((m, rank))
-        Q = np.ones((n, rank))
-        R = [np.ones((m, n - period)) for period in self.list_periods]
-
-        # matrices for temporal correlation
-        H = [rpca_utils.toeplitz_matrix(period, n, model="column") for period in self.list_periods]
-        HHT = np.zeros((n, n))
-        for index, _ in enumerate(self.list_periods):
-            HHT += self.list_etas[index] * (H[index] @ H[index].T)
-
-        Ir = np.eye(rank)
-        In = np.eye(n)
-
-        for _ in range(self.max_iterations):
-            X_temp = X.copy()
-            A_temp = A.copy()
-            L_temp = L.copy()
-            Q_temp = Q.copy()
-            R_temp = R.copy()
-
-            sums = np.zeros((m, n))
-            for index, _ in enumerate(self.list_periods):
-                sums += (mu * R[index] - Y_[index]) @ H[index].T
-
-            X = scp.linalg.solve(
-                a=((1 + mu) * In + 2 * HHT).T,
-                b=(D - A + mu * L @ Q.T - Y + sums).T,
-            ).T
-
-            if np.any(np.isnan(D)):
-                A_Omega = rpca_utils.soft_thresholding(D - X, lam)
-                A_Omega_C = D - X
-                A = np.where(Omega, A_Omega, A_Omega_C)
-            else:
-                A = rpca_utils.soft_thresholding(D - X, lam)
-
-            L = scp.linalg.solve(
-                a=(tau * Ir + mu * (Q.T @ Q)).T,
-                b=((mu * X + Y) @ Q).T,
-            ).T
-
-            Q = scp.linalg.solve(
-                a=(tau * Ir + mu * (L.T @ L)).T,
-                b=((mu * X.T + Y.T) @ L).T,
-            ).T
-
-            for index, _ in enumerate(self.list_periods):
-                R[index] = rpca_utils.soft_thresholding(
-                    X @ H[index] - Y_[index] / mu, self.list_etas[index] / mu
-                )
-
-            Y += mu * (X - L @ Q.T)
-            for index, _ in enumerate(self.list_periods):
-                Y_[index] += mu * (X @ H[index] - R[index])
-
-            # update mu
-            mu = min(mu * rho, mu_bar)
-
-            # stopping criteria
-            Xc = np.linalg.norm(X - X_temp, np.inf)
-            Ac = np.linalg.norm(A - A_temp, np.inf)
-            Lc = np.linalg.norm(L - L_temp, np.inf)
-            Qc = np.linalg.norm(Q - Q_temp, np.inf)
-            Rc = -1
-            for index, _ in enumerate(self.list_periods):
-                Rc = np.maximum(Rc, np.linalg.norm(R[index] - R_temp[index], np.inf))
-            tol = np.amax(np.array([Xc, Ac, Lc, Qc, Rc]))
-
-            if tol < self.tol:
-                break
-        M = X
-        U = L
-        V = Q
-        return M, A, U, V
-
-    def decompose_rpca_L2(
-        self, D: NDArray, Omega: NDArray, lam: float, tau: float, rank: int
-    ) -> Tuple:
-        """
-        Compute the noisy RPCA with a L2 time penalisation
-
-        Parameters
-        ----------
-        D : np.ndarray
-            Observations matrix of shape (m, n).
-        Omega : np.ndarray
-            Binary matrix indicating the observed entries of D, shape (m, n).
-        lam : float
-            Regularization parameter for the L2 norm.
-        tau : float
-            Regularization parameter for the temporal correlations.
-        rank : int
-            Rank parameter for low-rank matrix decomposition.
-
-        Returns
-        -------
-        Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
-            A tuple containing:
-        M : np.ndarray
-            Low-rank signal matrix of shape (m, n).
-        A : np.ndarray
-            Anomalies matrix of shape (m, n).
-        U : np.ndarray
-            Basis Unitary array of shape (m, rank).
-        V : np.ndarray
-            Basis Unitary array of shape (n, rank).
-        errors : np.ndarray
-            Array of iterative errors.
-
-        """
-        rho = 1.1
-        m, n = D.shape
-
-        # init
-        Y = np.full_like(D, 0)
-        X = D.copy()
-        A = np.full_like(D, 0)
-        U, S, Vt = np.linalg.svd(X)
-        U = U[:, :rank]
-        S = S[:rank]
-        Vt = Vt[:rank, :]
-        L = U @ np.diag(np.sqrt(S))
-        Q = Vt.transpose() @ np.diag(np.sqrt(S))
-
-        mu = self.mu or 1e-2
-        mu_bar = mu * 1e3
-
-        # matrices for temporal correlation
-        H = [rpca_utils.toeplitz_matrix(period, n, model="column") for period in self.list_periods]
-        HHT = np.zeros((n, n))
-        for index, _ in enumerate(self.list_periods):
-            HHT += self.list_etas[index] * (H[index] @ H[index].T)
-
-        Ir = np.eye(rank)
-        In = np.eye(n)
-
-        for _ in range(self.max_iterations):
-            # print("Cost function", self.cost_function(D, X, A, Omega, tau, lam))
-            X_temp = X.copy()
-            A_temp = A.copy()
-            L_temp = L.copy()
-            Q_temp = Q.copy()
-
-            X = scp.linalg.solve(
-                a=((1 + mu) * In + HHT).T,
-                b=(D - A + mu * L @ Q.T - Y).T,
-            ).T
-
-            if np.any(np.isnan(D)):
-                A_Omega = rpca_utils.soft_thresholding(D - X, lam)
-                A_Omega_C = D - X
-                A = np.where(Omega, A_Omega, A_Omega_C)
-            else:
-                A = rpca_utils.soft_thresholding(D - X, lam)
-
-            L = scp.linalg.solve(
-                a=(tau * Ir + mu * (Q.T @ Q)).T,
-                b=((mu * X + Y) @ Q).T,
-            ).T
-
-            Q = scp.linalg.solve(
-                a=(tau * Ir + mu * (L.T @ L)).T,
-                b=((mu * X.T + Y.T) @ L).T,
-            ).T
-
-            Y += mu * (X - L @ Q.T)
-
-            mu = min(mu * rho, mu_bar)
-
-            Xc = np.linalg.norm(X - X_temp, np.inf)
-            Ac = np.linalg.norm(A - A_temp, np.inf)
-            Lc = np.linalg.norm(L - L_temp, np.inf)
-            Qc = np.linalg.norm(Q - Q_temp, np.inf)
-
-            tol = max([Xc, Ac, Lc, Qc])
-
-            if tol < self.tol:
-                break
-
-        X = L @ Q.T
-
-        M = X
-        U = L
-        V = Q
-
-        return M, A, U, V
-
     def get_params_scale(self, D: NDArray) -> Dict[str, float]:
         """
         Get parameters for scaling in RPCA based on the input data.
@@ -320,12 +95,12 @@ class RPCANoisy(RPCA):
         -------
         dict
             A dictionary containing the following parameters:
-            - "rank" : int
-                Rank estimate for low-rank matrix decomposition.
-            - "tau" : float
-                Regularization parameter for the temporal correlations.
-            - "lam" : float
-                Regularization parameter for the L1 norm.
+                - "rank" : int
+                    Rank estimate for low-rank matrix decomposition.
+                - "tau" : float
+                    Regularization parameter for the temporal correlations.
+                - "lam" : float
+                    Regularization parameter for the L1 norm.
 
         """
         rank = rpca_utils.approx_rank(D)
@@ -343,7 +118,7 @@ class RPCANoisy(RPCA):
 
         Parameters
         ----------
-        X : NDArray
+        D : NDArray
             Matrix of the observations
         Omega: NDArray
             Matrix of missingness, with boolean data
@@ -362,55 +137,33 @@ class RPCANoisy(RPCA):
         rank = params_scale["rank"] if self.rank is None else self.rank
         rank = int(rank)
         tau = params_scale["tau"] if self.tau is None else self.tau
+        mu = 1e-2 if self.mu is None else self.mu
 
-        _, n_columns = D.shape
+        n_rows, _ = D.shape
         for period in self.list_periods:
-            if not period < n_columns:
+            if not period < n_rows:
                 raise ValueError(
                     "The periods provided in argument in `list_periods` must smaller "
-                    f"than the number of columns in the matrix but {period} >= {n_columns}!"
+                    f"than the number of rows in the matrix but {period} >= {n_rows}!"
                 )
 
-        if self.norm == "L1":
-            M, A, U, V = self.decompose_rpca_L1(D, Omega, lam, tau, rank)
-
-        elif self.norm == "L2":
-            M, A, U, V = self.decompose_rpca_L2(D, Omega, lam, tau, rank)
+        M, A, U, V = self.decompose_rpca_algorithm(
+            D,
+            Omega,
+            rank,
+            tau,
+            lam,
+            mu,
+            self.list_periods,
+            self.list_etas,
+            max_iterations=self.max_iterations,
+            tol=self.tol,
+            norm=self.norm,
+        )
 
         self._check_cost_function_minimized(D, M, A, Omega, tau, lam)
 
         return M, A
-
-    def cost_function(
-        self,
-        observations: NDArray,
-        low_rank: NDArray,
-        anomalies: NDArray,
-        Omega: NDArray,
-        tau: float,
-        lam: float,
-    ):
-        temporal_norm: float = 0
-        if len(self.list_etas) > 0:
-            # matrices for temporal correlation
-            H = [
-                rpca_utils.toeplitz_matrix(period, observations.shape[1], model="column")
-                for period in self.list_periods
-            ]
-            if self.norm == "L1":
-                for eta, H_matrix in zip(self.list_etas, H):
-                    temporal_norm += eta * np.sum(np.abs(H_matrix @ low_rank))
-            elif self.norm == "L2":
-                for eta, H_matrix in zip(self.list_etas, H):
-                    temporal_norm += eta * float(np.linalg.norm(low_rank @ H_matrix, "fro"))
-        anomalies_norm = np.sum(np.abs(anomalies * Omega))
-        cost = (
-            1 / 2 * ((Omega * (observations - low_rank - anomalies)) ** 2).sum()
-            + tau * np.linalg.norm(low_rank, "nuc")
-            + lam * anomalies_norm
-            + temporal_norm
-        )
-        return cost
 
     def _check_cost_function_minimized(
         self,
@@ -438,13 +191,29 @@ class RPCANoisy(RPCA):
             parameter penalizing the nuclear norm of the low rank part
         lam : float
             parameter penalizing the L1-norm of the anomaly/sparse part
-        norm : str
-            norm of the temporal penalisation. Has to be `L1` or `L2`
         """
         cost_start = self.cost_function(
-            observations, observations, np.full_like(observations, 0), Omega, tau, lam
+            observations,
+            observations,
+            np.full_like(observations, 0),
+            Omega,
+            tau,
+            lam,
+            self.list_periods,
+            self.list_etas,
+            norm=self.norm,
         )
-        cost_end = self.cost_function(observations, low_rank, anomalies, Omega, tau, lam)
+        cost_end = self.cost_function(
+            observations,
+            low_rank,
+            anomalies,
+            Omega,
+            tau,
+            lam,
+            self.list_periods,
+            self.list_etas,
+            norm=self.norm,
+        )
         function_str = "1/2 $ ||D-M-A||_2 + tau ||D||_* + lam ||A||_1"
         if len(self.list_etas) > 0:
             for eta in self.list_etas:
@@ -455,3 +224,218 @@ class RPCANoisy(RPCA):
                 f"RPCA algorithm may provide bad results. Function {function_str} increased from"
                 f" {cost_start} to {cost_end} instead of decreasing!".format("%.2f")
             )
+
+    @staticmethod
+    def decompose_rpca_algorithm(
+        D: NDArray,
+        Omega: NDArray,
+        rank: int,
+        tau: float,
+        lam: float,
+        mu: float = 1e-2,
+        list_periods: List[int] = [],
+        list_etas: List[float] = [],
+        max_iterations: int = 10000,
+        tol: float = 1e-6,
+        norm: str = "L2",
+    ) -> Tuple:
+        """
+        Compute the noisy RPCA with a L2 time penalisation
+
+        Parameters
+        ----------
+        D : np.ndarray
+            Observations matrix of shape (m, n).
+        Omega : np.ndarray
+            Binary matrix indicating the observed entries of D, shape (m, n).
+        rank: Optional[int]
+            (estimated) low-rank of the matrix D
+        tau: Optional[float]
+            penalizing parameter for the nuclear norm
+        lam: Optional[float]
+            penalizing parameter for the sparse matrix
+        mu: Optional[float]
+            initial stiffness parameter for the constraint on X, L and Q
+        list_periods: Optional[List[int]]
+            list of periods, linked to the Toeplitz matrices
+        list_etas: Optional[List[float]]
+            list of penalizing parameters for the corresponding period in list_periods
+        max_iterations: Optional[int]
+            stopping criteria, maximum number of iterations. By default, the value is set to 10_000
+        tol: Optional[float]
+            stoppign critera, minimum difference between 2 consecutive iterations. By default,
+            the value is set to 1e-6
+        norm: Optional[str]
+            error norm, can be "L1" or "L2". By default, the value is set to "L2"
+
+        Returns
+        -------
+        M : np.ndarray
+            Low-rank signal matrix of shape (m, n).
+        A : np.ndarray
+            Anomalies matrix of shape (m, n).
+        U : np.ndarray
+            Basis Unitary array of shape (m, rank).
+        V : np.ndarray
+            Basis Unitary array of shape (n, rank).
+
+        """
+
+        rho = 1.1
+        n_rows, n_cols = D.shape
+
+        # init
+        Y = np.zeros((n_rows, n_cols))
+        X = D.copy()
+        A = np.zeros((n_rows, n_cols))
+        U, S, Vt = np.linalg.svd(X)
+
+        U = U[:, :rank]
+        S = S[:rank]
+        Vt = Vt[:rank, :]
+        L = U @ np.diag(np.sqrt(S))
+        Q = np.diag(np.sqrt(S)) @ Vt
+
+        if norm == "L1":
+            R = [np.ones((n_rows, n_cols)) for _ in list_periods]
+
+        mu_bar = mu * 1e3
+
+        # matrices for temporal correlation
+        list_H = [rpca_utils.toeplitz_matrix(period, n_rows) for period in list_periods]
+        HtH = dok_matrix((n_rows, n_rows))
+        for i_period, _ in enumerate(list_periods):
+            HtH += list_etas[i_period] * (list_H[i_period].T @ list_H[i_period])
+
+        Ir = np.eye(rank)
+        In = np.eye(n_rows)
+
+        for _ in range(max_iterations):
+            # print("Cost function", cost_function(D, X, A, Omega, tau, lam))
+            X_temp = X.copy()
+            A_temp = A.copy()
+            L_temp = L.copy()
+            Q_temp = Q.copy()
+            if norm == "L1":
+                R_temp = R.copy()
+                sums = np.zeros((n_rows, n_cols))
+                for i_period, _ in enumerate(list_periods):
+                    sums += mu * R[i_period] - list_H[i_period] @ Y
+
+                X = scp.linalg.solve(
+                    a=(1 + mu) * In + HtH,
+                    b=D - A + mu * L @ Q - Y + sums,
+                )
+            else:
+                X = scp.linalg.solve(
+                    a=(1 + mu) * In + 2 * HtH,
+                    b=D - A + mu * L @ Q - Y,
+                )
+
+            A_Omega = rpca_utils.soft_thresholding(D - X, lam)
+            A_Omega_C = D - X
+            A = np.where(Omega, A_Omega, A_Omega_C)
+
+            Q = scp.linalg.solve(
+                a=tau * Ir + mu * (L.T @ L),
+                b=L.T @ (mu * X + Y),
+            )
+
+            L = scp.linalg.solve(
+                a=tau * Ir + mu * (Q @ Q.T),
+                b=Q @ (mu * X.T + Y.T),
+            ).T
+
+            Y += mu * (X - L @ Q)
+            if norm == "L1":
+                for i_period, _ in enumerate(list_periods):
+                    eta = list_etas[i_period]
+                    R[i_period] = rpca_utils.soft_thresholding(R[i_period] / mu, eta / mu)
+
+            mu = min(mu * rho, mu_bar)
+
+            Xc = np.linalg.norm(X - X_temp, np.inf)
+            Ac = np.linalg.norm(A - A_temp, np.inf)
+            Lc = np.linalg.norm(L - L_temp, np.inf)
+            Qc = np.linalg.norm(Q - Q_temp, np.inf)
+            tolerance = max([Xc, Ac, Lc, Qc])  # type: ignore # noqa
+            if norm == "L1":
+                for i_period, _ in enumerate(list_periods):
+                    Rc = np.linalg.norm(R[i_period] - R_temp[i_period], np.inf)
+                    tolerance = max(tolerance, Rc)  # type: ignore # noqa
+
+            if tolerance < tol:
+                break
+
+        X = L @ Q
+
+        M = X
+        U = L
+        V = Q
+
+        return M, A, U, V
+
+    @staticmethod
+    def cost_function(
+        observations: NDArray,
+        low_rank: NDArray,
+        anomalies: NDArray,
+        Omega: NDArray,
+        tau: float,
+        lam: float,
+        list_periods: List[int] = [],
+        list_etas: List[float] = [],
+        norm: str = "L2",
+    ):
+        """
+        Compute cost function for different RPCA algorithm
+
+        Parameters
+        ----------
+        observations : NDArray
+            Matrix of observations
+        low_rank : NDArray
+            Low-rank signal
+        anomalies : NDArray
+            Anomalies
+        Omega : NDArray
+            Mask for observations
+        tau: Optional[float]
+            penalizing parameter for the nuclear norm
+        lam: Optional[float]
+            penalizing parameter for the sparse matrix
+        list_periods: Optional[List[int]]
+            list of periods, linked to the Toeplitz matrices
+        list_etas: Optional[List[float]]
+            list of penalizing parameters for the corresponding period in list_periods
+        norm: Optional[str]
+            error norm, can be "L1" or "L2". By default, the value is set to "L2"
+
+
+        Returns
+        -------
+        float
+            Value of the cost function minimized by the RPCA
+        """
+
+        temporal_norm: float = 0
+        if len(list_etas) > 0:
+            # matrices for temporal correlation
+            list_H = [
+                rpca_utils.toeplitz_matrix(period, observations.shape[0])
+                for period in list_periods
+            ]
+            if norm == "L1":
+                for eta, H_matrix in zip(list_etas, list_H):
+                    temporal_norm += eta * np.sum(np.abs(H_matrix @ low_rank))
+            elif norm == "L2":
+                for eta, H_matrix in zip(list_etas, list_H):
+                    temporal_norm += eta * float(np.linalg.norm(H_matrix @ low_rank, "fro"))
+        anomalies_norm = np.sum(np.abs(anomalies * Omega))
+        cost = (
+            1 / 2 * ((Omega * (observations - low_rank - anomalies)) ** 2).sum()
+            + tau * np.linalg.norm(low_rank, "nuc")
+            + lam * anomalies_norm
+            + temporal_norm
+        )
+        return cost
