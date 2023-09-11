@@ -166,7 +166,7 @@ dict_imputers = {
     # "OU": imputer_ou,
     "TSOU": imputer_tsou,
     "TSMLE": imputer_tsmle,
-    # "RPCA": imputer_rpca,
+    "RPCA": imputer_rpca,
     # "RPCA_opti": imputer_rpca,
     # "RPCA_opticw": imputer_rpca_opti2,
     # "locf": imputer_locf,
@@ -202,7 +202,7 @@ comparison = comparator.Comparator(
     dict_config_opti=dict_config_opti,
 )
 results = comparison.compare(df_data)
-results
+results.style.highlight_min(color="lightgreen", axis=1)
 ```
 
 ```python
@@ -289,9 +289,8 @@ for i_col, col in enumerate(cols_to_impute):
         loc = plticker.MultipleLocator(base=2*365)
         ax.xaxis.set_major_locator(loc)
         ax.tick_params(axis='both', which='major')
-        # plt.xlim(datetime(2019, 2, 1), datetime(2019, 3, 1))
         i_plot += 1
-plt.savefig("figures/imputations_benchmark.png")
+
 plt.show()
 
 ```
