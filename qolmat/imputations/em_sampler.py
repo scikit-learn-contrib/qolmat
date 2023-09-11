@@ -321,18 +321,16 @@ class EM(BaseEstimator, TransformerMixin):
         X = utils.prepare_data(X, self.period)
 
         if hasattr(self, "p_to_fit") and self.p_to_fit:
-            loglik_for_p = []
+            aics: List[float] = []
             for p in range(self.max_lagp + 1):
                 self.p = p
                 self.fit_X(X)
-
-                n1, _ = self.X.shape
-                Z, Y = utils.create_lag_matrices(self.X, self.p)
-                U = Y - Z @ self.B
-                _, logdet_S_inv = np.linalg.slogdet(self.S_inv)
-                log_likelihood = -0.5 * (n1 * logdet_S_inv + (U @ self.S_inv * U).sum().sum())
-                loglik_for_p.append(log_likelihood)
-            self.p = int(np.argmin(loglik_for_p))
+                n1, n2 = self.X.shape
+                aic = np.log(np.linalg.det(self.S)) + 2 * p * (n2**2) / n1
+                if len(aics) > 0 and aic > aics[-1]:
+                    break
+                aics.append(aic)
+            self.p = int(np.argmin(aics))
             self.fit_X(X)
 
         else:
