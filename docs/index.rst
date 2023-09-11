@@ -15,6 +15,7 @@
    :caption: IMPUTERS
 
    imputers
+   imputer_diffusion_model
    examples/tutorials/tuto_benchmark_TS
 
 .. toctree::
@@ -23,4 +24,3 @@
    :caption: API
 
    api
-

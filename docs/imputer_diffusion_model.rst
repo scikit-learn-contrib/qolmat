@@ -1,10 +1,10 @@
 Imputers based on Diffusion models
-##################################
+==================================
 
 Qolmat proposes two imputers based on Denoising Diffusion Probabilistic Models (DDPMs) of `Ho et al. (2020) <https://arxiv.org/abs/2006.11239>`_: :class:`qolmat.diffusions.TabDDPM` for tabular data and :class:`qolmat.diffusions.TabDDPMTs` for time-series data. Our implementations mainly follow the works of `Tashiro et al. (2021) <https://arxiv.org/abs/2107.03502>`_ and `Kotelnikov et al., (2022) <https://arxiv.org/abs/2209.15421>`_.
 
 1. Denoising Diffusion Probabilistic Models (DDPMs)
-***************************************************
+---------------------------------------------------
 Diffusion models are a class of generative models used to describe the dynamic evolution of data. Inspired by physical processes like diffusion, these models capture how information (e.g., features in tabular data) spread gradually through a sequence of steps. Instead of explicitly modeling the data's generation process, diffusion models focus on modeling the process of data transitions from noisy or incomplete observations to the underlying true data. They find applications in diverse fields such as image synthesis, anomaly detection, time series prediction and particularly data imputation.
 
 Introduced by Jonathan Ho et al. (2020), Denoising Diffusion Probabilistic Models (DDPMs) tackle data synthesis by leveraging the concept of diffusion, wherein a noisy data is iteratively transformed to remove noise, revealing the underlying true data.
@@ -26,7 +26,7 @@ Introduced by Jonathan Ho et al. (2020), Denoising Diffusion Probabilistic Model
     - :math:`E_{t \sim \mathcal{U} [[1,T]], x_0 \sim q(x_0), \epsilon \sim \mathcal{N}(0,I)} [|| \epsilon - \epsilon_\theta(x_t, t)||^2]`
     - 
 1.1. TabDDPM architecture
-=========================
+-------------------------
 
 In training, several key preprocessing and model architecture choices are employed to ensure the robustness and effectiveness of the neural network. First and foremost, the presence of missing values, represented as "nan," is addressed by filling them with the mean value of the observed data. This imputation technique helps prevent the network from being adversely affected by missing information and ensures that the training process can proceed smoothly.
 
@@ -42,13 +42,13 @@ Moving on to the inference phase, the process for imputing missing values is out
     - Fill nan with :math:`\hat{x}_0`
 
 1.2. TabDDPMTS architecture
-===========================
+---------------------------
 
 - Sliding window method: obtain a list of data chunks
 - Apply Transformer Encoder to encode the relationship between times in a chunk
 
-1. References
-*************
+2. References
+-------------
 
 [1] Ho, Jonathan, Ajay Jain, and Pieter Abbeel. "Denoising diffusion probabilistic models." Advances in neural information processing systems 33 (2020): 6840-6851.
 [2] Tashiro, Yusuke, et al. "Csdi: Conditional score-based diffusion models for probabilistic time series imputation." Advances in Neural Information Processing Systems 34 (2021): 24804-24816.
