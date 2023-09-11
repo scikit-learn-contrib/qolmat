@@ -9,8 +9,8 @@ Imputers
 
 .. autosummary::
     :toctree: generated/
-    :template: class.rst    
-    
+    :template: class.rst
+
     imputations.imputers.ImputerEM
     imputations.imputers.ImputerKNN
     imputations.imputers.ImputerInterpolation
@@ -31,8 +31,8 @@ Comparator
 
 .. autosummary::
     :toctree: generated/
-    :template: class.rst    
-    
+    :template: class.rst
+
     benchmark.comparator.Comparator
 
 Missing Patterns
@@ -40,8 +40,8 @@ Missing Patterns
 
 .. autosummary::
     :toctree: generated/
-    :template: class.rst    
-    
+    :template: class.rst
+
     benchmark.missing_patterns.UniformHoleGenerator
     benchmark.missing_patterns.GeometricHoleGenerator
     benchmark.missing_patterns.EmpiricalHoleGenerator
@@ -75,10 +75,10 @@ RPCA engine
 
 .. autosummary::
     :toctree: generated/
-    :template: class.rst    
-    
-    imputations.rpca.rpca_noisy.RPCANoisy
+    :template: class.rst
+
     imputations.rpca.rpca_pcp.RPCAPCP
+    imputations.rpca.rpca_noisy.RPCANoisy
 
 
 EM engine
@@ -86,9 +86,9 @@ EM engine
 
 .. autosummary::
     :toctree: generated/
-    :template: class.rst    
-    
+    :template: class.rst
+
     imputations.em_sampler.MultiNormalEM
-    imputations.em_sampler.VAR1EM
+    imputations.em_sampler.VARpEM
 
 
