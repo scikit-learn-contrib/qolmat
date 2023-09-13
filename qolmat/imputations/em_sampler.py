@@ -524,8 +524,8 @@ class VARpEM(EM):
     --------
     >>> import numpy as np
     >>> import pandas as pd
-    >>> from qolmat.imputations.em_sampler import VAR1EM
-    >>> imputer = VAR1EM(method="sample")
+    >>> from qolmat.imputations.em_sampler import VARpEM
+    >>> imputer = VARpEM(method="sample")
     >>> X = pd.DataFrame(data=[[1, 1, 1, 1],
     >>>                        [np.nan, np.nan, 3, 2],
     >>>                        [1, 2, 2, 1], [2, 2, 2, 2]],
