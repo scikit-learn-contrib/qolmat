@@ -31,11 +31,82 @@ It is then easy to compare different imputation functions.
 2. Metrics
 ----------
 
+.. list-table::
+   :header-rows: 1
+   :widths: 1 2 1 1
 
+   * - Metric
+     - Description
+     - Metric types
+     - Data types
+   * - :class:`~qolmat.benchmark.metrics.mean_squared_error`
+     - Mean squared error, based on `mean_squared_error of sklearn <https://scikit-learn.org/stable/modules/model_evaluation.html#mean-squared-error>`_.
+     - Column-wise
+     - Numerical
+   * - :class:`~qolmat.benchmark.metrics.root_mean_squared_error`
+     - Root mean squared error, based on `root_mean_squared_error of sklearn <https://scikit-learn.org/stable/modules/model_evaluation.html#mean-squared-error>`_.
+     - Column-wise
+     - Numerical
+   * - :class:`~qolmat.benchmark.metrics.mean_absolute_error`
+     - Mean absolute error, based on `mean_absolute_error of sklearn <https://scikit-learn.org/stable/modules/model_evaluation.html#mean-absolute-error>`_.
+     - Column-wise
+     - Numerical
+   * - :class:`~qolmat.benchmark.metrics.mean_absolute_percentage_error`
+     - Mean absolute percentage error, based on `mean_absolute_percentage_error of sklearn <https://scikit-learn.org/stable/modules/model_evaluation.html#mean-absolute-percentage-error>`_.
+     - Column-wise
+     - Numerical
+   * - :class:`~qolmat.benchmark.metrics.weighted_mean_absolute_percentage_error`
+     - Weighted mean absolute percentage error. Its definition can be found in `MAPE <https://en.wikipedia.org/wiki/Mean_absolute_percentage_error>`_.
+     - Column-wise
+     - Numerical
+   * - :class:`~qolmat.benchmark.metrics.dist_wasserstein`
+     - Wasserstein distances, based on `wasserstein_distance of scipy <https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.wasserstein_distance.html>`_.
+     - Column-wise
+     - Numerical
+   * - :class:`~qolmat.benchmark.metrics.kolmogorov_smirnov_test`
+     - Kolmogorov-Smirnov test statistic, based on `ks_2samp of scipy <in https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.ks_2samp.html>`_.
+     - Column-wise
+     - Numerical
+   * - :class:`~qolmat.benchmark.metrics.total_variance_distance`
+     - Total variance distance, based on `TVComplement of SDMetrics <https://docs.sdv.dev/sdmetrics/metrics/metrics-glossary/tvcomplement>`_
+     - Column-wise
+     - Categorical
+   * - :class:`~qolmat.benchmark.metrics.mean_difference_correlation_matrix_numerical_features`
+     - Mean absolute of differences between the correlation matrices of two dataframes. The correlation matrices are based on `Pearson correlation <https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.mstats.pearsonr.html>`_ coefficient or p-value for testing non-correlation.
+     - Column-wise
+     - Numerical
+   * - :class:`~qolmat.benchmark.metrics.mean_difference_correlation_matrix_categorical_features`
+     - Mean absolute of differences between the correlation matrices of two dataframes. The correlation matrices are based on `Chi-square test <https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.chi2_contingency.html>`_ of independence of variables (the test statistic or the p-value)
+     - Column-wise
+     - Categorical
+   * - :class:`~qolmat.benchmark.metrics.mean_diff_corr_matrix_categorical_vs_numerical_features`
+     - Mean absolute of differences between the correlation matrices of two dataframes. The correlation matrices are based the `one-way ANOVA <https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.f_oneway.html>`_ (the test statistic or the p-value)
+     - Column-wise
+     - Categorical, Numerical
+   * - :class:`~qolmat.benchmark.metrics.sum_energy_distances`
+     - Sum of energy distances between two dataframes, based on `energy-distance of dcor <https://dcor.readthedocs.io/en/latest/theory.html#energy-distance>`_
+     - Row-wise
+     - Numerical
+   * - :class:`~qolmat.benchmark.metrics.sum_pairwise_distances`
+     - Sum of pairwise distances based on a predefined distance metric. It is based on `cdist of scipy <https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.cdist.html>`_
+     - Row-wise
+     - Numerical
+   * - :class:`~qolmat.benchmark.metrics.frechet_distance`
+     - The Fréchet distance between two dataframes (`Dowson, D. C., and BV666017 Landau., 1982  <https://www.sciencedirect.com/science/article/pii/0047259X8290077X>`_)
+     - Dataframe-wise
+     - Numerical
+   * - :class:`~qolmat.benchmark.metrics.kl_divergence`
+     - Estimation of the Kullback-Leibler divergence between too empirical distributions. Three methods are implemented: columnwise (relying on a uniform binarization and only taking marginals into account, read more in `this <https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence>`_), gaussian (relying on a Gaussian approximation), random_forest (experimental).
+     - Column-wise, Dataframe-wise
+     - Numerical
+   * - :class:`~qolmat.benchmark.metrics.distance_anticorr`
+     - Score based on the distance anticorrelation between two empirical distributions. The theoretical basis can be found on `distance-correlation of dcor <https://dcor.readthedocs.io/en/latest/theory.html#distance-covariance-and-distance-correlation>`_.
+     - Dataframe-wise
+     - Numerical
 
 .. _hole_generator:
 
-3. Hole generator
+1. Hole generator
 -----------------
 
 In order to evaluate imputers, it is important to analyse the patterns and the mechanism of missing values.
