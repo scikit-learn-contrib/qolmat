@@ -26,8 +26,6 @@ In order to assess the performance of imputation for imputation (no downstream t
 
 It is then easy to compare different imputation functions.
 
-.. _metrics:
-
 2. Metrics
 ----------
 
@@ -148,7 +146,5 @@ Qolmat can be used to search for hyperparameters in imputation functions. Let sa
 
 .. math::
     \theta^* = \underset{\theta \in \Theta}{\mathrm{argmin}} \frac{1}{L} \sum_{l=1}^L \Vert X \odot M^{(l)} - f_{\theta}(X_{obs}^{(l)}) \odot M^{(l)} \Vert_1.
-
-
 
 [1] Rubin, Donald B. `Inference and missing data. <https://www.math.wsu.edu/faculty/xchen/stat115/lectureNotes3/Rubin%20Inference%20and%20Missing%20Data.pdf>`_ Biometrika 63.3 (1976): 581-592.

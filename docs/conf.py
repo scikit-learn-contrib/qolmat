@@ -57,10 +57,10 @@ from distutils.version import LooseVersion
 # pngmath / imgmath compatibility layer for different sphinx versions
 import sphinx
 
-# if LooseVersion(sphinx.__version__) < LooseVersion("1.4"):
-#     extensions.append("sphinx.ext.pngmath")
-# else:
-#     extensions.append("sphinx.ext.imgmath")
+if LooseVersion(sphinx.__version__) < LooseVersion("1.4"):
+    extensions.append("sphinx.ext.pngmath")
+else:
+    extensions.append("sphinx.ext.imgmath")
 
 autodoc_default_flags = ["members", "inherited-members"]
 
@@ -127,7 +127,6 @@ sphinx_gallery_conf = {
 html_css_files = [
     "custom.css",
 ]
-
 
 def setup(app):
     # a copy button to copy snippet of code from the documentation

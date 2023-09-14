@@ -22,10 +22,23 @@ class RPCAPCP(RPCA):
 
     Parameters
     ----------
-    mu: Optional
+    random_state : int, optional
+        The seed of the pseudo random number generator to use, for reproductibility.
+    period: Optional[int]
+        number of rows of the reshaped matrix if the signal is a 1D-array
+    rank: Optional[int]
+        (estimated) low-rank of the matrix D
+    mu: Optional[float]
         Parameter for the convergence and shrinkage operator
-    lam: Optional
-        Penalizing parameter for the sparse array
+    lam: Optional[float]
+        penalizing parameter for the sparse matrix
+    max_iterations: Optional[int]
+        stopping criteria, maximum number of iterations. By default, the value is set to 10_000
+    tol: Optional[float]
+        stoppign critera, minimum difference between 2 consecutive iterations. By default,
+        the value is set to 1e-6
+    verbose: Optional[bool]
+        verbosity level, if False the warnings are silenced
     """
 
     def __init__(
@@ -44,12 +57,47 @@ class RPCAPCP(RPCA):
         self.lam = lam
 
     def get_params_scale(self, D: NDArray):
+        """
+        Get parameters for scaling in RPCA based on the input data.
+
+        Parameters
+        ----------
+        D : np.ndarray
+            Input data matrix of shape (m, n).
+
+        Returns
+        -------
+        dict
+            A dictionary containing the following parameters:
+                - "mu" : float
+                    Parameter for the convergence and shrinkage operator
+                - "lam" : float
+                    Regularization parameter for the L1 norm.
+
+        """
         mu = D.size / (4.0 * rpca_utils.l1_norm(D))
         lam = 1 / np.sqrt(np.max(D.shape))
         dict_params = {"mu": mu, "lam": lam}
         return dict_params
 
     def decompose_rpca(self, D: NDArray, Omega: NDArray) -> Tuple[NDArray, NDArray]:
+        """
+        Estimate the relevant parameters then compute the PCP RPCA decomposition
+
+        Parameters
+        ----------
+        D : NDArray
+            Matrix of the observations
+        Omega: NDArray
+            Matrix of missingness, with boolean data
+
+        Returns
+        -------
+        M: NDArray
+            Low-rank signal
+        A: NDArray
+            Anomalies
+        """
         params_scale = self.get_params_scale(D)
 
         mu = params_scale["mu"] if self.mu is None else self.mu

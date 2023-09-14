@@ -175,22 +175,6 @@ Then with the comparator function in ``from qolmat.benchmark import comparator``
 
 We can observe the benchmark results.
 
-.. code-block:: python
-
-    dfs_imputed =  imputer_tsmle.fit_transform(df_with_nan)
-
-    plt.figure(figsize=(25,5))
-
-    plt.plot(df.loc[~is_na, 'y'],'.')
-    plt.plot(df.loc[is_na, 'y'],'.')
-    plt.plot(dfs_imputed.loc[is_na, 'y'],'.')
-
-    plt. grid()
-    plt.xlim(0,1)
-    plt.legend(['Data','Missing data', 'Imputed data'])
-    plt.savefig('readme3.png')
-    plt.show()
-
 .. image:: https://raw.githubusercontent.com/Quantmetry/qolmat/main/docs/images/readme2.png
     :align: center
 

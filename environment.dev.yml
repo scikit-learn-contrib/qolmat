@@ -33,4 +33,5 @@ dependencies:
           - pytest==7.2.0
           - pytest-cov==4.0.0
           - pytest-mock==3.10.0
+          - sphinx_markdown_tables==0.0.17
           - -e .
