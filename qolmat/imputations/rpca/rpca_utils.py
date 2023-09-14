@@ -5,7 +5,9 @@ Modular utility functions for RPCA
 
 import numpy as np
 from numpy.typing import NDArray
+import scipy
 from scipy.linalg import toeplitz
+from scipy import sparse as sps
 
 
 def approx_rank(
@@ -18,6 +20,7 @@ def approx_rank(
     Parameters
     ----------
     M : NDArray
+        Matrix which rank should be estimated
     threshold : float, Optional
         fraction of the cumulative sum of the singular values, by default 0.95
 
@@ -46,6 +49,7 @@ def soft_thresholding(
     Parameters
     ----------
     X : NDArray
+        Matrix which elements should be shrinked
     threshold : float
         Shrinking factor
 
@@ -64,6 +68,7 @@ def svd_thresholding(X: NDArray, threshold: float) -> NDArray:
     Parameters
     ----------
     X : NDArray
+        Matrix which singular values should be shrinked
     threshold : float
         Shrinking factor
 
@@ -88,6 +93,7 @@ def l1_norm(M: NDArray) -> float:
     Parameters
     ----------
     M : NDArray
+        Matrix which norm should be computed
 
     Returns
     -------
@@ -97,9 +103,9 @@ def l1_norm(M: NDArray) -> float:
     return np.sum(np.abs(M))
 
 
-def toeplitz_matrix(T: int, dimension: int, model: str) -> NDArray:
+def toeplitz_matrix(T: int, dimension: int) -> NDArray:
     """
-    Create a matrix Toeplitz matrix H to take into account temporal correlation via HX
+    Create a sparse Toeplitz square matrix H to take into account temporal correlations in the RPCA
     H=Toeplitz(0,1,-1), in which the central diagonal is defined as ones and
     the T upper diagonal is defined as minus ones.
 
@@ -108,26 +114,17 @@ def toeplitz_matrix(T: int, dimension: int, model: str) -> NDArray:
     T : int
         diagonal offset
     dimension : int
-        second dimension of H = first dimension of X
-    model: str
-        "column" or "row"
+        dimension of the matrix to create
 
     Returns
     -------
     NDArray
-        Toeplitz matrix
+        Sparse Toeplitz matrix using scipy format
     """
-    first_row = np.zeros((dimension,))
-    first_row[0] = 1
-    first_row[T] = -1
 
-    first_col = np.zeros((dimension,))
-    first_col[0] = 1
-
-    H = toeplitz(first_col, first_row)
-    if model == "row":
-        return H[:-T, :]
-    elif model == "column":
-        return H[:, T:]
-    else:
-        raise ValueError("Parameter `model`should be 'row' of 'column'")
+    n_lags = dimension - T
+    diagonals = [np.ones(n_lags), -np.ones(n_lags)]
+    H_top = sps.diags(diagonals, offsets=[0, T], shape=(n_lags, dimension), format="csr")
+    H = sps.dok_matrix((dimension, dimension))
+    H[:n_lags] = H_top
+    return H
