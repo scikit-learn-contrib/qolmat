@@ -124,6 +124,9 @@ sphinx_gallery_conf = {
     "reference_url": {"qolmat": None},
 }
 
+html_css_files = [
+    "custom.css",
+]
 
 def setup(app):
     # a copy button to copy snippet of code from the documentation

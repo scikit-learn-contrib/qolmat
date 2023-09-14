@@ -58,8 +58,10 @@ Metrics
 
     benchmark.metrics.mean_squared_error
     benchmark.metrics.root_mean_squared_error
+    benchmark.metrics.mean_absolute_error
+    benchmark.metrics.mean_absolute_percentage_error
     benchmark.metrics.weighted_mean_absolute_percentage_error
-    benchmark.metrics.wasserstein_distance
+    benchmark.metrics.dist_wasserstein
     benchmark.metrics.kl_divergence
     benchmark.metrics.kolmogorov_smirnov_test
     benchmark.metrics.total_variance_distance
@@ -68,6 +70,7 @@ Metrics
     benchmark.metrics.mean_diff_corr_matrix_categorical_vs_numerical_features
     benchmark.metrics.sum_energy_distances
     benchmark.metrics.frechet_distance
+    benchmark.metrics.pattern_based_weighted_mean_metric
 
 
 RPCA engine
@@ -90,5 +93,3 @@ EM engine
 
     imputations.em_sampler.MultiNormalEM
     imputations.em_sampler.VARpEM
-
-
