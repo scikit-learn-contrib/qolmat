@@ -73,6 +73,7 @@ Two cases are considered:
 
 8. TabDDPM
 -----------
+
 :class:`qolmat.diffusions.TabDDPM` is a deep learning imputer based on Denoising Diffusion Probabilistic Models (DDPMs) [7] for handling multivariate tabular data. Our implementation mainly follows the works of [8, 9]. Diffusion models focus on modeling the process of data transitions from noisy and incomplete observations to the underlying true data. They include two main processes:
 
 * Forward process perturbs observed data to noise until all the original data structures are lost. The pertubation is done over a series of steps. Let :math:`X_{obs}` be observed data, :math:`T` be the number of steps that noises :math:`\epsilon \sim \mathcal{N}(0,I)` are added into the observed data. Therefore, :math:`X_{obs}^t = \bar{\alpha}_t \times X_{obs} + \sqrt{1-\bar{\alpha}_t} \times \epsilon` where :math:`\bar{\alpha}_t` controls the right amount of noise.
