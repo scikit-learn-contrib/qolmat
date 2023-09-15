@@ -205,7 +205,7 @@ def compare_covariances(
     df_2: pd.DataFrame,
     col_x: str,
     col_y: str,
-    ax: mpl.axes._subplots.AxesSubplot,  # typing: ignore
+    ax: mpl.axes._subplots.AxesSubplot,  # type: ignore # noqa
     label: str = "",
     color: Optional[Union[str, Tuple[float, float, float]]] = None,
 ):
