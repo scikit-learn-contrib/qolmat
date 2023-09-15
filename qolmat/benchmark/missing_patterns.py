@@ -482,7 +482,7 @@ class MultiMarkovHoleGenerator(_HoleGenerator):
     subset : Optional[List[str]], optional
         Names of the columns for which holes must be created, by default None
     ratio_masked : Optional[float], optional
-        Ratio of masked values ​​to add, by default 0.05.
+        Ratio of masked values to add, by default 0.05
     random_state : Optional[int], optional
         The seed used by the random number generator, by default 42.
     groups: Tuple[str, ...]
@@ -633,7 +633,7 @@ class GroupedHoleGenerator(_HoleGenerator):
     subset : Optional[List[str]], optional
         Names of the columns for which holes must be created, by default None
     ratio_masked : Optional[float], optional
-        Ratio of masked values ​​to add, by default 0.05.
+        Ratio of masked to add, by default 0.05
     random_state : Optional[int], optional
         The seed used by the random number generator, by default 42.
     groups : Tuple[str, ...]

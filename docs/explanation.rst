@@ -19,12 +19,14 @@ Let :math:`X \in \mathbb{R}^{n \times m}` be a dataset with missing data. We obs
         \end{array}
     \right.
 
-In order to assess the performance of imputation for imputation (no downstream task), we use the standard approach of masking additional data, impute these additional missign data and compute a score. This procedure is repeated multiples (:math:`K`) times. More precisely, for :math:`k=1, ..., K`, we define new mask :math:`M^{(k)}` such that :math:`M_{ij} + M^{(k)}_{ij} < 2, \, \forall i,j` (see :ref:`hole_generator` for mask generation), and we define the observed matrix as :math:`X_{obs}^{(k)} := X \odot M \odot M^{(k)} = X_{obs} \odot M^{(k)}`. We compute the associated complete dataset :math:`\hat{X}^{(k)} = f(X_{obs}^{(k)})` and then evaluate the imputation (point-wise error, distance between point distributions, ... see :ref:`metrics` for further details) on the indices of additional missing data, i.e. we give a score :math:`s(\hat{X}^{(k)} \odot M^{(k)}, X \odot M^{(k)})`. We eventually get the average score over the :math:`K` realisations, i.e.
+In order to assess the performance of imputation for imputation (no downstream task), we use the standard approach of masking additional data, impute these additional missign data and compute a score. This procedure is repeated multiples (:math:`K`) times. More precisely, for :math:`k=1, ..., K`, we define new mask :math:`M^{(k)}` such that :math:`M_{ij} + M^{(k)}_{ij} < 2, \, \forall i,j` (see :ref:`hole_generator` for mask generation), and we define the observed matrix as :math:`X_{obs}^{(k)} := X \odot M \odot M^{(k)} = X_{obs} \odot M^{(k)}`. We compute the associated complete dataset :math:`\hat{X}^{(k)} = f(X_{obs}^{(k)})` and then evaluate the imputation (point-wise error, distance between point distributions, ... see :ref:`metrics` for further details) on the indices of additional missing data. By defining :math:`mis(M^{(k)}) := \{(i,j) : M^{(k)}_{ij} = 1 \}` and :math:`X_{mis(M^{(k)})}` the entries of :math:`X` corresponding to the artifical missing entries defined by the mask :math:`M^{(k)}`, we have the score :math:`s(\hat{X}^{(k)}_{mis(M^{(k)})}, X_{mis(M^{(k)})})`. We eventually get the average score over the :math:`K` realisations, i.e.
 
 .. math::
-    \bar{s}(X,f) = \frac{1}{K} \sum_{k=1}^K s(\hat{X}^{(k)} \odot M^{(k)}, X \odot M^{(k)}).
+    \bar{s}(X,f) = \frac{1}{K} \sum_{k=1}^K s(\hat{X}^{(k)}_{mis(M^{(k)})}, X_{mis(M^{(k)})}).
 
 It is then easy to compare different imputation functions.
+
+.. _metrics:
 
 2. Metrics
 ----------
@@ -104,7 +106,7 @@ It is then easy to compare different imputation functions.
 
 .. _hole_generator:
 
-1. Hole generator
+3. Hole generator
 -----------------
 
 In order to evaluate imputers, it is important to analyse the patterns and the mechanism of missing values.
@@ -145,6 +147,9 @@ Here are the different classes to generate missing data. We recommend the last 3
 Qolmat can be used to search for hyperparameters in imputation functions. Let say the imputation function :math:`f_{\theta}` has :math:`n` hyperparameters :math:`\theta = (\theta_1, ..., \theta_n)` and configuration space :math:`\Theta = \Theta_1 \times ... \times \Theta_n`. The procedure to find the best hyperparameters set :math:`\theta^*` is based on cross-validation, and is the same as that explained in the :ref:`general_approach` section, i.e. via the creation of :math:`L` additional masks :math:`M^{(l)}, \, l=1,...,L`. We use Bayesian optimisation with Gaussian process where the function to minimise is the average reconstruction error over the :math:`L` realisations, i.e.
 
 .. math::
-    \theta^* = \underset{\theta \in \Theta}{\mathrm{argmin}} \frac{1}{L} \sum_{l=1}^L \Vert X \odot M^{(l)} - f_{\theta}(X_{obs}^{(l)}) \odot M^{(l)} \Vert_1.
+    \theta^* = \underset{\theta \in \Theta}{\mathrm{argmin}} \frac{1}{L} \sum_{l=1}^L \Vert X_{mis(M^{(l)})} - (f_{\theta}(X_{obs}^{(l)}))_{mis(M^{(l)})} \Vert_1.
 
+
+References
+----------
 [1] Rubin, Donald B. `Inference and missing data. <https://www.math.wsu.edu/faculty/xchen/stat115/lectureNotes3/Rubin%20Inference%20and%20Missing%20Data.pdf>`_ Biometrika 63.3 (1976): 581-592.
