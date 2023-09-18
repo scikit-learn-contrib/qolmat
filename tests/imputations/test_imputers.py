@@ -307,6 +307,7 @@ list_imputers = [
     imputers.ImputerMICE(groups=("group",)),
     imputers.ImputerRegressor(groups=("group",), estimator=LinearRegression()),
     imputers.ImputerRPCA(groups=("group",)),
+    imputers.ImputerSoftImpute(groups=("group",)),
     imputers.ImputerEM(groups=("group",)),
 ]
 
@@ -334,6 +335,7 @@ def test_models_fit_transform_grouped(imputer):
         imputers.ImputerMICE(),
         imputers.ImputerRegressor(),
         imputers.ImputerRPCA(tau=0, lam=0),
+        imputers.ImputerSoftImpute(),
         imputers.ImputerEM(),
     ]
 )
