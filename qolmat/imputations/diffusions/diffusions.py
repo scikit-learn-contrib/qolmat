@@ -179,7 +179,7 @@ class TabDDPM(DDPM):
         self.interval_x = {col: [x[col].min(), x[col].max()] for col in self.columns}
 
         # x_mask: 1 for observed values, 0 for nan
-        x_processed, x_mask = self._process_data(x, is_training=True)
+        x_processed, x_mask, _ = self._process_data(x, is_training=True)
 
         if self.batch_size >= x_processed.shape[0]:
             raise ValueError(
@@ -194,9 +194,11 @@ class TabDDPM(DDPM):
             ).split(x_valid)[0]
             # x_valid_obs_mask is the mask for observed values
             x_valid_obs_mask = ~x_valid_mask
-            x_processed_valid, x_processed_valid_obs_mask = self._process_data(
-                x_valid, x_valid_obs_mask
-            )
+            (
+                x_processed_valid,
+                x_processed_valid_obs_mask,
+                x_processed_valid_indices,
+            ) = self._process_data(x_valid, x_valid_obs_mask, is_training=False)
 
         x_tensor = torch.from_numpy(x_processed).float().to(self.device)
         x_mask_tensor = torch.from_numpy(x_mask).float().to(self.device)
@@ -242,7 +244,11 @@ class TabDDPM(DDPM):
             if x_valid is not None:
                 self.eps_model.eval()
                 dict_loss = self._eval(
-                    x_processed_valid, x_processed_valid_obs_mask, x_valid, x_valid_obs_mask
+                    x_processed_valid,
+                    x_processed_valid_obs_mask,
+                    x_valid,
+                    x_valid_obs_mask,
+                    x_processed_valid_indices,
                 )
                 for name_loss, value_loss in dict_loss.items():
                     if name_loss not in self.summary:
@@ -329,8 +335,8 @@ class TabDDPM(DDPM):
                     noise = mask_x_batch * x_batch + (1.0 - mask_x_batch) * noise
 
                 # Generate data output, this activation function depends on normalizer_x
-                x_out = noise
-                outputs.append(x_out.detach().cpu().numpy())
+                x_out = noise.detach().cpu().numpy()
+                outputs.append(x_out)
 
         outputs = np.concatenate(outputs)
         return np.array(outputs)
@@ -341,6 +347,7 @@ class TabDDPM(DDPM):
         x_mask_obs: np.ndarray,
         x_df: pd.DataFrame,
         x_mask_obs_df: pd.DataFrame,
+        x_indices: List,
     ) -> Dict:
         """Evaluate the model
 
@@ -354,6 +361,8 @@ class TabDDPM(DDPM):
             Reference dataframe before pre-processing
         x_mask_obs_df : pd.DataFrame
             Observed value mask before pre-processing
+        x_indices : List
+            List of row indices for batches
 
         Returns
         -------
@@ -408,7 +417,7 @@ class TabDDPM(DDPM):
         """
         self.eps_model.eval()
 
-        x_processed, x_mask = self._process_data(x)
+        x_processed, x_mask, _ = self._process_data(x)
 
         list_x_imputed = []
         for i in tqdm(range(self.num_sampling), leave=False):
@@ -427,7 +436,7 @@ class TabDDPM(DDPM):
 
     def _process_data(
         self, x: pd.DataFrame, mask: pd.DataFrame = None, is_training: bool = False
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray, List]:
         """Pre-process data
 
         Parameters
@@ -450,7 +459,8 @@ class TabDDPM(DDPM):
         x_windows_mask_processed = ~x.isna().to_numpy()
         if mask is not None:
             x_windows_mask_processed = mask.to_numpy()
-        return x_windows_processed, x_windows_mask_processed
+
+        return x_windows_processed, x_windows_mask_processed, list(x.index)
 
 
 class TabDDPMTS(TabDDPM):
@@ -616,11 +626,7 @@ class TabDDPMTS(TabDDPM):
                 outputs.append(x_out)
 
         outputs = np.concatenate(outputs)
-        outputs_shape = np.shape(outputs)
-        outputs_reshaped = np.reshape(
-            outputs, (outputs_shape[0] * outputs_shape[1], outputs_shape[2])
-        )
-        return np.array(outputs_reshaped)
+        return np.array(outputs)
 
     def fit(
         self,
@@ -691,9 +697,20 @@ class TabDDPMTS(TabDDPM):
         )
         return self
 
+    def _set_hyperparams_predict(self, **kwargs) -> None:
+        """Reset hyperparams for predition step"""
+        if "num_sampling" in kwargs:
+            self.num_sampling = kwargs["num_sampling"]
+        if "is_clip" in kwargs:
+            self.is_clip = kwargs["is_clip"]
+        if "batch_size_predict" in kwargs:
+            self.batch_size_predict = kwargs["batch_size_predict"]
+        if "is_rolling" in kwargs:
+            self.is_rolling = kwargs["is_rolling"]
+
     def _process_data(
         self, x: pd.DataFrame, mask: pd.DataFrame = None, is_training: bool = False
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray, List]:
         """Pre-process data
 
         Parameters
@@ -710,32 +727,54 @@ class TabDDPMTS(TabDDPM):
         Tuple[np.ndarray, np.ndarray]
             Data and mask pre-processed
         """
-        x_windows: List = []
         if is_training:
             self.normalizer_x.fit(x.values)
 
-        if is_training and self.is_rolling:
-            if self.print_valid:
-                print(
-                    "Preprocessing data with sliding window (pandas.DataFrame.rolling)"
-                    + " can require more times than usual. Please be patient!"
-                )
-            columns_index = [col for col in x.index.names if col != self.index_datetime]
-            x_windows = []
-            for x_group in x.groupby(by=columns_index):
-                x_windows += list(
-                    x_group[1].droplevel(columns_index).rolling(window=self.freq_str)
-                )
+        x_windows: List = []
+        x_windows_indices: List = []
+        columns_index = [col for col in x.index.names if col != self.index_datetime]
+        if is_training:
+            if self.is_rolling:
+                if self.print_valid:
+                    print(
+                        "Preprocessing data with sliding window (pandas.DataFrame.rolling)"
+                        + " can require more times than usual. Please be patient!"
+                    )
+                columns_index_ = columns_index[0] if len(columns_index) == 1 else columns_index
+                for x_group in tqdm(x.groupby(by=columns_index_), disable=True, leave=False):
+                    x_windows += list(
+                        x_group[1].droplevel(columns_index).rolling(window=self.freq_str)
+                    )
+            else:
+                for x_w in x.resample(rule=self.freq_str, level=self.index_datetime):
+                    x_windows.append(x_w[1])
         else:
-            x_windows += [
-                x_w[1] for x_w in x.resample(rule=self.freq_str, level=self.index_datetime)
-            ]
+            if self.is_rolling:
+                columns_index_ = columns_index[0] if len(columns_index) == 1 else columns_index
+                for x_group in tqdm(x.groupby(by=columns_index_), disable=True, leave=False):
+                    x_group_index = [x_group[0]] if len(columns_index) == 1 else x_group[0]
+                    x_group_value = x_group[1].droplevel(columns_index)
+                    indices_nan = x_group_value.loc[x_group_value.isna().any(axis=1), :].index
+                    x_group_rolling = x_group_value.rolling(window=self.freq_str)
+                    for x_rolling in x_group_rolling:
+                        if x_rolling.index[-1] in indices_nan:
+                            x_windows.append(x_rolling)
+                            x_rolling_ = x_rolling.copy()
+                            for idx, col in enumerate(columns_index):
+                                x_rolling_[col] = x_group_index[idx]
+                            x_rolling_ = x_rolling_.set_index(columns_index, append=True)
+                            x_rolling_ = x_rolling_.reorder_levels(x.index.names)
+                            x_windows_indices.append(x_rolling_.index)
+            else:
+                for x_w in x.resample(rule=self.freq_str, level=self.index_datetime):
+                    x_windows.append(x_w[1])
+                    x_windows_indices.append(x_w[1].index)
 
         x_windows_processed = []
         x_windows_mask_processed = []
         self.size_window = np.max([w.shape[0] for w in x_windows])
         for x_w in x_windows:
-            x_w_fillna = x_w.fillna(x_w.mean())
+            x_w_fillna = x_w.fillna(method="bfill")
             x_w_fillna = x_w_fillna.fillna(x.mean())
             x_w_norm = self.normalizer_x.transform(x_w_fillna.values)
             x_w_mask = ~x_w.isna().to_numpy()
@@ -743,17 +782,16 @@ class TabDDPMTS(TabDDPM):
             x_w_shape = x_w.shape
             if x_w_shape[0] < self.size_window:
                 npad = [(0, self.size_window - x_w_shape[0]), (0, 0)]
-                x_w_norm = np.pad(x_w_norm, pad_width=npad, mode="mean")
+                x_w_norm = np.pad(x_w_norm, pad_width=npad, mode="wrap")
                 x_w_mask = np.pad(x_w_mask, pad_width=npad, mode="constant", constant_values=1)
 
             x_windows_processed.append(x_w_norm)
             x_windows_mask_processed.append(x_w_mask)
 
         if mask is not None:
-            x_masks = list(mask.resample(rule=self.freq_str, level=self.index_datetime))
             x_windows_mask_processed = []
-            for x_m in x_masks:
-                x_m = x_m[1]
+            for x_window_indices in x_windows_indices:
+                x_m = mask.loc[x_window_indices]
                 x_m_mask = x_m.to_numpy()
 
                 x_m_shape = x_m.shape
@@ -761,4 +799,113 @@ class TabDDPMTS(TabDDPM):
                     npad = [(0, self.size_window - x_m_shape[0]), (0, 0)]
                     x_m_mask = np.pad(x_m_mask, pad_width=npad, mode="constant", constant_values=1)
                 x_windows_mask_processed.append(x_m_mask)
-        return np.array(x_windows_processed), np.array(x_windows_mask_processed)
+
+        return np.array(x_windows_processed), np.array(x_windows_mask_processed), x_windows_indices
+
+    def _eval(
+        self,
+        x: np.ndarray,
+        x_mask_obs: np.ndarray,
+        x_df: pd.DataFrame,
+        x_mask_obs_df: pd.DataFrame,
+        x_indices: List,
+    ) -> Dict:
+        """Evaluate the model
+
+        Parameters
+        ----------
+        x : np.ndarray
+            Input data - Array (after pre-processing)
+        x_mask_obs : np.ndarray
+            Observed value mask (after pre-processing)
+        x_df : pd.DataFrame
+            Reference dataframe before pre-processing
+        x_mask_obs_df : pd.DataFrame
+            Observed value mask before pre-processing
+        x_indices : List
+            List of row indices for batches
+
+        Returns
+        -------
+        Dict
+            Scores
+        """
+
+        list_x_imputed = []
+        for i in tqdm(range(self.num_sampling), disable=True, leave=False):
+            x_imputed = self._impute(x, x_mask_obs)
+            list_x_imputed.append(x_imputed)
+        x_imputed = np.mean(np.array(list_x_imputed), axis=0)
+
+        x_imputed_nan_only = []
+        x_indices_nan_only = []
+        for x_imputed_batch, x_indices_batch in zip(x_imputed, x_indices):
+            imputed_index = x_indices_batch.shape[0] - 1
+            x_imputed_nan_only.append(x_imputed_batch[imputed_index])
+            x_indices_nan_only.append(x_indices_batch[imputed_index])
+
+        x_normalized = self.normalizer_x.inverse_transform(x_imputed_nan_only)
+        x_out = pd.DataFrame(
+            x_normalized,
+            columns=self.columns,
+            index=pd.MultiIndex.from_tuples(x_indices_nan_only, names=x_df.index.names),
+        )
+        if self.is_clip:
+            for col, interval in self.interval_x.items():
+                x_out[col] = np.clip(x_out[col], interval[0], interval[1])
+        x_out_ = x_df.copy()
+        x_out_.loc[x_out.index] = x_out.loc[x_out.index]
+        x_out = x_out_
+
+        x_mask_imputed_df = ~x_mask_obs_df
+        columns_with_True = x_mask_imputed_df.columns[(x_mask_imputed_df == True).any()]
+        scores = {}
+        for metric in self.metrics_valid:
+            scores[metric.__name__] = metric(
+                x_df[columns_with_True],
+                x_out[columns_with_True],
+                x_mask_imputed_df[columns_with_True],
+            ).mean()
+        return scores
+
+    def predict(self, x: pd.DataFrame) -> pd.DataFrame:
+        """Predict/impute data
+
+        Parameters
+        ----------
+        x : pd.DataFrame
+            Data needs to be imputed
+
+        Returns
+        -------
+        pd.DataFrame
+            Imputed data
+        """
+        self.eps_model.eval()
+
+        x_processed, x_mask, x_indices = self._process_data(x, is_training=False)
+
+        list_x_imputed = []
+        for i in tqdm(range(self.num_sampling), leave=False):
+            x_imputed = self._impute(x_processed, x_mask)
+            list_x_imputed.append(x_imputed)
+        x_imputed = np.mean(np.array(list_x_imputed), axis=0)
+
+        x_imputed_nan_only = []
+        x_indices_nan_only = []
+        for x_imputed_batch, x_indices_batch in zip(x_imputed, x_indices):
+            imputed_index = x_indices_batch.shape[0] - 1
+            x_imputed_nan_only.append(x_imputed_batch[imputed_index])
+            x_indices_nan_only.append(x_indices_batch[imputed_index])
+
+        x_normalized = self.normalizer_x.inverse_transform(x_imputed_nan_only)
+        x_out = pd.DataFrame(
+            x_normalized,
+            columns=x.columns,
+            index=pd.MultiIndex.from_tuples(x_indices_nan_only, names=x.index.names),
+        )
+        if self.is_clip:
+            for col, interval in self.interval_x.items():
+                x_out[col] = np.clip(x_out[col], interval[0], interval[1])
+        x_out = x.fillna(x_out)
+        return x_out
