@@ -77,21 +77,27 @@ def get_data(
     """
     urllink1 = "https://zenodo.org/record/"
     if name_data == "Beijing":
-        # urllink = "https://archive.ics.uci.edu/static/public/381/"
-        # zipname = "beijing+pm2+5+data"
         urllink = "https://archive.ics.uci.edu/static/public/501/"
         zipname = "beijing+multi+site+air+quality+data"
 
-        list_df = download_data(zipname, urllink, datapath=datapath)
+        path_zip = os.path.join(datapath, zipname)
+        path_zip_ext = path_zip + ".zip"
+        url = os.path.join(urllink, zipname) + ".zip"
+        os.makedirs(datapath, exist_ok=True)
+        if not os.path.exists(path_zip_ext) and not os.path.exists(path_zip):
+            request.urlretrieve(url, path_zip_ext)
+        if not os.path.exists(path_zip):
+            with zipfile.ZipFile(path_zip_ext, "r") as zip_ref:
+                zip_ref.extractall(path_zip)
+
+        zipname = "PRSA2017_Data_20130301-20170228"
+        path_zip = os.path.join(path_zip, zipname)
+        path_zip_ext = path_zip + ".zip"
+        if not os.path.exists(path_zip):
+            with zipfile.ZipFile(path_zip_ext, "r") as zip_ref:
+                zip_ref.extractall(path_zip)
+        list_df = get_dataframes_in_folder(path_zip, ".csv")
         list_df = [preprocess_data_beijing(df) for df in list_df]
-        df = pd.concat(list_df)
-        return df
-    elif name_data == "Beijing_offline":
-        # urllink = "https://archive.ics.uci.edu/dataset/381/beijing+pm2+5+data"
-        folder = "PRSA2017_Data_20130301-20170228"
-        path = os.path.join(datapath, folder)
-        list_df = get_dataframes_in_folder(path, ".csv")
-        list_df = [preprocess_data_beijing_offline(df) for df in list_df]
         df = pd.concat(list_df)
         return df
     elif name_data == "Artificial":
@@ -170,32 +176,6 @@ def get_data(
 
 
 def preprocess_data_beijing(df: pd.DataFrame) -> pd.DataFrame:
-    """Preprocess data from the "Beijing" datset
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        dataframe with some specific column names
-
-    Returns
-    -------
-    pd.DataFrame
-        preprocessed dataframe
-    """
-    df["datetime"] = pd.to_datetime(df[["year", "month", "day", "hour"]])
-    df["station"] = "Beijing"
-    df.set_index(["station", "datetime"], inplace=True)
-    df.drop(
-        columns=["year", "month", "day", "hour", "No", "cbwd", "Iws", "Is", "Ir"], inplace=True
-    )
-    df.sort_index(inplace=True)
-    df = df.groupby(
-        ["station", df.index.get_level_values("datetime").floor("d")], group_keys=False
-    ).mean()
-    return df
-
-
-def preprocess_data_beijing_offline(df: pd.DataFrame) -> pd.DataFrame:
     """Preprocess data from the "Beijing" datset
 
     Parameters

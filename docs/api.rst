@@ -93,3 +93,13 @@ EM engine
 
     imputations.em_sampler.MultiNormalEM
     imputations.em_sampler.VARpEM
+
+Diffusion engine
+================
+
+.. autosummary::
+    :toctree: generated/
+    :template: class.rst
+    
+    imputations.diffusions.diffusions.TabDDPM
+    imputations.diffusions.diffusions.TabDDPMTS
