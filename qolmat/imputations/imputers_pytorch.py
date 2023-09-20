@@ -1,13 +1,16 @@
 import pandas as pd
 import numpy as np
 
-from typing import Any, Callable, List, Optional, Tuple, Union
+from typing import Any, Callable, List, Optional, Tuple, Union, Dict
 from typing_extensions import Self
 from numpy.typing import NDArray
 from sklearn.preprocessing import StandardScaler
+from sklearn.base import BaseEstimator
 
 from qolmat.imputations.imputers import _Imputer, ImputerRegressor
 from qolmat.utils.exceptions import EstimatorNotDefined, PyTorchExtraNotInstalled
+from qolmat.imputations.diffusions.diffusions import TabDDPM, TabDDPMTS
+from qolmat.benchmark import metrics
 
 try:
     import torch
@@ -510,3 +513,114 @@ def build_autoencoder_example(
         activation=activation,
     )
     return encoder, decoder
+
+
+class ImputerDiffusion(_Imputer):
+    def __init__(
+        self,
+        groups: Tuple[str, ...] = (),
+        model: Optional[BaseEstimator] = None,
+        epochs: int = 100,
+        batch_size: int = 100,
+        x_valid: pd.DataFrame = None,
+        print_valid: bool = False,
+        metrics_valid: Tuple[Callable, ...] = (
+            metrics.mean_absolute_error,
+            metrics.dist_wasserstein,
+        ),
+        round: int = 10,
+        cols_imputed: Tuple[str, ...] = (),
+        index_datetime: str = "",
+        freq_str: str = "1D",
+    ):
+        super().__init__(groups=groups, columnwise=False)
+        self.model = model
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.x_valid = x_valid
+        self.print_valid = print_valid
+        self.metrics_valid = metrics_valid
+        self.round = round
+        self.cols_imputed = cols_imputed
+        self.index_datetime = index_datetime
+        self.freq_str = freq_str
+
+    def _fit_element(self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0):
+        """
+        Fits the imputer on `df`, at the group and/or column level depending onself.groups and
+        self.columnwise.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe on which the imputer is fitted
+        col : str, optional
+            Column on which the imputer is fitted, by default "__all__"
+        ngroup : int, optional
+            Id of the group on which the method is applied
+
+        Returns
+        -------
+        Any
+            Return fitted model
+
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
+        """
+        self._check_dataframe(df)
+        hp = self._get_params_fit()
+        return self.model.fit(df, **hp)
+
+    def _transform_element(
+        self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
+    ) -> pd.DataFrame:
+        """
+        Transforms the dataframe `df`, at the group and/or column level depending on self.groups
+        and self.columnwise.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe or column to impute
+        col : str, optional
+            Column transformed by the imputer, by default "__all__"
+        ngroup : int, optional
+            Id of the group on which the method is applied
+
+        Returns
+        -------
+        pd.DataFrame
+            Imputed dataframe
+
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
+        """
+        df_imputed = self.model.predict(df)
+        return df_imputed
+
+    def _get_params_fit(self) -> Dict:
+        if self.index_datetime == "":
+            return {
+                "epochs": self.epochs,
+                "batch_size": self.batch_size,
+                "x_valid": self.x_valid,
+                "print_valid": self.print_valid,
+                "metrics_valid": self.metrics_valid,
+                "round": self.round,
+                "cols_imputed": self.cols_imputed,
+            }
+        return {
+            "epochs": self.epochs,
+            "batch_size": self.batch_size,
+            "x_valid": self.x_valid,
+            "print_valid": self.print_valid,
+            "metrics_valid": self.metrics_valid,
+            "round": self.round,
+            "cols_imputed": self.cols_imputed,
+            "index_datetime": self.index_datetime,
+            "freq_str": self.freq_str,
+        }

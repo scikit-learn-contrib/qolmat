@@ -1414,8 +1414,8 @@ class ImputerMICE(_Imputer):
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
     ) -> pd.DataFrame:
         """
-        Transforms the dataframe `df`, at the group and/or column level depending onself.groups and
-        self.columnwise.
+        Transforms the dataframe `df`, at the group and/or column level depending on self.groups
+        and self.columnwise.
 
         Parameters
         ----------
@@ -1859,6 +1859,7 @@ class ImputerEM(_Imputer):
                 **hyperparams,
             )
         elif self.model == "VAR":
+            hyperparams["p"] = self.p
             return em_sampler.VARpEM(
                 random_state=self.random_state,
                 method=self.method,
