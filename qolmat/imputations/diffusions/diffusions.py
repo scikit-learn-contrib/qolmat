@@ -844,6 +844,9 @@ class TabDDPMTS(TabDDPM):
             x_imputed_nan_only.append(x_imputed_batch[imputed_index])
             x_indices_nan_only.append(x_indices_batch[imputed_index])
 
+        if len(np.shape(x_indices_nan_only)) == 1:
+            x_indices_nan_only = [[idx] for idx in x_indices_nan_only]
+
         x_normalized = self.normalizer_x.inverse_transform(x_imputed_nan_only)
         x_out = pd.DataFrame(
             x_normalized,
@@ -897,6 +900,9 @@ class TabDDPMTS(TabDDPM):
             imputed_index = x_indices_batch.shape[0] - 1
             x_imputed_nan_only.append(x_imputed_batch[imputed_index])
             x_indices_nan_only.append(x_indices_batch[imputed_index])
+
+        if len(np.shape(x_indices_nan_only)) == 1:
+            x_indices_nan_only = [[idx] for idx in x_indices_nan_only]
 
         x_normalized = self.normalizer_x.inverse_transform(x_imputed_nan_only)
         x_out = pd.DataFrame(
