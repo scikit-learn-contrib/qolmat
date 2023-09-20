@@ -845,13 +845,14 @@ class TabDDPMTS(TabDDPM):
             x_indices_nan_only.append(x_indices_batch[imputed_index])
 
         if len(np.shape(x_indices_nan_only)) == 1:
-            x_indices_nan_only = [[idx] for idx in x_indices_nan_only]
-
+            x_out_index = pd.Index(x_indices_nan_only, name=x_df.index.names[0])
+        else:
+            x_out_index = pd.MultiIndex.from_tuples(x_indices_nan_only, names=x_df.index.names)
         x_normalized = self.normalizer_x.inverse_transform(x_imputed_nan_only)
         x_out = pd.DataFrame(
             x_normalized,
             columns=self.columns,
-            index=pd.MultiIndex.from_tuples(x_indices_nan_only, names=x_df.index.names),
+            index=x_out_index,
         )
         if self.is_clip:
             for col, interval in self.interval_x.items():
@@ -902,13 +903,15 @@ class TabDDPMTS(TabDDPM):
             x_indices_nan_only.append(x_indices_batch[imputed_index])
 
         if len(np.shape(x_indices_nan_only)) == 1:
-            x_indices_nan_only = [[idx] for idx in x_indices_nan_only]
+            x_out_index = pd.Index(x_indices_nan_only, name=x.index.names[0])
+        else:
+            x_out_index = pd.MultiIndex.from_tuples(x_indices_nan_only, names=x.index.names)
 
         x_normalized = self.normalizer_x.inverse_transform(x_imputed_nan_only)
         x_out = pd.DataFrame(
             x_normalized,
             columns=x.columns,
-            index=pd.MultiIndex.from_tuples(x_indices_nan_only, names=x.index.names),
+            index=x_out_index,
         )
         if self.is_clip:
             for col, interval in self.interval_x.items():
