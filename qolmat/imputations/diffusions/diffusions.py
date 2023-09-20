@@ -28,7 +28,6 @@ class TabDDPM(DDPM):
 
     def __init__(
         self,
-        dim_input: int,
         num_noise_steps: int = 50,
         beta_start: float = 1e-4,
         beta_end: float = 0.02,
@@ -49,8 +48,6 @@ class TabDDPM(DDPM):
 
         Parameters
         ----------
-        dim_input : int
-            Input dimension
         num_noise_steps : int, optional
             Number of noise steps, by default 50
         beta_start : float, optional
@@ -76,7 +73,6 @@ class TabDDPM(DDPM):
         self.lr = lr
         self.ratio_nan = ratio_nan
         self.num_noise_steps = num_noise_steps
-        self.dim_input = dim_input
         self.dim_embedding = dim_embedding
         self.num_blocks = num_blocks
         self.p_dropout = p_dropout
@@ -160,6 +156,7 @@ class TabDDPM(DDPM):
         Self
             Return Self
         """
+        self.dim_input = len(x.columns)
         self.epochs = epochs
         self.batch_size = batch_size
         self.batch_size_predict = batch_size
@@ -210,9 +207,9 @@ class TabDDPM(DDPM):
         )
 
         self._set_eps_model()
+        self.num_params = get_num_params(self.eps_model)
         self.summary: Dict[str, List] = {
             "epoch_loss": [],
-            "num_params": [get_num_params(self.eps_model)],
         }
 
         for epoch in range(epochs):
@@ -273,12 +270,11 @@ class TabDDPM(DDPM):
         self.time_durations.append(time_duration)
         print_step = 1 if int(self.epochs / 10) == 0 else int(self.epochs / 10)
         if self.print_valid and epoch == 0:
-            print(f'Num params of {self.__class__.__name__}: {self.summary["num_params"][0]}')
+            print(f"Num params of {self.__class__.__name__}: {self.num_params}")
         if self.print_valid and epoch % print_step == 0:
             string_valid = f"Epoch {epoch}: "
             for s in self.summary:
-                if s not in ["num_params"]:
-                    string_valid += f" {s}={round(self.summary[s][epoch], self.round)}"
+                string_valid += f" {s}={round(self.summary[s][epoch], self.round)}"
             # string_valid += f" | in {round(time_duration, 3)} secs"
             remaining_duration = np.mean(self.time_durations) * (self.epochs - epoch)
             string_valid += f" | remaining {timedelta(seconds=remaining_duration)}"
@@ -474,7 +470,6 @@ class TabDDPMTS(TabDDPM):
 
     def __init__(
         self,
-        dim_input: int,
         num_noise_steps: int = 50,
         beta_start: float = 1e-4,
         beta_end: float = 0.02,
@@ -499,8 +494,6 @@ class TabDDPMTS(TabDDPM):
 
         Parameters
         ----------
-        dim_input : int
-            Input dimension
         num_noise_steps : int, optional
             Number of noise steps, by default 50
         beta_start : float, optional
@@ -531,7 +524,6 @@ class TabDDPMTS(TabDDPM):
             Use pandas.DataFrame.rolling for preprocessing data, by default False
         """
         super().__init__(
-            dim_input,
             num_noise_steps,
             beta_start,
             beta_end,

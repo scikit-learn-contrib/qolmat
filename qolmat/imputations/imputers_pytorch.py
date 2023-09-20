@@ -624,3 +624,9 @@ class ImputerDiffusion(_Imputer):
             "index_datetime": self.index_datetime,
             "freq_str": self.freq_str,
         }
+
+    def get_summary_training(self) -> Dict:
+        return self.model.summary
+
+    def get_summary_architecture(self) -> Dict:
+        return {"number_parameters": self.model.num_params, "epsilon_model": self.model.eps_model}
