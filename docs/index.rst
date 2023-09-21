@@ -16,6 +16,7 @@
 
    imputers
    examples/tutorials/tuto_benchmark_TS
+   examples/tutorials/tuto_diffusion_models
 
 .. toctree::
    :maxdepth: 2

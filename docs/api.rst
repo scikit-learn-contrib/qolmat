@@ -101,5 +101,6 @@ Diffusion engine
     :toctree: generated/
     :template: class.rst
     
+    imputations.imputers_pytorch.ImputerDiffusion
     imputations.diffusions.diffusions.TabDDPM
     imputations.diffusions.diffusions.TabDDPMTS
