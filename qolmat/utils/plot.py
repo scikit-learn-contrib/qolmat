@@ -155,42 +155,57 @@ def plot_images(
 
 
 def make_ellipses(
-    X: np.ndarray,
-    ax: mpl.axes.Axes,
-    color: Union[str, Tuple[float, float, float]],
+    x, y, ax, n_std: float = 2, color: Union[str, Any, Tuple[float, float, float]] = "None"
 ):
-    """Draw ellipses on a figure
+    """
+    Create a plot of the covariance confidence ellipse of *x* and *y*.
 
     Parameters
     ----------
-    X : np.ndarray
-        array for the ellipse
-    ax : matplotlib.axes._subplots.AxesSubplot
-        matplotlib ax handles
-    color : Union[str, Tuple[float, float, float]]
-        ellipse's color
+    x, y : array-like, shape (n, )
+        Input data.
+
+    ax : matplotlib.axes.Axes
+        The axes object to draw the ellipse into.
+
+    n_std : float
+        The number of standard deviations to determine the ellipse's radiuses.
+
+    color : Optional[str]
+        facecolor
+
+    Returns
+    -------
+    matplotlib.patches.Ellipse
     """
-    covariances = np.cov(X)  # gmm.covariances_[0] # [n][:2, :2]
-    v, w = np.linalg.eigh(covariances)
-    u = w[0] / np.linalg.norm(w[0])
-    angle = np.arctan2(u[1], u[0])
-    angle = 180 * angle / np.pi  # convert to degrees
-    center = X.mean(axis=0)  # .means_[0]
-    v[v < 0] = np.nan
-    v = 2.0 * np.sqrt(2.0) * np.sqrt(v)
-    ell = mpl.patches.Ellipse(center, v[0], v[1], angle=180 + angle, color=color)
+    if x.size != y.size:
+        raise ValueError("x and y must be the same size")
+
+    cov = np.cov(x, y)
+    pearson = cov[0, 1] / np.sqrt(cov[0, 0] * cov[1, 1])
+    ell_radius_x = np.sqrt(1 + pearson) * 2.5
+    ell_radius_y = np.sqrt(1 - pearson) * 2.5
+    ell = mpl.patches.Ellipse((0, 0), width=ell_radius_x, height=ell_radius_y, facecolor=color)
+    scale_x = np.sqrt(cov[0, 0]) * n_std
+    mean_x = np.mean(x)
+    scale_y = np.sqrt(cov[1, 1]) * n_std
+    mean_y = np.mean(y)
+    transf = (
+        mpl.transforms.Affine2D().rotate_deg(45).scale(scale_x, scale_y).translate(mean_x, mean_y)
+    )
+    ell.set_transform(transf + ax.transData)
+    ax.add_patch(ell)
     ell.set_clip_box(ax.bbox)
-    ell.set_alpha(0.5)
-    ax.add_artist(ell)
+    ell.set_alpha(0.4)
     ax.set_aspect("equal", "datalim")
 
 
 def compare_covariances(
-    df1: pd.DataFrame,
-    df2: pd.DataFrame,
+    df_1: pd.DataFrame,
+    df_2: pd.DataFrame,
     col_x: str,
     col_y: str,
-    ax: mpl.axes._subplots.AxesSubplot,
+    ax: mpl.axes._subplots.AxesSubplot,  # type: ignore # noqa
     label: str = "",
     color: Optional[Union[str, Tuple[float, float, float]]] = None,
 ):
@@ -199,9 +214,9 @@ def compare_covariances(
 
     Parameters
     ----------
-    df1 : pd.DataFrame
+    df_1 : pd.DataFrame
         dataframe with raw data
-    df2 : pd.DataFrame
+    df_2 : pd.DataFrame
         dataframe with imputations
     col_x : str
         variable x, column's name of dataframe df1 to compare with
@@ -210,12 +225,14 @@ def compare_covariances(
     ax : matplotlib.axes._subplots.AxesSubplot
         matplotlib ax handles
     """
+    df1 = df_1.dropna()
+    df2 = df_2.dropna()
     if color is None:
-        color = tab10(0)
-    ax.scatter(df2[col_x], df2[col_y], marker=".", color=color, s=0.2, label=label)
-    ax.scatter(df1[col_x], df1[col_y], marker=".", color="black", s=0.2)
-    make_ellipses(df1[[col_x, col_y]], ax, "black")
-    make_ellipses(df2[[col_x, col_y]], ax, color)
+        color = tab10(0)  # type: ignore # noqa
+    ax.scatter(df2[col_x], df2[col_y], marker=".", color=color, s=2, alpha=0.7, label="imputed")
+    ax.scatter(df1[col_x], df1[col_y], marker=".", color="black", s=2, alpha=0.7, label="original")
+    make_ellipses(df1[col_x], df1[col_y], ax, color="black")
+    make_ellipses(df2[col_x], df2[col_y], ax, color=color)
     ax.set_xlabel(col_x)
     ax.set_ylabel(col_y)
 
