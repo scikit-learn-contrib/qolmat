@@ -75,7 +75,7 @@ def test__utils_plot_plot_images(
 def test_utils_plot_make_ellipses(X: np.ndarray, mocker: MockerFixture):
     mocker.patch("matplotlib.pyplot.show")
     ax = plt.gca()
-    plot.make_ellipses(X, ax, color="blue")
+    plot.make_ellipses(X[1], X[2], ax, color="blue")
     assert len(plt.gcf().get_axes()) > 0
     plt.close("all")
 
