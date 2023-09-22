@@ -212,7 +212,7 @@ def compare_covariances(
     col_y: str,
     ax: mpl.axes.Axes,
     label: str = "",
-    color: Union[None, str, Tuple[float, float, float]] = None,
+    color: Union[None, str, Tuple[float, float, float], Tuple[float, float, float, float]] = None,
 ):
     """
     Covariance plot: scatter plot with ellipses
