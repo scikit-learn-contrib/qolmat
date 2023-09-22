@@ -16,26 +16,18 @@ df_beijing = pd.DataFrame(
     ],
     columns=columns,
 )
-index_preprocess_beijing = pd.MultiIndex.from_tuples(
+
+index_beijing_preprocess = pd.MultiIndex.from_tuples(
     [
-        ("Beijing", datetime.datetime(2013, 3, 1)),
-        ("Beijing", datetime.datetime(2014, 3, 1)),
-        ("Beijing", datetime.datetime(2015, 3, 1)),
+        ("Gucheng", datetime.datetime(2013, 3, 1)),
+        ("Gucheng", datetime.datetime(2014, 3, 1)),
+        ("Gucheng", datetime.datetime(2015, 3, 1)),
     ],
     names=["station", "datetime"],
 )
-df_preprocess_beijing = pd.DataFrame(
-    [[1, 2], [3, np.nan], [np.nan, 6]], columns=["a", "b"], index=index_preprocess_beijing
-)
 
-columns = ["No", "year", "month", "day", "hour", "a", "b", "wd", "station"]
-df_offline = pd.DataFrame(
-    [
-        [1, 2013, 3, 1, 0, 1, 2, "NW", "Gucheng"],
-        [2, 2014, 3, 1, 0, 3, np.nan, "NW", "Gucheng"],
-        [3, 2015, 3, 1, 0, np.nan, 6, "NW", "Gucheng"],
-    ],
-    columns=columns,
+df_beijing_preprocess = pd.DataFrame(
+    [[1, 2], [3, np.nan], [np.nan, 6]], columns=["a", "b"], index=index_beijing_preprocess
 )
 
 df_monach_weather = pd.DataFrame(
@@ -94,18 +86,6 @@ df_monach_elec_preprocess = pd.DataFrame(
     index=pd.date_range(start="2002-01-01", periods=3, freq="30T"),
 )
 
-index_preprocess_offline = pd.MultiIndex.from_tuples(
-    [
-        ("Gucheng", datetime.datetime(2013, 3, 1)),
-        ("Gucheng", datetime.datetime(2014, 3, 1)),
-        ("Gucheng", datetime.datetime(2015, 3, 1)),
-    ],
-    names=["station", "datetime"],
-)
-df_preprocess_offline = pd.DataFrame(
-    [[1, 2], [3, np.nan], [np.nan, 6]], columns=["a", "b"], index=index_preprocess_offline
-)
-
 
 urllink = "https://archive.ics.uci.edu/ml/machine-learning-databases/00501/"
 zipname = "PRSA2017_Data_20130301-20170228"
@@ -122,7 +102,6 @@ zipname = "PRSA2017_Data_20130301-20170228"
     "name_data, df",
     [
         ("Beijing", df_beijing),
-        ("Beijing_offline", df_offline),
         ("Monach_weather", df_monach_weather),
         ("Monach_electricity_australia", df_monach_elec),
         ("Artificial", None),
@@ -131,17 +110,13 @@ zipname = "PRSA2017_Data_20130301-20170228"
 )
 def test_utils_data_get_data(name_data: str, df: pd.DataFrame, mocker: MockerFixture) -> None:
     mock_download = mocker.patch("qolmat.utils.data.download_data", return_value=[df])
-    mocker.patch(
-        "qolmat.utils.data.preprocess_data_beijing_offline", return_value=df_preprocess_offline
-    )
-    mocker.patch("qolmat.utils.data.preprocess_data_beijing", return_value=df_preprocess_beijing)
+    mocker.patch("qolmat.utils.data.preprocess_data_beijing", return_value=df_beijing_preprocess)
     mock_get = mocker.patch("qolmat.utils.data.get_dataframes_in_folder", return_value=[df])
     try:
         df_result = data.get_data(name_data=name_data)
     except ValueError:
         assert name_data not in [
             "Beijing",
-            "Beijing_offline",
             "Monach_weather",
             "Monach_electricity_australia",
             "Artificial",
@@ -150,12 +125,9 @@ def test_utils_data_get_data(name_data: str, df: pd.DataFrame, mocker: MockerFix
         return
 
     if name_data == "Beijing":
-        assert mock_download.call_count == 1
-        pd.testing.assert_frame_equal(df_result, df_preprocess_beijing)
-    elif name_data == "Beijing_offline":
         assert mock_download.call_count == 0
         assert mock_get.call_count == 1
-        pd.testing.assert_frame_equal(df_result, df_preprocess_offline)
+        pd.testing.assert_frame_equal(df_result, df_beijing_preprocess)
     elif name_data == "Artificial":
         expected_columns = ["signal", "X", "A", "E"]
         assert isinstance(df_result, pd.DataFrame)
@@ -172,13 +144,7 @@ def test_utils_data_get_data(name_data: str, df: pd.DataFrame, mocker: MockerFix
         assert False
 
 
-@pytest.mark.parametrize("df", [df_offline])
-def test_utils_data_preprocess_data_beijing_offline(df: pd.DataFrame) -> None:
-    result = data.preprocess_data_beijing_offline(df)
-    pd.testing.assert_frame_equal(result, df_preprocess_offline, atol=1e-3)
-
-
-@pytest.mark.parametrize("df", [df_preprocess_offline])
+@pytest.mark.parametrize("df", [df_beijing_preprocess])
 def test_utils_data_add_holes(df: pd.DataFrame) -> None:
     df_out = data.add_holes(df, 0.0, 1)
     assert df_out.isna().sum().sum() == 2
@@ -188,19 +154,17 @@ def test_utils_data_add_holes(df: pd.DataFrame) -> None:
 
 @pytest.mark.parametrize("name_data", ["Beijing"])
 def test_utils_data_get_data_corrupted(name_data: str, mocker: MockerFixture) -> None:
-    mock_download = mocker.patch("qolmat.utils.data.download_data", return_value=[df_beijing])
-    mocker.patch("qolmat.utils.data.preprocess_data_beijing", return_value=df_preprocess_beijing)
+    mocker.patch("qolmat.utils.data.get_data", return_value=df_beijing_preprocess)
     df_out = data.get_data_corrupted()
     df_result = pd.DataFrame(
-        [[1, 2], [np.nan, np.nan], [np.nan, 6]], columns=["a", "b"], index=index_preprocess_beijing
+        [[1, 2], [np.nan, np.nan], [np.nan, 6]], columns=["a", "b"], index=index_beijing_preprocess
     )
-    assert mock_download.call_count == 1
     pd.testing.assert_frame_equal(df_result, df_out)
 
 
-@pytest.mark.parametrize("df", [df_preprocess_beijing])
+@pytest.mark.parametrize("df", [df_beijing_preprocess])
 def test_utils_data_add_station_features(df: pd.DataFrame) -> None:
-    columns_out = ["a", "b"] + ["station=Beijing"]
+    columns_out = ["a", "b"] + ["station=Gucheng"]
     expected = pd.DataFrame(
         [
             [1, 2, 1.0],
@@ -208,13 +172,13 @@ def test_utils_data_add_station_features(df: pd.DataFrame) -> None:
             [np.nan, 6, 1.0],
         ],
         columns=columns_out,
-        index=index_preprocess_beijing,
+        index=index_beijing_preprocess,
     )
     result = data.add_station_features(df)
     pd.testing.assert_frame_equal(result, expected, atol=1e-3)
 
 
-@pytest.mark.parametrize("df", [df_preprocess_beijing])
+@pytest.mark.parametrize("df", [df_beijing_preprocess])
 def test_utils_data_add_datetime_features(df: pd.DataFrame) -> None:
     columns_out = ["a", "b"] + ["time_cos"]
     expected = pd.DataFrame(
@@ -224,7 +188,7 @@ def test_utils_data_add_datetime_features(df: pd.DataFrame) -> None:
             [np.nan, 6, 0.512],
         ],
         columns=columns_out,
-        index=index_preprocess_beijing,
+        index=index_beijing_preprocess,
     )
     result = data.add_datetime_features(df)
     pd.testing.assert_frame_equal(result, expected, atol=1e-3)
