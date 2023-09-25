@@ -725,6 +725,7 @@ class TabDDPMTS(TabDDPM):
         x_windows: List = []
         x_windows_indices: List = []
         columns_index = [col for col in x.index.names if col != self.index_datetime]
+        columns_index_groupby = columns_index[0] if len(columns_index) == 1 else columns_index
         if is_training:
             if self.is_rolling:
                 if self.print_valid:
@@ -732,14 +733,18 @@ class TabDDPMTS(TabDDPM):
                         "Preprocessing data with sliding window (pandas.DataFrame.rolling)"
                         + " can require more times than usual. Please be patient!"
                     )
-                columns_index_ = columns_index[0] if len(columns_index) == 1 else columns_index
-                for x_group in tqdm(x.groupby(by=columns_index_), disable=True, leave=False):
+                for x_group in tqdm(
+                    x.groupby(by=columns_index_groupby), disable=True, leave=False
+                ):
                     x_windows += list(
                         x_group[1].droplevel(columns_index).rolling(window=self.freq_str)
                     )
             else:
-                for x_w in x.resample(rule=self.freq_str, level=self.index_datetime):
-                    x_windows.append(x_w[1])
+                for x_group in tqdm(
+                    x.groupby(by=columns_index_groupby), disable=True, leave=False
+                ):
+                    for x_w in x_group[1].resample(rule=self.freq_str, level=self.index_datetime):
+                        x_windows.append(x_w[1])
         else:
             if self.is_rolling:
                 columns_index_ = columns_index[0] if len(columns_index) == 1 else columns_index
@@ -758,9 +763,12 @@ class TabDDPMTS(TabDDPM):
                             x_rolling_ = x_rolling_.reorder_levels(x.index.names)
                             x_windows_indices.append(x_rolling_.index)
             else:
-                for x_w in x.resample(rule=self.freq_str, level=self.index_datetime):
-                    x_windows.append(x_w[1])
-                    x_windows_indices.append(x_w[1].index)
+                for x_group in tqdm(
+                    x.groupby(by=columns_index_groupby), disable=True, leave=False
+                ):
+                    for x_w in x_group[1].resample(rule=self.freq_str, level=self.index_datetime):
+                        x_windows.append(x_w[1])
+                        x_windows_indices.append(x_w[1].index)
 
         x_windows_processed = []
         x_windows_mask_processed = []
@@ -831,10 +839,16 @@ class TabDDPMTS(TabDDPM):
 
         x_imputed_nan_only = []
         x_indices_nan_only = []
-        for x_imputed_batch, x_indices_batch in zip(x_imputed, x_indices):
-            imputed_index = x_indices_batch.shape[0] - 1
-            x_imputed_nan_only.append(x_imputed_batch[imputed_index])
-            x_indices_nan_only.append(x_indices_batch[imputed_index])
+        if self.is_rolling:
+            for x_imputed_batch, x_indices_batch in zip(x_imputed, x_indices):
+                imputed_index = x_indices_batch.shape[0] - 1
+                x_imputed_nan_only.append(x_imputed_batch[imputed_index])
+                x_indices_nan_only.append(x_indices_batch[imputed_index])
+        else:
+            for x_imputed_batch, x_indices_batch in zip(x_imputed, x_indices):
+                imputed_index = len(x_indices_batch)
+                x_imputed_nan_only += list(x_imputed_batch[:imputed_index])
+                x_indices_nan_only += list(x_indices_batch[:imputed_index])
 
         if len(np.shape(x_indices_nan_only)) == 1:
             x_out_index = pd.Index(x_indices_nan_only, name=x_df.index.names[0])
@@ -889,10 +903,16 @@ class TabDDPMTS(TabDDPM):
 
         x_imputed_nan_only = []
         x_indices_nan_only = []
-        for x_imputed_batch, x_indices_batch in zip(x_imputed, x_indices):
-            imputed_index = x_indices_batch.shape[0] - 1
-            x_imputed_nan_only.append(x_imputed_batch[imputed_index])
-            x_indices_nan_only.append(x_indices_batch[imputed_index])
+        if self.is_rolling:
+            for x_imputed_batch, x_indices_batch in zip(x_imputed, x_indices):
+                imputed_index = x_indices_batch.shape[0] - 1
+                x_imputed_nan_only.append(x_imputed_batch[imputed_index])
+                x_indices_nan_only.append(x_indices_batch[imputed_index])
+        else:
+            for x_imputed_batch, x_indices_batch in zip(x_imputed, x_indices):
+                imputed_index = len(x_indices_batch)
+                x_imputed_nan_only += list(x_imputed_batch[:imputed_index])
+                x_indices_nan_only += list(x_indices_batch[:imputed_index])
 
         if len(np.shape(x_indices_nan_only)) == 1:
             x_out_index = pd.Index(x_indices_nan_only, name=x.index.names[0])
