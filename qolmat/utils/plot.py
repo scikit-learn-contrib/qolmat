@@ -190,7 +190,7 @@ def compare_covariances(
     df2: pd.DataFrame,
     col_x: str,
     col_y: str,
-    ax: mpl.axes._subplots.AxesSubplot,
+    ax: mpl.axes._subplots.AxesSubplot,  # type: ignore # noqa
     label: str = "",
     color: Optional[Union[str, Tuple[float, float, float]]] = None,
 ):
@@ -211,11 +211,11 @@ def compare_covariances(
         matplotlib ax handles
     """
     if color is None:
-        color = tab10(0)
+        color = tab10(0)  # type: ignore # noqa
     ax.scatter(df2[col_x], df2[col_y], marker=".", color=color, s=0.2, label=label)
     ax.scatter(df1[col_x], df1[col_y], marker=".", color="black", s=0.2)
     make_ellipses(df1[[col_x, col_y]], ax, "black")
-    make_ellipses(df2[[col_x, col_y]], ax, color)
+    make_ellipses(df2[[col_x, col_y]], ax, color)  # type: ignore # noqa
     ax.set_xlabel(col_x)
     ax.set_ylabel(col_y)
 
