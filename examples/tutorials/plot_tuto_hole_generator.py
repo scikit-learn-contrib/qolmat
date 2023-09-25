@@ -15,6 +15,8 @@ We use Beijing Multi-Site Air-Quality Data Set.
 It consists in hourly air pollutants data from 12 chinese nationally-controlled
 air-quality monitoring sites.
 """
+from typing import List
+
 from io import BytesIO
 import matplotlib
 import matplotlib.pyplot as plt
@@ -127,13 +129,87 @@ def visualise_missing_values(df_init: pd.DataFrame, df_mask: pd.DataFrame):
     df_tot[df_init.isna()] = 2
     df_mask = np.invert(df_mask).astype("int")
     df_tot += df_mask
-    colorsList = [(1, 0, 0), (0, 0, 0), (1, 1, 1)]
+    colorsList = [(0.9, 0, 0), (0, 0, 0), (0.8, 0.8, 0.8)]
     custom_cmap = matplotlib.colors.ListedColormap(colorsList)
     plt.figure(figsize=(15, 4))
     plt.imshow(df_tot.values.T, aspect="auto", cmap=custom_cmap, interpolation="none")
     plt.yticks(range(len(df_tot.columns)), df_tot.columns)
     plt.xlabel("Samples", fontsize=12)
     plt.grid(False)
+    plt.show()
+
+
+def get_holes_sizes_column_wise(data: np.ndarray) -> List[List[int]]:
+    """Get the hole size distribution of each column of an array.
+
+    Parameters
+    ----------
+    data : np.ndarray
+
+    Returns
+    -------
+    List[List[int]]
+        List of hole size for each column.
+    """
+    hole_sizes = []
+    for col in range(data.shape[1]):
+        current_size = 0
+        column_sizes = []
+        for row in range(data.shape[0]):
+            if np.isnan(data[row, col]):
+                current_size += 1
+            elif current_size > 0:
+                column_sizes.append(current_size)
+                current_size = 0
+        if current_size > 0:
+            column_sizes.append(current_size)
+        hole_sizes.append(column_sizes)
+    return hole_sizes
+
+
+def plot_cdf(
+    df: pd.DataFrame,
+    list_df_mask: List[pd.DataFrame],
+    labels: List[str],
+    colors: List[str],
+) -> None:
+    """Plot the hole size CDF of each column.
+    Comparison between original and created holes.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        original dataframe with missing data
+    list_df_mask : List[pd.DataFrame]
+        crated masks, list of boolean dataframe
+    labels : List[str]
+        list of labels
+    colors : List[str]
+        list of colors
+    """
+    _, axs = plt.subplots(1, df.shape[1], sharey=True, figsize=(15, 3))
+
+    hole_sizes_original = get_holes_sizes_column_wise(df.to_numpy())
+    for ind, (hole_original, col) in enumerate(zip(hole_sizes_original, df.columns)):
+        sorted_data = np.sort(hole_original)
+        cdf = np.arange(1, len(sorted_data) + 1) / len(sorted_data)
+        axs[ind].plot(sorted_data, cdf, c="gray", lw=2, label="original")
+
+    for df_mask, label, color in zip(list_df_mask, labels, colors):
+        array_mask = df_mask.copy()
+        array_mask[array_mask == True] = np.nan
+        hole_sizes_created = get_holes_sizes_column_wise(array_mask.to_numpy())
+
+        for ind, (hole_created, col) in enumerate(zip(hole_sizes_created, df.columns)):
+            sorted_data = np.sort(hole_created)
+            cdf = np.arange(1, len(sorted_data) + 1) / len(sorted_data)
+            axs[ind].plot(sorted_data, cdf, c=color, lw=2, label=label)
+            axs[ind].set_title(col)
+            axs[ind].set_xlabel("Hole sizes")
+
+    axs[0].set_ylabel("CDF")
+    plt.legend()
+    plt.tight_layout()
     plt.show()
 
 
@@ -148,28 +224,18 @@ def visualise_missing_values(df_init: pd.DataFrame, df_mask: pd.DataFrame):
 uniform_generator = missing_patterns.UniformHoleGenerator(
     n_splits=1, subset=df.columns, ratio_masked=0.1
 )
-df_mask = uniform_generator.split(df)[0]
+uniform_mask = uniform_generator.split(df)[0]
 
 print("Pourcentage of additional missing values:")
-print(round((df_mask.sum() / len(df_mask)) * 100, 2))
-visualise_missing_values(df, df_mask)
+print(round((uniform_mask.sum() / len(uniform_mask)) * 100, 2))
+visualise_missing_values(df, uniform_mask)
 
 # %%
-# Just to illustrate, imagine we have columns without missing values.
-# In this case, there is no point to create hole in these columns.
-# So all we need to do is pass in the argument the name of the columns
-# for which we want to create gaps, for example,
+#  We plot the cumulative distribution functions of the original holes
+# and the generated holes. Since we are creating randomly
+# and uniformly, the distributions are very different.
 
-uniform_generator = missing_patterns.UniformHoleGenerator(
-    n_splits=1,
-    subset=["PRES", "DEWP"],
-    ratio_masked=0.1,
-)
-df_mask = uniform_generator.split(df)[0]
-
-print("Pourcentage of additional missing values:")
-print(round((df_mask.sum() / len(df_mask)) * 100, 2))
-visualise_missing_values(df, df_mask)
+plot_cdf(df, [uniform_mask], ["created"], ["tab:red"])
 
 # %%
 # b. Geometric Hole Generator
@@ -183,11 +249,17 @@ visualise_missing_values(df, df_mask)
 geometric_generator = missing_patterns.GeometricHoleGenerator(
     n_splits=1, subset=cols_to_impute, ratio_masked=0.1
 )
-df_mask = geometric_generator.split(df)[0]
+geometric_mask = geometric_generator.split(df)[0]
 
 print("Pourcentage of additional missing values:")
-print(round((df_mask.sum() / len(df_mask)) * 100, 2))
-visualise_missing_values(df, df_mask)
+print(round((geometric_mask.sum() / len(geometric_mask)) * 100, 2))
+visualise_missing_values(df, geometric_mask)
+
+# %%
+# Again we compare CDFs. This time we notice that
+# the distributions are much more similar.
+
+plot_cdf(df, [geometric_mask], ["created"], ["tab:red"])
 
 # %%
 # c. Empirical Hole Generator
@@ -203,11 +275,17 @@ visualise_missing_values(df, df_mask)
 empirical_generator = missing_patterns.EmpiricalHoleGenerator(
     n_splits=1, subset=df.columns, ratio_masked=0.1, groups=("station",)
 )
-df_mask = empirical_generator.split(df)[0]
+empirical_mask = empirical_generator.split(df)[0]
 
 print("Pourcentage of additional missing values:")
-print(round((df_mask.sum() / len(df_mask)) * 100, 2))
-visualise_missing_values(df, df_mask)
+print(round((empirical_mask.sum() / len(empirical_mask)) * 100, 2))
+visualise_missing_values(df, empirical_mask)
+
+# %%
+# Again we compare CDFs. This time we notice that
+# the distributions are much more similar.
+
+plot_cdf(df, [geometric_mask], ["created"], ["tab:red"])
 
 # %%
 # d. Multi Markov Hole Generator
@@ -222,11 +300,18 @@ visualise_missing_values(df, df_mask)
 multi_markov_generator = missing_patterns.MultiMarkovHoleGenerator(
     n_splits=1, subset=df.columns, ratio_masked=0.1
 )
-df_mask = multi_markov_generator.split(df)[0]
+multi_markov_mask = multi_markov_generator.split(df)[0]
 
 print("Pourcentage of additional missing values:")
-print(round((df_mask.sum() / len(df_mask)) * 100, 2))
-visualise_missing_values(df, df_mask)
+print(round((multi_markov_mask.sum() / len(multi_markov_mask)) * 100, 2))
+visualise_missing_values(df, multi_markov_mask)
+
+# %%
+# Even if the distribution is learned multivariately,
+# we can still plot the CDFs of each column.
+
+plot_cdf(df, [multi_markov_mask], ["created"], ["tab:red"])
+
 
 # %%
 # d. Grouped Hole Generator
@@ -238,8 +323,26 @@ visualise_missing_values(df, df_mask)
 grouped_generator = missing_patterns.GroupedHoleGenerator(
     n_splits=1, subset=df.columns, ratio_masked=0.1, groups=("station",)
 )
-df_mask = grouped_generator.split(df)[0]
+grouped_mask = grouped_generator.split(df)[0]
 
 print("Pourcentage of additional missing values:")
-print(round((df_mask.sum() / len(df_mask)) * 100, 2))
-visualise_missing_values(df, df_mask)
+print(round((grouped_mask.sum() / len(grouped_mask)) * 100, 2))
+visualise_missing_values(df, grouped_mask)
+
+# %%
+# Again we compare CDFs.
+
+plot_cdf(df, [grouped_mask], ["created"], ["tab:red"])
+
+
+# %%
+# Finally, we can compare the generators by looking
+# at the CDF of each column, while keeping in mind the
+# the functioning of the Multi Markov generator.
+
+plot_cdf(
+    df,
+    [uniform_mask, geometric_mask, empirical_mask, multi_markov_mask, grouped_mask],
+    ["uniform", "geometric", "empirical", "mutli markov", "grouped"],
+    ["tab:orange", "tab:blue", "tab:green", "tab:pink", "tab:olive"],
+)

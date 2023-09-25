@@ -39,158 +39,77 @@ Python 3.8+
 🛠 Installation
 ===============
 
-Install via `pip`:
+Qolmat can be installed in different ways:
 
 .. code:: sh
 
-    $ pip install qolmat
-
-If you need to use tensorflow, you can install it with the following 'pip' command:
-
-.. code:: sh
-
-    $ pip install qolmat[tensorflow]
-
-To install directly from the github repository :
-
-.. code:: sh
-
-    $ pip install git+https://github.com/Quantmetry/qolmat
+    $ pip install qolmat  # installation via `pip`
+    $ pip install qolmat[tensorflow] # if you need tensforflow
+    $ pip install git+https://github.com/Quantmetry/qolmat  # or directly from the github repository
 
 ⚡️ Quickstart
 ==============
 
-Let us start with a basic imputation problem. Here, we generate one-dimensional noisy time series.
+Let us start with a basic imputation problem.
+We generate one-dimensional noisy time series with missing values.
+With just these few lines of code, you can see how easy it is to
+
+- impute missing values with one particular imputer;
+- benchmark multiple imputation methods with different metrics.
 
 .. code-block:: python
 
-    import matplotlib.pyplot as plt
-    import numpy as np
-    import pandas as pd
+  import numpy as np
+  import pandas as pd
 
-    np.random.seed(42)
-    t = np.linspace(0,1,1000)
-    y = np.cos(2*np.pi*t*10)+np.random.randn(1000)/2
-    df = pd.DataFrame({'y': y}, index=pd.Series(t, name='index'))
+  from qolmat.benchmark import comparator, missing_patterns
+  from qolmat.imputations import imputers
+  from qolmat.utils.data import add_holes
 
-For this demonstration, let us create artificial holes in our dataset.
+  # create time series with missing values
+  np.random.seed(42)
+  t = np.linspace(0,1,1000)
+  y = np.cos(2*np.pi*t*10)+np.random.randn(1000)/2
+  df = pd.DataFrame({'y': y}, index=pd.Series(t, name='index'))
+  df_with_nan = add_holes(df, ratio_masked=0.1, mean_size=20)
 
-.. code-block:: python
+  # impute and compare
+  imputer_mean = imputers.ImputerMean()
+  imputer_interpol = imputers.ImputerInterpolation(method="linear")
+  imputer_var1 = imputers.ImputerEM(model="VAR", method="mle", max_iter_em=100, n_iter_ou=15, dt=1e-3, p=1)
+  dict_imputers = {
+          "mean": imputer_mean,
+          "interpolation": imputer_interpol,
+          "var1": imputer_var1
+      }
+  generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=4, ratio_masked=0.1)
+  comparison = comparator.Comparator(
+          dict_imputers,
+          ['y'],
+          generator_holes = generator_holes,
+          metrics = ["mae", "wmape", "KL_columnwise", "ks_test", "energy"],
+      )
+  results = comparison.compare(df_with_nan)
+  results.style.highlight_min(color="lime", axis=1)
 
-    from qolmat.utils.data import add_holes
-    plt.rcParams.update({'font.size': 18})
-
-    ratio_masked = 0.1
-    mean_size = 20
-    df_with_nan = add_holes(df, ratio_masked=ratio_masked, mean_size=mean_size)
-    is_na = df_with_nan['y'].isna()
-
-    plt.figure(figsize=(25,4))
-    plt.plot(df_with_nan['y'],'.')
-    plt.plot(df.loc[is_na, 'y'],'.')
-    plt. grid()
-    plt.xlim(0,1)
-
-    plt.legend(['Data', 'Missing data'])
-    plt.savefig('readme1.png')
-    plt.show()
-
-.. image:: https://raw.githubusercontent.com/Quantmetry/qolmat/main/docs/images/readme1.png
+.. image:: https://raw.githubusercontent.com/Quantmetry/qolmat/main/docs/images/readme_tabular_comparison.png
     :align: center
 
-To impute missing data, there are several methods that can be imported with ``from qolmat.imputations import imputers``.
-The creation of an imputation dictionary will enable us to benchmark the various imputations.
-
 .. code-block:: python
 
-    from sklearn.linear_model import LinearRegression
-    from qolmat.imputations import imputers
+  import matplotlib.pyplot as plt
+  # visualise
+  dfs_imputed = {name: imp.fit_transform(df_with_nan) for name, imp in dict_imputers.items()}
+  plt.figure(figsize=(13,3))
+  for (name, df_imputed), color in zip(dfs_imputed.items(), ["tab:green", "tab:blue", "tab:red"]):
+      plt.plot(df_imputed, ".", c=color, label=name)
+  plt.plot(df_with_nan, ".", c="k", label="original")
+  plt.legend()
+  plt.grid()
+  plt.ylabel("values")
+  plt.show()
 
-    imputer_mean = imputers.ImputerMean()
-    imputer_median = imputers.ImputerMedian()
-    imputer_mode = imputers.ImputerMode()
-    imputer_locf = imputers.ImputerLOCF()
-    imputer_nocb = imputers.ImputerNOCB()
-    imputer_interpol = imputers.ImputerInterpolation(method="linear")
-    imputer_spline = imputers.ImputerInterpolation(method="spline", order=2)
-    imputer_shuffle = imputers.ImputerShuffle()
-    imputer_residuals = imputers.ImputerResiduals(period=10, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
-    imputer_rpca = imputers.ImputerRPCA(columnwise=True, period=10, max_iter=200, tau=2, lam=.3)
-    imputer_rpca_opti = imputers.ImputerRPCA(columnwise=True, period = 10, max_iter=100)
-    imputer_ou = imputers.ImputerEM(model="multinormal", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
-    imputer_tsou = imputers.ImputerEM(model="VAR1", method="sample", max_iter_em=34, n_iter_ou=15, dt=1e-3)
-    imputer_tsmle = imputers.ImputerEM(model="VAR1", method="mle", max_iter_em=34, n_iter_ou=15, dt=1e-3)
-    imputer_knn = imputers.ImputerKNN(k=10)
-    imputer_mice = imputers.ImputerMICE(estimator=LinearRegression(), sample_posterior=False, max_iter=100, missing_values=np.nan)
-    imputer_regressor = imputers.ImputerRegressor(estimator=LinearRegression())
-
-    dict_imputers = {
-        "mean": imputer_mean,
-        "median": imputer_median,
-        "mode": imputer_mode,
-        "interpolation": imputer_interpol,
-        "spline": imputer_spline,
-        "shuffle": imputer_shuffle,
-        "residuals": imputer_residuals,
-        "OU": imputer_ou,
-        "TSOU": imputer_tsou,
-        "TSMLE": imputer_tsmle,
-        "RPCA": imputer_rpca,
-        "RPCA_opti": imputer_rpca_opti,
-        "locf": imputer_locf,
-        "nocb": imputer_nocb,
-        "knn": imputer_knn,
-        "ols": imputer_regressor,
-        "mice_ols": imputer_mice,
-    }
-
-It is possible to define a parameter dictionary for an imputer with three pieces of information: min, max and type. The aim of the dictionary is to determine the optimal parameters for data imputation. Here, we call this dictionary ``dict_config_opti``.
-
-.. code-block:: python
-
-    search_params = {
-        "RPCA_opti": {
-            "tau": {"min": .5, "max": 5, "type":"Real"},
-            "lam": {"min": .1, "max": 1, "type":"Real"},
-        }
-    }
-
-Then with the comparator function in ``from qolmat.benchmark import comparator``, we can compare the different imputation methods. This **does not use knowledge on missing values**, but it relies data masking instead. For more details on how imputors and comparator work, please see the following `link <https://qolmat.readthedocs.io/en/latest/explanation.html>`_.
-
-.. code-block:: python
-
-    from qolmat.benchmark import comparator
-
-    generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=4, ratio_masked=0.1)
-
-    comparison = comparator.Comparator(
-        dict_imputers,
-        ['y'],
-        generator_holes = generator_holes,
-        metrics = ["mae", "wmape", "KL_columnwise", "ks_test", "energy"],
-        n_calls_opt = 10,
-        dict_config_opti = dict_config_opti,
-    )
-    results = comparison.compare(df_with_nan)
-
-We can observe the benchmark results.
-
-.. image:: https://raw.githubusercontent.com/Quantmetry/qolmat/main/docs/images/readme2.png
-    :align: center
-
-Finally, we keep the best ``TSMLE`` imputor we represent.
-
-.. code-block:: python
-
-    dfs_imputed =  imputer_tsmle.fit_transform(df_with_nan)
-
-    plt.figure(figsize=(25,5))
-    plt.plot(df['y'],'.g')
-    plt.plot(dfs_imputed['y'],'.r')
-    plt.plot(df_with_nan['y'],'.b')
-    plt.show()
-
-.. image:: https://raw.githubusercontent.com/Quantmetry/qolmat/main/docs/images/readme3.png
+.. image:: https://raw.githubusercontent.com/Quantmetry/qolmat/main/docs/images/readme_imputation_plot.png
     :align: center
 
 
@@ -264,6 +183,11 @@ The following table contains the available imputation methods:
      - Robust Principal Component Analysis
      - yes
      - yes
+     - point
+   * - SoftImpute
+     - Iterative method for matrix completion that uses nuclear-norm regularization
+     - yes
+     - no
      - point
    * - KNN
      - K-nearest kneighbors
