@@ -359,8 +359,6 @@ class EM(BaseEstimator, TransformerMixin):
             X = utils.prepare_data(X, self.period)
             # X = self.scaler.transform(X)
             X = utils.linear_interpolation(X)
-            if hasattr(self, "p"):
-                X = self.create_lag_matrix_X(X)
 
         mask_na = np.isnan(X)
 
