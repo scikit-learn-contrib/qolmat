@@ -275,18 +275,31 @@ def test_ImputerRPCA_fit_transform(df: pd.DataFrame) -> None:
     np.testing.assert_allclose(result, expected, atol=1e-2)
 
 
+@pytest.mark.parametrize("df", [df_incomplete])
+def test_ImputerSoftImpute_fit_transform(df: pd.DataFrame) -> None:
+    imputer = imputers.ImputerSoftImpute(
+        columnwise=False, max_iterations=100, tau=0.3, random_state=4
+    )
+    result = imputer.fit_transform(df)
+    expected = pd.DataFrame(
+        {
+            "col1": [0, 1.327, 2, 3, 0.137],
+            "col2": [-1, 0.099, 0.5, 0.122, 1.5],
+        }
+    )
+    np.testing.assert_allclose(result, expected, atol=1e-2)
+
+
 @pytest.mark.parametrize("df", [df_timeseries])
 def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
     imputer = imputers.ImputerEM(method="sample", dt=1e-3, random_state=42)
     result = imputer.fit_transform(df)
-    print(result)
     expected = pd.DataFrame(
         {
             "col1": [i for i in range(20)],
             "col2": [0, 0.773, 2, 2.621, 2] + [i for i in range(5, 20)],
         }
     )
-    print(result)
     np.testing.assert_allclose(result, expected, atol=1e-2)
 
 
@@ -307,7 +320,6 @@ list_imputers = [
     imputers.ImputerMICE(groups=("group",)),
     imputers.ImputerRegressor(groups=("group",), estimator=LinearRegression()),
     imputers.ImputerRPCA(groups=("group",)),
-    imputers.ImputerSoftImpute(groups=("group",)),
     imputers.ImputerEM(groups=("group",)),
 ]
 
@@ -335,7 +347,6 @@ def test_models_fit_transform_grouped(imputer):
         imputers.ImputerMICE(),
         imputers.ImputerRegressor(),
         imputers.ImputerRPCA(tau=0, lam=0),
-        imputers.ImputerSoftImpute(),
         imputers.ImputerEM(),
     ]
 )

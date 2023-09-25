@@ -1791,7 +1791,7 @@ class ImputerSoftImpute(_Imputer):
         tau: float = 0,
         max_iterations: int = 100,
         verbose: bool = False,
-        projected: bool = False,
+        projected: bool = True,
     ):
         super().__init__(
             imputer_params=(
@@ -1844,7 +1844,7 @@ class ImputerSoftImpute(_Imputer):
         self._check_dataframe(df)
         assert col == "__all__"
         hyperparams = self.get_hyperparams()
-        model = softimpute.SoftImpute(**hyperparams)
+        model = softimpute.SoftImpute(random_state=self._rng, **hyperparams)
         model = model.fit(df.values)
         return model
 
