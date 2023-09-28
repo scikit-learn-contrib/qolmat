@@ -6,8 +6,8 @@
    :caption: MODEL SELECTION FOR IMPUTATION
 
    explanation
-   examples/tutorials/tuto_mean_median
-   examples/tutorials/tuto_hole_generator
+   examples/tutorials/plot_tuto_mean_median
+   examples/tutorials/plot_tuto_hole_generator
 
 .. toctree::
    :maxdepth: 2
@@ -15,8 +15,8 @@
    :caption: IMPUTERS
 
    imputers
-   examples/tutorials/tuto_benchmark_TS
-   examples/tutorials/tuto_diffusion_models
+   examples/tutorials/plot_tuto_benchmark_TS
+   examples/tutorials/plot_tuto_diffusion_models
 
 .. toctree::
    :maxdepth: 2

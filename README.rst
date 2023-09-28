@@ -184,6 +184,11 @@ The following table contains the available imputation methods:
      - yes
      - yes
      - point
+   * - SoftImpute
+     - Iterative method for matrix completion that uses nuclear-norm regularization
+     - yes
+     - no
+     - point
    * - KNN
      - K-nearest kneighbors
      - yes

@@ -39,9 +39,10 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx.ext.doctest",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.autosectionlabel",
     "sphinx.ext.viewcode",
     "sphinx.ext.mathjax",
-    "sphinx.ext.intersphinx",
     "numpydoc",
     "sphinx_markdown_tables",
     "sphinx_gallery.gen_gallery",
@@ -67,23 +68,28 @@ autodoc_default_flags = ["members", "inherited-members"]
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 
-# List of patterns, relative to source directory, that match files and
-# directories to ignore when looking for source files.
-# This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
-
-# The name of the Pygments (syntax highlighting) style to use.
-# pygments_style = "sphinx"
-pygments_style = "friendly"
-
 # generate autosummary even if no references
 autosummary_generate = True
 
 # The suffix of source filenames.
 source_suffix = ".rst"
 
+# Generate the plots for the gallery
+plot_gallery = True
+
 # The master toctree document.
 master_doc = "index"
+
+# List of patterns, relative to source directory, that match files and
+# directories to ignore when looking for source files.
+# This pattern also affects html_static_path and html_extra_path.
+exclude_patterns = ["_build", "_templates"]
+
+# The name of the Pygments (syntax highlighting) style to use.
+# pygments_style = "sphinx"
+
+# Custom style
+# html_style = "css/project-template.css"
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -100,8 +106,35 @@ html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
 
-# Generate the plots for the gallery
-plot_gallery = True
+# Output file base name for HTML help builder.
+htmlhelp_basename = "qolmatdoc"
+
+# -- Options for manual page output ---------------------------------------
+
+# One entry per manual page. List of tuples
+# (source start file, name, description, authors, manual section).
+# man_pages = [("index", "qolmat", u"Qolmat Documentation", [u"Quantmetry"], 1)]
+
+# If true, show URL addresses after external links.
+# man_show_urls = False
+
+# -- Options for Texinfo output -------------------------------------------
+
+# Grouping the document tree into Texinfo files. List of tuples
+# (source start file, target name, title, author,
+# dir menu entry, description, category)
+texinfo_documents = [
+    (
+        "index",
+        "qolmat",
+        "Qolmat Documentation",
+        "Quantmetry",
+        "Qolmat",
+        "One line description of project.",
+        "Miscellaneous",
+    ),
+]
+
 
 # Example configuration for intersphinx: refer to the Python standard library.
 # intersphinx configuration
@@ -113,6 +146,8 @@ intersphinx_mapping = {
     "numpy": ("https://docs.scipy.org/doc/numpy/", None),
     "matplotlib": ("https://matplotlib.org/", None),
     "sklearn": ("http://scikit-learn.org/stable", None),
+    "pandas": ("http://pandas.pydata.org/pandas-docs/dev", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy", None),
 }
 
 # sphinx-gallery configuration
@@ -127,6 +162,7 @@ sphinx_gallery_conf = {
 html_css_files = [
     "custom.css",
 ]
+
 
 def setup(app):
     # a copy button to copy snippet of code from the documentation

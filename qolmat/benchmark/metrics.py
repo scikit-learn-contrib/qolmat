@@ -692,7 +692,7 @@ def frechet_distance(
 ) -> float:
     """Compute the Fréchet distance between two dataframes df1 and df2
     Frechet_distance = || mu_1 - mu_2 ||_2^2 + Tr(Sigma_1 + Sigma_2 - 2(Sigma_1 . Sigma_2)^(1/2))
-    It is normalized, df1 and df_ are first scaled by a factor (std(df1) + std(df2)) / 2
+    It is normalized, df1 and df2 are first scaled by a factor (std(df1) + std(df2)) / 2
     and then centered around (mean(df1) + mean(df2)) / 2
     Based on: Dowson, D. C., and BV666017 Landau. "The Fréchet distance between multivariate normal
     distributions." Journal of multivariate analysis 12.3 (1982): 450-455.
@@ -709,7 +709,7 @@ def frechet_distance(
     Returns
     -------
     float
-        frechet_distance
+        frechet distance
     """
 
     if df1.shape != df2.shape:
