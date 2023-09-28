@@ -401,6 +401,8 @@ class TabDDPM:
             )
 
         if x_valid is not None:
+            # We reuse the UniformHoleGenerator to generate artificial holes (with one mask)
+            # in validation dataset
             x_valid_mask = missing_patterns.UniformHoleGenerator(
                 n_splits=1, ratio_masked=self.ratio_nan
             ).split(x_valid)[0]
@@ -486,7 +488,7 @@ class TabDDPM:
         """
         self._eps_model.eval()
 
-        x_processed, x_mask, x_indices = self._process_data(x)
+        x_processed, x_mask, x_indices = self._process_data(x, is_training=False)
 
         list_x_imputed = []
         for i in tqdm(range(self.num_sampling), leave=False):

@@ -104,18 +104,6 @@ class ResidualBlockTS(torch.nn.Module):
 
         self.layer_norm = torch.nn.LayerNorm(dim_input)
 
-        # encoder_layer_feature = torch.nn.TransformerEncoderLayer(
-        #     d_model=size_window,
-        #     nhead=nheads_feature,
-        #     dim_feedforward=dim_feedforward,
-        #     activation="gelu",
-        #     batch_first=True,
-        #     dropout=0.1,
-        # )
-        # self.feature_layer = torch.nn.TransformerEncoder(
-        #     encoder_layer_feature, num_layers=num_layers_transformer
-        # )
-
         encoder_layer_time = torch.nn.TransformerEncoderLayer(
             d_model=dim_embedding,
             nhead=nheads_time,
@@ -148,11 +136,6 @@ class ResidualBlockTS(torch.nn.Module):
         batch_size, size_window, dim_emb = x.shape
 
         x_emb = self.layer_norm(x)
-
-        # x_emb_feat = x_emb.permute(0, 2, 1)
-        # x_emb_feat = self.feature_layer(x_emb_feat)
-        # x_emb_feat = x_emb_feat.permute(0, 2, 1)
-
         x_emb_time = self.time_layer(x_emb)
         t_emb = t.repeat(1, size_window).reshape(batch_size, size_window, dim_emb)
 
@@ -263,7 +246,7 @@ class AutoEncoder(torch.nn.Module):
         Returns
         -------
         torch.Tensor
-            _description_
+            List of embeddings for noise steps
         """
         steps = torch.arange(num_noise_steps).unsqueeze(1)  # (T,1)
         frequencies = 10.0 ** (torch.arange(dim) / (dim - 1) * 4.0).unsqueeze(0)  # (1,dim)
