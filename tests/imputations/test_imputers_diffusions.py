@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 
 from qolmat.imputations import imputers_pytorch
-from qolmat.imputations.diffusions import diffusions
+from qolmat.imputations.diffusions import ddpms
 from qolmat.utils.exceptions import PyTorchExtraNotInstalled
 
 try:
@@ -36,7 +36,7 @@ def test_ImputerGenerativeModelPytorch_fit_transform(df: pd.DataFrame) -> None:
         }
     )
 
-    model = diffusions.TabDDPM(num_noise_steps=10, num_blocks=1, dim_embedding=64)
+    model = ddpms.TabDDPM(num_noise_steps=10, num_blocks=1, dim_embedding=64)
     imputer = imputers_pytorch.ImputerDiffusion(
         model=model, batch_size=2, epochs=2, x_valid=df, print_valid=True
     )
@@ -44,7 +44,7 @@ def test_ImputerGenerativeModelPytorch_fit_transform(df: pd.DataFrame) -> None:
     result = imputer.fit_transform(df)
     np.testing.assert_array_equal(np.isnan(result).any(), expected)
 
-    model = diffusions.TabDDPMTS(num_noise_steps=10, num_blocks=1, dim_embedding=64)
+    model = ddpms.TsDDPM(num_noise_steps=10, num_blocks=1, dim_embedding=64)
     imputer = imputers_pytorch.ImputerDiffusion(
         model=model,
         batch_size=2,
