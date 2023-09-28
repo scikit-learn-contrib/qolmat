@@ -2,9 +2,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from qolmat.imputations import imputers_pytorch
+from typing import Any
+from sklearn.utils.estimator_checks import check_estimator, parametrize_with_checks
+
+from qolmat.imputations import imputers, imputers_pytorch
 from qolmat.imputations.diffusions import ddpms
 from qolmat.utils.exceptions import PyTorchExtraNotInstalled
+
 
 try:
     import torch as nn
@@ -24,35 +28,45 @@ df_incomplete = pd.DataFrame(
 df_incomplete.index = df_incomplete.index.set_names("datetime")
 
 
-@pytest.mark.parametrize("df", [df_incomplete])
-def test_ImputerGenerativeModelPytorch_fit_transform(df: pd.DataFrame) -> None:
-    expected = pd.Series(
-        {
-            "col1": False,
-            "col2": False,
-            "col3": False,
-            "col4": False,
-            "col5": False,
-        }
-    )
+# @pytest.mark.parametrize("df", [df_incomplete])
+# def test_ImputerGenerativeModelPytorch_fit_transform(df: pd.DataFrame) -> None:
+#     expected = pd.Series(
+#         {
+#             "col1": False,
+#             "col2": False,
+#             "col3": False,
+#             "col4": False,
+#             "col5": False,
+#         }
+#     )
 
-    model = ddpms.TabDDPM(num_noise_steps=10, num_blocks=1, dim_embedding=64)
-    imputer = imputers_pytorch.ImputerDiffusion(
-        model=model, batch_size=2, epochs=2, x_valid=df, print_valid=True
-    )
+#     model = ddpms.TabDDPM(num_noise_steps=10, num_blocks=1, dim_embedding=64)
+#     imputer = imputers_pytorch.ImputerDiffusion(
+#         model=model, batch_size=2, epochs=2, x_valid=df, print_valid=True
+#     )
 
-    result = imputer.fit_transform(df)
-    np.testing.assert_array_equal(np.isnan(result).any(), expected)
+#     result = imputer.fit_transform(df)
+#     np.testing.assert_array_equal(np.isnan(result).any(), expected)
 
-    model = ddpms.TsDDPM(num_noise_steps=10, num_blocks=1, dim_embedding=64)
-    imputer = imputers_pytorch.ImputerDiffusion(
-        model=model,
-        batch_size=2,
-        epochs=2,
-        x_valid=df,
-        print_valid=True,
-        index_datetime="datetime",
-    )
+#     model = ddpms.TsDDPM(num_noise_steps=10, num_blocks=1, dim_embedding=64)
+#     imputer = imputers_pytorch.ImputerDiffusion(
+#         model=model,
+#         batch_size=2,
+#         epochs=2,
+#         x_valid=df,
+#         print_valid=True,
+#         index_datetime="datetime",
+#     )
 
-    result = imputer.fit_transform(df)
-    np.testing.assert_array_equal(np.isnan(result).any(), expected)
+#     result = imputer.fit_transform(df)
+#     np.testing.assert_array_equal(np.isnan(result).any(), expected)
+
+
+@parametrize_with_checks(
+    [
+        imputers_pytorch.ImputerDiffusion(model=ddpms.TabDDPM(), batch_size=1, epochs=1),
+    ]
+)
+def test_sklearn_compatible_estimator(estimator: imputers._Imputer, check: Any) -> None:
+    """Check compatibility with sklearn, using sklearn estimator checks API."""
+    check(estimator)

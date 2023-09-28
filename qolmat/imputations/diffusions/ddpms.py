@@ -393,7 +393,7 @@ class TabDDPM:
         # x_mask: 1 for observed values, 0 for nan
         x_processed, x_mask, _ = self._process_data(x, is_training=True)
 
-        if self.batch_size >= x_processed.shape[0]:
+        if self.batch_size > x_processed.shape[0]:
             raise ValueError(
                 f"Batch size {self.batch_size} larger than size of pre-processed x"
                 + f" size={x_processed.shape[0]}. Please reduce batch_size."
