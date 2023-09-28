@@ -9,7 +9,7 @@ Qolmat provides a convenient way to estimate optimal data imputation techniques 
 1. General approach
 -------------------
 
-Let :math:`X \in \mathbb{R}^{n \times m}` be a dataset with missing data. We observe only the matrix :math:`X_{obs} = X \odot M \in (\mathbb{R} \cup \{NA\})^{n \times m}` with :math:`M` the mask such that :math:`M_{ij} = 1` if :math:`X_{ij}` is missing and 0 otherwise. Let :math:`f` be an imputation function which outputs a complete dataset based on the observed ones and the mask, i.e.
+Let :math:`X \in \mathbb{R}^{n \times m}` be a dataset with $n$ observations and $m$ variables containing missing data. We observe only the matrix :math:`X_{obs} = X \odot M \in (\mathbb{R} \cup \{NA\})^{n \times m}` with :math:`M` the mask such that :math:`M_{ij} = 1` if :math:`X_{ij}` is missing and 0 otherwise. Let :math:`f` be an imputation function which outputs a complete dataset based on the observed ones and the mask, i.e.
 
 .. math::
     f: (\mathbb{R} \cup \{NA\})^{n \times m} \rightarrow \mathbb{R}^{n \times m}: X_{obs} \mapsto \hat{X} = \left\{
@@ -109,11 +109,11 @@ It is then easy to compare different imputation functions.
 3. Hole generator
 -----------------
 
-In order to evaluate imputers, it is important to analyse the patterns and the mechanism of missing values.
-A common way to diffenrentiate the mechanisms is the classification proposed by Rubin [1], namely MCAR, MAR and MNAR.
+Evaluating the imputers requires to generate holes that are representative of the holes at hand.
+The missingness mechanisms have been classified by Rubin [1] into MCAR, MAR and MNAR.
 
-Suppose we :math:`X_{obs}`, a subset of a complete data model :math:`X = (X_{obs}, X_{mis})`, which is not fully observable (:math:`X_{mis}` is the missing part).
-We define the matrix :math:`M` such that :math:`M_{ij}=1` if :math:`X_{ij}` is missing, and 0 otherwise. Both :math:`X` and :math:`M` are modelled as tandom variables
+Suppose we have :math:`X_{obs}`, a subset of a complete data model :math:`X = (X_{obs}, X_{mis})`, which is not fully observable (:math:`X_{mis}` is the missing part).
+We define the matrix :math:`M` such that :math:`M_{ij}=1` if :math:`X_{ij}` is missing, and 0 otherwise. Both :math:`X` and :math:`M` are modelled as random variables
 with probability distribution :math:`P_{X}` and :math:`P_{M}` respectively, and assume the distribution of :math:`M` is parametrised by :math:`\psi`.
 
 The observations are said to be Missing Completely at Random (MCAR) if the probability that an observation is missing is independent of the variables and observations in the dataset.
@@ -122,7 +122,7 @@ Formally,
 .. math::
     P_M(M | X_{obs}, X_{mis}, \psi) = P_M(M), \quad \forall \psi.
 
-The observations are said to be Missing at Random (MAR) if the probability of an observation to be missing onlyy depends on the observations. Formally,
+The observations are said to be Missing at Random (MAR) if the probability of an observation to be missing only depends on the observations. Formally,
 
 .. math::
     P_M(M | X_{obs}, X_{mis}, \psi) = P_M(M | X_{obs}, \psi), \quad \forall \psi, X_{mis}.
@@ -134,8 +134,8 @@ Qolmat allows to generate new missing values on a an existing dataset, but only 
 Here are the different classes to generate missing data. We recommend the last 3 for time series. 
 
 1. :class:`UniformHoleGenerator`: This is the simplest way to generate missing data, i.e. the holes are generated uniformly at random.
-2. :class:`GroupedHoleGenerator`: The holes are generated from groups, specified by the user.
-3. :class:`GeometricHoleGenerator`: The holes are generated following a Markov 1D process. It means that missing data are created in a columnwise fashion. Given the mask :math:`M` corresponding to the dataset bserved. For each column of :math:`M`, we associate a two-state transition matrix (0, 1 for observed or missing). We then construct a Markov process from this transition matrix. In total, :math:`m` processes are created (:math:`m` = number of columns) to form the final mask.
+2. :class:`GroupedHoleGenerator`: The holes are generated from groups, specified by the user: a given group can either be fully observed or fully missing.
+3. :class:`GeometricHoleGenerator`: The holes are generated following a Markov 1D process. It means that missing data are created in a columnwise fashion. Given the mask :math:`M` corresponding to the dataset observed. For each column of :math:`M`, we associate a two-state transition matrix between observed and missing states. We then construct a Markov process from this transition matrix.
 4. :class:`MultiMarkovHoleGenerator`: This method is similar to :class:`GeometricHoleGenerator` except that each row of the mask (vector) represents a state in the markov chain; we no longer proceed column by column. In the end, a single Markov chain is created to obtain the final mask.
 5. :class:`EmpiricalHoleGenerator`: The distribution of holes is learned from the data. It allows to create missing data based on the holes size distribution, column by column. y
 

@@ -230,8 +230,6 @@ Qolmat has been developed by Quantmetry.
 🔍  References
 ==============
 
-Qolmat methods belong to the field of conformal inference.
-
 [1] Candès, Emmanuel J., et al. “Robust principal component analysis?.”
 Journal of the ACM (JACM) 58.3 (2011): 1-37,
 (`pdf <https://arxiv.org/abs/0912.3599>`__)
@@ -242,15 +240,13 @@ Journal of advanced transportation 2018 (2018).
 (`pdf <https://www.hindawi.com/journals/jat/2018/7191549/>`__)
 
 [3] Chen, Yuxin, et al. “Bridging convex and nonconvex optimization in
-robust PCA: Noise, outliers, and missing data.” arXiv preprint
-arXiv:2001.05484 (2020), (`pdf <https://arxiv.org/abs/2001.05484>`__)
+robust PCA: Noise, outliers, and missing data.” Annals of statistics, 49(5), 2948 (2021), (`pdf <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9491514/pdf/nihms-1782570.pdf>`__)
 
 [4] Shahid, Nauman, et al. “Fast robust PCA on graphs.” IEEE Journal of
 Selected Topics in Signal Processing 10.4 (2016): 740-756.
 (`pdf <https://arxiv.org/abs/1507.08173>`__)
 
-[5] Jiashi Feng, et al. “Online robust pca via stochastic opti-
-mization.“ Advances in neural information processing systems, 26, 2013.
+[5] Jiashi Feng, et al. “Online robust pca via stochastic optimization.“ Advances in neural information processing systems, 26, 2013.
 (`pdf <https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.721.7506&rep=rep1&type=pdf>`__)
 
 [6] García, S., Luengo, J., & Herrera, F. "Data preprocessing in data mining". 2015.
