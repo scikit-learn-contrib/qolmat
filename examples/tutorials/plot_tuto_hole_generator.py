@@ -68,9 +68,7 @@ plt.show()
 # as `df` with missing entries `np.nan`. The missing entries of the mask
 # cannot be missing in the initial dataframe.
 # This is achieved with the ``split`` function, and it works in the same way
-# than ``Kfolds``
-# `class <https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.KFold.html>`_
-# of scikit-learn.
+# than ``Kfolds`` of scikit-learn.
 # For each method, we will generate 10 percent missing values, i.e.
 # ``ratio_masked=0.1``, and we will generate missing values
 # for all the columns in the dataframe, i.e. ``subset=df.columns``.
