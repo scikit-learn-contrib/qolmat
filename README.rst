@@ -44,7 +44,7 @@ Qolmat can be installed in different ways:
 .. code:: sh
 
     $ pip install qolmat  # installation via `pip`
-    $ pip install qolmat[tensorflow] # if you need tensforflow
+    $ pip install qolmat[tensorflow] # if you need tensorflow
     $ pip install git+https://github.com/Quantmetry/qolmat  # or directly from the github repository
 
 ⚡️ Quickstart
@@ -64,54 +64,35 @@ With just these few lines of code, you can see how easy it is to
 
   from qolmat.benchmark import comparator, missing_patterns
   from qolmat.imputations import imputers
-  from qolmat.utils.data import add_holes
+  from qolmat.utils.data import add_holes, load_csv_data
 
-  # create time series with missing values
-  np.random.seed(42)
-  t = np.linspace(0,1,1000)
-  y = np.cos(2*np.pi*t*10)+np.random.randn(1000)/2
-  df = pd.DataFrame({'y': y}, index=pd.Series(t, name='index'))
-  df_with_nan = add_holes(df, ratio_masked=0.1, mean_size=20)
+  # load and prepare csv data
+  df_data = load_csv_data("beijing")
+  columns = ["TEMP", "PRES", "WSPM"]
+  df_data = df_data[columns]
+  df_with_nan = add_holes(df_data, ratio_masked=0.2, mean_size=120)
 
   # impute and compare
-  imputer_mean = imputers.ImputerMean()
-  imputer_interpol = imputers.ImputerInterpolation(method="linear")
-  imputer_var1 = imputers.ImputerEM(model="VAR", method="mle", max_iter_em=100, n_iter_ou=15, dt=1e-3, p=1)
+  imputer_mean = imputers.ImputerMean(groups=("station",))
+  imputer_interpol = imputers.ImputerInterpolation(method="linear", groups=("station",))
+  imputer_var1 = imputers.ImputerEM(model="VAR", groups=("station",), method="mle", max_iter_em=50, n_iter_ou=15, dt=1e-3, p=1)
   dict_imputers = {
-          "mean": imputer_mean,
-          "interpolation": imputer_interpol,
-          "var1": imputer_var1
-      }
+        "mean": imputer_mean,
+        "interpolation": imputer_interpol,
+        "VAR(1) process": imputer_var1
+    }
   generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=4, ratio_masked=0.1)
   comparison = comparator.Comparator(
-          dict_imputers,
-          ['y'],
-          generator_holes = generator_holes,
-          metrics = ["mae", "wmape", "KL_columnwise", "ks_test", "energy"],
-      )
+        dict_imputers,
+        columns,
+        generator_holes = generator_holes,
+        metrics = ["mae", "wmape", "KL_columnwise", "ks_test", "energy"],
+    )
   results = comparison.compare(df_with_nan)
-  results.style.highlight_min(color="lime", axis=1)
+  results.style.highlight_min(color="lightsteelblue", axis=1)
 
 .. image:: https://raw.githubusercontent.com/Quantmetry/qolmat/main/docs/images/readme_tabular_comparison.png
     :align: center
-
-.. code-block:: python
-
-  import matplotlib.pyplot as plt
-  # visualise
-  dfs_imputed = {name: imp.fit_transform(df_with_nan) for name, imp in dict_imputers.items()}
-  plt.figure(figsize=(13,3))
-  for (name, df_imputed), color in zip(dfs_imputed.items(), ["tab:green", "tab:blue", "tab:red"]):
-      plt.plot(df_imputed, ".", c=color, label=name)
-  plt.plot(df_with_nan, ".", c="k", label="original")
-  plt.legend()
-  plt.grid()
-  plt.ylabel("values")
-  plt.show()
-
-.. image:: https://raw.githubusercontent.com/Quantmetry/qolmat/main/docs/images/readme_imputation_plot.png
-    :align: center
-
 
 📘 Documentation
 ================
@@ -120,12 +101,9 @@ The full documentation can be found `on this link <https://qolmat.readthedocs.io
 
 **How does Qolmat work ?**
 
-Qolmat simplifies the selection process of a data imputation algorithm. It does so by comparing of various methods based on different evaluation metrics.
-It is compatible with scikit-learn.
-Evaluation and comparison are based on the standard approach to select some observations, set their status to missing, and compare
-their imputation with their true values.
+Qolmat simplifies the process of selecting a data imputation algorithm by comparing various methods based on different evaluation metrics. It is compatible with scikit-learn. The evaluation and comparison are based on the standard approach of selecting certain observations, setting their status to missing, and comparing their imputed values with their true values.
 
-More specifically, from the initial dataframe with missing value, we generate additional missing values (N samples).
+More specifically, from the initial dataframe with missing value, we generate additional missing values (N folds).
 On each sample, different imputation models are tested and reconstruction errors are computed on these artificially missing entries. Then the errors of each imputation model are averaged and we eventually obtained a unique error score per model. This procedure allows the comparison of different models on the same dataset.
 
 .. image:: https://raw.githubusercontent.com/Quantmetry/qolmat/main/docs/images/schema_qolmat.png

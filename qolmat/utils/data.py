@@ -11,6 +11,27 @@ import pandas as pd
 
 from qolmat.benchmark import missing_patterns
 
+SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
+
+
+def load_csv_data(data_file_name: str) -> pd.DataFrame:
+    """Load csv files
+
+    Parameters
+    ----------
+    data_file_name : str
+        Filename. Has to be "beijing" or "conductors"
+
+    Returns
+    -------
+    df : pd.DataFrame
+        dataframe
+    """
+    df = pd.read_csv(f"{SCRIPT_DIR}/../../data/{data_file_name}.csv")
+    if data_file_name == "beijing":
+        df = df.set_index(["station", "date"])
+    return df
+
 
 def download_data(zipname: str, urllink: str, datapath: str = "data/") -> List[pd.DataFrame]:
     path_zip = os.path.join(datapath, zipname)

@@ -22,10 +22,6 @@ import matplotlib.ticker as plticker
 
 tab10 = plt.get_cmap("tab10")
 
-import zipfile
-from io import BytesIO
-
-import requests
 from qolmat.benchmark import comparator, missing_patterns
 from qolmat.imputations import imputers
 from qolmat.utils import data, plot
@@ -36,9 +32,7 @@ from sklearn.linear_model import LinearRegression
 # ---------------------------------------------------------------
 # We use the public Beijing Multi-Site Air-Quality Data Set.
 # It consists in hourly air pollutants data from 12 chinese nationally-controlled
-# air-quality monitoring sites.The original data from which the
-# features were extracted comes from
-# https://archive.ics.uci.edu/static/public/501/beijing+multi+site+air+quality+data.zip
+# air-quality monitoring sites.
 # In this way, each column has missing values.
 # We group the data by day and only consider 5 columns.
 # For the purpose of this notebook,
@@ -47,39 +41,7 @@ from sklearn.linear_model import LinearRegression
 # and the imputation methods will have acces to two additional features:
 # "DEWP" and "RAIN".
 
-
-zip_file_url = (
-    "https://archive.ics.uci.edu/static/public/501/beijing+multi+site+air+quality+data.zip"
-)
-zip_filename = "PRSA2017_Data_20130301-20170228.zip"
-
-response = requests.get(zip_file_url)
-if response.status_code == 200:
-    outer_zip_data = BytesIO(response.content)
-else:
-    print("Failed to fetch the outer zip file. Status code:", response.status_code)
-    exit()
-
-outer_zip = zipfile.ZipFile(outer_zip_data, "r")
-if zip_filename in outer_zip.namelist():
-    inner_zip_data = BytesIO(outer_zip.read(zip_filename))
-    outer_zip.close()
-else:
-    print(f"The inner zip file '{zip_filename}' was not found in the outer zip file.")
-    outer_zip.close()
-    exit()
-
-with zipfile.ZipFile(inner_zip_data, "r") as inner_zip:
-    dfs = []
-    for file_name in inner_zip.namelist():
-        if file_name.endswith(".csv"):
-            with inner_zip.open(file_name) as csv_file:
-                dfs.append(pd.read_csv(csv_file))
-
-df_data = pd.concat(dfs, ignore_index=True)
-
-df_data["date"] = pd.to_datetime(df_data[["year", "month", "day"]])
-df_data = df_data.set_index(["station", "date"])
+df_data = data.load_csv_data("beijing")
 df_data = df_data[["TEMP", "PRES", "DEWP", "RAIN", "WSPM"]]
 df_data = df_data.groupby(level=["station", "date"]).mean()
 cols_to_impute = ["TEMP", "PRES", "WSPM"]
@@ -162,7 +124,7 @@ comparison = comparator.Comparator(
     max_evals=10,
 )
 results = comparison.compare(df)
-results.style.highlight_min(color="lime", axis=1)
+results.style.highlight_min(color="lightsteelblue", axis=1)
 
 # %%
 # We have considered four metrics for comparison.

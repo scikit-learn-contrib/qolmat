@@ -1,7 +1,7 @@
 """
-=======================================================================================
-Tutorial for comparison between mean and median imputations with uniform hole geneation
-=======================================================================================
+========================================================================================
+Tutorial for comparison between mean and median imputations with uniform hole generation
+========================================================================================
 
 In this tutorial, we show how to use the Qolmat comparator
 (:class:`~qolmat.benchmark.comparator`) to choose
@@ -17,7 +17,6 @@ We generate holes uniformly at random via
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 
 from qolmat.benchmark import comparator, missing_patterns
 from qolmat.imputations import imputers
@@ -30,17 +29,12 @@ from qolmat.utils import data, plot
 # The data contains information on 21263 superconductors.
 # Originally, the first 81 columns contain extracted features and
 # the 82nd column contains the critical temperature which is used as the
-# target variable. The original data from which the features were extracted
-# comes from http://supercon.nims.go.jp/index_en.html, which is public.
+# target variable.
 # The data does not contain missing values; so for the purpose of this notebook,
 # we corrupt the data, with the ``qolmat.utils.data.add_holes`` function.
 # In this way, each column has missing values.
 
-csv_url = (
-    "https://huggingface.co/datasets/polinaeterna/"
-    "tabular-benchmark/resolve/main/reg_num/superconduct.csv"
-)
-df_data = pd.read_csv(csv_url, index_col=0)
+df_data = data.load_csv_data("conductors")
 df = data.add_holes(df_data, ratio_masked=0.2, mean_size=120)
 
 # %%
@@ -141,7 +135,7 @@ comparison = comparator.Comparator(
 # except for the `mean_atomic_mass` with MAE.
 
 results = comparison.compare(df)
-results.style.highlight_min(color="lime", axis=1)
+results.style.highlight_min(color="lightsteelblue", axis=1)
 
 # %%
 # Let's visualize this dataframe.
