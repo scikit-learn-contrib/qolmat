@@ -805,7 +805,7 @@ class TsDDPM(TabDDPM):
         index_datetime : str
             Name of datetime-like index
         freq_str : str
-            Frequency string of DateOffset
+            Frequency string of DateOffset of Pandas
         Raises
         ------
         ValueError
