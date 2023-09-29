@@ -122,8 +122,11 @@ def test_TabDDPM_q_sample(df: pd.DataFrame) -> None:
     model = ddpms.TabDDPM(num_noise_steps=10, num_blocks=1, dim_embedding=64)
     model = model.fit(df, batch_size=2, epochs=2, x_valid=df, print_valid=False)
 
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+
     ts_data_noised, ts_noise = model._q_sample(
-        x=torch.ones(2, 5, dtype=torch.float), t=torch.ones(2, 1, dtype=torch.long)
+        x=torch.ones(2, 5, dtype=torch.float).to(device),
+        t=torch.ones(2, 1, dtype=torch.long).to(device),
     )
 
     np.testing.assert_array_equal(ts_data_noised.size(), (2, 5))
@@ -283,9 +286,11 @@ def test_TsDDPM_q_sample(df: pd.DataFrame) -> None:
     model = model.fit(
         df, batch_size=2, epochs=2, x_valid=df, print_valid=False, index_datetime="datetime"
     )
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
     ts_data_noised, ts_noise = model._q_sample(
-        x=torch.ones(2, 1, 5, dtype=torch.float), t=torch.ones(2, 1, 1, dtype=torch.long)
+        x=torch.ones(2, 1, 5, dtype=torch.float).to(device),
+        t=torch.ones(2, 1, 1, dtype=torch.long).to(device),
     )
 
     np.testing.assert_array_equal(ts_data_noised.size(), (2, 1, 5))
