@@ -229,10 +229,10 @@ def compare_covariances(
     df2 = df_2.dropna()
     if color is None:
         color = tab10(0)  # type: ignore # noqa
-    ax.scatter(df2[col_x], df2[col_y], marker=".", color=color, s=2, alpha=0.7, label="imputed")
-    ax.scatter(df1[col_x], df1[col_y], marker=".", color="black", s=2, alpha=0.7, label="original")
-    make_ellipses(df1[col_x], df1[col_y], ax, color="black")
-    make_ellipses(df2[col_x], df2[col_y], ax, color=color)
+    ax.scatter(df2[col_x], df2[col_y], marker=".", color=color, s=0.2, label=label)
+    ax.scatter(df1[col_x], df1[col_y], marker=".", color="black", s=0.2)
+    make_ellipses(df1[[col_x, col_y]], ax, "black")
+    make_ellipses(df2[[col_x, col_y]], ax, color)  # type: ignore # noqa
     ax.set_xlabel(col_x)
     ax.set_ylabel(col_y)
 
