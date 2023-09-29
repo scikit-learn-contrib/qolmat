@@ -9,7 +9,7 @@ from sklearn.base import BaseEstimator
 
 from qolmat.imputations.imputers import _Imputer, ImputerRegressor
 from qolmat.utils.exceptions import EstimatorNotDefined, PyTorchExtraNotInstalled
-from qolmat.imputations.diffusions.diffusions import TabDDPM, TabDDPMTS
+from qolmat.imputations.diffusions.ddpms import TabDDPM, TsDDPM
 from qolmat.benchmark import metrics
 
 try:
@@ -545,6 +545,17 @@ class ImputerDiffusion(_Imputer):
         self.index_datetime = index_datetime
         self.freq_str = freq_str
 
+    def _more_tags(self):
+        return {
+            "non_deterministic": True,
+            "_xfail_checks": {
+                "check_estimators_pickle": "Diffusion models can return\
+                                  different outputs",
+                "check_estimators_overwrite_params": "Diffusion models can\
+                                    return different outputs",
+            },
+        }
+
     def _fit_element(self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0):
         """
         Fits the imputer on `df`, at the group and/or column level depending onself.groups and
@@ -629,4 +640,4 @@ class ImputerDiffusion(_Imputer):
         return self.model.summary
 
     def get_summary_architecture(self) -> Dict:
-        return {"number_parameters": self.model.num_params, "epsilon_model": self.model.eps_model}
+        return {"number_parameters": self.model.num_params, "epsilon_model": self.model._eps_model}
