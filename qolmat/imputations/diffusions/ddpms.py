@@ -319,7 +319,9 @@ class TabDDPM:
 
         return x_windows_processed, x_windows_mask_processed, list(x.index)
 
-    def _process_reversely_data(self, x_imputed: np.array, x_input: pd.DataFrame, x_indices: List):
+    def _process_reversely_data(
+        self, x_imputed: np.ndarray, x_input: pd.DataFrame, x_indices: List
+    ):
         x_normalized = self.normalizer_x.inverse_transform(x_imputed)
         x_normalized = x_normalized[: x_input.shape[0]]
         x_out = pd.DataFrame(x_normalized, columns=self.columns, index=x_input.index)
@@ -741,7 +743,9 @@ class TsDDPM(TabDDPM):
 
         return np.array(x_windows_processed), np.array(x_windows_mask_processed), x_windows_indices
 
-    def _process_reversely_data(self, x_imputed: np.array, x_input: pd.DataFrame, x_indices: List):
+    def _process_reversely_data(
+        self, x_imputed: np.ndarray, x_input: pd.DataFrame, x_indices: List
+    ):
         x_imputed_nan_only = []
         x_indices_nan_only = []
         for x_imputed_batch, x_indices_batch in zip(x_imputed, x_indices):
