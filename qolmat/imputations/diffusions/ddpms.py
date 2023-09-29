@@ -134,7 +134,7 @@ class TabDDPM:
         epsilon = torch.randn_like(x, device=self.device)
         return sqrt_alpha_hat * x + sqrt_one_minus_alpha_hat * epsilon, epsilon
 
-    def _set_eps_model(self):
+    def _set_eps_model(self) -> None:
         self._eps_model = AutoEncoder(
             num_noise_steps=self.num_noise_steps,
             dim_input=self.dim_input,
@@ -324,7 +324,10 @@ class TabDDPM:
         x_normalized = x_normalized[: x_input.shape[0]]
         x_out = pd.DataFrame(x_normalized, columns=self.columns, index=x_input.index)
 
-        return x_out
+        x_final = x_input.copy()
+        x_final.loc[x_out.index] = x_out.loc[x_out.index]
+
+        return x_final
 
     def fit(
         self,
@@ -359,7 +362,8 @@ class TabDDPM:
             Set of validation metrics, by default ( metrics.mean_absolute_error,
             metrics.dist_wasserstein )
         round : int, optional
-            Number of decimal places to round to, by default 10
+            Number of decimal places to round to, for better displaying model
+            performance, by default 10
         cols_imputed : Tuple[str, ...], optional
             Name of columns that need to be imputed, by default ()
 
@@ -424,7 +428,7 @@ class TabDDPM:
         )
 
         self._set_eps_model()
-        self.num_params = get_num_params(self._eps_model)
+        self.num_params: int = get_num_params(self._eps_model)
         self.summary: Dict[str, List] = {
             "epoch_loss": [],
         }
@@ -664,31 +668,42 @@ class TsDDPM(TabDDPM):
                         "Preprocessing data with sliding window (pandas.DataFrame.rolling)"
                         + " can require more times than usual. Please be patient!"
                     )
-                columns_index_ = columns_index[0] if len(columns_index) == 1 else columns_index
-                for x_group in tqdm(x.groupby(by=columns_index_), disable=True, leave=False):
-                    x_windows += list(
-                        x_group[1].droplevel(columns_index).rolling(window=self.freq_str)
-                    )
+                if len(columns_index) == 0:
+                    x_windows = x.rolling(window=self.freq_str)
+                else:
+                    columns_index_ = columns_index[0] if len(columns_index) == 1 else columns_index
+                    for x_group in tqdm(x.groupby(by=columns_index_), disable=True, leave=False):
+                        x_windows += list(
+                            x_group[1].droplevel(columns_index).rolling(window=self.freq_str)
+                        )
             else:
                 for x_w in x.resample(rule=self.freq_str, level=self.index_datetime):
                     x_windows.append(x_w[1])
         else:
             if self.is_rolling:
-                columns_index_ = columns_index[0] if len(columns_index) == 1 else columns_index
-                for x_group in tqdm(x.groupby(by=columns_index_), disable=True, leave=False):
-                    x_group_index = [x_group[0]] if len(columns_index) == 1 else x_group[0]
-                    x_group_value = x_group[1].droplevel(columns_index)
-                    indices_nan = x_group_value.loc[x_group_value.isna().any(axis=1), :].index
-                    x_group_rolling = x_group_value.rolling(window=self.freq_str)
+                if len(columns_index) == 0:
+                    indices_nan = x.loc[x.isna().any(axis=1), :].index
+                    x_group_rolling = x.rolling(window=self.freq_str)
                     for x_rolling in x_group_rolling:
                         if x_rolling.index[-1] in indices_nan:
                             x_windows.append(x_rolling)
-                            x_rolling_ = x_rolling.copy()
-                            for idx, col in enumerate(columns_index):
-                                x_rolling_[col] = x_group_index[idx]
-                            x_rolling_ = x_rolling_.set_index(columns_index, append=True)
-                            x_rolling_ = x_rolling_.reorder_levels(x.index.names)
-                            x_windows_indices.append(x_rolling_.index)
+                            x_windows_indices.append(x_rolling.index)
+                else:
+                    columns_index_ = columns_index[0] if len(columns_index) == 1 else columns_index
+                    for x_group in tqdm(x.groupby(by=columns_index_), disable=True, leave=False):
+                        x_group_index = [x_group[0]] if len(columns_index) == 1 else x_group[0]
+                        x_group_value = x_group[1].droplevel(columns_index)
+                        indices_nan = x_group_value.loc[x_group_value.isna().any(axis=1), :].index
+                        x_group_rolling = x_group_value.rolling(window=self.freq_str)
+                        for x_rolling in x_group_rolling:
+                            if x_rolling.index[-1] in indices_nan:
+                                x_windows.append(x_rolling)
+                                x_rolling_ = x_rolling.copy()
+                                for idx, col in enumerate(columns_index):
+                                    x_rolling_[col] = x_group_index[idx]
+                                x_rolling_ = x_rolling_.set_index(columns_index, append=True)
+                                x_rolling_ = x_rolling_.reorder_levels(x.index.names)
+                                x_windows_indices.append(x_rolling_.index)
             else:
                 for x_w in x.resample(rule=self.freq_str, level=self.index_datetime):
                     x_windows.append(x_w[1])
@@ -745,7 +760,10 @@ class TsDDPM(TabDDPM):
             index=x_out_index,
         )
 
-        return x_out
+        x_final = x_input.copy()
+        x_final.loc[x_out.index] = x_out.loc[x_out.index]
+
+        return x_final
 
     def fit(
         self,
