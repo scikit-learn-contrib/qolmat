@@ -50,7 +50,7 @@ cols_to_impute = df.columns
 
 # %%
 # Let's visualise the mask (i.e. missing values) of this dataset.
-# Missing values are in white, while observed ones ae in black.
+# Missing values are in white, while observed ones are in black.
 
 plt.figure(figsize=(15, 4))
 plt.imshow(df.notna().values.T, aspect="auto", cmap="binary", interpolation="none")
