@@ -8,9 +8,9 @@ jupyter:
       format_version: '1.3'
       jupytext_version: 1.14.4
   kernelspec:
-    display_name: env_qolmat_dev
+    display_name: env_qolmat
     language: python
-    name: env_qolmat_dev
+    name: env_qolmat
 ---
 
 **This notebook aims to present the Qolmat repo through an example of a multivariate time series.
@@ -172,8 +172,8 @@ dict_imputers = {
     # "locf": imputer_locf,
     # "nocb": imputer_nocb,
     # "knn": imputer_knn,
-    # "ols": imputer_regressor,
-    # "mice_ols": imputer_mice,
+    "ols": imputer_regressor,
+    "mice_ols": imputer_mice,
 }
 n_imputers = len(dict_imputers)
 ```
@@ -295,13 +295,14 @@ plt.show()
 
 ```
 
-## (Optional) Neuronal Network Model
+## (Optional) Deep Learning Model
 
 
 In this section, we present an MLP model of data imputation using Keras, which can be installed using a "pip install tensorflow".
 
 ```python
 from qolmat.imputations import imputers_pytorch
+from qolmat.imputations.diffusions.ddpms import TabDDPM
 try:
     import torch.nn as nn
 except ModuleNotFoundError:
@@ -323,33 +324,56 @@ For the example, we use a simple MLP model with 3 layers of neurons.
 Then we train the model without taking a group on the stations
 
 ```python
-estimator = nn.Sequential(
-        nn.Linear(np.sum(df_data.isna().sum()==0), 256),
-        nn.ReLU(),
-        nn.Linear(256, 128),
-        nn.ReLU(),
-        nn.Linear(128, 64),
-        nn.ReLU(),
-        nn.Linear(64, 1)
-    )
-# imputers_pytorch.build_mlp_example(input_dim=np.sum(df_data.isna().sum()==0), list_num_neurons=[256,128,64])
-dict_imputers["MLP"] = imputer_mlp = imputers_pytorch.ImputerRegressorPyTorch(estimator=estimator, groups=['station'], handler_nan = "column", epochs=500)
+fig = plt.figure(figsize=(10 * n_stations, 3 * n_cols))
+for i_station, (station, df) in enumerate(df_data.groupby("station")):
+    df_station = df_data.loc[station]
+    for i_col, col in enumerate(cols_to_impute):
+        fig.add_subplot(n_cols, n_stations, i_col * n_stations + i_station + 1)
+        plt.plot(df_station[col], '.', label=station)
+        # break
+        plt.ylabel(col)
+        plt.xticks(rotation=15)
+        if i_col == 0:
+            plt.title(station)
+        if i_col != n_cols - 1:
+            plt.xticks([], [])
+plt.show()
+```
+
+```python
+# estimator = nn.Sequential(
+#         nn.Linear(np.sum(df_data.isna().sum()==0), 256),
+#         nn.ReLU(),
+#         nn.Linear(256, 128),
+#         nn.ReLU(),
+#         nn.Linear(128, 64),
+#         nn.ReLU(),
+#         nn.Linear(64, 1)
+#     )
+estimator = imputers_pytorch.build_mlp(input_dim=np.sum(df_data.isna().sum()==0), list_num_neurons=[256,128,64])
+encoder, decoder  = imputers_pytorch.build_autoencoder(input_dim=df_data.values.shape[1],latent_dim=4, output_dim=df_data.values.shape[1], list_num_neurons=[4*4, 2*4])
+```
+
+```python
+dict_imputers["MLP"] = imputer_mlp = imputers_pytorch.ImputerRegressorPyTorch(estimator=estimator, groups=('station',), handler_nan = "column", epochs=500)
+dict_imputers["Autoencoder"] = imputer_autoencoder = imputers_pytorch.ImputerAutoencoder(encoder, decoder, max_iterations=100, epochs=100)
+dict_imputers["Diffusion"] = imputer_diffusion = imputers_pytorch.ImputerDiffusion(model=TabDDPM(num_sampling=5), epochs=100, batch_size=100)
 ```
 
 We can re-run the imputation model benchmark as before.
 ```python tags=[]
-generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, groups=["station"], subset=cols_to_impute, ratio_masked=ratio_masked)
+generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=3, groups=('station',), subset=cols_to_impute, ratio_masked=ratio_masked)
 
 comparison = comparator.Comparator(
     dict_imputers,
-    cols_to_impute,
+    selected_columns = df_data.columns,
     generator_holes = generator_holes,
     metrics=["mae", "wmape", "KL_columnwise", "ks_test"],
     max_evals=10,
     dict_config_opti=dict_config_opti,
 )
 results = comparison.compare(df_data)
-results
+results.style.highlight_min(color="green", axis=1)
 ```
 ```python jupyter={"source_hidden": true} tags=[]
 df_plot = df_data
