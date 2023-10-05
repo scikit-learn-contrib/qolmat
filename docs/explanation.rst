@@ -9,11 +9,11 @@ Qolmat provides a convenient way to estimate optimal data imputation techniques 
 1. General approach
 -------------------
 
-Let :math:`X_{obs}` be the observed dataset containing :math:`n` observations and :math:`d` features. Let :math:`I_{obs} \subseteq [1,n] \times [1,d]` the set of observed indices. Let :math:`f` be an imputation function which outputs a complete dataset based on the observed entries.
+Let :math:`X_{obs}` be the observed dataset containing :math:`n` observations and :math:`d` features. Let :math:`I_{obs} \subseteq [1,n] \times [1,d]` the set of observed indices.
 
-In order to assess the performance of the imputations (without downstream task), we use the standard approach of masking additional data, impute these additional missing data and compute a score. This procedure is repeated multiples (:math:`K`) times.
-More precisely, for :math:`k=1, ..., K`, we define new sets :math:`I_{mis}^{(k)} \subseteq I_{obs}` meaning we add missing values in the original dataset (see :ref:`hole_generator`). The associated observed dataset is denoted :math:`X_{obs}^{(k)}`.
-We compute the associated complete dataset :math:`\hat{X}_{obs}^{(k)} = f(X_{obs}^{(k)})` and then evaluate the imputation (see :ref:`metrics`) on the indices of additional missing data :math:`I_{mis}^{(k)}`, i.e. :math:`s(\hat{X}_{obs}^{(k)}, X_{obs})`. We eventually get the average score over the :math:`K` realisations, i.e. :math:`\bar{s}(X,f) = \frac{1}{K} \sum_{k=1}^K s(\hat{X}_{obs}^{(k)}, X_{obs})`. It is then easy to compare different imputation functions.
+In order to assess the performance of the imputations (without downstream task), we use the standard approach of masking additional data, impute these additional missing data and compute a score. This procedure is repeated :math:`K` times.
+More precisely, for :math:`k=1, ..., K`, we define new sets :math:`I_{mis}^{(k)} \subseteq I_{obs}` meaning we add missing values in the original dataset (see :ref:`hole_generator`). The associated datasets are denoted :math:`X_{obs}^{(k)}`.
+We compute the associated complete dataset :math:`\hat{X}^{(k)}` for the partial observations :math:`X_{obs}^{(k)}` and then evaluate the imputation (see :ref:`metrics`) on the indices of additional missing data :math:`I_{mis}^{(k)}`, i.e. :math:`s\left( \hat{X}^{(k)}, X_{obs}\right)`. We eventually get the average score over the :math:`K` realisations: :math:`\bar{s} = \frac{1}{K} \sum_{k=1}^K s\left( \hat{X}^{(k)}, X_{obs}\right)`.
 
 .. _metrics:
 
@@ -129,13 +129,13 @@ Here are the different classes to generate missing data. We recommend the last 3
 
 
 
-4. Cross-validation
--------------------
+4. Hyperparameter optimization
+------------------------------
 
 Qolmat can be used to search for hyperparameters in imputation functions. Let say the imputation function :math:`f_{\theta}` has :math:`n` hyperparameters :math:`\theta = (\theta_1, ..., \theta_n)` and configuration space :math:`\Theta = \Theta_1 \times ... \times \Theta_n`. The procedure to find the best hyperparameters set :math:`\theta^*` is based on cross-validation, and is the same as that explained in the :ref:`general_approach` section, i.e. via the creation of :math:`L` additional subsets :math:`I_{mis}^{(l)}, \, l=1,...,L`. We use Bayesian optimisation with Gaussian process where the function to minimise is the average reconstruction error over the :math:`L` realisations, i.e.
 
 .. math::
-    \theta^* = \underset{\theta \in \Theta}{\mathrm{argmin}} \frac{1}{L} \sum_{l=1}^L \Vert X_{obs}^{(l)} - f_{\theta}(X_{obs}^{(l)}) \Vert_1.
+    \theta^* = \underset{\theta \in \Theta}{\mathrm{argmin}} \frac{1}{L} \sum_{l=1}^L \left\Vert X_{obs}^{(l)} - f_{\theta}\left(X_{obs}^{(l)} \right) \right\Vert_1.
 
 
 References
