@@ -102,17 +102,19 @@ The full documentation can be found `on this link <https://qolmat.readthedocs.io
 
 **How does Qolmat work ?**
 
-Qolmat simplifies the process of selecting a data imputation algorithm by comparing various methods based on different evaluation metrics. It is compatible with scikit-learn. The evaluation and comparison are based on the standard approach of selecting certain observations, setting their status to missing, and comparing their imputed values with their true values.
+Qolmat allows model selection for scikit-learn compatible imputation algorithms, by performing three steps pictured below:
+1) For each of the N folds, Qolmat artificially masks a set of observed values using a default or user specified `hole generator <explanation.html#hole-generator>`_,
+2) For each fold and each compared `imputation method <imputers.html>`_, Qolmat fills both the missing and the masked values, then computes each of the default or user specified `performance metrics <explanation.html#metrics>`_.
+3) For each compared imputer, Qolmat pools the computed metrics from the N folds into a single value.
 
-More specifically, from the initial dataframe with missing value, we generate additional missing values (N folds).
-On each sample, different imputation models are tested and reconstruction errors are computed on these artificially missing entries. Then the errors of each imputation model are averaged and we eventually obtained a unique error score per model. This procedure allows the comparison of different models on the same dataset.
+This is very similar in spirit to the `cross_val_score <https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.cross_val_score.html>`_ function for scikit-learn.
 
 .. image:: https://raw.githubusercontent.com/Quantmetry/qolmat/main/docs/images/schema_qolmat.png
     :align: center
 
 **Imputation methods**
 
-The following table contains the available imputation methods:
+The following table contains the available imputation methods.
 
 .. list-table::
    :widths: 25 70 15 15 20
@@ -120,69 +122,56 @@ The following table contains the available imputation methods:
 
    * - Method
      - Description
-     - Tabular
-     - Time series
-     - Minimised criterion
+     - Tabular or Time series
+     - Single or multiple
    * - mean
      - Imputes the missing values using the mean along each column
-     - yes
-     - no
-     - point
+     - tabular
+     - single
    * - median
      - Imputes the missing values using the median along each column
-     - yes
-     - no
-     - point
+     - tabular
+     - single
    * - LOCF
      - Imputes missing entries by carrying the last observation forward for each columns
-     - yes
-     - yes
-     - point
+     - time series
+     - single
    * - shuffle
      - Imputes missing entries with the random value of each column
-     - yes
-     - no
-     - point
+     - tabular
+     - multiple
    * - interpolation
      - Imputes missing using some interpolation strategies supported by pd.Series.interpolate
-     - yes
-     - yes
-     - point
+     - time series
+     - single
    * - impute on residuals
      - The series are de-seasonalised, residuals are imputed via linear interpolation, then residuals are re-seasonalised
-     - no
-     - yes
-     - point
+     - time series
+     - single
    * - MICE
      - Multiple Imputation by Chained Equation
-     - yes
-     - no
-     - point
+     - tabular
+     - both
    * - RPCA
      - Robust Principal Component Analysis
-     - yes
-     - yes
-     - point
+     - both
+     - single
    * - SoftImpute
      - Iterative method for matrix completion that uses nuclear-norm regularization
-     - yes
-     - no
-     - point
+     - tabular
+     - single
    * - KNN
      - K-nearest kneighbors
-     - yes
-     - no
-     - point
+     - tabular
+     - single
    * - EM sampler
      - Imputes missing values via EM algorithm
-     - yes
-     - yes
-     - point/distribution
+     - both
+     - both
    * - TabDDPM
      - Imputer based on Denoising Diffusion Probabilistic Models
-     - yes
-     - yes
-     - distribution
+     - both
+     - both
 
 
 
