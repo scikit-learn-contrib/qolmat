@@ -9,6 +9,8 @@ History
 * EM and RPCA matrices transposed in the low-level impelmentation, however the API remains unchanged
 * Sparse matrices introduced in the RPCA impletation so as to speed up the execution
 * Docstrings and tests improved for the EM sampler
+* Fix ImputerPytorch
+* Update Benchmark Deep Learning
 
 0.0.15 (2023-08-03)
 -------------------
