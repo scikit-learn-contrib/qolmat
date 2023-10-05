@@ -28,8 +28,6 @@ def load_csv_data(data_file_name: str) -> pd.DataFrame:
         dataframe
     """
     df = pd.read_csv(f"{SCRIPT_DIR}/../../data/{data_file_name}.csv")
-    if data_file_name == "beijing":
-        df = df.set_index(["station", "date"])
     return df
 
 
@@ -96,24 +94,20 @@ def get_data(
     pd.DataFrame
         requested data
     """
-    urllink1 = "https://zenodo.org/record/"
+    url_zenodo = "https://zenodo.org/record/"
     if name_data == "Beijing":
-        # urllink = "https://archive.ics.uci.edu/static/public/381/"
-        # zipname = "beijing+pm2+5+data"
-        urllink = "https://archive.ics.uci.edu/static/public/501/"
-        zipname = "beijing+multi+site+air+quality+data"
-
-        list_df = download_data(zipname, urllink, datapath=datapath)
-        list_df = [preprocess_data_beijing(df) for df in list_df]
-        df = pd.concat(list_df)
+        df = load_csv_data("beijing")
+        df = df.set_index(["station", "date"])
         return df
-    elif name_data == "Beijing_offline":
-        # urllink = "https://archive.ics.uci.edu/dataset/381/beijing+pm2+5+data"
-        folder = "PRSA2017_Data_20130301-20170228"
-        path = os.path.join(datapath, folder)
-        list_df = get_dataframes_in_folder(path, ".csv")
-        list_df = [preprocess_data_beijing_offline(df) for df in list_df]
-        df = pd.concat(list_df)
+    if name_data == "Superconductor":
+        df = load_csv_data("conductors")
+        return df
+    elif name_data == "Superconduct":
+        csv_url = (
+            "https://huggingface.co/datasets/polinaeterna/"
+            "tabular-benchmark/resolve/main/reg_num/superconduct.csv"
+        )
+        df = pd.read_csv(csv_url, index_col=0)
         return df
     elif name_data == "Artificial":
         city = "Wonderland"
@@ -142,8 +136,25 @@ def get_data(
         stations = sizes_stations.index.get_level_values("station").unique()[-n_groups_max:]
         df = df.loc[stations]
         return df
+    elif name_data == "Beijing_online":
+        # urllink = "https://archive.ics.uci.edu/static/public/381/"
+        # zipname = "beijing+pm2+5+data"
+        urllink = "https://archive.ics.uci.edu/static/public/501/"
+        zipname = "beijing+multi+site+air+quality+data"
+
+        list_df = download_data(zipname, urllink, datapath=datapath)
+        list_df = [preprocess_data_beijing(df) for df in list_df]
+        df = pd.concat(list_df)
+        return df
+    elif name_data == "Superconduct_online":
+        csv_url = (
+            "https://huggingface.co/datasets/polinaeterna/"
+            "tabular-benchmark/resolve/main/reg_num/superconduct.csv"
+        )
+        df = pd.read_csv(csv_url, index_col=0)
+        return df
     elif name_data == "Monach_weather":
-        urllink = urllink1 + "4654822/files/weather_dataset.zip?download=1"
+        urllink = os.path.join(url_zenodo, "4654822/files/weather_dataset.zip?download=1")
         zipname = "weather_dataset"
         list_loaded_data = download_data(zipname, urllink, datapath=datapath)
         loaded_data = list_loaded_data[0]
@@ -165,7 +176,9 @@ def get_data(
         df = df[:minimum]
         return df
     elif name_data == "Monach_electricity_australia":
-        urllink = urllink1 + "4659727/files/australian_electricity_demand_dataset.zip?download=1"
+        urllink = os.path.join(
+            url_zenodo, "4659727/files/australian_electricity_demand_dataset.zip?download=1"
+        )
         zipname = "australian_electricity_demand_dataset"
         list_loaded_data = download_data(zipname, urllink, datapath=datapath)
         loaded_data = list_loaded_data[0]

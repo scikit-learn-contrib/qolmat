@@ -38,7 +38,7 @@ from qolmat.utils import data
 # we corrupt the data, with the ``qolmat.utils.data.add_holes`` function.
 # In this way, each column has missing values.
 
-df_data = data.load_csv_data("beijing")
+df_data = data.get_data("Beijing")
 # %%
 # The dataset contains 18 columns. For simplicity,
 # we only consider some.

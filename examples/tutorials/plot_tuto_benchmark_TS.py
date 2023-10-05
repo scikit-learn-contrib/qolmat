@@ -41,7 +41,7 @@ from sklearn.linear_model import LinearRegression
 # and the imputation methods will have acces to two additional features:
 # "DEWP" and "RAIN".
 
-df_data = data.load_csv_data("beijing")
+df_data = data.get_data("Beijing")
 df_data = df_data[["TEMP", "PRES", "DEWP", "RAIN", "WSPM"]]
 df_data = df_data.groupby(level=["station", "date"]).mean()
 cols_to_impute = ["TEMP", "PRES", "WSPM"]

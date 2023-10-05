@@ -64,13 +64,14 @@ With just these few lines of code, you can see how easy it is to
 
   from qolmat.benchmark import comparator, missing_patterns
   from qolmat.imputations import imputers
-  from qolmat.utils.data import add_holes, load_csv_data
+  from qolmat.utils import data
 
   # load and prepare csv data
-  df_data = load_csv_data("beijing")
+
+  df_data = data.get_data("Beijing")
   columns = ["TEMP", "PRES", "WSPM"]
   df_data = df_data[columns]
-  df_with_nan = add_holes(df_data, ratio_masked=0.2, mean_size=120)
+  df_with_nan = data.add_holes(df_data, ratio_masked=0.2, mean_size=120)
 
   # impute and compare
   imputer_mean = imputers.ImputerMean(groups=("station",))
