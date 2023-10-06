@@ -103,9 +103,9 @@ The full documentation can be found `on this link <https://qolmat.readthedocs.io
 **How does Qolmat work ?**
 
 Qolmat allows model selection for scikit-learn compatible imputation algorithms, by performing three steps pictured below:
-1) For each of the N folds, Qolmat artificially masks a set of observed values using a default or user specified `hole generator <explanation.html#hole-generator>`_,
+1) For each of the K folds, Qolmat artificially masks a set of observed values using a default or user specified `hole generator <explanation.html#hole-generator>`_,
 2) For each fold and each compared `imputation method <imputers.html>`_, Qolmat fills both the missing and the masked values, then computes each of the default or user specified `performance metrics <explanation.html#metrics>`_.
-3) For each compared imputer, Qolmat pools the computed metrics from the N folds into a single value.
+3) For each compared imputer, Qolmat pools the computed metrics from the K folds into a single value.
 
 This is very similar in spirit to the `cross_val_score <https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.cross_val_score.html>`_ function for scikit-learn.
 
@@ -114,16 +114,16 @@ This is very similar in spirit to the `cross_val_score <https://scikit-learn.org
 
 **Imputation methods**
 
-The following table contains the available imputation methods.
+The following table contains the available imputation methods. We distinguish single imputation methods (aiming for pointwise accuracy, mostly deterministic) from multiple imputation methods (aiming for distribution similarity, mostly stochastic).
 
 .. list-table::
-   :widths: 25 70 15 15 20
+   :widths: 25 70 15 15
    :header-rows: 1
 
    * - Method
      - Description
      - Tabular or Time series
-     - Single or multiple
+     - Single or Multiple
    * - mean
      - Imputes the missing values using the mean along each column
      - tabular
