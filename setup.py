@@ -4,9 +4,7 @@ from setuptools import find_packages, setup
 
 DISTNAME = "qolmat"
 VERSION = "0.0.15"
-DESCRIPTION = (
-    "A Python library for optimal data imputation using scikit-learn-compatible algorithms."
-)
+DESCRIPTION = "A Python library for optimal data imputation."
 LONG_DESCRIPTION_CONTENT_TYPE = "text/x-rst"
 with codecs.open("README.rst", encoding="utf-8-sig") as f:
     LONG_DESCRIPTION = f.read()
