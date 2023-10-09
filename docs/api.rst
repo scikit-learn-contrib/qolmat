@@ -9,8 +9,8 @@ Imputers
 
 .. autosummary::
     :toctree: generated/
-    :template: class.rst    
-    
+    :template: class.rst
+
     imputations.imputers.ImputerEM
     imputations.imputers.ImputerKNN
     imputations.imputers.ImputerInterpolation
@@ -31,8 +31,8 @@ Comparator
 
 .. autosummary::
     :toctree: generated/
-    :template: class.rst    
-    
+    :template: class.rst
+
     benchmark.comparator.Comparator
 
 Missing Patterns
@@ -40,8 +40,8 @@ Missing Patterns
 
 .. autosummary::
     :toctree: generated/
-    :template: class.rst    
-    
+    :template: class.rst
+
     benchmark.missing_patterns.UniformHoleGenerator
     benchmark.missing_patterns.GeometricHoleGenerator
     benchmark.missing_patterns.EmpiricalHoleGenerator
@@ -58,8 +58,10 @@ Metrics
 
     benchmark.metrics.mean_squared_error
     benchmark.metrics.root_mean_squared_error
+    benchmark.metrics.mean_absolute_error
+    benchmark.metrics.mean_absolute_percentage_error
     benchmark.metrics.weighted_mean_absolute_percentage_error
-    benchmark.metrics.wasserstein_distance
+    benchmark.metrics.dist_wasserstein
     benchmark.metrics.kl_divergence
     benchmark.metrics.kolmogorov_smirnov_test
     benchmark.metrics.total_variance_distance
@@ -68,6 +70,7 @@ Metrics
     benchmark.metrics.mean_diff_corr_matrix_categorical_vs_numerical_features
     benchmark.metrics.sum_energy_distances
     benchmark.metrics.frechet_distance
+    benchmark.metrics.pattern_based_weighted_mean_metric
 
 
 RPCA engine
@@ -75,10 +78,10 @@ RPCA engine
 
 .. autosummary::
     :toctree: generated/
-    :template: class.rst    
-    
-    imputations.rpca.rpca_noisy.RPCANoisy
+    :template: class.rst
+
     imputations.rpca.rpca_pcp.RPCAPCP
+    imputations.rpca.rpca_noisy.RPCANoisy
 
 
 EM engine
@@ -86,9 +89,7 @@ EM engine
 
 .. autosummary::
     :toctree: generated/
-    :template: class.rst    
-    
+    :template: class.rst
+
     imputations.em_sampler.MultiNormalEM
-    imputations.em_sampler.VAR1EM
-
-
+    imputations.em_sampler.VARpEM
