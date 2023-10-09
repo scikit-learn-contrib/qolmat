@@ -32,12 +32,10 @@ class BenchmarkImputationPrediction:
         hole_generators: List[_HoleGenerator],
         imputation_pipelines,
         target_prediction_pipeline_pairs,
-        imputation_columns: List[str],
-        target_columns: List[str],
+        # imputation_columns: List[str] = []
     ):
 
-        self.imputation_columns = imputation_columns
-        self.target_columns = target_columns
+        # self.imputation_columns = imputation_columns
 
         self.columns = df_data.columns.to_list()
         self.columns_numerical = df_data.select_dtypes(include=np.number).columns.tolist()
@@ -183,7 +181,7 @@ class BenchmarkImputationPrediction:
             func_metric = _imputation_metrics.get_metric(metric)
             try:
                 score_by_col = func_metric(df_true, df_imputed, df_mask)
-            except ValueError:
+            except Exception:
                 score_by_col = pd.Series(
                     [np.nan for col in df_true.columns], index=df_true.columns
                 )
