@@ -482,7 +482,7 @@ class MultiMarkovHoleGenerator(_HoleGenerator):
     subset : Optional[List[str]], optional
         Names of the columns for which holes must be created, by default None
     ratio_masked : Optional[float], optional
-        Ratio of masked values ​​to add, by default 0.05.
+        Ratio of masked values to add, by default 0.05
     random_state : Optional[int], optional
         The seed used by the random number generator, by default 42.
     groups: Tuple[str, ...]
@@ -508,14 +508,12 @@ class MultiMarkovHoleGenerator(_HoleGenerator):
     def fit(self, X: pd.DataFrame) -> MultiMarkovHoleGenerator:
         """
         Get the transition matrix from a list of states
-        df_transition: pd.DataFrame
-            transition matrix (stochastic matrix)
-            current in index, next in columns
-            1 is missing
+        transition matrix (stochastic matrix) current in index,
+        next in columns 1 is missing
 
         Parameters
         ----------
-        states : pd.DataFrame
+        X : pd.DataFrame
 
         Returns
         -------
@@ -633,7 +631,7 @@ class GroupedHoleGenerator(_HoleGenerator):
     subset : Optional[List[str]], optional
         Names of the columns for which holes must be created, by default None
     ratio_masked : Optional[float], optional
-        Ratio of masked values ​​to add, by default 0.05.
+        Ratio of masked to add, by default 0.05
     random_state : Optional[int], optional
         The seed used by the random number generator, by default 42.
     groups : Tuple[str, ...]
@@ -684,19 +682,27 @@ class GroupedHoleGenerator(_HoleGenerator):
         return self
 
     def split(self, X: pd.DataFrame) -> List[pd.DataFrame]:
+        """creates masked dataframes
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+
+        Returns
+        -------
+        List[pd.DataFrame]
+            list of masks
+        """
         self.fit(X)
         group_sizes = X.groupby(self.ngroups, group_keys=False).count().mean(axis=1)
         list_masks = []
 
         for _ in range(self.n_splits):
-            # Shuffle the group sizes to obtain a different order
             shuffled_group_sizes = group_sizes.sample(frac=1)
 
-            # Calculate cumulative ratios based on shuffled group sizes
             ratio_masks = shuffled_group_sizes.cumsum() / len(X)
             ratio_masks = ratio_masks.reset_index(name="ratio")
 
-            # Find the closest ratio to the user-defined ratio
             closest_ratio_mask = ratio_masks.iloc[
                 (ratio_masks["ratio"] - self.ratio_masked).abs().argsort()[:1]
             ]
@@ -704,19 +710,16 @@ class GroupedHoleGenerator(_HoleGenerator):
             if closest_ratio_mask.index[0] == 0:
                 groups_masked = ratio_masks.iloc[:1, :]["_ngroup"].values
 
-            # Create a mask DataFrame with False values
             df_mask = pd.DataFrame(
                 False,
                 columns=X.columns,
                 index=X.index,
             )
 
-            # Set True values in the mask
             ngroups = pd.Series(self.ngroups)
             observed_indices = ngroups[ngroups.isin(groups_masked)].index
             df_mask.loc[observed_indices, self.subset] = True
 
-            # Set False values for any missing values in X
             df_mask[X.isna()] = False
 
             list_masks.append(df_mask)

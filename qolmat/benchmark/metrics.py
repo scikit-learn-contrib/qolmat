@@ -4,11 +4,9 @@ from typing import Callable, Dict, List, Optional
 import numpy as np
 import pandas as pd
 import scipy
-from scipy.stats import wasserstein_distance as dist_wasserstein_1d
 import sklearn
 from sklearn import metrics as skm
 from sklearn.ensemble import BaseEnsemble
-from sklearn.preprocessing import StandardScaler
 import dcor
 
 from qolmat.utils.exceptions import NotEnoughSamples
@@ -693,15 +691,11 @@ def frechet_distance(
     df_mask: pd.DataFrame,
 ) -> float:
     """Compute the Fréchet distance between two dataframes df1 and df2
-    frechet_distance = || mu_1 - mu_2 ||_2^2 + Tr(Sigma_1 + Sigma_2 - 2(Sigma_1 . Sigma_2)^(1/2))
-    It is normalized, df1 and df_ are first scaled by a factor
-        (std(df1) + std(df2)) / 2
-    and then centered around
-        (mean(df1) + mean(df2)) / 2
-
-    Dowson, D. C., and BV666017 Landau. "The Fréchet distance between multivariate normal
-    distributions."
-    Journal of multivariate analysis 12.3 (1982): 450-455.
+    Frechet_distance = || mu_1 - mu_2 ||_2^2 + Tr(Sigma_1 + Sigma_2 - 2(Sigma_1 . Sigma_2)^(1/2))
+    It is normalized, df1 and df2 are first scaled by a factor (std(df1) + std(df2)) / 2
+    and then centered around (mean(df1) + mean(df2)) / 2
+    Based on: Dowson, D. C., and BV666017 Landau. "The Fréchet distance between multivariate normal
+    distributions." Journal of multivariate analysis 12.3 (1982): 450-455.
 
     Parameters
     ----------
@@ -715,7 +709,7 @@ def frechet_distance(
     Returns
     -------
     float
-        frechet_distance
+        frechet distance
     """
 
     if df1.shape != df2.shape:
