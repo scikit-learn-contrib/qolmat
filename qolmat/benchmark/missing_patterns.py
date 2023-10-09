@@ -95,7 +95,7 @@ class _HoleGenerator:
         X : pd.DataFrame
             Initial dataframe with a missing pattern to be imitated.
         """
-        self._check_subset(X)
+        # self._check_subset(X)
         self.dict_ratios = {}
         missing_per_col = X[self.subset].isna().sum()
         self.dict_ratios = (missing_per_col / missing_per_col.sum()).to_dict()
