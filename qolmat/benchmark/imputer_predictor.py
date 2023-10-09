@@ -4,6 +4,7 @@ import pickle
 from pathlib import Path
 import pandas as pd
 import numpy as np
+import plotly.graph_objects as go
 
 from sklearn.model_selection import KFold
 
@@ -64,17 +65,20 @@ class BenchmarkImputationPrediction:
                 for hole_generator in hole_generators:
                     hole_generator.subset = feature_columns
                     hole_generator.n_splits = self.n_splits
-                    for idx_mask, df_mask in enumerate(hole_generator.split(df_train_x)):
+                    for idx_mask, (df_mask_train, df_mask_test) in enumerate(
+                        zip(hole_generator.split(df_train_x), hole_generator.split(df_test_x))
+                    ):
                         for imputation_pipeline in imputation_pipelines:
                             transformer_imputation = imputation_pipeline["transformer"]
                             imputer = imputation_pipeline["imputer"]
 
                             transformer_imputation.fit(df_data)
+                            # df_train_x
                             df_train_x_transformed = transformer_imputation.transform_subset(
                                 df_train_x
                             )
                             df_train_x_transformed_corrupted = df_train_x_transformed.copy()
-                            df_train_x_transformed_corrupted[df_mask] = np.nan
+                            df_train_x_transformed_corrupted[df_mask_train] = np.nan
 
                             df_train_x_transformed_imputed = imputer.fit_transform(
                                 df_train_x_transformed_corrupted
@@ -86,28 +90,56 @@ class BenchmarkImputationPrediction:
                             )
 
                             (
-                                dict_imp_score_mean,
-                                dict_imp_scores,
+                                dict_imp_score_mean_train,
+                                dict_imp_scores_train,
                             ) = self.get_imputation_scores_by_dataframe(
-                                df_train_x, df_train_x_reversed_imputed, df_mask
+                                df_train_x, df_train_x_reversed_imputed, df_mask_train
+                            )
+
+                            # df_test_x
+                            df_test_x_transformed = transformer_imputation.transform_subset(
+                                df_test_x
+                            )
+                            df_test_x_transformed_corrupted = df_test_x_transformed.copy()
+                            df_test_x_transformed_corrupted[df_mask_test] = np.nan
+
+                            df_test_x_transformed_imputed = imputer.fit_transform(
+                                df_test_x_transformed_corrupted
+                            )
+                            df_test_x_reversed_imputed = (
+                                transformer_imputation.reverse_transform_subset(
+                                    df_test_x_transformed_imputed
+                                )
+                            )
+
+                            (
+                                dict_imp_score_mean_test,
+                                dict_imp_scores_test,
+                            ) = self.get_imputation_scores_by_dataframe(
+                                df_test_x, df_test_x_reversed_imputed, df_mask_test
                             )
 
                             for prediction_pipeline in prediction_pipelines:
                                 transformer_prediction = prediction_pipeline["transformer"]
                                 predictor = prediction_pipeline["predictor"]
 
-                                transformer_prediction.fit(df_data)
-                                df_train_x_transformed_imputed = (
-                                    transformer_prediction.transform_subset(
-                                        df_train_x_reversed_imputed
+                                if transformer_prediction is not None:
+                                    transformer_prediction.fit(df_data)
+                                    df_train_x_transformed_imputed = (
+                                        transformer_prediction.transform_subset(
+                                            df_train_x_reversed_imputed
+                                        )
                                     )
-                                )
-                                df_train_y_transformed = transformer_prediction.transform_subset(
-                                    df_train_y
-                                )
-                                df_test_x_transformed = transformer_prediction.transform_subset(
-                                    df_test_x
-                                )
+                                    df_train_y_transformed = (
+                                        transformer_prediction.transform_subset(df_train_y)
+                                    )
+                                    df_test_x_transformed = (
+                                        transformer_prediction.transform_subset(df_test_x)
+                                    )
+                                else:
+                                    df_train_x_transformed_imputed = df_train_x_reversed_imputed
+                                    df_train_y_transformed = df_train_y
+                                    df_test_x_transformed = df_test_x
 
                                 predictor = predictor.fit(
                                     df_train_x_transformed_imputed,
@@ -145,11 +177,20 @@ class BenchmarkImputationPrediction:
                                     "transformer_prediction": tran_pre_name,
                                     "predictor": predictor.__class__.__name__,
                                 }
-
-                                row_benchmark = {**row_benchmark, **dict_imp_score_mean}
+                                dict_imp_score_mean_train_ = dict(
+                                    (f"{k}_train_set", v)
+                                    for k, v in dict_imp_score_mean_train.items()
+                                )
+                                dict_imp_score_mean_test_ = dict(
+                                    (f"{k}_test_set", v)
+                                    for k, v in dict_imp_score_mean_test.items()
+                                )
+                                row_benchmark = {**row_benchmark, **dict_imp_score_mean_train_}
+                                row_benchmark = {**row_benchmark, **dict_imp_score_mean_test_}
                                 row_benchmark = {**row_benchmark, **dict_pred_score_mean}
 
-                                row_benchmark["imputation_scores"] = dict_imp_scores
+                                row_benchmark["imputation_scores_trainset"] = dict_imp_scores_train
+                                row_benchmark["imputation_scores_testset"] = dict_imp_scores_test
                                 row_benchmark["prediction_scores"] = dict_pred_scores
 
                                 list_benchmark.append(row_benchmark)
@@ -192,10 +233,8 @@ class BenchmarkImputationPrediction:
 
 
 def visualize_mlflow(df, exp_name, cols_mean_on=["n_fold", "n_mask"]):
-    cols_full_scores = ["prediction_scores", "imputation_scores"]
-    metrics = [
-        col for col in df.columns if ("imputation_score_" in col or "prediction_score_" in col)
-    ]
+    cols_full_scores = [col for col in df.columns if "_scores" in col]
+    metrics = [col for col in df.columns if "_score_" in col]
     cols_groupby = [
         col for col in df.columns if col not in metrics + cols_mean_on + cols_full_scores
     ]
@@ -244,18 +283,18 @@ def visualize_mlflow(df, exp_name, cols_mean_on=["n_fold", "n_mask"]):
                 file_path_html = Path(f"{run.info.artifact_uri[7:]}/{col_full_scores}.html")
                 file_path_html.parent.mkdir(parents=True, exist_ok=True)
                 df_scores.to_html(file_path_html)
-                mlflow.log_artifact(file_path_html, f"{col_full_scores}")
+                mlflow.log_artifact(file_path_html)
 
 
-def get_simple_benchmark(df, cols_mean_on=["n_fold", "n_mask"]):
-    cols_full_scores = ["prediction_scores", "imputation_scores"]
-    metrics = [
-        col for col in df.columns if ("imputation_score_" in col or "prediction_score_" in col)
-    ]
+def get_benchmark_aggregate(df, cols_mean_on=["n_fold", "n_mask"]):
+    cols_full_scores = [col for col in df.columns if "scores" in col]
+    metrics = [col for col in df.columns if "_score_" in col]
     cols_groupby = [
         col for col in df.columns if col not in metrics + cols_mean_on + cols_full_scores
     ]
     df_groupby = df.groupby(cols_groupby)[metrics].mean()
+    df_groupby_max = df.groupby(cols_groupby)[metrics].max()
+    df_groupby_min = df.groupby(cols_groupby)[metrics].min()
 
     list_scores = []
     for idx in df_groupby.index:
@@ -263,7 +302,52 @@ def get_simple_benchmark(df, cols_mean_on=["n_fold", "n_mask"]):
         for col in cols_mean_on:
             dict_settings[col] = len(df[col].unique())
             dict_settings[f"{col}_values"] = df[col].unique()
+
+        for col in metrics:
+            dict_settings[f"{col}_interval"] = [
+                df_groupby_min.loc[idx][col],
+                df_groupby_max.loc[idx][col],
+            ]
+
         dict_scores = df_groupby.loc[idx][metrics].to_dict()
         list_scores.append({**dict_settings, **dict_scores})
 
     return pd.DataFrame(list_scores)
+
+
+def visualize_plotly(df, selected_columns):
+    columns_numerical = df.select_dtypes(include=np.number).columns.tolist()
+    columns_categorical = [col for col in df.columns.to_list() if col not in columns_numerical]
+
+    dimensions = []
+    for col in selected_columns:
+        if col in columns_categorical:
+            dfg = pd.DataFrame({col: df[col].unique()})
+            dfg[f"{col}_dummy"] = dfg.index
+            df = pd.merge(df, dfg, on=col, how="left")
+
+    df = df[selected_columns + [col for col in df.columns if "dummy" in col]]
+    df = df.dropna()
+
+    for col in selected_columns:
+        if col in columns_categorical:
+            dfg = pd.DataFrame({col: df[col].unique()})
+            dfg[f"{col}_dummy"] = dfg.index
+            dimensions.append(
+                dict(
+                    range=[0, df[f"{col}_dummy"].max()],
+                    tickvals=dfg[f"{col}_dummy"],
+                    ticktext=dfg[f"{col}"],
+                    label=col,
+                    values=df[f"{col}_dummy"],
+                ),
+            )
+        else:
+            dimensions.append(
+                dict(
+                    range=[df[f"{col}"].min(), df[f"{col}"].max()], label=col, values=df[f"{col}"]
+                ),
+            )
+    fig = go.Figure(data=go.Parcoords(dimensions=dimensions))
+
+    return fig
