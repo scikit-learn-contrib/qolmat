@@ -53,7 +53,7 @@ def test_soft_impute_transform(X: NDArray) -> None:
     model.fit(X)
     X_transformed = model.transform(X)
     assert X_transformed.shape == X.shape
-    assert np.all(np.isnan(X_transformed)) == False
+    assert not np.any(np.isnan(X_transformed))
 
 
 @pytest.mark.parametrize("X", [X])
