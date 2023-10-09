@@ -78,6 +78,8 @@ CLASSIFIERS = [
     "Programming Language :: Python :: 3.10",
 ]
 
+PACKAGE_DATA = {"qolmat": ["data/beijing.csv", "data/conductors.csv"]}
+
 setup(
     name=DISTNAME,
     version=VERSION,
@@ -96,4 +98,5 @@ setup(
     extras_require=EXTRAS_REQUIRE,
     classifiers=CLASSIFIERS,
     zip_safe=False,
+    package_data=PACKAGE_DATA,
 )
