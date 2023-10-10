@@ -11,7 +11,8 @@ import pandas as pd
 
 from qolmat.benchmark import missing_patterns
 
-SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
+CURRENT_DIR = os.path.abspath(os.path.dirname(__file__))
+ROOT_DIR = os.path.join(CURRENT_DIR, "..")
 
 
 def read_csv_local(data_file_name: str) -> pd.DataFrame:
@@ -27,7 +28,7 @@ def read_csv_local(data_file_name: str) -> pd.DataFrame:
     df : pd.DataFrame
         dataframe
     """
-    df = pd.read_csv(f"{SCRIPT_DIR}/../../data/{data_file_name}.csv")
+    df = pd.read_csv(os.path.join(ROOT_DIR, "data", f"{data_file_name}.csv"))
     return df
 
 
