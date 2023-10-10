@@ -80,9 +80,18 @@ class BenchmarkImputationPrediction:
                             df_train_x_transformed_corrupted = df_train_x_transformed.copy()
                             df_train_x_transformed_corrupted[df_mask_train] = np.nan
 
-                            df_train_x_transformed_imputed = imputer.fit_transform(
+                            imputer = imputer.fit(df_train_x_transformed_corrupted)
+                            df_train_x_transformed_imputed = imputer.transform(
                                 df_train_x_transformed_corrupted
                             )
+
+                            df_train_x_transformed_imputed = df_train_x_transformed_imputed.clip(
+                                upper=df_train_x_transformed.max(), axis=1
+                            )
+                            df_train_x_transformed_imputed = df_train_x_transformed_imputed.clip(
+                                lower=df_train_x_transformed.min(), axis=1
+                            )
+
                             df_train_x_reversed_imputed = (
                                 transformer_imputation.reverse_transform_subset(
                                     df_train_x_transformed_imputed
@@ -103,9 +112,16 @@ class BenchmarkImputationPrediction:
                             df_test_x_transformed_corrupted = df_test_x_transformed.copy()
                             df_test_x_transformed_corrupted[df_mask_test] = np.nan
 
-                            df_test_x_transformed_imputed = imputer.fit_transform(
+                            df_test_x_transformed_imputed = imputer.transform(
                                 df_test_x_transformed_corrupted
                             )
+                            df_test_x_transformed_imputed = df_test_x_transformed_imputed.clip(
+                                upper=df_train_x_transformed.max(), axis=1
+                            )
+                            df_test_x_transformed_imputed = df_test_x_transformed_imputed.clip(
+                                lower=df_train_x_transformed.min(), axis=1
+                            )
+
                             df_test_x_reversed_imputed = (
                                 transformer_imputation.reverse_transform_subset(
                                     df_test_x_transformed_imputed
@@ -164,7 +180,10 @@ class BenchmarkImputationPrediction:
                                 )
 
                                 tran_imp_name = transformer_imputation.__class__.__name__
-                                tran_pre_name = transformer_prediction.__class__.__name__
+                                if transformer_prediction is not None:
+                                    tran_pre_name = transformer_prediction.__class__.__name__
+                                else:
+                                    tran_pre_name = "None"
                                 row_benchmark = {
                                     "n_fold": idx_fold,
                                     "n_mask": idx_mask,
