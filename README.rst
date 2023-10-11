@@ -1,6 +1,6 @@
 .. -*- mode: rst -*-
 
-|GitHubActions|_ |ReadTheDocs|_ |License|_ |PythonVersion|_ |PyPi|_ |Release|_ |Commits|_
+|GitHubActions|_ |ReadTheDocs|_ |License|_ |PythonVersion|_ |PyPi|_ |Release|_ |Commits|_ |Codecov|_
 
 .. |GitHubActions| image:: https://github.com/Quantmetry/qolmat/actions/workflows/test.yml/badge.svg
 .. _GitHubActions: https://github.com/Quantmetry/qolmat/actions
@@ -22,6 +22,9 @@
 
 .. |Commits| image:: https://img.shields.io/github/commits-since/Quantmetry/qolmat/latest/main
 .. _Commits: https://github.com/Quantmetry/qolmat/commits/main
+
+.. |Codecov| image:: https://codecov.io/gh/quantmetry/qolmat/branch/master/graph/badge.svg
+.. _Codecov: https://codecov.io/gh/quantmetry/qolmat
 
 .. image:: https://raw.githubusercontent.com/Quantmetry/qolmat/main/docs/images/logo.png
     :align: center

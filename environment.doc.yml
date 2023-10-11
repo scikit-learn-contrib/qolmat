@@ -1,12 +1,14 @@
 name: env_qolmat_doc
 channels:
-    - defaults
     - conda-forge
+    - defaults
 dependencies:
     - numpydoc=1.1.0
     - python=3.8
     - sphinx=4.3.2
     - sphinx-gallery=0.10.1
     - sphinx_rtd_theme=1.0.0
-    - sphinx_markdown_tables==0.0.17
     - typing_extensions=4.0.1
+    - pip
+    - pip:
+      - sphinx-markdown-tables==0.0.17
