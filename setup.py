@@ -14,6 +14,7 @@ LICENSE = "new BSD"
 AUTHORS = """
 Hong-Lan Botterman,
 Julien Roussel,
+Guillaume Saës,
 Thomas Morzadec,
 Rima Hajou,
 Firas Dakhli,
@@ -23,6 +24,7 @@ Charles-Henri Prat
 AUTHORS_EMAIL = """
 hlbotterman@quantmetry.com,
 jroussel@quantmetry.com,
+gsaes@quantmetry.com,
 tmorzadec@quantmetry.com,
 rhajou@quantmetry.com,
 fdakhli@quantmetry.com,

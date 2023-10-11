@@ -171,6 +171,14 @@ The following table contains the available imputation methods. We distinguish si
      - Imputes missing values via EM algorithm
      - both
      - both
+   * - MLP
+     - Imputer based Multi-Layers Perceptron Model
+     - both
+     - both
+   * - Autoencoder
+     - Imputer based Autoencoder Model with Variationel method
+     - both
+     - both
    * - TabDDPM
      - Imputer based on Denoising Diffusion Probabilistic Models
      - both
