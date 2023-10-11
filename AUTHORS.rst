@@ -2,22 +2,20 @@
 Credits
 =======
 
-Development Lead
+Development Team
 ----------------
 
 * Julien Roussel <jroussel@quantmetry.com>
-
-Maintainers
-------------
-
-* Mikail Duran <mduran@quantmetry.com>
 * Anh Khoa Ngo Ho <angoho@quantmetry.com>
+* Charles-Henri Prat <chprat@quantmetry.com>
 * Guillaume Saës <gsaes@quantmetry.com>
 
-Contributors
-------------
+Past Contributors
+-----------------
 
 * Hong-Lan Botterman
+* Nicolas Brunel
 * Firas Dakhli
+* Mikaïl Duran
 * Rima Hajou
-* Vianey Taquet
+* Thomas Morzadec

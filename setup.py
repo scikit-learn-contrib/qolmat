@@ -13,24 +13,31 @@ with codecs.open("README.rst", encoding="utf-8-sig") as f:
 LICENSE = "new BSD"
 AUTHORS = """
 Hong-Lan Botterman,
-Julien Roussel,
-Guillaume Saës,
-Thomas Morzadec,
-Rima Hajou,
 Firas Dakhli,
+Rima Hajou,
+Thomas Morzadec,
 Anh Khoa Ngo Ho,
 Charles-Henri Prat
+Julien Roussel,
+Guillaume Saës,
 """
 AUTHORS_EMAIL = """
 hlbotterman@quantmetry.com,
-jroussel@quantmetry.com,
-gsaes@quantmetry.com,
-tmorzadec@quantmetry.com,
-rhajou@quantmetry.com,
 fdakhli@quantmetry.com,
+rhajou@quantmetry.com,
+tmorzadec@quantmetry.com,
 angoho@quantmetry.com,
 chprat@quantmetry.com
+jroussel@quantmetry.com,
+gsaes@quantmetry.com,
 """
+MAINTAINER = "Julien ROUSSEL, Anh Khoa NGO HO, Charles-Henri PRAT, Guillaume SAËS"
+MAINTAINER_EMAIL = (
+    "jroussel@quantmetry.com, "
+    "akngoho@quantmetry.com, "
+    "chprat@quantmetry.com, "
+    "gsaes@quantmetry.com"
+)
 URL = "https://github.com/Quantmetry/qolmat"
 DOWNLOAD_URL = "https://pypi.org/project/qolmat/#files"
 PROJECT_URLS = {
