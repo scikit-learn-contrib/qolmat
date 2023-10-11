@@ -8,8 +8,11 @@ History
 * VAR(p) EM sampler implemented, founding on a VAR(p) modelization such as the one described in `Lütkepohl (2005) New Introduction to Multiple Time Series Analysis`
 * EM and RPCA matrices transposed in the low-level impelmentation, however the API remains unchanged
 * Sparse matrices introduced in the RPCA implementation so as to speed up the execution
+* Implementation of SoftImpute, which provides a fast but less robust alterantive to RPCA
+* Implementation of TabDDPM and TsDDPM, which are diffusion-based models for tabular data and time-series data, based on Denoising Diffusion Probabilistic Models. Their implementations follow the work of Tashiro et al., (2021) and Kotelnikov et al., (2023).
+* ImputerDiffusion is an imputer-wrapper of these two models TabDDPM and TsDDPM.
 * Docstrings and tests improved for the EM sampler
-* Online documentation reworked, with new tutorials on hole generators and a benchmar for time series imputation
+* Online documentation reworked, with new tutorials on hole generators and a benchmark for time series imputation
 
 0.0.15 (2023-08-03)
 -------------------
