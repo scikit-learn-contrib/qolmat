@@ -620,7 +620,7 @@ def f1_score(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.
     Returns
     -------
     pd.Series
-        Total variance distance
+        the F1 score
     """
     cols_categorical = _get_categorical_features(df1)
     return columnwise_metric(
@@ -628,6 +628,33 @@ def f1_score(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.
         df2[cols_categorical],
         df_mask[cols_categorical],
         skm.f1_score,
+        average="weighted",
+    )
+
+
+def roc_auc_score(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.Series:
+    """
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        true dataframe
+    df2 : pd.DataFrame
+        predicted dataframe
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
+
+    Returns
+    -------
+    pd.Series
+        Area Under the Receiver Operating Characteristic Curve (ROC AUC)
+    """
+    cols_categorical = _get_categorical_features(df1)
+    return columnwise_metric(
+        df1[cols_categorical],
+        df2[cols_categorical],
+        df_mask[cols_categorical],
+        skm.roc_auc_score,
         average="weighted",
     )
 
@@ -1057,8 +1084,13 @@ def kl_divergence(
             min_n_rows=min_n_rows,
         )
     elif method == "random_forest":
+        cols_numerical = _get_numerical_features(df1)
         return pattern_based_weighted_mean_metric(
-            df1, df2, df_mask, kl_divergence_forest, min_n_rows=min_n_rows
+            df1[cols_numerical],
+            df2[cols_numerical],
+            df_mask[cols_numerical],
+            kl_divergence_forest,
+            min_n_rows=min_n_rows,
         )
     else:
         raise AssertionError(
@@ -1086,6 +1118,10 @@ def distance_anticorr(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFram
     float
         Distance correlation score
     """
+    cols_numerical = _get_numerical_features(df1)
+    df1 = df1[cols_numerical]
+    df2 = df2[cols_numerical]
+
     df1 = df1[df_mask.any(axis=1)]
     df2 = df2[df_mask.any(axis=1)]
     return (1 - dcor.distance_correlation(df1.values, df2.values)) / 2
@@ -1153,6 +1189,7 @@ def get_metric(name: str) -> Callable:
         "KL_gaussian": partial(kl_divergence, method="gaussian"),
         "KL_forest": partial(kl_divergence, method="random_forest"),
         "ks_test": kolmogorov_smirnov_test,
+        "total_variance_distance": total_variance_distance,
         "correlation_diff": mean_difference_correlation_matrix_numerical_features,
         "energy": sum_energy_distances,
         "frechet": frechet_distance,
@@ -1161,5 +1198,6 @@ def get_metric(name: str) -> Callable:
             metric=distance_anticorr,
         ),
         "f1_score": f1_score,
+        "roc_auc_score": roc_auc_score,
     }
     return dict_metrics[name]

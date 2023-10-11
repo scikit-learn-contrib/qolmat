@@ -19,12 +19,14 @@ class BenchmarkImputationPrediction:
         self,
         imputation_metrics: List = ["mae"],
         prediction_metrics: List = ["mae"],
-        n_splits: int = 2,
+        n_folds: int = 2,
+        n_masks: int = 2,
     ):
 
         self.imputation_metrics = imputation_metrics
         self.prediction_metrics = prediction_metrics
-        self.n_splits = n_splits
+        self.n_folds = n_folds
+        self.n_masks = n_masks
 
     def compare(
         self,
@@ -46,12 +48,12 @@ class BenchmarkImputationPrediction:
 
         list_benchmark = []
         for idx_fold, (idx_train, idx_test) in enumerate(
-            KFold(n_splits=self.n_splits).split(df_data)
+            KFold(n_splits=self.n_folds).split(df_data)
         ):
             df_train = df_data.iloc[idx_train, :]
             df_test = df_data.iloc[idx_test, :]
-            # Suppose that all categories are known
             for target_column, prediction_pipelines in target_prediction_pipeline_pairs.items():
+                print(idx_fold, target_column)
                 if target_column in self.columns_numerical:
                     prediction_task = "regression"
                 if target_column in self.columns_categorical:
@@ -64,7 +66,7 @@ class BenchmarkImputationPrediction:
 
                 for hole_generator in hole_generators:
                     hole_generator.subset = feature_columns
-                    hole_generator.n_splits = self.n_splits
+                    hole_generator.n_splits = self.n_masks
                     for idx_mask, (df_mask_train, df_mask_test) in enumerate(
                         zip(hole_generator.split(df_train_x), hole_generator.split(df_test_x))
                     ):
@@ -72,6 +74,7 @@ class BenchmarkImputationPrediction:
                             transformer_imputation = imputation_pipeline["transformer"]
                             imputer = imputation_pipeline["imputer"]
 
+                            # Suppose that all categories/values are known
                             transformer_imputation.fit(df_data)
                             # df_train_x
                             df_train_x_transformed = transformer_imputation.transform_subset(
@@ -140,6 +143,7 @@ class BenchmarkImputationPrediction:
                                 predictor = prediction_pipeline["predictor"]
 
                                 if transformer_prediction is not None:
+                                    # Suppose that all categories/values are known
                                     transformer_prediction.fit(df_data)
                                     df_train_x_transformed_imputed = (
                                         transformer_prediction.transform_subset(
@@ -149,13 +153,19 @@ class BenchmarkImputationPrediction:
                                     df_train_y_transformed = (
                                         transformer_prediction.transform_subset(df_train_y)
                                     )
+                                    # df_test_x_transformed = (
+                                    #     transformer_prediction.transform_subset(df_test_x)
+                                    # )
                                     df_test_x_transformed = (
-                                        transformer_prediction.transform_subset(df_test_x)
+                                        transformer_prediction.transform_subset(
+                                            df_test_x_reversed_imputed
+                                        )
                                     )
                                 else:
                                     df_train_x_transformed_imputed = df_train_x_reversed_imputed
                                     df_train_y_transformed = df_train_y
-                                    df_test_x_transformed = df_test_x
+                                    # df_test_x_transformed = df_test_x
+                                    df_test_x_transformed = df_test_x_reversed_imputed
 
                                 predictor = predictor.fit(
                                     df_train_x_transformed_imputed,
@@ -338,15 +348,15 @@ def visualize_plotly(df, selected_columns):
     columns_numerical = df.select_dtypes(include=np.number).columns.tolist()
     columns_categorical = [col for col in df.columns.to_list() if col not in columns_numerical]
 
+    df = df[selected_columns]
+    df = df.dropna()
+
     dimensions = []
     for col in selected_columns:
         if col in columns_categorical:
             dfg = pd.DataFrame({col: df[col].unique()})
             dfg[f"{col}_dummy"] = dfg.index
             df = pd.merge(df, dfg, on=col, how="left")
-
-    df = df[selected_columns + [col for col in df.columns if "dummy" in col]]
-    df = df.dropna()
 
     for col in selected_columns:
         if col in columns_categorical:
