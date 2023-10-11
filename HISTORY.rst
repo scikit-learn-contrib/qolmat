@@ -2,7 +2,7 @@
 History
 =======
 
-0.1 (2023-??-??)
+0.1.0 (2023-10-11)
 -------------------
 
 * VAR(p) EM sampler implemented, founding on a VAR(p) modelization such as the one described in `Lütkepohl (2005) New Introduction to Multiple Time Series Analysis`
