@@ -12,7 +12,8 @@ History
 * Implementation of TabDDPM and TsDDPM, which are diffusion-based models for tabular data and time-series data, based on Denoising Diffusion Probabilistic Models. Their implementations follow the work of Tashiro et al., (2021) and Kotelnikov et al., (2023).
 * ImputerDiffusion is an imputer-wrapper of these two models TabDDPM and TsDDPM.
 * Docstrings and tests improved for the EM sampler
-* Online documentation reworked, with new tutorials on hole generators and a benchmark for time series imputation
+* Fix ImputerPytorch
+* Update Benchmark Deep Learning
 
 0.0.15 (2023-08-03)
 -------------------

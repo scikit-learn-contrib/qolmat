@@ -1600,7 +1600,6 @@ class ImputerRegressor(_Imputer):
         # df_imputed = df.apply(pd.DataFrame.median, result_type="broadcast", axis=0)
         df_imputed = df.copy()
         cols_with_nans = df.columns[df.isna().any()]
-
         for col in cols_with_nans:
             model = self._dict_fitting["__all__"][ngroup][col]
             if model is None:
@@ -1613,6 +1612,7 @@ class ImputerRegressor(_Imputer):
             X = X.loc[is_na]
 
             y_hat = self._predict_estimator(model, X)
+            y_hat.index = X.index
             df_imputed.loc[X.index, col] = y_hat
         return df_imputed
 
