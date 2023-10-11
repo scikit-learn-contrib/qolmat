@@ -375,7 +375,7 @@ comparison = comparator.Comparator(
 results = comparison.compare(df_data)
 results.style.highlight_min(color="green", axis=1)
 ```
-```python jupyter={"source_hidden": true} tags=[]
+```python tags=[]
 df_plot = df_data
 dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_imputers.items()}
 station = df_plot.index.get_level_values("station")[0]
@@ -383,7 +383,7 @@ df_station = df_plot.loc[station]
 dfs_imputed_station = {name: df_plot.loc[station] for name, df_plot in dfs_imputed.items()}
 ```
 
-```python jupyter={"source_hidden": true} tags=[]
+```python tags=[]
 for col in cols_to_impute:
     fig, ax = plt.subplots(figsize=(10, 3))
     values_orig = df_station[col]
