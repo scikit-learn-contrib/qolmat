@@ -11,26 +11,26 @@ with codecs.open("README.rst", encoding="utf-8-sig") as f:
 
 
 LICENSE = "new BSD"
-AUTHORS = """
-Hong-Lan Botterman,
-Firas Dakhli,
-Rima Hajou,
-Thomas Morzadec,
-Anh Khoa Ngo Ho,
-Charles-Henri Prat
-Julien Roussel,
-Guillaume Saës,
-"""
-AUTHORS_EMAIL = """
-hlbotterman@quantmetry.com,
-fdakhli@quantmetry.com,
-rhajou@quantmetry.com,
-tmorzadec@quantmetry.com,
-angoho@quantmetry.com,
-chprat@quantmetry.com
-jroussel@quantmetry.com,
-gsaes@quantmetry.com,
-"""
+AUTHORS = (
+    "Hong-Lan Botterman, "
+    "Firas Dakhli, "
+    "Rima Hajou, "
+    "Thomas Morzadec, "
+    "Anh Khoa Ngo Ho, "
+    "Charles-Henri Prat, "
+    "Julien Roussel, "
+    "Guillaume Saës"
+)
+AUTHORS_EMAIL = (
+    "hlbotterman@quantmetry.com, "
+    "fdakhli@quantmetry.com, "
+    "rhajou@quantmetry.com, "
+    "tmorzadec@quantmetry.com, "
+    "angoho@quantmetry.com, "
+    "chprat@quantmetry.com, "
+    "jroussel@quantmetry.com, "
+    "gsaes@quantmetry.com"
+)
 MAINTAINER = "Julien ROUSSEL, Anh Khoa NGO HO, Charles-Henri PRAT, Guillaume SAËS"
 MAINTAINER_EMAIL = (
     "jroussel@quantmetry.com, "
