@@ -9,9 +9,9 @@ from qolmat.imputations.rpca.rpca_noisy import RPCANoisy
 from qolmat.utils import utils
 from qolmat.utils.data import generate_artificial_ts
 
-X_complete = np.array([[1, 2], [3, 1]], dtype=float)
-X_incomplete = np.array([[1, 2], [3, np.nan]], dtype=float)
-X_interpolated = np.array([[1, 2], [3, 3]], dtype=float)
+X_complete = np.array([[1, 3], [2, 1]], dtype=float)
+X_incomplete = np.array([[1, 3], [2, np.nan]], dtype=float)
+X_interpolated = np.array([[1, 3], [2, 3]], dtype=float)
 omega = np.array([[True, True], [True, False]])
 max_iterations = 100
 
@@ -87,6 +87,18 @@ def test_rpca_noisy_get_params_scale(X: NDArray):
     np.testing.assert_allclose(result, params_expected, rtol=1e-5)
 
 
+X_test = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]])
+
+
+@pytest.mark.parametrize("norm", ["L2"])
+def test_rpca_decompose_rpca_signal_shape(norm: str):
+    """Test RPCA noisy results if tau and lambda equal zero."""
+    rpca = RPCANoisy(rank=2, norm=norm)
+    X_result, A_result = rpca.decompose_rpca_signal(X_test)
+    assert X_result.shape == X_test.shape
+    assert A_result.shape == X_test.shape
+
+
 @pytest.mark.parametrize("X, X_interpolated", [(X_incomplete, X_interpolated)])
 def test_rpca_noisy_zero_tau_zero_lambda(X: NDArray, X_interpolated: NDArray):
     """Test RPCA noisy results if tau and lambda equal zero."""
@@ -120,22 +132,34 @@ def test_rpca_noisy_zero_lambda(X: NDArray, tau: float, X_interpolated: NDArray)
     np.testing.assert_allclose(A_result, X_interpolated, atol=1e-4)
 
 
-def test_rpca_noisy_temporal_signal(synthetic_temporal_data):
+def test_rpca_noisy_decompose_rpca(synthetic_temporal_data):
     """Test RPCA noisy results for time series data.
     Check if the cost function is smaller at the end than at the start."""
     signal = synthetic_temporal_data
     period = 100
     tau = 1
     lam = 0.1
-    rpca = RPCANoisy(period=period, tau=tau, lam=lam, norm="L2")
-    X_result, A_result = rpca.decompose_rpca_signal(signal)
-    X_input_rpca = utils.linear_interpolation(signal.reshape(period, -1))
-    assert np.linalg.norm(X_input_rpca, "nuc") >= 1 / 2 * np.linalg.norm(
-        X_input_rpca - X_result.reshape(period, -1) - A_result.reshape(period, -1),
-        "fro",
-    ) ** 2 + tau * np.linalg.norm(X_result.reshape(period, -1), "nuc") + lam * np.sum(
-        np.abs(A_result.reshape(period, -1))
-    )
+    rank = 10
+    # rpca = RPCANoisy(period=period, tau=tau, lam=lam, norm="L2")
+    D = utils.prepare_data(signal, period)
+    Omega = ~np.isnan(D)
+    D = utils.linear_interpolation(D)
+
+    low_rank_init = D
+    anomalies_init = np.zeros(D.shape)
+    cost_init = RPCANoisy.cost_function(D, low_rank_init, anomalies_init, Omega, tau, lam)
+
+    X_result, A_result, _, _ = RPCANoisy.decompose_rpca_algorithm(D, Omega, rank, tau, lam)
+    cost_result = RPCANoisy.cost_function(D, X_result, A_result, Omega, tau, lam)
+
+    assert cost_result <= cost_init
+
+    # assert np.linalg.norm(X_input_rpca, "nuc") >= 1 / 2 * np.linalg.norm(
+    #     X_input_rpca - X_result.reshape(period, -1) - A_result.reshape(period, -1),
+    #     "fro",
+    # ) ** 2 + tau * np.linalg.norm(X_result.reshape(period, -1), "nuc") + lam * np.sum(
+    #     np.abs(A_result.reshape(period, -1))
+    # )
 
 
 def test_rpca_noisy_temporal_signal_temporal_regularisations(synthetic_temporal_data):
@@ -145,31 +169,40 @@ def test_rpca_noisy_temporal_signal_temporal_regularisations(synthetic_temporal_
     period = 10
     tau = 1
     lam = 0.3
+    rank = 10
     list_periods = [10]
     list_etas = [0.01]
-    rpca = RPCANoisy(
-        period=period, tau=tau, lam=lam, list_periods=list_periods, list_etas=list_etas, norm="L2"
+    D = utils.prepare_data(signal, period)
+    Omega = ~np.isnan(D)
+    D = utils.linear_interpolation(D)
+
+    low_rank_init = D
+    anomalies_init = np.zeros(D.shape)
+
+    cost_init = RPCANoisy.cost_function(
+        D,
+        low_rank_init,
+        anomalies_init,
+        Omega,
+        tau,
+        lam,
+        list_periods=list_periods,
+        list_etas=list_etas,
+        norm="L2",
     )
-    X_result, A_result = rpca.decompose_rpca_signal(signal)
-    X_input_rpca = utils.linear_interpolation(signal.reshape(period, -1))
-    temporal_norm = 0
-    H = [
-        rpca_utils.toeplitz_matrix(period, X_input_rpca.shape[1], model="column")
-        for period in list_periods
-    ]
-    for eta, H_matrix in zip(list_etas, H):
-        temporal_norm += eta * np.linalg.norm(X_result.reshape(period, -1) @ H_matrix, "fro")
-    Omega = np.isnan(X_input_rpca)
-    assert (
-        np.linalg.norm(X_input_rpca, "nuc")
-        >= 1
-        / 2
-        * np.linalg.norm(
-            X_input_rpca - X_result.reshape(period, -1) - A_result.reshape(period, -1),
-            "fro",
-        )
-        ** 2
-        + tau * np.linalg.norm(X_result.reshape(period, -1), "nuc")
-        + lam * np.sum(np.abs(A_result.reshape(period, -1) * Omega))
-        + temporal_norm
+
+    X_result, A_result, _, _ = RPCANoisy.decompose_rpca_algorithm(
+        D, Omega, rank, tau, lam, list_periods=list_periods, list_etas=list_etas, norm="L2"
     )
+    cost_result = RPCANoisy.cost_function(
+        D,
+        X_result,
+        A_result,
+        Omega,
+        tau,
+        lam,
+        list_periods=list_periods,
+        list_etas=list_etas,
+        norm="L2",
+    )
+    assert cost_result <= cost_init

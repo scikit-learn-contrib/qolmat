@@ -41,3 +41,7 @@ jobs:
         run: |
           mypy qolmat
           echo you should uncomment mypy qolmat and delete this line
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v3
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
