@@ -5,7 +5,7 @@ History
 0.1.1 (2023-??-??)
 -------------------
 
-* Hotfix reference to tensorflow in the documentation, when it should be
+* Hotfix reference to tensorflow in the documentation, when it should be pytorch
 
 0.1.0 (2023-10-11)
 -------------------
