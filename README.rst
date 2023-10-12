@@ -47,7 +47,7 @@ Qolmat can be installed in different ways:
 .. code:: sh
 
     $ pip install qolmat  # installation via `pip`
-    $ pip install qolmat[tensorflow] # if you need tensorflow
+    $ pip install qolmat[pytorch] # if you need pytorch
     $ pip install git+https://github.com/Quantmetry/qolmat  # or directly from the github repository
 
 ⚡️ Quickstart
