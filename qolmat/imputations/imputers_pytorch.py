@@ -368,7 +368,6 @@ class ImputerAutoencoder(_Imputer):
         )
         X = df_train_scaler.values
         mask = df.isna().values
-
         for _ in range(self.max_iterations):
             self.fit(X, X)
             Z = autoencoder.encode(X)
@@ -382,7 +381,7 @@ class ImputerAutoencoder(_Imputer):
         return df_imputed
 
 
-def build_mlp_example(
+def build_mlp(
     input_dim: int,
     list_num_neurons: List[int],
     output_dim: int = 1,
@@ -414,7 +413,7 @@ def build_mlp_example(
 
     Examples
     --------
-    >>> model = build_mlp_example(input_dim=10, list_num_neurons=[32, 64, 128], output_dim=1)
+    >>> model = build_mlp(input_dim=10, list_num_neurons=[32, 64, 128], output_dim=1)
     >>> print(model)
     Sequential(
       (0): Linear(in_features=10, out_features=32, bias=True)
@@ -437,7 +436,7 @@ def build_mlp_example(
     return estimator
 
 
-def build_autoencoder_example(
+def build_autoencoder(
     input_dim: int,
     latent_dim: int,
     list_num_neurons: List[int],
@@ -472,7 +471,7 @@ def build_autoencoder_example(
 
     Examples
     --------
-    >>> encoder, decoder = build_autoencoder_example(
+    >>> encoder, decoder = build_autoencoder(
                                                         input_dim=10,
                                                         latent_dim=4,
                                                         list_num_neurons=[32, 64, 128],
@@ -500,13 +499,13 @@ def build_autoencoder_example(
     )
     """
 
-    encoder = build_mlp_example(
+    encoder = build_mlp(
         input_dim=input_dim,
         output_dim=latent_dim,
         list_num_neurons=np.sort(list_num_neurons)[::-1].tolist(),
         activation=activation,
     )
-    decoder = build_mlp_example(
+    decoder = build_mlp(
         input_dim=latent_dim,
         output_dim=output_dim,
         list_num_neurons=np.sort(list_num_neurons).tolist(),

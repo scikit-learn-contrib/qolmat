@@ -357,7 +357,6 @@ class EM(BaseEstimator, TransformerMixin):
             X = self.X
         else:
             X = utils.prepare_data(X, self.period)
-            # X = self.scaler.transform(X)
             X = utils.linear_interpolation(X)
 
         mask_na = np.isnan(X)
@@ -655,6 +654,24 @@ class VARpEM(EM):
         Integer used to fold the temporal data periodically
     verbose: bool
         default `False`
+
+    Attributes
+    ----------
+    X_intermediate : list
+        List of pd.DataFrame giving the results of the EM process as function of the
+        iteration number.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> from qolmat.imputations.em_sampler import VARpEM
+    >>> imputer = VARpEM(method="sample")
+    >>> X = pd.DataFrame(data=[[1, 1, 1, 1],
+    >>>                        [np.nan, np.nan, 3, 2],
+    >>>                        [1, 2, 2, 1], [2, 2, 2, 2]],
+    >>>                        columns=["var1", "var2", "var3", "var4"])
+    >>> imputer.fit_transform(X)
     """
 
     def __init__(

@@ -9,6 +9,7 @@ __pycache__/
 # documentation specific
 docs/_build/
 docs/generated/
+docs/examples/tutorials/
 
 # Distribution / packaging
 
