@@ -133,8 +133,8 @@ class BenchmarkImputationPrediction:
                                 df_test,
                                 df_train_x,
                                 df_test_x,
-                                df_mask_train,
-                                df_mask_test,
+                                None,
+                                None,
                             )
 
                             row_benchmark = self.get_row_benchmark(
@@ -142,7 +142,7 @@ class BenchmarkImputationPrediction:
                                 target_column,
                                 None,
                                 np.nan,
-                                imputation_pipeline,
+                                None,
                                 prediction_pipeline,
                                 None,
                                 benchmark_prediction,
