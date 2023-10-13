@@ -470,6 +470,52 @@ class BenchmarkImputationPrediction:
         return dict_score_mean, dict_scores
 
 
+def highlight_best(x, color="green"):
+    if re.search("|".join(["f1_score", "roc_auc_score"]), "_".join(x.name)):
+        return [f"background: {color}" if v == x.max() else "" for v in x]
+    else:
+        return [f"background: {color}" if v == x.min() else "" for v in x]
+
+
+def get_benchmark_aggregate(df, cols_groupby=["imputer", "predictor"], agg_func=pd.DataFrame.mean):
+    metrics = [col for col in df.columns if "_score_" in col]
+    if cols_groupby is None:
+        cols_groupby = [col for col in df.columns if col not in metrics]
+    df_groupby = df.groupby(cols_groupby)[metrics].apply(agg_func)
+
+    # if keep_values:
+    #     for metric in metrics:
+    #         df_groupby[f"{metric}_values"] = df.groupby(cols_groupby)[metric].apply(list)
+    cols_imputation = [col for col in df_groupby.columns if "imputation_score_" in col]
+    cols_prediction = [col for col in df_groupby.columns if "prediction_score_" in col]
+    cols_train_set = [col for col in df_groupby.columns if "_train_set" in col]
+    cols_test_set = [col for col in df_groupby.columns if "_test_set" in col]
+    cols_multi_index = []
+    for col in df_groupby.columns:
+        if col in cols_imputation and col in cols_train_set:
+            cols_multi_index.append(
+                (
+                    "imputation_score",
+                    "train_set",
+                    col.replace("imputation_score_", "").replace("_train_set", ""),
+                )
+            )
+        if col in cols_imputation and col in cols_test_set:
+            cols_multi_index.append(
+                (
+                    "imputation_score",
+                    "test_set",
+                    col.replace("imputation_score_", "").replace("_test_set", ""),
+                )
+            )
+        if col in cols_prediction:
+            cols_multi_index.append(
+                ("prediction_score", "test_set", col.replace("prediction_score_", ""))
+            )
+    df_groupby.columns = pd.MultiIndex.from_tuples(cols_multi_index)
+    return df_groupby
+
+
 def visualize_mlflow(df, exp_name):
     cols_mean_on = ["n_fold", "n_mask"]
     cols_full_scores = [col for col in df.columns if "_scores" in col]
@@ -525,45 +571,6 @@ def visualize_mlflow(df, exp_name):
                 mlflow.log_artifact(file_path_html)
 
 
-def get_benchmark_aggregate(df, cols_groupby=["imputer", "predictor"], agg_func=pd.DataFrame.mean):
-    metrics = [col for col in df.columns if "_score_" in col]
-    if cols_groupby is None:
-        cols_groupby = [col for col in df.columns if col not in metrics]
-    df_groupby = df.groupby(cols_groupby)[metrics].apply(agg_func)
-
-    # if keep_values:
-    #     for metric in metrics:
-    #         df_groupby[f"{metric}_values"] = df.groupby(cols_groupby)[metric].apply(list)
-    cols_imputation = [col for col in df_groupby.columns if "imputation_score_" in col]
-    cols_prediction = [col for col in df_groupby.columns if "prediction_score_" in col]
-    cols_train_set = [col for col in df_groupby.columns if "_train_set" in col]
-    cols_test_set = [col for col in df_groupby.columns if "_test_set" in col]
-    cols_multi_index = []
-    for col in df_groupby.columns:
-        if col in cols_imputation and col in cols_train_set:
-            cols_multi_index.append(
-                (
-                    "imputation_score",
-                    "train_set",
-                    col.replace("imputation_score_", "").replace("_train_set", ""),
-                )
-            )
-        if col in cols_imputation and col in cols_test_set:
-            cols_multi_index.append(
-                (
-                    "imputation_score",
-                    "test_set",
-                    col.replace("imputation_score_", "").replace("_test_set", ""),
-                )
-            )
-        if col in cols_prediction:
-            cols_multi_index.append(
-                ("prediction_score", "test_set", col.replace("prediction_score_", ""))
-            )
-    df_groupby.columns = pd.MultiIndex.from_tuples(cols_multi_index)
-    return df_groupby
-
-
 def visualize_plotly(df, selected_columns):
     columns_numerical = df.select_dtypes(include=np.number).columns.tolist()
     columns_categorical = [col for col in df.columns.to_list() if col not in columns_numerical]
@@ -602,8 +609,30 @@ def visualize_plotly(df, selected_columns):
     return fig
 
 
-def highlight_best(x, color="green"):
-    if re.search("|".join(["f1_score", "roc_auc_score"]), "_".join(x.name)):
-        return [f"background: {color}" if v == x.max() else "" for v in x]
-    else:
-        return [f"background: {color}" if v == x.min() else "" for v in x]
+def plot_stack_bar(
+    df,
+    col_y=("prediction_score", "test_set", "wmape"),
+    col_x=["hole_generator", "imputer"],
+    col_legend="predictor",
+):
+    cols_groupby = col_x + [col_legend]
+    df_agg = get_benchmark_aggregate(df, cols_groupby=cols_groupby)
+    df_agg_plot = df_agg.reset_index()
+
+    fig = go.Figure()
+
+    for value in df_agg_plot[col_legend].unique():
+        df_agg_plot_ = df_agg_plot[df_agg_plot[col_legend] == value]
+        fig.add_trace(
+            go.Bar(
+                x=[df_agg_plot_[col] for col in col_x],
+                y=df_agg_plot_.loc[:, col_y],
+                showlegend=True,
+                name=value,
+            )
+        )
+
+    fig.update_layout(barmode="stack")
+    fig.update_layout(title=f'{col_y[2]} as a function of {"+".join(cols_groupby)}')
+
+    return fig
