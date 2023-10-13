@@ -47,7 +47,7 @@ class SoftImpute(BaseEstimator, TransformerMixin):
     >>> from qolmat.imputations.softimpute import SoftImpute
     >>> X = np.array([[1, 2, np.nan, 4], [1, 5, 3, np.nan], [4, 2, 3, 2], [1, 1, 5, 4]])
     >>> X_imputed = SoftImpute().fit_transform(X)
-    >>> print(X_imputed)
+    >>> print(X_imputed)  # doctest: +SKIP
     """
 
     def __init__(

@@ -37,7 +37,7 @@ jobs:
           conda install pytest
           pytest
           echo you should uncomment pytest and delete this line
-      - name: checking docstrings examples
+      - name: Test docstrings examples
         run: |
           pytest -vs --doctest-modules --cov-branch --cov=qolmat --pyargs qolmat
       - name: typing with mypy
