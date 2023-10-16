@@ -1130,8 +1130,8 @@ class ImputerResiduals(_Imputer):
     >>> np.random.seed(100)
     >>> mask = np.random.choice([True, False], size=df.shape)
     >>> df = df.mask(mask)
-    >>> imputor = ImputerResiduals(period=365, model="additive")  # doctest: +SKIP
     >>> imputor.fit_transform(df)  # doctest: +SKIP
+    >>> imputor = ImputerResiduals(period=365, model_tsa="additive")
     """
 
     def __init__(
@@ -1351,12 +1351,12 @@ class ImputerMICE(_Imputer):
     ...                        [1, 2, 2, 5],
     ...                        [2, 2, 2, 2]],
     ...                        columns=["var1", "var2", "var3", "var4"])
-    >>> imputer.fit_transform(df) # doctest: +SKIP
+    >>> imputer.fit_transform(df)
        var1  var2  var3  var4
-    0   1.0   1.0   1.0   1.0
-    1   1.0   2.0   2.0   5.0
-    2   1.0   2.0   2.0   5.0
-    3   2.0   2.0   2.0   2.0
+    0  1.00  1.00  1.00  1.00
+    1  1.51  1.99  1.99  3.55
+    2  1.00  2.00  2.00  5.00
+    3  2.00  2.00  2.00  2.00
     """
 
     def __init__(
@@ -1470,18 +1470,18 @@ class ImputerRegressor(_Imputer):
     >>> import pandas as pd
     >>> from qolmat.imputations import imputers
     >>> from sklearn.ensemble import ExtraTreesRegressor
-    >>> imputer = imputers.ImputerRegressor(model=ExtraTreesRegressor())  # doctest: +SKIP
+    >>> imputer = imputers.ImputerRegressor(estimator=ExtraTreesRegressor())
     >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
     ...                        [np.nan, np.nan, np.nan, np.nan],
     ...                        [1, 2, 2, 5],
     ...                        [2, 2, 2, 2]],
     ...                        columns=["var1", "var2", "var3", "var4"])
-    >>> imputer.fit_transform(df)   # doctest: +SKIP
-           var1      var2      var3      var4
-    0  1.000000  1.000000  1.000000  1.000000
-    1  1.333333  1.666667  1.666667  2.666667
-    2  1.000000  2.000000  2.000000  5.000000
-    3  2.000000  2.000000  2.000000  2.000000
+    >>> imputer.fit_transform(df)
+       var1  var2  var3  var4
+    0   1.0   1.0   1.0   1.0
+    1   1.0   2.0   2.0   2.0
+    2   1.0   2.0   2.0   5.0
+    3   2.0   2.0   2.0   2.0
     """
 
     def __init__(
