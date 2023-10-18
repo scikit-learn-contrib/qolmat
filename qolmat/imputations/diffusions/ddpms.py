@@ -1,4 +1,4 @@
-from typing import Dict, List, Callable, Tuple
+from typing import Dict, List, Callable, Tuple, Union
 from typing_extensions import Self
 import math
 import numpy as np
@@ -39,6 +39,7 @@ class TabDDPM:
         p_dropout: float = 0.0,
         num_sampling: int = 1,
         is_clip: bool = True,
+        random_state: Union[None, int] = None,
     ):
         """Diffusion model for tabular data based on
         Denoising Diffusion Probabilistic Models (DDPM) of
@@ -108,6 +109,8 @@ class TabDDPM:
         self.is_clip = is_clip
 
         self.normalizer_x = preprocessing.StandardScaler()
+        if random_state is not None:
+            torch.manual_seed(random_state)
 
     def _q_sample(self, x: torch.Tensor, t: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """Section 3.2, algorithm 1 formula implementation. Forward process, defined by `q`.
