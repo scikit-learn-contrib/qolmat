@@ -48,6 +48,10 @@ class SoftImpute(BaseEstimator, TransformerMixin):
     >>> X = np.array([[1, 2, np.nan, 4], [1, 5, 3, np.nan], [4, 2, 3, 2], [1, 1, 5, 4]])
     >>> X_imputed = SoftImpute().fit_transform(X)
     >>> print(X_imputed)
+    [[ 1.          2.          4.7369014   4.        ]
+     [ 1.          5.          3.         -0.52477073]
+     [ 4.          2.          3.          2.        ]
+     [ 1.          1.          5.          4.        ]]
     """
 
     def __init__(

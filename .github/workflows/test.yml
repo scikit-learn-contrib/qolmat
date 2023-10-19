@@ -35,8 +35,9 @@ jobs:
       - name: Test with pytest
         run: |
           conda install pytest
-          pytest
-          echo you should uncomment pytest and delete this line
+          make coverage
+      - name: Test docstrings examples
+        run: make doctest
       - name: typing with mypy
         run: |
           mypy qolmat
