@@ -14,7 +14,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        python-version: [3.8, 3.9]
+        python-version: ['3.8', '3.9', '3.10', '3.11']
     defaults:
       run:
         shell: bash -l {0}
@@ -27,7 +27,7 @@ jobs:
         with:
           python-version: ${{matrix.python-version}}
           environment-file: environment.ci.yml
-          channels: default, conda-forge
+          channels: defaults, conda-forge
       - name: Lint with flake8
         run: |
           conda install flake8
