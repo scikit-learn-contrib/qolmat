@@ -664,7 +664,6 @@ class VARpEM(EM):
     Examples
     --------
     >>> import numpy as np
-    >>> import pandas as pd
     >>> from qolmat.imputations.em_sampler import VARpEM
     >>> imputer = VARpEM(method="sample", random_state=11)
     >>> X = np.array([[1, 1, 1, 1],
