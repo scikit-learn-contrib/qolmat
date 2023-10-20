@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 import mlflow
 import pickle
 from pathlib import Path
@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 import tqdm
 import re
+import scipy
 import plotly.graph_objects as go
 
 from sklearn.model_selection import KFold
@@ -33,17 +34,17 @@ class BenchmarkImputationPrediction:
     def compare(
         self,
         df_data: pd.DataFrame,
+        columns_numerical: List[str],
+        columns_categorical: List[str],
         file_path: str,
-        hole_generators: List[_HoleGenerator],
+        hole_generators: List,
         imputation_pipelines,
         target_prediction_pipeline_pairs,
         imputation_columns: List[str] = [],
     ):
         self.columns = df_data.columns.to_list()
-        self.columns_numerical = df_data.select_dtypes(include=np.number).columns.tolist()
-        self.columns_categorical = [
-            col for col in df_data.columns.to_list() if col not in self.columns_numerical
-        ]
+        self.columns_numerical = columns_numerical
+        self.columns_categorical = columns_categorical
         if len(imputation_columns) == 0:
             self.imputation_columns = self.columns
         else:
@@ -73,6 +74,7 @@ class BenchmarkImputationPrediction:
                             col for col in feature_columns if col in self.imputation_columns
                         ]
                         hole_generator.n_splits = self.n_masks
+
                         for idx_mask, (df_mask_train, df_mask_test) in enumerate(
                             zip(hole_generator.split(df_train_x), hole_generator.split(df_test_x))
                         ):
@@ -82,7 +84,6 @@ class BenchmarkImputationPrediction:
                                 out_imputation, benchmark_imputation = self.benchmark_imputation(
                                     imputation_pipeline,
                                     feature_columns,
-                                    df_data,
                                     df_train,
                                     df_test,
                                     df_mask_train,
@@ -95,13 +96,11 @@ class BenchmarkImputationPrediction:
                                     benchmark_prediction = self.benchmark_prediction(
                                         prediction_pipeline,
                                         target_column,
-                                        df_data,
+                                        feature_columns,
                                         df_train,
                                         df_test,
-                                        out_imputation["df_train_x_reversed_imputed"],
-                                        out_imputation["df_test_x_reversed_imputed"],
-                                        df_mask_train,
-                                        df_mask_test,
+                                        out_imputation["df_train_x_imputed"],
+                                        out_imputation["df_test_x_imputed"],
                                     )
 
                                     row_benchmark = self.get_row_benchmark(
@@ -128,13 +127,11 @@ class BenchmarkImputationPrediction:
                             benchmark_prediction = self.benchmark_prediction(
                                 prediction_pipeline,
                                 target_column,
-                                df_data,
+                                feature_columns,
                                 df_train,
                                 df_test,
                                 df_train_x,
                                 df_test_x,
-                                None,
-                                None,
                             )
 
                             row_benchmark = self.get_row_benchmark(
@@ -159,7 +156,6 @@ class BenchmarkImputationPrediction:
         self,
         imputation_pipeline,
         feature_columns,
-        df_data,
         df_train,
         df_test,
         df_mask_train,
@@ -168,33 +164,66 @@ class BenchmarkImputationPrediction:
         feature_columns_ = [col for col in feature_columns if col in self.imputation_columns]
         df_train_x = df_train[feature_columns]
         df_test_x = df_test[feature_columns]
+
+        df_train_x_corrupted = df_train_x.copy()
+        df_train_x_corrupted[df_mask_train] = np.nan
+
+        df_test_x_corrupted = df_test_x.copy()
+        df_test_x_corrupted[df_mask_test] = np.nan
+
+        benchmark = None
+        df_train_x_imputed = df_train_x_corrupted
+        df_test_x_imputed = df_test_x_corrupted
         if imputation_pipeline is not None:
-            transformer_imputation = imputation_pipeline["transformer"]
+            transformer_imputation_x = imputation_pipeline["transformer_x"]
             imputer = imputation_pipeline["imputer"]
 
-            # Suppose that all categories/values are known
-            transformer_imputation.fit(df_data)
+            if transformer_imputation_x is not None:
+                # Suppose that all categories/values are known
+                df_data_x = pd.concat([df_train_x, df_test_x], axis=0)
+                transformer_imputation_x = transformer_imputation_x.fit(df_data_x)
 
-            df_train_x_transformed = transformer_imputation.transform_subset(df_train_x)
-            df_train_x_transformed_corrupted = df_train_x_transformed.copy()
-            df_train_x_transformed_corrupted[df_mask_train] = np.nan
+                df_train_x_transformed_corrupted = pd.DataFrame(
+                    transformer_imputation_x.transform(df_train_x_corrupted),
+                    columns=transformer_imputation_x.get_feature_names_out(
+                        df_train_x_corrupted.columns
+                    ),
+                    index=df_train_x_corrupted.index,
+                )
+                df_test_x_transformed_corrupted = pd.DataFrame(
+                    transformer_imputation_x.transform(df_test_x_corrupted),
+                    columns=transformer_imputation_x.get_feature_names_out(
+                        df_test_x_corrupted.columns
+                    ),
+                    index=df_test_x_corrupted.index,
+                )
+            else:
+                df_train_x_transformed_corrupted = df_train_x_corrupted
+                df_test_x_transformed_corrupted = df_test_x_corrupted
+
             imputer = imputer.fit(df_train_x_transformed_corrupted)
 
-            df_train_x_reversed_imputed = self.impute(
-                transformer_imputation, imputer, df_train_x, df_mask_train, df_train_x_transformed
-            )
+            df_train_x_transformed_imputed = imputer.transform(df_train_x_transformed_corrupted)
+            df_test_x_transformed_imputed = imputer.transform(df_test_x_transformed_corrupted)
+
+            if transformer_imputation_x is not None:
+                df_train_x_imputed = self.inverse_transform(
+                    transformer_imputation_x, df_train_x_transformed_imputed
+                )
+                df_test_x_imputed = self.inverse_transform(
+                    transformer_imputation_x, df_test_x_transformed_imputed
+                )
+            else:
+                df_train_x_imputed = df_train_x_transformed_imputed
+                df_test_x_imputed = df_test_x_transformed_imputed
 
             (
                 dict_imp_score_mean_train,
                 dict_imp_scores_train,
             ) = self.get_imputation_scores_by_dataframe(
                 df_train_x[feature_columns_],
-                df_train_x_reversed_imputed[feature_columns_],
+                df_train_x_imputed[feature_columns_],
                 df_mask_train[feature_columns_],
-            )
-
-            df_test_x_reversed_imputed = self.impute(
-                transformer_imputation, imputer, df_test_x, df_mask_test, df_train_x_transformed
             )
 
             (
@@ -202,7 +231,7 @@ class BenchmarkImputationPrediction:
                 dict_imp_scores_test,
             ) = self.get_imputation_scores_by_dataframe(
                 df_test_x[feature_columns_],
-                df_test_x_reversed_imputed[feature_columns_],
+                df_test_x_imputed[feature_columns_],
                 df_mask_test[feature_columns_],
             )
 
@@ -213,130 +242,130 @@ class BenchmarkImputationPrediction:
                 "dict_imp_scores_test": dict_imp_scores_test,
             }
 
-        else:
-            df_train_x_corrupted = df_train_x.copy()
-            df_train_x_corrupted[df_mask_train] = np.nan
-            df_train_x_reversed_imputed = df_train_x_corrupted
-
-            df_test_x_corrupted = df_test_x.copy()
-            df_test_x_corrupted[df_mask_test] = np.nan
-            df_test_x_reversed_imputed = df_test_x_corrupted
-
-            benchmark = None
-
         output = {
-            "df_train_x_reversed_imputed": df_train_x_reversed_imputed,
-            "df_test_x_reversed_imputed": df_test_x_reversed_imputed,
+            "df_train_x_imputed": df_train_x_imputed,
+            "df_test_x_imputed": df_test_x_imputed,
         }
 
         return output, benchmark
 
-    def impute(self, transformer, imputer, df, df_mask, df_transformed):
-        df_transformed_corrupted = transformer.transform_subset(df)
-        df_transformed_corrupted[df_mask] = np.nan
-
-        df_transformed_imputed = imputer.transform(df_transformed_corrupted)
-
-        df_transformed_imputed = df_transformed_imputed.clip(upper=df_transformed.max(), axis=1)
-        df_transformed_imputed = df_transformed_imputed.clip(lower=df_transformed.min(), axis=1)
-
-        df_reversed_imputed = transformer.reverse_transform_subset(df_transformed_imputed)
-
-        return df_reversed_imputed
+    def inverse_transform(self, transformer, df_transformed):
+        df_reversed = pd.DataFrame()
+        for transformer_values in transformer.transformers_:
+            cols_in = transformer_values[2]
+            cols_out = transformer.get_feature_names_out(cols_in)
+            df_reversed[cols_in] = transformer_values[1].inverse_transform(
+                df_transformed[cols_out]
+            )
+        df_reversed.index = df_transformed.index
+        return df_reversed
 
     def benchmark_prediction(
         self,
         prediction_pipeline,
         target_column,
-        df_data,
+        feature_columns,
         df_train,
         df_test,
-        df_train_x_reversed_imputed,
-        df_test_x_reversed_imputed,
-        df_mask_train=None,
-        df_mask_test=None,
+        df_train_x_imputed,
+        df_test_x_imputed,
     ):
-        transformer_prediction = prediction_pipeline["transformer"]
+        transformer_prediction_x = prediction_pipeline["transformer_x"]
+        transformer_prediction_y = prediction_pipeline["transformer_y"]
         predictor = prediction_pipeline["predictor"]
         handle_nan = prediction_pipeline["handle_nan"]
+
+        # df_train_x = df_train[feature_columns]
+        df_test_x = df_test[feature_columns]
 
         df_train_y = df_train[[target_column]]
         df_test_y = df_test[[target_column]]
 
         if (
-            df_train_x_reversed_imputed.isna().sum().sum() > 0
-            and df_test_x_reversed_imputed.isna().sum().sum() > 0
-            and not handle_nan
-        ):
+            df_train_x_imputed.isna().sum().sum() > 0 or df_test_x_imputed.isna().sum().sum() > 0
+        ) and not handle_nan:
             return None
 
-        if transformer_prediction is not None:
+        if transformer_prediction_x is not None and transformer_prediction_y is not None:
             # Suppose that all categories/values are known
-            if (
-                df_train_x_reversed_imputed.isna().sum().sum() > 0
-                or df_test_x_reversed_imputed.isna().sum().sum() > 0
-            ):
-                df_train_reversed_imputed = pd.concat(
-                    [df_train_x_reversed_imputed, df_train_y], axis=1
-                )
-                df_test_reversed_imputed = pd.concat(
-                    [df_test_x_reversed_imputed, df_test_y], axis=1
-                )
-                transformer_prediction.fit(
-                    pd.concat([df_train_reversed_imputed, df_test_reversed_imputed], axis=0)
-                )
+            df_data_x_imputed = pd.concat([df_train_x_imputed, df_test_x_imputed], axis=0)
+            df_data_y = pd.concat([df_train_y, df_test_y], axis=0)
+            transformer_prediction_x = transformer_prediction_x.fit(df_data_x_imputed)
 
-                df_train_x_transformed_imputed = transformer_prediction.transform_subset(
-                    df_train_x_reversed_imputed
-                )
-                df_train_x_transformed_imputed[df_mask_train] = np.nan
+            df_train_x_transformed_imputed = transformer_prediction_x.transform(df_train_x_imputed)
 
-                df_test_x_transformed = transformer_prediction.transform_subset(
-                    df_test_x_reversed_imputed
-                )
-                df_test_x_transformed[df_mask_test] = np.nan
+            # Evaluate prediction performance on imputed test set
+            df_test_x_transformed_imputed = transformer_prediction_x.transform(df_test_x_imputed)
 
-            else:
-                transformer_prediction.fit(df_data)
+            # Evaluate prediction performance on reference test set
+            df_test_x_transformed_notnan = transformer_prediction_x.transform(df_test_x)
 
-                df_train_x_transformed_imputed = transformer_prediction.transform_subset(
-                    df_train_x_reversed_imputed
-                )
-                df_test_x_transformed = transformer_prediction.transform_subset(
-                    df_test_x_reversed_imputed
-                )
+            transformer_prediction_y = transformer_prediction_y.fit(df_data_y)
 
-            df_train_y_transformed = transformer_prediction.transform_subset(df_train_y)
+            df_train_y_transformed = transformer_prediction_y.transform(df_train_y)
 
         else:
-            df_train_x_transformed_imputed = df_train_x_reversed_imputed
+            df_train_x_transformed_imputed = df_train_x_imputed
             df_train_y_transformed = df_train_y
-            df_test_x_transformed = df_test_x_reversed_imputed
+            df_test_x_transformed_imputed = df_test_x_imputed
+            df_test_x_transformed_notnan = df_test_x
 
         predictor = predictor.fit(
             df_train_x_transformed_imputed,
-            df_train_y_transformed[target_column],
+            np.squeeze(df_train_y_transformed),
         )
-        df_test_y_transformed_predicted = pd.DataFrame(
-            predictor.predict(df_test_x_transformed),
-            columns=[target_column],
-            index=df_test_y.index,
-        )
-        if transformer_prediction is not None:
-            df_test_y_reserved_predicted = transformer_prediction.reverse_transform_subset(
-                df_test_y_transformed_predicted
+
+        if transformer_prediction_y is not None:
+            df_test_y_transformed_notnan_predicted = pd.DataFrame(
+                predictor.predict(df_test_x_transformed_notnan),
+                columns=transformer_prediction_y.get_feature_names_out([target_column]),
+                index=df_test_y.index,
+            )
+
+            df_test_y_transformed_imputed_predicted = pd.DataFrame(
+                predictor.predict(df_test_x_transformed_imputed),
+                columns=transformer_prediction_y.get_feature_names_out([target_column]),
+                index=df_test_y.index,
+            )
+
+            df_test_y_reversed_notnan_predicted = self.inverse_transform(
+                transformer_prediction_y, df_test_y_transformed_notnan_predicted
+            )
+            df_test_y_reversed_imputed_predicted = self.inverse_transform(
+                transformer_prediction_y, df_test_y_transformed_imputed_predicted
             )
         else:
-            df_test_y_reserved_predicted = df_test_y_transformed_predicted
+            df_test_y_reversed_notnan_predicted = pd.DataFrame(
+                predictor.predict(df_test_x_transformed_notnan),
+                columns=[target_column],
+                index=df_test_y.index,
+            )
+
+            df_test_y_reversed_imputed_predicted = pd.DataFrame(
+                predictor.predict(df_test_x_transformed_imputed),
+                columns=[target_column],
+                index=df_test_y.index,
+            )
 
         (
-            dict_pred_score_mean_test,
-            dict_pred_scores_test,
-        ) = self.get_prediction_scores_by_column(df_test_y, df_test_y_reserved_predicted)
+            dict_pred_score_mean_test_notnan,
+            dict_pred_scores_test_notnan,
+        ) = self.get_prediction_scores_by_column(
+            df_test_y, df_test_y_reversed_notnan_predicted, key="notnan"
+        )
+
+        (
+            dict_pred_score_mean_test_nan,
+            dict_pred_scores_test_nan,
+        ) = self.get_prediction_scores_by_column(
+            df_test_y, df_test_y_reversed_imputed_predicted, key="nan"
+        )
 
         output = {
-            "dict_pred_score_mean_test": dict_pred_score_mean_test,
-            "dict_pred_scores_test": dict_pred_scores_test,
+            "dict_pred_score_mean_test_nan": dict_pred_score_mean_test_nan,
+            "dict_pred_scores_test_nan": dict_pred_scores_test_nan,
+            "dict_pred_score_mean_test_notnan": dict_pred_score_mean_test_notnan,
+            "dict_pred_scores_test_notnan": dict_pred_scores_test_notnan,
         }
 
         return output
@@ -360,20 +389,36 @@ class BenchmarkImputationPrediction:
         else:
             prediction_task = "unknown"
 
-        transformer_prediction = prediction_pipeline["transformer"]
+        transformer_prediction_x = prediction_pipeline["transformer_x"]
+        transformer_prediction_y = prediction_pipeline["transformer_y"]
         predictor = prediction_pipeline["predictor"]
-        if transformer_prediction is not None:
-            tran_pre_name = transformer_prediction.__class__.__name__
+        if transformer_prediction_x is not None:
+            tran_pre_name_x = "+".join(
+                set([tf[1].__class__.__name__ for tf in transformer_prediction_x.transformers_])
+            )
         else:
-            tran_pre_name = "None"
+            tran_pre_name_x = "None"
+        if transformer_prediction_y is not None:
+            tran_pre_name_y = "+".join(
+                set([tf[1].__class__.__name__ for tf in transformer_prediction_y.transformers_])
+            )
+        else:
+            tran_pre_name_y = "None"
 
         if hole_generator is not None:
             if imputation_pipeline is not None:
-                transformer_imputation = imputation_pipeline["transformer"]
+                transformer_imputation_x = imputation_pipeline["transformer_x"]
                 imputer = imputation_pipeline["imputer"]
 
-                if transformer_imputation is not None:
-                    tran_imp_name = transformer_imputation.__class__.__name__
+                if transformer_imputation_x is not None:
+                    tran_imp_name = "+".join(
+                        set(
+                            [
+                                tf[1].__class__.__name__
+                                for tf in transformer_imputation_x.transformers_
+                            ]
+                        )
+                    )
                 else:
                     tran_imp_name = "None"
                 imputer_name = imputer.__class__.__name__
@@ -398,7 +443,8 @@ class BenchmarkImputationPrediction:
             "imputer": imputer_name,
             "target_column": target_column,
             "prediction_task": prediction_task,
-            "transformer_prediction": tran_pre_name,
+            "transformer_prediction_x": tran_pre_name_x,
+            "transformer_prediction_y": tran_pre_name_y,
             "predictor": predictor.__class__.__name__,
         }
 
@@ -421,10 +467,19 @@ class BenchmarkImputationPrediction:
             row_benchmark["imputation_scores_testset"] = dict_imp_scores_test
 
         if benchmark_prediction is not None:
-            dict_pred_score_mean_test = benchmark_prediction["dict_pred_score_mean_test"]
-            dict_pred_scores_test = benchmark_prediction["dict_pred_scores_test"]
-            row_benchmark = {**row_benchmark, **dict_pred_score_mean_test}
-            row_benchmark["prediction_scores_testset"] = dict_pred_scores_test
+            dict_pred_score_mean_test_nan = benchmark_prediction["dict_pred_score_mean_test_nan"]
+            dict_pred_scores_test_nan = benchmark_prediction["dict_pred_scores_test_nan"]
+            dict_pred_score_mean_test_notnan = benchmark_prediction[
+                "dict_pred_score_mean_test_notnan"
+            ]
+            dict_pred_scores_test_notnan = benchmark_prediction["dict_pred_scores_test_notnan"]
+            row_benchmark = {
+                **row_benchmark,
+                **dict_pred_score_mean_test_nan,
+                **dict_pred_score_mean_test_notnan,
+            }
+            row_benchmark["prediction_scores_testset_nan"] = dict_pred_scores_test_nan
+            row_benchmark["prediction_scores_testset_notnan"] = dict_pred_scores_test_notnan
 
         # print({
         #     "n_fold": idx_fold,
@@ -451,7 +506,7 @@ class BenchmarkImputationPrediction:
             dict_score_mean[f"imputation_score_{metric}"] = score_by_col.mean()
         return dict_score_mean, dict_scores
 
-    def get_prediction_scores_by_column(self, df_true, df_imputed):
+    def get_prediction_scores_by_column(self, df_true, df_imputed, key=""):
         dict_score_mean = {}
         dict_scores = {}
 
@@ -465,8 +520,8 @@ class BenchmarkImputationPrediction:
                     [np.nan for col in df_true.columns], index=df_true.columns
                 )
 
-            dict_scores[f"prediction_score_{metric}"] = score_by_col.to_dict()
-            dict_score_mean[f"prediction_score_{metric}"] = score_by_col.mean()
+            dict_scores[f"prediction_score_{key}_{metric}"] = score_by_col.to_dict()
+            dict_score_mean[f"prediction_score_{key}_{metric}"] = score_by_col.mean()
         return dict_score_mean, dict_scores
 
 
@@ -477,15 +532,17 @@ def highlight_best(x, color="green"):
         return [f"background: {color}" if v == x.min() else "" for v in x]
 
 
-def get_benchmark_aggregate(df, cols_groupby=["imputer", "predictor"], agg_func=pd.DataFrame.mean):
+def get_benchmark_aggregate(
+    df, cols_groupby=["imputer", "predictor"], agg_func=pd.DataFrame.mean, keep_values=False
+):
     metrics = [col for col in df.columns if "_score_" in col]
     if cols_groupby is None:
         cols_groupby = [col for col in df.columns if col not in metrics]
     df_groupby = df.groupby(cols_groupby)[metrics].apply(agg_func)
 
-    # if keep_values:
-    #     for metric in metrics:
-    #         df_groupby[f"{metric}_values"] = df.groupby(cols_groupby)[metric].apply(list)
+    if keep_values:
+        for metric in metrics:
+            df_groupby[f"{metric}_values"] = df.groupby(cols_groupby)[metric].apply(list)
     cols_imputation = [col for col in df_groupby.columns if "imputation_score_" in col]
     cols_prediction = [col for col in df_groupby.columns if "prediction_score_" in col]
     cols_train_set = [col for col in df_groupby.columns if "_train_set" in col]
@@ -509,9 +566,22 @@ def get_benchmark_aggregate(df, cols_groupby=["imputer", "predictor"], agg_func=
                 )
             )
         if col in cols_prediction:
-            cols_multi_index.append(
-                ("prediction_score", "test_set", col.replace("prediction_score_", ""))
-            )
+            if "notnan" in col:
+                cols_multi_index.append(
+                    (
+                        "prediction_score",
+                        "test_set_not_nan",
+                        col.replace("prediction_score_notnan_", ""),
+                    )
+                )
+            else:
+                cols_multi_index.append(
+                    (
+                        "prediction_score",
+                        "test_set_with_nan",
+                        col.replace("prediction_score_nan_", ""),
+                    )
+                )
     df_groupby.columns = pd.MultiIndex.from_tuples(cols_multi_index)
     return df_groupby
 
@@ -544,31 +614,32 @@ def visualize_mlflow(df, exp_name):
 
             df_query = df.query(query)
             for col_full_scores in cols_full_scores:
-                dict_full_scores = df_query[col_full_scores].values
-                list_scores = []
-                list_indices = []
-                num_index = 0
-                for dict_full_score_metric in dict_full_scores:
-                    df_full_score_metric = pd.DataFrame(
-                        list(dict_full_score_metric.values()),
-                        index=list(dict_full_score_metric.keys()),
-                    ).T
-                    num_index = df_full_score_metric.shape[0]
-                    list_scores.append(df_full_score_metric)
+                if df_query[col_full_scores].notna().all():
+                    dict_full_scores = df_query[col_full_scores].values
+                    list_scores = []
+                    list_indices = []
+                    num_index = 0
+                    for dict_full_score_metric in dict_full_scores:
+                        df_full_score_metric = pd.DataFrame(
+                            list(dict_full_score_metric.values()),
+                            index=list(dict_full_score_metric.keys()),
+                        ).T
+                        num_index = df_full_score_metric.shape[0]
+                        list_scores.append(df_full_score_metric)
 
-                list_indices = [df_query[cols_mean_on] for i in range(num_index)]
-                df_scores = pd.concat(list_scores)
-                df_indices = pd.concat(list_indices)
-                df_indices.index = df_scores.index
+                    list_indices = [df_query[cols_mean_on] for i in range(num_index)]
+                    df_scores = pd.concat(list_scores)
+                    df_indices = pd.concat(list_indices)
+                    df_indices.index = df_scores.index
 
-                df_scores = pd.concat([df_scores, df_indices], axis=1)
-                df_scores.index.name = "columns"
-                df_scores = df_scores.set_index(cols_mean_on, append=True)
+                    df_scores = pd.concat([df_scores, df_indices], axis=1)
+                    df_scores.index.name = "columns"
+                    df_scores = df_scores.set_index(cols_mean_on, append=True)
 
-                file_path_html = Path(f"{run.info.artifact_uri[7:]}/{col_full_scores}.html")
-                file_path_html.parent.mkdir(parents=True, exist_ok=True)
-                df_scores.to_html(file_path_html)
-                mlflow.log_artifact(file_path_html)
+                    file_path_html = Path(f"{run.info.artifact_uri[7:]}/{col_full_scores}.html")
+                    file_path_html.parent.mkdir(parents=True, exist_ok=True)
+                    df_scores.to_html(file_path_html)
+                    mlflow.log_artifact(file_path_html)
 
 
 def visualize_plotly(df, selected_columns):
@@ -609,30 +680,161 @@ def visualize_plotly(df, selected_columns):
     return fig
 
 
-def plot_stack_bar(
-    df,
-    col_y=("prediction_score", "test_set", "wmape"),
-    col_x=["hole_generator", "imputer"],
-    col_legend="predictor",
+def get_confidence_interval(x, confidence_level=0.95):
+    # https://www.statology.org/confidence-intervals-python/
+    interval = scipy.stats.norm.interval(
+        confidence=confidence_level, loc=np.mean(x), scale=scipy.stats.sem(x)
+    )
+    width = interval[1] - interval[0]
+    return [interval[0], interval[1], width]
+
+
+def plot_bar_y_1D(
+    df_agg,
+    col_displayed=("prediction_score", "test_set", "wmape"),
+    cols_grouped=["hole_generator", "imputer", "predictor"],
+    add_annotation=True,
+    add_confidence_interval=False,
+    confidence_level=0.95,
 ):
-    cols_groupby = col_x + [col_legend]
-    df_agg = get_benchmark_aggregate(df, cols_groupby=cols_groupby)
     df_agg_plot = df_agg.reset_index()
+    col_legend = cols_grouped[-1]
+    cols_x = [col for col in cols_grouped if col != col_legend]
 
     fig = go.Figure()
-
     for value in df_agg_plot[col_legend].unique():
         df_agg_plot_ = df_agg_plot[df_agg_plot[col_legend] == value]
+
+        error_y_width = None
+        if add_confidence_interval:
+            value_ = list(col_displayed)
+            value_[2] = value_[2] + "_values"
+            error_y = np.array(
+                df_agg_plot_.loc[:, tuple(value_)]
+                .apply(lambda x: get_confidence_interval(x, confidence_level))
+                .to_list()
+            )
+            error_y_width = dict(type="data", array=error_y[:, 2] / 2)
+
+        text = None
+        if add_annotation:
+            text = df_agg_plot_.loc[:, col_displayed]
+
         fig.add_trace(
             go.Bar(
-                x=[df_agg_plot_[col] for col in col_x],
-                y=df_agg_plot_.loc[:, col_y],
+                x=[df_agg_plot_[col] for col in cols_x],
+                y=df_agg_plot_.loc[:, col_displayed],
                 showlegend=True,
                 name=value,
+                text=text,
+                error_y=error_y_width,
+            )
+        )
+    metric_name = col_displayed[2]
+    if add_annotation:
+        fig.update_traces(texttemplate="%{text:.2}", textposition="outside")
+    fig.update_layout(barmode="group")
+    fig.update_layout(title=f'{metric_name} as a function of {"+".join(cols_grouped)}')
+
+    return fig
+
+
+def plot_bar_y_nD(
+    df_agg,
+    cols_displayed=[
+        ("imputation_score", "test_set", "wmape"),
+        ("prediction_score", "test_set", "wmape"),
+    ],
+    cols_grouped=["hole_generator", "imputer", "predictor"],
+    add_annotation=True,
+    add_confidence_interval=False,
+    confidence_level=0.95,
+):
+    col_legend_idx = []
+    for i in range(len(cols_displayed) - 1):
+        for j in range(len(cols_displayed[i])):
+            if cols_displayed[i][j] != cols_displayed[i + 1][j]:
+                col_legend_idx.append(j)
+
+    fig = go.Figure()
+    for value in cols_displayed:
+        name = "_".join([value[i] for i in set(col_legend_idx)])
+
+        error_y_width = None
+        if add_confidence_interval:
+            value_ = list(value)
+            value_[2] = value[2] + "_values"
+
+            error_y = np.array(
+                df_agg.loc[:, tuple(value_)]
+                .apply(lambda x: get_confidence_interval(x, confidence_level))
+                .to_list()
+            )
+            error_y_width = dict(type="data", array=error_y[:, 2] / 2)
+
+        text = None
+        if add_annotation:
+            text = df_agg.loc[:, value]
+
+        fig.add_trace(
+            go.Bar(
+                name=name,
+                x=np.array(df_agg.index.to_list()).transpose(),
+                y=df_agg.loc[:, value],
+                text=text,
+                error_y=error_y_width,
             )
         )
 
-    fig.update_layout(barmode="stack")
-    fig.update_layout(title=f'{col_y[2]} as a function of {"+".join(cols_groupby)}')
+    metric_names = set([col[2] for col in cols_displayed])
+
+    if add_annotation:
+        fig.update_traces(texttemplate="%{text:.2}", textposition="outside")
+    fig.update_layout(barmode="group")
+
+    col_y_inter = set(cols_displayed[0])
+    for s in cols_displayed[1:]:
+        col_y_inter.intersection_update(s[:2])
+    if len(col_y_inter) != 0:
+        title = f'{" and ".join(metric_names)} as a function of {"+".join(cols_grouped)}'
+        title += f'for {"+".join(list(col_y_inter))}'
+        fig.update_layout(title=title)
+    else:
+        fig.update_layout(
+            title=f'{" and ".join(metric_names)} as a function of {"+".join(cols_grouped)}'
+        )
+
+    return fig
+
+
+def plot_bar(
+    df,
+    col_displayed=("prediction_score", "test_set", "wmape"),
+    cols_displayed=None,
+    cols_grouped=["hole_generator", "imputer", "predictor"],
+    add_annotation=True,
+    add_confidence_interval=False,
+    confidence_level=0.95,
+):
+    df_agg = get_benchmark_aggregate(df, cols_groupby=cols_grouped, keep_values=True)
+
+    if cols_displayed is None:
+        fig = plot_bar_y_1D(
+            df_agg,
+            col_displayed,
+            cols_grouped,
+            add_annotation,
+            add_confidence_interval,
+            confidence_level,
+        )
+    else:
+        fig = plot_bar_y_nD(
+            df_agg,
+            cols_displayed,
+            cols_grouped,
+            add_annotation,
+            add_confidence_interval,
+            confidence_level,
+        )
 
     return fig
