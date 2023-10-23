@@ -215,15 +215,15 @@ class BenchmarkImputationPrediction:
 
             start_time = time.time()
             imputer = imputer.fit(df_train_x_transformed_corrupted)
-            duration_imputer_fit = time.time() - start_time
+            duration_imputation_fit = time.time() - start_time
 
             start_time = time.time()
             df_train_x_transformed_imputed = imputer.transform(df_train_x_transformed_corrupted)
-            duration_imputer_transform_train = time.time() - start_time
+            duration_imputation_transform_train = time.time() - start_time
 
             start_time = time.time()
             df_test_x_transformed_imputed = imputer.transform(df_test_x_transformed_corrupted)
-            duration_imputer_transform_test = time.time() - start_time
+            duration_imputation_transform_test = time.time() - start_time
 
             if transformer_imputation_x is not None:
                 df_train_x_imputed = self.inverse_transform(
@@ -259,9 +259,9 @@ class BenchmarkImputationPrediction:
                 "dict_imp_scores_train": dict_imp_scores_train,
                 "dict_imp_score_mean_test": dict_imp_score_mean_test,
                 "dict_imp_scores_test": dict_imp_scores_test,
-                "duration_imputer_fit": duration_imputer_fit,
-                "duration_imputer_transform_train": duration_imputer_transform_train,
-                "duration_imputer_transform_test": duration_imputer_transform_test,
+                "duration_imputation_fit": duration_imputation_fit,
+                "duration_imputation_transform_train": duration_imputation_transform_train,
+                "duration_imputation_transform_test": duration_imputation_transform_test,
             }
 
         output = {
@@ -370,7 +370,7 @@ class BenchmarkImputationPrediction:
             df_train_x_input,
             np.squeeze(df_train_y_transformed),
         )
-        duration_predictor_fit = time.time() - start_time
+        duration_prediction_fit = time.time() - start_time
 
         if transformer_prediction_y is not None:
             # predictor predict for test without nan
@@ -383,7 +383,7 @@ class BenchmarkImputationPrediction:
             # predictor predict for test with nan
             start_time = time.time()
             df_test_y_transformed_imputed_predicted = predictor.predict(df_test_x_input_imputed)
-            duration_predictor_transform = time.time() - start_time
+            duration_prediction_transform = time.time() - start_time
 
             df_test_y_transformed_imputed_predicted = pd.DataFrame(
                 df_test_y_transformed_imputed_predicted,
@@ -409,7 +409,7 @@ class BenchmarkImputationPrediction:
             # predictor predict for test with nan
             start_time = time.time()
             df_test_y_reversed_imputed_predicted = predictor.predict(df_test_x_input_imputed)
-            duration_predictor_transform = time.time() - start_time
+            duration_prediction_transform = time.time() - start_time
 
             df_test_y_reversed_imputed_predicted = pd.DataFrame(
                 df_test_y_reversed_imputed_predicted,
@@ -436,8 +436,8 @@ class BenchmarkImputationPrediction:
             "dict_pred_scores_test_nan": dict_pred_scores_test_nan,
             "dict_pred_score_mean_test_notnan": dict_pred_score_mean_test_notnan,
             "dict_pred_scores_test_notnan": dict_pred_scores_test_notnan,
-            "duration_predictor_fit": duration_predictor_fit,
-            "duration_predictor_transform": duration_predictor_transform,
+            "duration_prediction_fit": duration_prediction_fit,
+            "duration_prediction_transform": duration_prediction_transform,
         }
 
         return output
@@ -565,6 +565,15 @@ class BenchmarkImputationPrediction:
             row_benchmark = {**row_benchmark, **dict_imp_score_mean_test_}
             row_benchmark["imputation_scores_trainset"] = dict_imp_scores_train
             row_benchmark["imputation_scores_testset"] = dict_imp_scores_test
+            row_benchmark["duration_imputation_fit"] = benchmark_imputation[
+                "duration_imputation_fit"
+            ]
+            row_benchmark["duration_imputation_transform_train"] = benchmark_imputation[
+                "duration_imputation_transform_train"
+            ]
+            row_benchmark["duration_imputation_transform_test"] = benchmark_imputation[
+                "duration_imputation_transform_test"
+            ]
 
         if benchmark_prediction is not None:
             dict_pred_score_mean_test_nan = benchmark_prediction["dict_pred_score_mean_test_nan"]
@@ -580,6 +589,12 @@ class BenchmarkImputationPrediction:
             }
             row_benchmark["prediction_scores_testset_nan"] = dict_pred_scores_test_nan
             row_benchmark["prediction_scores_testset_notnan"] = dict_pred_scores_test_notnan
+            row_benchmark["duration_prediction_fit"] = benchmark_prediction[
+                "duration_prediction_fit"
+            ]
+            row_benchmark["duration_prediction_transform"] = benchmark_prediction[
+                "duration_prediction_transform"
+            ]
 
         # print({
         #     "n_fold": idx_fold,
