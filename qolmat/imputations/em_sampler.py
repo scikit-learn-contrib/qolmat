@@ -668,10 +668,10 @@ class VARpEM(EM):
     >>> from qolmat.imputations.em_sampler import VARpEM
     >>> imputer = VARpEM(method="sample")
     >>> X = pd.DataFrame(data=[[1, 1, 1, 1],
-    >>>                        [np.nan, np.nan, 3, 2],
-    >>>                        [1, 2, 2, 1], [2, 2, 2, 2]],
-    >>>                        columns=["var1", "var2", "var3", "var4"])
-    >>> imputer.fit_transform(X)
+    ...                        [np.nan, np.nan, 3, 2],
+    ...                        [1, 2, 2, 1], [2, 2, 2, 2]],
+    ...                        columns=["var1", "var2", "var3", "var4"])
+    >>> imputer.fit_transform(X) # doctest: +SKIP
     """
 
     def __init__(
