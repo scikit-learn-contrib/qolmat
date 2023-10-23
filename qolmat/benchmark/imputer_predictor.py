@@ -651,17 +651,24 @@ def get_benchmark_aggregate(
     df, cols_groupby=["imputer", "predictor"], agg_func=pd.DataFrame.mean, keep_values=False
 ):
     metrics = [col for col in df.columns if "_score_" in col]
+    durations = [col for col in df.columns if "duration_" in col]
     if cols_groupby is None:
-        cols_groupby = [col for col in df.columns if col not in metrics]
-    df_groupby = df.groupby(cols_groupby)[metrics].apply(agg_func)
+        cols_groupby = [col for col in df.columns if col not in metrics and col not in durations]
+    df_groupby = df.groupby(cols_groupby)[metrics + durations].apply(agg_func)
 
     if keep_values:
         for metric in metrics:
             df_groupby[f"{metric}_values"] = df.groupby(cols_groupby)[metric].apply(list)
+        for duration in durations:
+            df_groupby[f"{duration}_values"] = df.groupby(cols_groupby)[duration].apply(list)
     cols_imputation = [col for col in df_groupby.columns if "imputation_score_" in col]
     cols_prediction = [col for col in df_groupby.columns if "prediction_score_" in col]
     cols_train_set = [col for col in df_groupby.columns if "_train_set" in col]
     cols_test_set = [col for col in df_groupby.columns if "_test_set" in col]
+
+    cols_duration_imputation = [col for col in df_groupby.columns if "_imputation_" in col]
+    cols_duration_prediction = [col for col in df_groupby.columns if "_prediction_" in col]
+
     cols_multi_index = []
     for col in df_groupby.columns:
         if col in cols_imputation and col in cols_train_set:
@@ -697,6 +704,23 @@ def get_benchmark_aggregate(
                         col.replace("prediction_score_nan_", ""),
                     )
                 )
+        if col in cols_duration_imputation:
+            cols_multi_index.append(
+                (
+                    "duration",
+                    "imputation",
+                    col.replace("duration_imputation_", ""),
+                )
+            )
+        if col in cols_duration_prediction:
+            cols_multi_index.append(
+                (
+                    "duration",
+                    "prediction",
+                    col.replace("duration_prediction_", ""),
+                )
+            )
+
     df_groupby.columns = pd.MultiIndex.from_tuples(cols_multi_index)
     return df_groupby
 
@@ -837,10 +861,10 @@ def plot_bar_y_1D(
 
         fig.add_trace(
             go.Bar(
-                x=[df_agg_plot_[col] for col in cols_x],
+                x=[df_agg_plot_[col].astype(str) for col in cols_x],
                 y=df_agg_plot_.loc[:, col_displayed],
                 showlegend=True,
-                name=value,
+                name=str(value),
                 text=text,
                 error_y=error_y_width,
             )
