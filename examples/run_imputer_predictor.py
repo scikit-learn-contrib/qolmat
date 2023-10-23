@@ -3,16 +3,14 @@ import sys
 
 sys.path.append("/home/ec2-ngo/qolmat/")
 
-import pandas as pd
-
 from datasets import load_dataset
 
-from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 from sklearn import preprocessing
 
 from sklearn.linear_model import Ridge, RidgeClassifier
 from sklearn.ensemble import HistGradientBoostingClassifier, HistGradientBoostingRegressor
+from xgboost import XGBClassifier, XGBRegressor
 
 from qolmat.benchmark import missing_patterns
 from qolmat.imputations import imputers, imputers_pytorch
@@ -20,27 +18,36 @@ from qolmat.imputations.diffusions import ddpms
 
 from qolmat.benchmark.imputer_predictor import BenchmarkImputationPrediction
 
-
 parser = argparse.ArgumentParser(description="Tabular data benchmark")
 parser.add_argument("--data", type=str, help="Name of data")
 parser.add_argument("--path", type=str, help="Path to store benchmarks", default="data/imp_pred")
+parser.add_argument("--batch_size", type=int, help="Batch size", default=1000)
+parser.add_argument("--n_folds", type=int, help="#folds", default=10)
+parser.add_argument("--n_masks", type=int, help="#masks", default=5)
 
 args = parser.parse_args()
 
 dataset = load_dataset("inria-soda/tabular-benchmark", data_files=f"reg_num/{args.data}.csv")
 df_data = dataset["train"].to_pandas()
 column_target = df_data.columns.to_list()[-1]
+columns_numerical = df_data.select_dtypes(include="number").columns.tolist()
+columns_categorical = df_data.select_dtypes(include="object").columns.tolist()
+size_data = len(df_data)
 
-columns_categorical = df_data.dtypes[(df_data.dtypes == "int64")].index.to_list()
-columns_numerical = df_data.dtypes[(df_data.dtypes == "float64")].index.to_list()
+benchmark = BenchmarkImputationPrediction(
+    n_masks=args.n_masks,
+    n_folds=args.n_folds,
+    imputation_metrics=["mae", "KL_columnwise"],
+    prediction_metrics=["mae"],
+)
 
 # Hole generators
 hole_generators = [
     None,
+    missing_patterns.UniformHoleGenerator(ratio_masked=0.05, n_splits=0),
+    missing_patterns.UniformHoleGenerator(ratio_masked=0.1, n_splits=0),
     missing_patterns.UniformHoleGenerator(ratio_masked=0.2, n_splits=0),
-    missing_patterns.UniformHoleGenerator(ratio_masked=0.4, n_splits=0),
-    missing_patterns.UniformHoleGenerator(ratio_masked=0.6, n_splits=0),
-    missing_patterns.UniformHoleGenerator(ratio_masked=0.8, n_splits=0),
+    missing_patterns.UniformHoleGenerator(ratio_masked=0.5, n_splits=0),
 ]
 
 # Imputation pipelines
@@ -55,17 +62,17 @@ transformer_imputation_x = ColumnTransformer(transformers=transformers)
 
 imputation_pipelines = [
     None,
-    {"transformer_x": transformer_imputation_x, "imputer": imputers.ImputerMean()},
-    {"transformer_x": transformer_imputation_x, "imputer": imputers.ImputerMedian()},
-    # {'transformer': hyper_transformer_imputation,
-    #  'imputer': imputers.ImputerMICE(estimator=LinearRegression())},
-    # {'transformer': hyper_transformer_imputation,
-    #  'imputer': imputers.ImputerEM(max_iter_em=100)},
-    # {'transformer': hyper_transformer_imputation,
-    #  'imputer': imputers.ImputerRPCA(max_iterations=100)},
-    # {'transformer': hyper_transformer_imputation,
-    #  'imputer': imputers_pytorch.ImputerDiffusion(model=ddpms.TabDDPM(num_sampling=50),
-    # batch_size=1000)}
+    {"imputer": imputers.ImputerMean()},
+    {"imputer": imputers.ImputerMedian()},
+    {"imputer": imputers.ImputerMode()},
+    {"imputer": imputers.ImputerShuffle()},
+    {"imputer": imputers.ImputerMICE(estimator=Ridge())},
+    {"imputer": imputers.ImputerKNN()},
+    {
+        "imputer": imputers_pytorch.ImputerDiffusion(
+            model=ddpms.TabDDPM(num_sampling=100), batch_size=args.batch_size
+        )
+    },
 ]
 
 # Prediction pipelines
@@ -91,12 +98,42 @@ if column_target in columns_numerical:
             "transformer_y": transformer_prediction_y,
             "predictor": Ridge(),
             "handle_nan": False,
+            "add_nan_indicator": True,
         },
         {
             "transformer_x": transformer_prediction_x,
             "transformer_y": transformer_prediction_y,
             "predictor": HistGradientBoostingRegressor(),
             "handle_nan": True,
+            "add_nan_indicator": True,
+        },
+        {
+            "transformer_x": transformer_prediction_x,
+            "transformer_y": transformer_prediction_y,
+            "predictor": XGBRegressor(),
+            "handle_nan": True,
+            "add_nan_indicator": True,
+        },
+        {
+            "transformer_x": transformer_prediction_x,
+            "transformer_y": transformer_prediction_y,
+            "predictor": Ridge(),
+            "handle_nan": False,
+            "add_nan_indicator": False,
+        },
+        {
+            "transformer_x": transformer_prediction_x,
+            "transformer_y": transformer_prediction_y,
+            "predictor": HistGradientBoostingRegressor(),
+            "handle_nan": True,
+            "add_nan_indicator": False,
+        },
+        {
+            "transformer_x": transformer_prediction_x,
+            "transformer_y": transformer_prediction_y,
+            "predictor": XGBRegressor(),
+            "handle_nan": True,
+            "add_nan_indicator": False,
         },
     ]
 
@@ -112,18 +149,23 @@ if column_target in columns_categorical:
             "transformer_y": transformer_prediction_y,
             "predictor": RidgeClassifier(),
             "handle_nan": False,
+            "add_nan_indicator": True,
         },
         {
             "transformer_x": transformer_prediction_x,
             "transformer_y": transformer_prediction_y,
             "predictor": HistGradientBoostingClassifier(),
             "handle_nan": True,
+            "add_nan_indicator": True,
+        },
+        {
+            "transformer_x": transformer_prediction_x,
+            "transformer_y": transformer_prediction_y,
+            "predictor": XGBClassifier(),
+            "handle_nan": True,
+            "add_nan_indicator": True,
         },
     ]
-
-benchmark = BenchmarkImputationPrediction(
-    n_masks=1, n_folds=2, imputation_metrics=["mae", "KL_columnwise"], prediction_metrics=["mae"]
-)
 
 results = benchmark.compare(
     df_data=df_data,

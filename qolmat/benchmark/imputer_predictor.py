@@ -7,6 +7,7 @@ import numpy as np
 import tqdm
 import re
 import scipy
+import time
 import plotly.graph_objects as go
 
 from sklearn.model_selection import KFold
@@ -101,9 +102,13 @@ class BenchmarkImputationPrediction:
                                         df_test,
                                         out_imputation["df_train_x_imputed"],
                                         out_imputation["df_test_x_imputed"],
+                                        df_mask_train,
+                                        df_mask_test,
                                     )
 
                                     row_benchmark = self.get_row_benchmark(
+                                        df_train,
+                                        df_test,
                                         idx_fold,
                                         target_column,
                                         hole_generator,
@@ -132,9 +137,13 @@ class BenchmarkImputationPrediction:
                                 df_test,
                                 df_train_x,
                                 df_test_x,
+                                None,
+                                None,
                             )
 
                             row_benchmark = self.get_row_benchmark(
+                                df_train,
+                                df_test,
                                 idx_fold,
                                 target_column,
                                 None,
@@ -175,7 +184,10 @@ class BenchmarkImputationPrediction:
         df_train_x_imputed = df_train_x_corrupted
         df_test_x_imputed = df_test_x_corrupted
         if imputation_pipeline is not None:
-            transformer_imputation_x = imputation_pipeline["transformer_x"]
+            if "transformer_x" in imputation_pipeline:
+                transformer_imputation_x = imputation_pipeline["transformer_x"]
+            else:
+                transformer_imputation_x = None
             imputer = imputation_pipeline["imputer"]
 
             if transformer_imputation_x is not None:
@@ -201,10 +213,17 @@ class BenchmarkImputationPrediction:
                 df_train_x_transformed_corrupted = df_train_x_corrupted
                 df_test_x_transformed_corrupted = df_test_x_corrupted
 
+            start_time = time.time()
             imputer = imputer.fit(df_train_x_transformed_corrupted)
+            duration_imputer_fit = time.time() - start_time
 
+            start_time = time.time()
             df_train_x_transformed_imputed = imputer.transform(df_train_x_transformed_corrupted)
+            duration_imputer_transform_train = time.time() - start_time
+
+            start_time = time.time()
             df_test_x_transformed_imputed = imputer.transform(df_test_x_transformed_corrupted)
+            duration_imputer_transform_test = time.time() - start_time
 
             if transformer_imputation_x is not None:
                 df_train_x_imputed = self.inverse_transform(
@@ -240,6 +259,9 @@ class BenchmarkImputationPrediction:
                 "dict_imp_scores_train": dict_imp_scores_train,
                 "dict_imp_score_mean_test": dict_imp_score_mean_test,
                 "dict_imp_scores_test": dict_imp_scores_test,
+                "duration_imputer_fit": duration_imputer_fit,
+                "duration_imputer_transform_train": duration_imputer_transform_train,
+                "duration_imputer_transform_test": duration_imputer_transform_test,
             }
 
         output = {
@@ -269,11 +291,26 @@ class BenchmarkImputationPrediction:
         df_test,
         df_train_x_imputed,
         df_test_x_imputed,
+        df_mask_train,
+        df_mask_test,
     ):
-        transformer_prediction_x = prediction_pipeline["transformer_x"]
-        transformer_prediction_y = prediction_pipeline["transformer_y"]
         predictor = prediction_pipeline["predictor"]
-        handle_nan = prediction_pipeline["handle_nan"]
+        if "transformer_x" in prediction_pipeline:
+            transformer_prediction_x = prediction_pipeline["transformer_x"]
+        else:
+            transformer_prediction_x = None
+        if "transformer_y" in prediction_pipeline:
+            transformer_prediction_y = prediction_pipeline["transformer_y"]
+        else:
+            transformer_prediction_y = None
+        if "handle_nan" in prediction_pipeline:
+            handle_nan = prediction_pipeline["handle_nan"]
+        else:
+            handle_nan = False
+        if "add_nan_indicator" in prediction_pipeline:
+            add_nan_indicator = prediction_pipeline["add_nan_indicator"]
+        else:
+            add_nan_indicator = True
 
         # df_train_x = df_train[feature_columns]
         df_test_x = df_test[feature_columns]
@@ -310,20 +347,46 @@ class BenchmarkImputationPrediction:
             df_test_x_transformed_imputed = df_test_x_imputed
             df_test_x_transformed_notnan = df_test_x
 
+        # add indicator for missing values into x
+        if df_mask_train is not None and df_mask_test is not None and add_nan_indicator:
+            df_train_x_input = np.concatenate(
+                [df_train_x_transformed_imputed, df_mask_train.astype(int).values], axis=1
+            )
+            df_test_x_input_imputed = np.concatenate(
+                [df_test_x_transformed_imputed, df_mask_test.astype(int).values], axis=1
+            )
+            df_mask_test_ = np.zeros(df_mask_test.shape)
+            df_test_x_input_notnan = np.concatenate(
+                [df_test_x_transformed_notnan, df_mask_test_], axis=1
+            )
+        else:
+            df_train_x_input = df_train_x_transformed_imputed
+            df_test_x_input_imputed = df_test_x_transformed_imputed
+            df_test_x_input_notnan = df_test_x_transformed_notnan
+
+        # predictor fit
+        start_time = time.time()
         predictor = predictor.fit(
-            df_train_x_transformed_imputed,
+            df_train_x_input,
             np.squeeze(df_train_y_transformed),
         )
+        duration_predictor_fit = time.time() - start_time
 
         if transformer_prediction_y is not None:
+            # predictor predict for test without nan
+            df_test_y_transformed_notnan_predicted = predictor.predict(df_test_x_input_notnan)
             df_test_y_transformed_notnan_predicted = pd.DataFrame(
-                predictor.predict(df_test_x_transformed_notnan),
+                df_test_y_transformed_notnan_predicted,
                 columns=transformer_prediction_y.get_feature_names_out([target_column]),
                 index=df_test_y.index,
             )
+            # predictor predict for test with nan
+            start_time = time.time()
+            df_test_y_transformed_imputed_predicted = predictor.predict(df_test_x_input_imputed)
+            duration_predictor_transform = time.time() - start_time
 
             df_test_y_transformed_imputed_predicted = pd.DataFrame(
-                predictor.predict(df_test_x_transformed_imputed),
+                df_test_y_transformed_imputed_predicted,
                 columns=transformer_prediction_y.get_feature_names_out([target_column]),
                 index=df_test_y.index,
             )
@@ -335,14 +398,21 @@ class BenchmarkImputationPrediction:
                 transformer_prediction_y, df_test_y_transformed_imputed_predicted
             )
         else:
+            # predictor predict for test without nan
+            df_test_y_reversed_notnan_predicted = predictor.predict(df_test_x_input_notnan)
             df_test_y_reversed_notnan_predicted = pd.DataFrame(
-                predictor.predict(df_test_x_transformed_notnan),
+                df_test_y_reversed_notnan_predicted,
                 columns=[target_column],
                 index=df_test_y.index,
             )
 
+            # predictor predict for test with nan
+            start_time = time.time()
+            df_test_y_reversed_imputed_predicted = predictor.predict(df_test_x_input_imputed)
+            duration_predictor_transform = time.time() - start_time
+
             df_test_y_reversed_imputed_predicted = pd.DataFrame(
-                predictor.predict(df_test_x_transformed_imputed),
+                df_test_y_reversed_imputed_predicted,
                 columns=[target_column],
                 index=df_test_y.index,
             )
@@ -366,12 +436,16 @@ class BenchmarkImputationPrediction:
             "dict_pred_scores_test_nan": dict_pred_scores_test_nan,
             "dict_pred_score_mean_test_notnan": dict_pred_score_mean_test_notnan,
             "dict_pred_scores_test_notnan": dict_pred_scores_test_notnan,
+            "duration_predictor_fit": duration_predictor_fit,
+            "duration_predictor_transform": duration_predictor_transform,
         }
 
         return output
 
     def get_row_benchmark(
         self,
+        df_train,
+        df_test,
         idx_fold,
         target_column,
         hole_generator,
@@ -389,9 +463,27 @@ class BenchmarkImputationPrediction:
         else:
             prediction_task = "unknown"
 
-        transformer_prediction_x = prediction_pipeline["transformer_x"]
-        transformer_prediction_y = prediction_pipeline["transformer_y"]
         predictor = prediction_pipeline["predictor"]
+        if "transformer_x" in prediction_pipeline:
+            transformer_prediction_x = prediction_pipeline["transformer_x"]
+        else:
+            transformer_prediction_x = None
+        if "transformer_y" in prediction_pipeline:
+            transformer_prediction_y = prediction_pipeline["transformer_y"]
+        else:
+            transformer_prediction_y = None
+        if "handle_nan" in prediction_pipeline:
+            handle_nan = prediction_pipeline["handle_nan"]
+        else:
+            handle_nan = False
+        if "add_nan_indicator" in prediction_pipeline:
+            add_nan_indicator = prediction_pipeline["add_nan_indicator"]
+        else:
+            add_nan_indicator = True
+        if "add_nan_indicator" in prediction_pipeline:
+            add_nan_indicator = prediction_pipeline["add_nan_indicator"]
+        else:
+            add_nan_indicator = True
         if transformer_prediction_x is not None:
             tran_pre_name_x = "+".join(
                 set([tf[1].__class__.__name__ for tf in transformer_prediction_x.transformers_])
@@ -407,7 +499,10 @@ class BenchmarkImputationPrediction:
 
         if hole_generator is not None:
             if imputation_pipeline is not None:
-                transformer_imputation_x = imputation_pipeline["transformer_x"]
+                if "transformer_x" in imputation_pipeline:
+                    transformer_imputation_x = imputation_pipeline["transformer_x"]
+                else:
+                    transformer_imputation_x = None
                 imputer = imputation_pipeline["imputer"]
 
                 if transformer_imputation_x is not None:
@@ -436,6 +531,9 @@ class BenchmarkImputationPrediction:
 
         row_benchmark = {
             "n_fold": idx_fold,
+            "size_train_set": len(df_train),
+            "size_test_set": len(df_test),
+            "n_columns": len(self.columns),
             "n_mask": idx_mask,
             "hole_generator": hole_generator_name,
             "ratio_masked": ratio_masked,
@@ -446,6 +544,8 @@ class BenchmarkImputationPrediction:
             "transformer_prediction_x": tran_pre_name_x,
             "transformer_prediction_y": tran_pre_name_y,
             "predictor": predictor.__class__.__name__,
+            "handle_nan": handle_nan,
+            "add_nan_indicator": add_nan_indicator,
         }
 
         if benchmark_imputation is not None:
