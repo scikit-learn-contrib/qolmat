@@ -54,8 +54,8 @@ def get_sizes_max(values_isna: pd.Series) -> pd.Series[int]:
 
 def pick_coeffs(
     X: np.ndarray,
-    idxs_obs: List[int] = [],
-    idxs_nas: List[int] = [],
+    idxs_obs: np.ndarray,
+    idxs_nas: np.ndarray,
     self_mask: bool = False,
 ) -> np.ndarray:
     n, d = X.shape
@@ -871,7 +871,7 @@ class MAR(_HoleGenerator):
         if self.sample_columns:
             idxs_obs = np.random.choice(d, d_obs, replace=False)
         else:
-            idxs_obs = list(range(d_obs))
+            idxs_obs = np.array(list(range(d_obs)))
 
         idxs_nas = np.array([i for i in range(d) if i not in idxs_obs])
 

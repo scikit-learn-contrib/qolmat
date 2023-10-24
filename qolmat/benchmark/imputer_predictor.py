@@ -10,6 +10,7 @@ import re
 import scipy
 import time
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 from sklearn.model_selection import KFold
 
@@ -898,10 +899,15 @@ def plot_bar_y_nD(
             if cols_displayed[i][j] != cols_displayed[i + 1][j]:
                 col_legend_idx.append(j)
 
-    fig = go.Figure()
-    for value in cols_displayed:
+    # fig = go.Figure()
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+    for idx, value in enumerate(cols_displayed):
         name = "_".join([value[i] for i in set(col_legend_idx)])
-
+        if "prediction" in name:
+            secondary_y = False
+        else:
+            secondary_y = True
+        offsetgroup = idx
         error_y_width = None
         if add_confidence_interval:
             value_ = list(value)
@@ -925,7 +931,9 @@ def plot_bar_y_nD(
                 y=df_agg.loc[:, value],
                 text=text,
                 error_y=error_y_width,
-            )
+                offsetgroup=offsetgroup,
+            ),
+            secondary_y=secondary_y,
         )
 
     metric_names = set([col[2] for col in cols_displayed])
@@ -945,6 +953,10 @@ def plot_bar_y_nD(
         fig.update_layout(
             title=f'{" and ".join(metric_names)} as a function of {"+".join(cols_grouped)}'
         )
+    type_names = "_".join(set([col[0] for col in cols_displayed]))
+    if "prediction_score" in type_names:
+        fig.update_yaxes(title_text="prediction_score", secondary_y=False)
+    fig.update_yaxes(title_text="imputation_score", secondary_y=True)
 
     return fig
 
