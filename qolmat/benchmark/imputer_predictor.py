@@ -16,7 +16,6 @@ from sklearn.model_selection import KFold
 from qolmat.benchmark.missing_patterns import _HoleGenerator
 from qolmat.benchmark import metrics as _imputation_metrics
 from qolmat.imputations.imputers import _Imputer
-from rdt.hyper_transformer import HyperTransformer
 
 
 class BenchmarkImputationPrediction:
@@ -979,5 +978,5 @@ def plot_bar(
             add_confidence_interval,
             confidence_level,
         )
-
+    fig.update_yaxes(type="log")
     return fig
