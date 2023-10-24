@@ -1,5 +1,6 @@
 from typing import Dict, List, Tuple, Optional
-import mlflow
+
+# import mlflow
 import pickle
 from pathlib import Path
 import pandas as pd
@@ -728,60 +729,60 @@ def get_benchmark_aggregate(
     return df_groupby
 
 
-def visualize_mlflow(df, exp_name):
-    cols_mean_on = ["n_fold", "n_mask"]
-    cols_full_scores = [col for col in df.columns if "_scores" in col]
-    metrics = [col for col in df.columns if "_score_" in col]
-    cols_groupby = [
-        col for col in df.columns if col not in metrics + cols_mean_on + cols_full_scores
-    ]
-    df_groupby = df.groupby(cols_groupby)[metrics].mean()
+# def visualize_mlflow(df, exp_name):
+#     cols_mean_on = ["n_fold", "n_mask"]
+#     cols_full_scores = [col for col in df.columns if "_scores" in col]
+#     metrics = [col for col in df.columns if "_score_" in col]
+#     cols_groupby = [
+#         col for col in df.columns if col not in metrics + cols_mean_on + cols_full_scores
+#     ]
+#     df_groupby = df.groupby(cols_groupby)[metrics].mean()
 
-    experiment_id = mlflow.create_experiment(name=exp_name)
-    num_index = np.prod([len(df[col].unique()) for col in cols_mean_on])
-    for idx in df_groupby.index:
-        dict_settings = dict(zip(df_groupby.index.names, idx))
-        with mlflow.start_run(
-            experiment_id=experiment_id, run_name=dict_settings["target_column"]
-        ) as run:
-            query = " and ".join([f"{k} == {repr(v)}" for k, v in dict_settings.items()])
+#     experiment_id = mlflow.create_experiment(name=exp_name)
+#     num_index = np.prod([len(df[col].unique()) for col in cols_mean_on])
+#     for idx in df_groupby.index:
+#         dict_settings = dict(zip(df_groupby.index.names, idx))
+#         with mlflow.start_run(
+#             experiment_id=experiment_id, run_name=dict_settings["target_column"]
+#         ) as run:
+#             query = " and ".join([f"{k} == {repr(v)}" for k, v in dict_settings.items()])
 
-            for col in cols_mean_on:
-                dict_settings[col] = len(df[col].unique())
-                dict_settings[f"{col}_values"] = df[col].unique()
-            dict_scores = df_groupby.loc[idx][metrics].to_dict()
+#             for col in cols_mean_on:
+#                 dict_settings[col] = len(df[col].unique())
+#                 dict_settings[f"{col}_values"] = df[col].unique()
+#             dict_scores = df_groupby.loc[idx][metrics].to_dict()
 
-            mlflow.log_params(dict_settings)
-            mlflow.log_metrics(dict_scores)
+#             mlflow.log_params(dict_settings)
+#             mlflow.log_metrics(dict_scores)
 
-            df_query = df.query(query)
-            for col_full_scores in cols_full_scores:
-                if df_query[col_full_scores].notna().all():
-                    dict_full_scores = df_query[col_full_scores].values
-                    list_scores = []
-                    list_indices = []
-                    num_index = 0
-                    for dict_full_score_metric in dict_full_scores:
-                        df_full_score_metric = pd.DataFrame(
-                            list(dict_full_score_metric.values()),
-                            index=list(dict_full_score_metric.keys()),
-                        ).T
-                        num_index = df_full_score_metric.shape[0]
-                        list_scores.append(df_full_score_metric)
+#             df_query = df.query(query)
+#             for col_full_scores in cols_full_scores:
+#                 if df_query[col_full_scores].notna().all():
+#                     dict_full_scores = df_query[col_full_scores].values
+#                     list_scores = []
+#                     list_indices = []
+#                     num_index = 0
+#                     for dict_full_score_metric in dict_full_scores:
+#                         df_full_score_metric = pd.DataFrame(
+#                             list(dict_full_score_metric.values()),
+#                             index=list(dict_full_score_metric.keys()),
+#                         ).T
+#                         num_index = df_full_score_metric.shape[0]
+#                         list_scores.append(df_full_score_metric)
 
-                    list_indices = [df_query[cols_mean_on] for i in range(num_index)]
-                    df_scores = pd.concat(list_scores)
-                    df_indices = pd.concat(list_indices)
-                    df_indices.index = df_scores.index
+#                     list_indices = [df_query[cols_mean_on] for i in range(num_index)]
+#                     df_scores = pd.concat(list_scores)
+#                     df_indices = pd.concat(list_indices)
+#                     df_indices.index = df_scores.index
 
-                    df_scores = pd.concat([df_scores, df_indices], axis=1)
-                    df_scores.index.name = "columns"
-                    df_scores = df_scores.set_index(cols_mean_on, append=True)
+#                     df_scores = pd.concat([df_scores, df_indices], axis=1)
+#                     df_scores.index.name = "columns"
+#                     df_scores = df_scores.set_index(cols_mean_on, append=True)
 
-                    file_path_html = Path(f"{run.info.artifact_uri[7:]}/{col_full_scores}.html")
-                    file_path_html.parent.mkdir(parents=True, exist_ok=True)
-                    df_scores.to_html(file_path_html)
-                    mlflow.log_artifact(file_path_html)
+#                     file_path_html = Path(f"{run.info.artifact_uri[7:]}/{col_full_scores}.html")
+#                     file_path_html.parent.mkdir(parents=True, exist_ok=True)
+#                     df_scores.to_html(file_path_html)
+#                     mlflow.log_artifact(file_path_html)
 
 
 def visualize_plotly(df, selected_columns):
