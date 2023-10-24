@@ -83,7 +83,7 @@ def fit_intercepts(
             def f(x: np.ndarray) -> np.ndarray:
                 return expit(X * coeffs[j] + x).mean().item() - p
 
-            intercepts[j] = optimize.bisect(f, -50, 50)
+            intercepts[j] = optimize.bisect(f, -1000, 1000)
     else:
         d_obs, d_na = coeffs.shape
         intercepts = np.zeros(d_na)
@@ -92,7 +92,7 @@ def fit_intercepts(
             def f(x: np.ndarray) -> np.ndarray:
                 return expit(np.dot(X, coeffs[:, j]) + x).mean().item() - p
 
-            intercepts[j] = optimize.bisect(f, -50, 50)
+            intercepts[j] = optimize.bisect(f, -1000, 1000)
     return intercepts
 
 
