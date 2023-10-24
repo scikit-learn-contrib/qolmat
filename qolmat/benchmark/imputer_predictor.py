@@ -614,9 +614,12 @@ class BenchmarkImputationPrediction:
         dict_score_mean = {}
         dict_scores = {}
 
+        columns_nan = df_mask.columns[(df_mask == True).any()].to_list()
         for metric in self.imputation_metrics:
             func_metric = _imputation_metrics.get_metric(metric)
-            score_by_col = func_metric(df_true, df_imputed, df_mask)
+            score_by_col = func_metric(
+                df_true[columns_nan], df_imputed[columns_nan], df_mask[columns_nan]
+            )
             dict_scores[f"imputation_score_{metric}"] = score_by_col.to_dict()
             dict_score_mean[f"imputation_score_{metric}"] = score_by_col.mean()
         return dict_score_mean, dict_scores

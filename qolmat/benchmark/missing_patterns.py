@@ -141,7 +141,7 @@ class _HoleGenerator:
         X : pd.DataFrame
             Initial dataframe with a missing pattern to be imitated.
         """
-        # self._check_subset(X)
+        self._check_subset(X)
         self.dict_ratios = {}
         missing_per_col = X[self.subset].isna().sum()
         self.dict_ratios = (missing_per_col / missing_per_col.sum()).to_dict()
@@ -780,8 +780,8 @@ class MCAR(UniformHoleGenerator):
 
     Parameters
     ----------
-    n_splits : int
-        Number of splits
+    n_splits : int, optional
+        Number of splits, by default 1.
     subset : Optional[List[str]], optional
         Names of the columns for which holes must be created, by default None
     ratio_masked : Optional[float], optional
@@ -792,12 +792,13 @@ class MCAR(UniformHoleGenerator):
 
     def __init__(
         self,
+        n_splits: int = 1,
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
         random_state: Union[None, int, np.random.RandomState] = None,
     ):
         super().__init__(
-            n_splits=0, subset=subset, ratio_masked=ratio_masked, random_state=random_state
+            n_splits=n_splits, subset=subset, ratio_masked=ratio_masked, random_state=random_state
         )
 
     def _check_subset(self, X: pd.DataFrame):
@@ -820,18 +821,24 @@ class MAR(_HoleGenerator):
 
     Parameters
     ----------
-    n_splits : int
-        Number of splits
+    n_splits : int, optional
+        Number of splits, by default 1.
     subset : Optional[List[str]], optional
         Names of the columns for which holes must be created, by default None
     ratio_masked : Optional[float], optional
         Ratio of masked values ​​to add, by default 0.05.
+    ratio_observed : Optional[float], optional
+        Proportion of variables with *no* missing values that will be used
+        for the logistic masking model, by default 0.1.
+    sample_columns: bool, optional
+        Sample variables that will all be observed, by default True.
     random_state : Optional[int], optional
         The seed used by the random number generator, by default 42.
     """
 
     def __init__(
         self,
+        n_splits: int = 1,
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
         ratio_observed: float = 0.1,
@@ -839,7 +846,7 @@ class MAR(_HoleGenerator):
         random_state: Union[None, int, np.random.RandomState] = None,
     ):
         super().__init__(
-            n_splits=0, subset=subset, ratio_masked=ratio_masked, random_state=random_state
+            n_splits=n_splits, subset=subset, ratio_masked=ratio_masked, random_state=random_state
         )
         self.ratio_observed = ratio_observed
         self.sample_columns = sample_columns
@@ -903,8 +910,8 @@ class MNAR(_HoleGenerator):
 
     Parameters
     ----------
-    n_splits : int
-        Number of splits
+    n_splits : int, optional
+        Number of splits, by default 1.
     subset : Optional[List[str]], optional
         Names of the columns for which holes must be created, by default None
     ratio_masked : Optional[float], optional
@@ -920,6 +927,7 @@ class MNAR(_HoleGenerator):
 
     def __init__(
         self,
+        n_splits: int = 1,
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
         ratio_variable: float = 0.3,
@@ -927,7 +935,7 @@ class MNAR(_HoleGenerator):
         random_state: Union[None, int, np.random.RandomState] = None,
     ):
         super().__init__(
-            n_splits=0, subset=subset, ratio_masked=ratio_masked, random_state=random_state
+            n_splits=n_splits, subset=subset, ratio_masked=ratio_masked, random_state=random_state
         )
         self.ratio_variable = ratio_variable
         self.exclude_inputs = exclude_inputs
