@@ -60,17 +60,25 @@ if len(columns_categorical_) != 0:
     transformers.append(("cat", preprocessing.OrdinalEncoder(), columns_categorical_))
 transformer_imputation_x = ColumnTransformer(transformers=transformers)
 
+# Format of prediction pipeline
+# {
+# "transformer_x": transformer_x/None,
+# "imputer": imputer,
+# }
+
 imputation_pipelines = [
     None,
     {"imputer": imputers.ImputerMean()},
     {"imputer": imputers.ImputerMedian()},
     {"imputer": imputers.ImputerMode()},
     {"imputer": imputers.ImputerShuffle()},
-    {"imputer": imputers.ImputerMICE(estimator=Ridge())},
+    {"imputer": imputers.ImputerMICE(estimator=Ridge(), max_iter=100)},
     {"imputer": imputers.ImputerKNN()},
+    {"imputer": imputers.ImputerRPCA(max_iterations=100)},
+    {"imputer": imputers.ImputerEM(max_iter_em=100)},
     {
         "imputer": imputers_pytorch.ImputerDiffusion(
-            model=ddpms.TabDDPM(num_sampling=100), batch_size=args.batch_size
+            model=ddpms.TabDDPM(num_sampling=100), batch_size=args.batch_size, epochs=100
         )
     },
 ]
@@ -86,6 +94,16 @@ if len(columns_categorical) != 0:
 transformer_prediction_x = ColumnTransformer(transformers=transformers)
 
 target_prediction_pipeline_pairs = {}
+
+# Format of prediction pipeline
+# {
+# "transformer_x": transformer_x/None,
+# "transformer_y": transformer_y/None,
+# "predictor": RidgeClassifier(),
+# "handle_nan": True/False (default=False),
+# "add_nan_indicator": True/False (default=True)
+# }
+
 if column_target in columns_numerical:
     transformer_prediction_y = ColumnTransformer(
         transformers=[
@@ -98,42 +116,18 @@ if column_target in columns_numerical:
             "transformer_y": transformer_prediction_y,
             "predictor": Ridge(),
             "handle_nan": False,
-            "add_nan_indicator": True,
         },
         {
             "transformer_x": transformer_prediction_x,
             "transformer_y": transformer_prediction_y,
             "predictor": HistGradientBoostingRegressor(),
             "handle_nan": True,
-            "add_nan_indicator": True,
         },
         {
             "transformer_x": transformer_prediction_x,
             "transformer_y": transformer_prediction_y,
             "predictor": XGBRegressor(),
             "handle_nan": True,
-            "add_nan_indicator": True,
-        },
-        {
-            "transformer_x": transformer_prediction_x,
-            "transformer_y": transformer_prediction_y,
-            "predictor": Ridge(),
-            "handle_nan": False,
-            "add_nan_indicator": False,
-        },
-        {
-            "transformer_x": transformer_prediction_x,
-            "transformer_y": transformer_prediction_y,
-            "predictor": HistGradientBoostingRegressor(),
-            "handle_nan": True,
-            "add_nan_indicator": False,
-        },
-        {
-            "transformer_x": transformer_prediction_x,
-            "transformer_y": transformer_prediction_y,
-            "predictor": XGBRegressor(),
-            "handle_nan": True,
-            "add_nan_indicator": False,
         },
     ]
 

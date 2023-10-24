@@ -486,13 +486,13 @@ class BenchmarkImputationPrediction:
             add_nan_indicator = True
         if transformer_prediction_x is not None:
             tran_pre_name_x = "+".join(
-                set([tf[1].__class__.__name__ for tf in transformer_prediction_x.transformers_])
+                set([tf[1].__class__.__name__ for tf in transformer_prediction_x.transformers])
             )
         else:
             tran_pre_name_x = "None"
         if transformer_prediction_y is not None:
             tran_pre_name_y = "+".join(
-                set([tf[1].__class__.__name__ for tf in transformer_prediction_y.transformers_])
+                set([tf[1].__class__.__name__ for tf in transformer_prediction_y.transformers])
             )
         else:
             tran_pre_name_y = "None"
