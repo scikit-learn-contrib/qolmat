@@ -44,10 +44,18 @@ benchmark = BenchmarkImputationPrediction(
 # Hole generators
 hole_generators = [
     None,
-    missing_patterns.UniformHoleGenerator(ratio_masked=0.05, n_splits=0),
-    missing_patterns.UniformHoleGenerator(ratio_masked=0.1, n_splits=0),
-    missing_patterns.UniformHoleGenerator(ratio_masked=0.2, n_splits=0),
-    missing_patterns.UniformHoleGenerator(ratio_masked=0.5, n_splits=0),
+    missing_patterns.MCAR(ratio_masked=0.05),
+    missing_patterns.MCAR(ratio_masked=0.1),
+    missing_patterns.MCAR(ratio_masked=0.2),
+    missing_patterns.MCAR(ratio_masked=0.5),
+    missing_patterns.MAR(ratio_masked=0.05),
+    missing_patterns.MAR(ratio_masked=0.1),
+    missing_patterns.MAR(ratio_masked=0.2),
+    missing_patterns.MAR(ratio_masked=0.5),
+    missing_patterns.MNAR(ratio_masked=0.05),
+    missing_patterns.MNAR(ratio_masked=0.1),
+    missing_patterns.MNAR(ratio_masked=0.2),
+    missing_patterns.MNAR(ratio_masked=0.5),
 ]
 
 # Imputation pipelines
