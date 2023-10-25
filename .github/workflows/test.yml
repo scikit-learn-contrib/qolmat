@@ -1,5 +1,5 @@
 name: Unit tests on push
-run-name: ${{ github.actor }} is testing out GitHub Actions 🚀
+run-name: ${{ github.actor }} is testing $${{ github.ref_name }}
 on: [push]
 jobs:
   Explore-GitHub-Actions:
