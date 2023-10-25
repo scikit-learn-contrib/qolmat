@@ -1,48 +1,18 @@
-name: Unit test Qolmat
-
-on:
-  push:
-    branches:
-      -dev
-      -main
-  pull_request:
-  workflow_dispatch:
-
+name: Unit tests on push
+run-name: ${{ github.actor }} is testing out GitHub Actions 🚀
+on: [push]
 jobs:
-  build-linux:
-    runs-on: ${{matrix.os}}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        python-version: [3.8, 3.9]
-    defaults:
-      run:
-        shell: bash -l {0}
-
+  Explore-GitHub-Actions:
+    runs-on: ubuntu-latest
     steps:
-      - name: Git clone
-        uses: actions/checkout@v3
-      - name: Set up venv for ci
-        uses: conda-incubator/setup-miniconda@v2
-        with:
-          python-version: ${{matrix.python-version}}
-          environment-file: environment.ci.yml
-          channels: default, conda-forge
-      - name: Lint with flake8
+      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
+      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
+      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - run: echo "💡 The ${{ github.repository }} repository has been cloned to the runner."
+      - run: echo "🖥️ The workflow is now ready to test your code on the runner."
+      - name: List files in the repository
         run: |
-          conda install flake8
-          flake8
-      - name: Test with pytest
-        run: |
-          conda install pytest
-          make coverage
-      - name: Test docstrings examples
-        run: make doctest
-      - name: typing with mypy
-        run: |
-          mypy qolmat
-          echo you should uncomment mypy qolmat and delete this line
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v3
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          ls ${{ github.workspace }}
+      - run: echo "🍏 This job's status is ${{ job.status }}."
