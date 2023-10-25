@@ -27,7 +27,6 @@ jobs:
         with:
           python-version: ${{matrix.python-version}}
           environment-file: environment.ci.yml
-          channels: default, conda-forge
       - name: Lint with flake8
         run: |
           conda install flake8
