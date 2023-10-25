@@ -1,8 +1,10 @@
 name: Unit tests on many environments
 on:
-  push:
-    branches:
-      - dummy_dev
+  - push:
+      branches:
+        - dummy_dev
+  - workflow_dispatch
+
 jobs:
   Explore-GitHub-Actions:
     runs-on: ubuntu-latest
