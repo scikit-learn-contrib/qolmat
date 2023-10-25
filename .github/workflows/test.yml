@@ -1,6 +1,5 @@
 name: Unit tests on push
-run-name: ${{ github.actor }} is testing $${{ github.ref_name }}
-on: [push]
+on: pull_request
 jobs:
   Explore-GitHub-Actions:
     runs-on: ubuntu-latest
