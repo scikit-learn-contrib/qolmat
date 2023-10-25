@@ -2,6 +2,7 @@ name: Unit tests on doc environment
 on: [pull_request, workflow_dispatch]
 jobs:
   Unit-tests:
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
       - run: echo "🎉 The job was automaticsddallyyy triggered by a ${{ github.event_name }} event."
