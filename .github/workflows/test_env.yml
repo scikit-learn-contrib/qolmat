@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  Test all python versions:
+  Test-all-python-versions:
     runs-on: ubuntu-latest
     steps:
       - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
