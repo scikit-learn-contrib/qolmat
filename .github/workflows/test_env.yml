@@ -1,5 +1,8 @@
-name: Unit tests on doc environment
-on: [pull_request, workflow_dispatch]
+name: Unit tests on many environments
+on:
+  push:
+    branches:
+      - dummy_dev
 jobs:
   Explore-GitHub-Actions:
     runs-on: ubuntu-latest
