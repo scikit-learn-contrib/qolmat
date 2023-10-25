@@ -3,8 +3,8 @@
 Tutorial for imputers based on diffusion models
 ===============================================
 
-In this tutorial, we show how to use :class:`~qolmat.imputations.diffusions.diffusions.TabDDPM`
-and :class:`~qolmat.imputations.diffusions.diffusions.TabDDPMTS` classes.
+In this tutorial, we show how to use :class:`~qolmat.imputations.diffusions.ddpms.TabDDPM`
+and :class:`~qolmat.imputations.diffusions.ddpms.TsDDPM` classes.
 """
 
 # %%
@@ -15,7 +15,7 @@ from qolmat.utils import data
 from qolmat.benchmark import comparator, missing_patterns
 
 from qolmat.imputations.imputers_pytorch import ImputerDiffusion
-from qolmat.imputations.diffusions.diffusions import TabDDPM, TabDDPMTS
+from qolmat.imputations.diffusions.ddpms import TabDDPM, TsDDPM
 
 # %%
 # 1. Data
@@ -34,8 +34,8 @@ print(df_data.isna().sum())
 # 2. Hyperparameters for the wapper ImputerDiffusion
 # ---------------------------------------------------------------
 # We use the wapper :class:`~qolmat.imputations.imputers_pytorch.ImputerDiffusion` for our
-# diffusion models (e.g., :class:`~qolmat.imputations.diffusions.diffusions.TabDDPM`,
-# :class:`~qolmat.imputations.diffusions.diffusions.TabDDPMTS`). The most important hyperparameter
+# diffusion models (e.g., :class:`~qolmat.imputations.diffusions.ddpms.TabDDPM`,
+# :class:`~qolmat.imputations.diffusions.ddpms.TsDDPM`). The most important hyperparameter
 # is ``model`` where we select a diffusion base model for the task of imputation
 # (e.g., ``model=TabDDPM()``).
 # Other hyperparams are for training the selected diffusion model.
@@ -62,7 +62,7 @@ print(df_data.isna().sum())
 df_data_valid = df_data.iloc[:5000]
 
 tabddpm = ImputerDiffusion(
-    model=TabDDPM(), epochs=50, batch_size=100, x_valid=df_data_valid, print_valid=True
+    model=TabDDPM(), epochs=10, batch_size=100, x_valid=df_data_valid, print_valid=True
 )
 tabddpm = tabddpm.fit(df_data)
 
@@ -115,7 +115,7 @@ plt.show()
 # %%
 # 3. Hyperparameters for TabDDPM
 # ---------------------------------------------------------------
-# :class:`~qolmat.imputations.diffusions.diffusions.TabDDPM` is a diffusion model based on
+# :class:`~qolmat.imputations.diffusions.ddpms.TabDDPM` is a diffusion model based on
 # Denoising Diffusion Probabilistic Models [1] for imputing tabular data. Several important
 # hyperparameters are
 #
@@ -164,10 +164,10 @@ results = comparison.compare(df_data.iloc[:5000])
 results.groupby(axis=0, level=0).mean().groupby(axis=0, level=0).mean()
 
 # %%
-# 4. Hyperparameters for TabDDPMTS
+# 4. Hyperparameters for TsDDPM
 # ---------------------------------------------------------------
-# :class:`~qolmat.imputations.diffusions.diffusions.TabDDPMTS` is built on top of
-# :class:`~qolmat.imputations.diffusions.diffusions.TabDDPM` to capture time-based relationships
+# :class:`~qolmat.imputations.diffusions.ddpms.TsDDPM` is built on top of
+# :class:`~qolmat.imputations.diffusions.ddpms.TabDDPM` to capture time-based relationships
 # between data points in a dataset.
 #
 # Two important hyperparameters for processing time-series data are ``index_datetime``
@@ -183,7 +183,7 @@ results.groupby(axis=0, level=0).mean().groupby(axis=0, level=0).mean()
 #   `link <https://pandas.pydata.org/pandas-docs/
 #   stable/user_guide/timeseries.html#offset-aliases>`_
 #
-# For TabDDPMTS, we have two options for splitting data:
+# For TsDDPM, we have two options for splitting data:
 #
 # * ``is_rolling=False`` (default value): the data is splited by using
 #   pandas.DataFrame.resample(rule=freq_str). There is no duplication of row between chunks,
@@ -196,8 +196,8 @@ results.groupby(axis=0, level=0).mean().groupby(axis=0, level=0).mean()
 
 dict_imputers = {
     "tabddpm": ImputerDiffusion(model=TabDDPM(num_sampling=5), epochs=10, batch_size=100),
-    "tabddpmts": ImputerDiffusion(
-        model=TabDDPMTS(num_sampling=5, is_rolling=True),
+    "TsDDPM": ImputerDiffusion(
+        model=TsDDPM(num_sampling=5, is_rolling=True),
         epochs=10,
         batch_size=100,
         index_datetime="datetime",
