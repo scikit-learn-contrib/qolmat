@@ -33,6 +33,7 @@ jobs:
       - name: Test with pytest
         run: |
           conda install pytest
+          pip install -e .[pytorch]
           make coverage
       - name: Test docstrings
         run: make doctest
