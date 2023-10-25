@@ -1,7 +1,7 @@
 name: Unit tests on doc environment
 on: [pull_request, workflow_dispatch]
 jobs:
-  Explore-GitHub-Actions:
+  Unit-tests:
     runs-on: ubuntu-latest
     steps:
       - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
