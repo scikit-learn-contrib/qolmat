@@ -10,6 +10,7 @@ on:
 
 jobs:
   build-linux:
+    if: github.event.pull_request.draft == false
     runs-on: ${{matrix.os}}
     strategy:
       matrix:
