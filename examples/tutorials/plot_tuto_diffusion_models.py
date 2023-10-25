@@ -8,6 +8,7 @@ and :class:`~qolmat.imputations.diffusions.ddpms.TsDDPM` classes.
 """
 
 # %%
+import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -18,14 +19,20 @@ from qolmat.imputations.imputers_pytorch import ImputerDiffusion
 from qolmat.imputations.diffusions.ddpms import TabDDPM, TsDDPM
 
 # %%
-# 1. Data
+# 1. Time-series data
 # ---------------------------------------------------------------
 # We use the public Beijing Multi-Site Air-Quality Data Set.
 # It consists in hourly air pollutants data from 12 chinese nationally-controlled air-quality
 # monitoring sites. The original data from which the features were extracted comes from
-# https://archive.ics.uci.edu/static/public/501/beijing+multi+site+air+quality+data.zip
+# https://archive.ics.uci.edu/static/public/501/beijing+multi+site+air+quality+data.zip.
+# For this tutorial, we only use a small subset of this data
+# 1000 rows and 2 features (TEMP, PRES).
 
 df_data = data.get_data_corrupted("Beijing")
+df_data = df_data[["TEMP", "PRES"]].iloc[:1000]
+df_data.index = df_data.index.set_levels(
+    [df_data.index.levels[0], pd.to_datetime(df_data.index.levels[1])]
+)
 
 print("Number of nan at each column:")
 print(df_data.isna().sum())
@@ -59,7 +66,7 @@ print(df_data.isna().sum())
 # * ``print_valid``: a boolean to display/hide a training progress (including epoch_loss,
 #   remaining training duration and performance scores computed by the metrics above).
 
-df_data_valid = df_data.iloc[:5000]
+df_data_valid = df_data.iloc[:500]
 
 tabddpm = ImputerDiffusion(
     model=TabDDPM(), epochs=10, batch_size=100, x_valid=df_data_valid, print_valid=True
@@ -70,7 +77,6 @@ tabddpm = tabddpm.fit(df_data)
 # We can see the architecture of the TabDDPM with ``get_summary_architecture()``
 
 print(tabddpm.get_summary_architecture())
-
 
 # %%
 # We also get the summary of the training progress with ``get_summary_training()``
@@ -144,22 +150,20 @@ plt.show()
 # * ``dim_embedding``: dimension of hidden layers in residual blocks (``int = 128``)
 #
 # Let see an example below. We can observe that a large ``num_sampling`` generally improves
-# reconstruction errors (mae, wmape) but increases distribution distance (KL_columnwise,
-# wasserstein_columnwise).
+# reconstruction errors (mae) but increases distribution distance (KL_columnwise).
 
 dict_imputers = {
     "num_sampling=5": ImputerDiffusion(model=TabDDPM(num_sampling=5), epochs=10, batch_size=100),
-    "num_sampling=20": ImputerDiffusion(model=TabDDPM(num_sampling=10), epochs=10, batch_size=100),
+    "num_sampling=10": ImputerDiffusion(model=TabDDPM(num_sampling=10), epochs=10, batch_size=100),
 }
 
 comparison = comparator.Comparator(
     dict_imputers,
     selected_columns=df_data.columns,
-    generator_holes=missing_patterns.UniformHoleGenerator(n_splits=4),
-    metrics=["mae", "wmape", "KL_columnwise", "wasserstein_columnwise"],
-    max_evals=10,
+    generator_holes=missing_patterns.UniformHoleGenerator(n_splits=2),
+    metrics=["mae", "KL_columnwise"],
 )
-results = comparison.compare(df_data.iloc[:5000])
+results = comparison.compare(df_data)
 
 results.groupby(axis=0, level=0).mean().groupby(axis=0, level=0).mean()
 
@@ -174,7 +178,7 @@ results.groupby(axis=0, level=0).mean().groupby(axis=0, level=0).mean()
 # and ``freq_str``.
 # E.g., ``ImputerDiffusion(model=TabDDPM(), index_datetime='datetime', freq_str='1D')``,
 #
-# * ``index_datetime``: the column name of datetime in index.
+# * ``index_datetime``: the column name of datetime in index. It must be a pandas datetime object.
 #
 # * ``freq_str``: the time-series frequency for splitting data into a list of chunks (each chunk
 #   has the same number of rows). These chunks are fetched up in batches.
@@ -196,23 +200,22 @@ results.groupby(axis=0, level=0).mean().groupby(axis=0, level=0).mean()
 
 dict_imputers = {
     "tabddpm": ImputerDiffusion(model=TabDDPM(num_sampling=5), epochs=10, batch_size=100),
-    "TsDDPM": ImputerDiffusion(
-        model=TsDDPM(num_sampling=5, is_rolling=True),
+    "tsddpm": ImputerDiffusion(
+        model=TsDDPM(num_sampling=5, is_rolling=False),
         epochs=10,
-        batch_size=100,
-        index_datetime="datetime",
-        freq_str="10D",
+        batch_size=5,
+        index_datetime="date",
+        freq_str="5D",
     ),
 }
 
 comparison = comparator.Comparator(
     dict_imputers,
     selected_columns=df_data.columns,
-    generator_holes=missing_patterns.UniformHoleGenerator(n_splits=4),
-    metrics=["mae", "wmape", "KL_columnwise", "wasserstein_columnwise"],
-    max_evals=10,
+    generator_holes=missing_patterns.UniformHoleGenerator(n_splits=2),
+    metrics=["mae", "KL_columnwise"],
 )
-results = comparison.compare(df_data.iloc[:5000])
+results = comparison.compare(df_data)
 
 results.groupby(axis=0, level=0).mean().groupby(axis=0, level=0).mean()
 
