@@ -1,9 +1,9 @@
 name: Unit tests on many environments
 on:
-  - push:
-      branches:
-        - dummy_dev
-  - workflow_dispatch
+  push:
+    branches:
+      - dummy_dev
+  workflow_dispatch:
 
 jobs:
   Explore-GitHub-Actions:
