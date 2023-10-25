@@ -1,0 +1,42 @@
+name: Unit test Qolmat
+
+on:
+  push:
+    branches-ignore:
+      - dev
+      - main
+  workflow_dispatch:
+
+jobs:
+  basic-testing:
+    runs-on: ${{matrix.os}}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        python-version: [3.8]
+    defaults:
+      run:
+        shell: bash -l {0}
+
+    steps:
+      - name: Git clone
+        uses: actions/checkout@v3
+      - name: Set up venv for ci
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          python-version: ${{matrix.python-version}}
+          environment-file: environment.dev.yml
+      - name: Lint with flake8
+        run: |
+          conda install flake8
+          flake8
+      - name: Test with pytest
+        run: |
+          conda install pytest
+          make coverage
+      - name: Test docstrings
+        run: make doctest
+      - name: typing with mypy
+        run: |
+          mypy qolmat
+          echo you should uncomment mypy qolmat and delete this line
