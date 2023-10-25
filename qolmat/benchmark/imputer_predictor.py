@@ -865,7 +865,7 @@ def plot_bar_y_1D(
 
         fig.add_trace(
             go.Bar(
-                x=[df_agg_plot_[col].astype(str) for col in cols_x],
+                x=np.squeeze([df_agg_plot_[col].astype(str).values for col in cols_x]),
                 y=df_agg_plot_.loc[:, col_displayed],
                 showlegend=True,
                 name=str(value),
