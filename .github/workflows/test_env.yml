@@ -1,9 +1,6 @@
 name: Unit tests on many environments
-on:
-  push:
-    branches:
-      - dummy_dev
-  workflow_dispatch:
+on: [workflow_dispatch]
+
 
 jobs:
   Test-all-python-versions:
