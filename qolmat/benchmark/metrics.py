@@ -1022,8 +1022,8 @@ def distance_anticorr(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFram
     float
         Distance correlation score
     """
-    df1 = df1[df_mask.any(axis=1)]
-    df2 = df2[df_mask.any(axis=1)]
+    df1 = df1.loc[df_mask.any(axis=1)]
+    df2 = df2.loc[df_mask.any(axis=1)]
     return (1 - dcor.distance_correlation(df1.values, df2.values)) / 2
 
 
@@ -1059,8 +1059,8 @@ def pattern_based_weighted_mean_metric(
     """
     scores = []
     weights = []
-    df1 = df1[df_mask.any(axis=1)]
-    df2 = df2[df_mask.any(axis=1)]
+    df1 = df1.loc[df_mask.any(axis=1)]
+    df2 = df2.loc[df_mask.any(axis=1)]
     df_nan = df1.notna()
     max_num_row = 0
     for tup_pattern, df_nan_pattern in df_nan.groupby(df_nan.columns.tolist()):

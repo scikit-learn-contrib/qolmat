@@ -664,14 +664,19 @@ class VARpEM(EM):
     Examples
     --------
     >>> import numpy as np
-    >>> import pandas as pd
     >>> from qolmat.imputations.em_sampler import VARpEM
-    >>> imputer = VARpEM(method="sample")
-    >>> X = pd.DataFrame(data=[[1, 1, 1, 1],
-    >>>                        [np.nan, np.nan, 3, 2],
-    >>>                        [1, 2, 2, 1], [2, 2, 2, 2]],
-    >>>                        columns=["var1", "var2", "var3", "var4"])
+    >>> imputer = VARpEM(method="sample", random_state=11)
+    >>> X = np.array([[1, 1, 1, 1],
+    ...               [np.nan, np.nan, 3, 2],
+    ...               [1, 2, 2, 1], [2, 2, 2, 2]])
     >>> imputer.fit_transform(X)
+    EM converged after 9 iterations.
+    EM converged after 20 iterations.
+    EM converged after 13 iterations.
+    array([[1.        , 1.        , 1.        , 1.        ],
+           [1.17054054, 1.49986137, 3.        , 2.        ],
+           [1.        , 2.        , 2.        , 1.        ],
+           [2.        , 2.        , 2.        , 2.        ]])
     """
 
     def __init__(

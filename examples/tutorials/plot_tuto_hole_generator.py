@@ -33,49 +33,15 @@ from qolmat.utils import data
 # ---------------------------------------------------------------
 # We use the public Beijing Multi-Site Air-Quality Data Set.
 # It consists in hourly air pollutants data from 12 chinese nationally-controlled
-# air-quality monitoring sites.The original data from which the
-# features were extracted comes from
-# https://archive.ics.uci.edu/static/public/501/beijing+multi+site+air+quality+data.zip
+# air-quality monitoring sites.
 # For the purpose of this notebook,
 # we corrupt the data, with the ``qolmat.utils.data.add_holes`` function.
 # In this way, each column has missing values.
 
-zip_file_url = (
-    "https://archive.ics.uci.edu/static/public/501/beijing+multi+site+air+quality+data.zip"
-)
-zip_filename = "PRSA2017_Data_20130301-20170228.zip"
-
-response = requests.get(zip_file_url)
-if response.status_code == 200:
-    outer_zip_data = BytesIO(response.content)
-else:
-    print("Failed to fetch the zip file. Status code:", response.status_code)
-    exit()
-
-outer_zip = zipfile.ZipFile(outer_zip_data, "r")
-if zip_filename in outer_zip.namelist():
-    inner_zip_data = BytesIO(outer_zip.read(zip_filename))
-    outer_zip.close()
-else:
-    print(f"The inner zip file '{zip_filename}' was not found in the outer zip file.")
-    outer_zip.close()
-    exit()
-
-with zipfile.ZipFile(inner_zip_data, "r") as inner_zip:
-    dfs = []
-    for file_name in inner_zip.namelist():
-        if file_name.endswith(".csv"):
-            with inner_zip.open(file_name) as csv_file:
-                dfs.append(pd.read_csv(csv_file))
-
-df_data = pd.concat(dfs, ignore_index=True)
-
-
+df_data = data.get_data("Beijing")
 # %%
 # The dataset contains 18 columns. For simplicity,
 # we only consider some.
-df_data["date"] = pd.to_datetime(df_data[["year", "month", "day", "hour"]])
-df_data = df_data.set_index(["station", "date"])
 columns = ["TEMP", "PRES", "DEWP", "RAIN", "WSPM"]
 df_data = df_data[columns]
 
@@ -84,7 +50,7 @@ cols_to_impute = df.columns
 
 # %%
 # Let's visualise the mask (i.e. missing values) of this dataset.
-# Missing values are in white, while observed ones ae in black.
+# Missing values are in white, while observed ones are in black.
 
 plt.figure(figsize=(15, 4))
 plt.imshow(df.notna().values.T, aspect="auto", cmap="binary", interpolation="none")
@@ -101,14 +67,15 @@ plt.show()
 # where each dataframe has the same dimension
 # as `df` with missing entries `np.nan`. The missing entries of the mask
 # cannot be missing in the initial dataframe.
-# This is achieved witht the ``split`` function.
+# This is achieved with the ``split`` function, and it works in the same way
+# than ``Kfolds`` of scikit-learn.
 # For each method, we will generate 10 percent missing values, i.e.
 # ``ratio_masked=0.1``, and we will generate missing values
 # for all the columns in the dataframe, i.e. ``subset=df.columns``.
 # Since the exercise here is simply to show how to generate missing data,
 # the ``n_splits`` argument is not important.
 # We therefore set it to 1.
-# Let's just define a funciton to visualise the additional
+# Let's just define a function to visualise the additional
 # missing values.
 
 
@@ -217,7 +184,7 @@ def plot_cdf(
 # a. Uniform Hole Generator
 # ***************************************************************
 # The holes are generated randomly, using the ``resample`` method of scikit learn.
-# Holels are created column by column. This metohd is implemented in the
+# Holes are created column by column. This method is implemented in the
 # :class:`~qolmat.benchmark.missing_patterns.UniformHoleGenerator` class.
 # Note this class is more suited for tabular datasets.
 
@@ -231,7 +198,8 @@ print(round((uniform_mask.sum() / len(uniform_mask)) * 100, 2))
 visualise_missing_values(df, uniform_mask)
 
 # %%
-#  We plot the cumulative distribution functions of the original holes
+# We plot the cumulative distribution functions of
+# the original hole sizes.
 # and the generated holes. Since we are creating randomly
 # and uniformly, the distributions are very different.
 

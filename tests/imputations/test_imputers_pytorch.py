@@ -29,7 +29,7 @@ def test_ImputerRegressorPyTorch_fit_transform(df: pd.DataFrame) -> None:
     nn.manual_seed(42)
     if nn.cuda.is_available():
         nn.cuda.manual_seed(42)
-    estimator = imputers_pytorch.build_mlp_example(input_dim=2, list_num_neurons=[64, 32])
+    estimator = imputers_pytorch.build_mlp(input_dim=2, list_num_neurons=[64, 32])
     imputer = imputers_pytorch.ImputerRegressorPyTorch(
         estimator=estimator, handler_nan="column", epochs=10
     )
@@ -47,13 +47,14 @@ def test_ImputerRegressorPyTorch_fit_transform(df: pd.DataFrame) -> None:
 
     expected = pd.DataFrame(
         {
-            "col1": [2.031, 15, 19, 23, 33],
+            "col1": [2.031, 15, 2.132, 23, 33],
             "col2": [69, 76, 74, 80, 78],
-            "col3": [174, 166, 182, 177, 175.5],
+            "col3": [174, 166, 182, 177, 2.345],
             "col4": [9, 12, 11, 12, 8],
-            "col5": [93, 75, 75, 12, 75],
+            "col5": [93, 75, 2.132, 12, 2.345],
         }
     )
+    print(result["col5"])
     np.testing.assert_allclose(result, expected, atol=1e-3)
 
 

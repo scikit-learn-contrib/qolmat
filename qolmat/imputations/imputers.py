@@ -18,6 +18,7 @@ from statsmodels.tsa import seasonal as tsa_seasonal
 
 from qolmat.imputations import em_sampler
 from qolmat.imputations.rpca import rpca, rpca_noisy, rpca_pcp
+from qolmat.imputations import softimpute
 from qolmat.utils.exceptions import NotDataFrame
 from qolmat.utils.utils import HyperValue
 
@@ -1113,10 +1114,10 @@ class ImputerResiduals(_Imputer):
 
     Examples
     --------
-    TODO review/remake this exemple
     >>> import numpy as np
     >>> import pandas as pd
-    >>> from qolmat.imputations.models import ImputeOnResiduals
+    >>> from qolmat.imputations.imputers import ImputerResiduals
+    >>> np.random.seed(100)
     >>> df = pd.DataFrame(index=pd.date_range('2015-01-01','2020-01-01'))
     >>> mean = 5
     >>> offset = 10
@@ -1126,11 +1127,24 @@ class ImputerResiduals(_Imputer):
     >>> noise_mean = 0
     >>> noise_var = 2
     >>> df['y'] = df['y'] + np.random.normal(noise_mean, noise_var, df.shape[0])
-    >>> np.random.seed(100)
     >>> mask = np.random.choice([True, False], size=df.shape)
     >>> df = df.mask(mask)
-    >>> imputor = ImputeOnResiduals(period=365, model="additive")
+    >>> imputor = ImputerResiduals(period=365, model_tsa="additive")
     >>> imputor.fit_transform(df)
+                        y
+    2015-01-01   1.501210
+    2015-01-02   5.691061
+    2015-01-03   4.404106
+    2015-01-04   3.531540
+    2015-01-05   3.129532
+    ...               ...
+    2019-12-28  10.288054
+    2019-12-29  10.632659
+    2019-12-30  14.900671
+    2019-12-31  12.957837
+    2020-01-01  12.780517
+    <BLANKLINE>
+    [1827 rows x 1 columns]
     """
 
     def __init__(
@@ -1352,10 +1366,10 @@ class ImputerMICE(_Imputer):
     ...                        columns=["var1", "var2", "var3", "var4"])
     >>> imputer.fit_transform(df)
        var1  var2  var3  var4
-    0   1.0   1.0   1.0   1.0
-    1   1.0   2.0   2.0   5.0
-    2   1.0   2.0   2.0   5.0
-    3   2.0   2.0   2.0   2.0
+    0  1.00  1.00  1.00  1.00
+    1  1.51  1.99  1.99  3.55
+    2  1.00  2.00  2.00  5.00
+    3  2.00  2.00  2.00  2.00
     """
 
     def __init__(
@@ -1469,18 +1483,18 @@ class ImputerRegressor(_Imputer):
     >>> import pandas as pd
     >>> from qolmat.imputations import imputers
     >>> from sklearn.ensemble import ExtraTreesRegressor
-    >>> imputer = imputers.ImputerRegressor(model=ExtraTreesRegressor())
+    >>> imputer = imputers.ImputerRegressor(estimator=ExtraTreesRegressor())
     >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
     ...                        [np.nan, np.nan, np.nan, np.nan],
     ...                        [1, 2, 2, 5],
     ...                        [2, 2, 2, 2]],
     ...                        columns=["var1", "var2", "var3", "var4"])
     >>> imputer.fit_transform(df)
-           var1      var2      var3      var4
-    0  1.000000  1.000000  1.000000  1.000000
-    1  1.333333  1.666667  1.666667  2.666667
-    2  1.000000  2.000000  2.000000  5.000000
-    3  2.000000  2.000000  2.000000  2.000000
+       var1  var2  var3  var4
+    0   1.0   1.0   1.0   1.0
+    1   1.0   2.0   2.0   2.0
+    2   1.0   2.0   2.0   5.0
+    3   2.0   2.0   2.0   2.0
     """
 
     def __init__(
@@ -1599,7 +1613,6 @@ class ImputerRegressor(_Imputer):
         # df_imputed = df.apply(pd.DataFrame.median, result_type="broadcast", axis=0)
         df_imputed = df.copy()
         cols_with_nans = df.columns[df.isna().any()]
-
         for col in cols_with_nans:
             model = self._dict_fitting["__all__"][ngroup][col]
             if model is None:
@@ -1612,6 +1625,7 @@ class ImputerRegressor(_Imputer):
             X = X.loc[is_na]
 
             y_hat = self._predict_estimator(model, X)
+            y_hat.index = X.index
             df_imputed.loc[X.index, col] = y_hat
         return df_imputed
 
@@ -1772,6 +1786,120 @@ class ImputerRPCA(_Imputer):
         return df_imputed
 
 
+class ImputerSoftImpute(_Imputer):
+    """_summary_
+
+    Parameters
+    ----------
+    """
+
+    def __init__(
+        self,
+        groups: Tuple[str, ...] = (),
+        columnwise: bool = False,
+        random_state: Union[None, int, np.random.RandomState] = None,
+        period: int = 1,
+        rank: int = 2,
+        tolerance: float = 1e-05,
+        tau: float = 0,
+        max_iterations: int = 100,
+        verbose: bool = False,
+        projected: bool = True,
+    ):
+        super().__init__(
+            imputer_params=(
+                "period",
+                "rank",
+                "tolerance",
+                "tau",
+                "max_iterations",
+                "verbose",
+                "projected",
+            ),
+            groups=groups,
+            columnwise=columnwise,
+            random_state=random_state,
+        )
+        self.period = period
+        self.rank = rank
+        self.tolerance = tolerance
+        self.tau = tau
+        self.max_iterations = max_iterations
+        self.verbose = verbose
+        self.projected = projected
+
+    def _fit_element(
+        self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
+    ) -> softimpute.SoftImpute:
+        """
+        Fits the imputer on `df`, at the group and/or column level depending on
+        self.groups and self.columnwise.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe on which the imputer is fitted
+        col : str, optional
+            Column on which the imputer is fitted, by default "__all__"
+        ngroup : int, optional
+            Id of the group on which the method is applied
+
+        Returns
+        -------
+        Any
+            Return fitted SoftImpute model
+
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
+        """
+        self._check_dataframe(df)
+        assert col == "__all__"
+        hyperparams = self.get_hyperparams()
+        model = softimpute.SoftImpute(random_state=self._rng, **hyperparams)
+        model = model.fit(df.values)
+        return model
+
+    def _transform_element(
+        self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
+    ) -> pd.DataFrame:
+        """
+        Transforms the fataframe `df`, at the group level depending on
+        self.groups
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe or column to impute
+        col : str, optional
+            Column transformed by the imputer, by default "__all__"
+
+        Returns
+        -------
+        pd.DataFrame
+            Imputed dataframe
+
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
+        """
+        self._check_dataframe(df)
+        assert col == "__all__"
+        model = self._dict_fitting["__all__"][ngroup]
+        X_imputed = model.transform(df.values)
+        return pd.DataFrame(X_imputed, index=df.index, columns=df.columns)
+
+    def _more_tags(self):
+        return {
+            "_xfail_checks": {
+                "check_fit2d_1sample": "This test shouldn't be running at all!",
+                "check_fit2d_1feature": "This test shouldn't be running at all!",
+            },
+        }
+
+
 class ImputerEM(_Imputer):
     """
     This class implements an imputation method based on joint modelling and an inference using a
@@ -1874,7 +2002,7 @@ class ImputerEM(_Imputer):
 
     def _fit_element(
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
-    ) -> IterativeImputer:
+    ) -> em_sampler.EM:
         """
         Fits the imputer on `df`, at the group and/or column level depending onself.groups and
         self.columnwise.
@@ -1891,7 +2019,7 @@ class ImputerEM(_Imputer):
         Returns
         -------
         Any
-            Return fitted KNN model
+            Return fitted EM model
 
         Raises
         ------

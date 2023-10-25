@@ -7,8 +7,19 @@ from pytest_mock.plugin import MockerFixture
 
 from qolmat.utils import data
 
+columns = ["station", "date", "year", "month", "day", "hour", "a", "b", "wd"]
+df_beijing_raw = pd.DataFrame(
+    [
+        ["Beijing", datetime.datetime(2013, 3, 1), 2013, 3, 1, 0, 1, 2, "NW"],
+        ["Beijing", datetime.datetime(2013, 3, 1), 2014, 3, 1, 0, 3, np.nan, "NW"],
+        ["Beijing", datetime.datetime(2013, 3, 1), 2015, 3, 1, 0, np.nan, 6, "NW"],
+    ],
+    columns=columns,
+)
+df_beijing = df_beijing_raw.set_index(["station", "date"])
+
 columns = ["No", "year", "month", "day", "hour", "a", "b", "wd"]
-df_beijing = pd.DataFrame(
+df_beijing_online = pd.DataFrame(
     [
         [1, 2013, 3, 1, 0, 1, 2, "NW"],
         [2, 2014, 3, 1, 0, 3, np.nan, "NW"],
@@ -16,18 +27,25 @@ df_beijing = pd.DataFrame(
     ],
     columns=columns,
 )
-
-index_beijing_preprocess = pd.MultiIndex.from_tuples(
+index_preprocess_beijing = pd.MultiIndex.from_tuples(
     [
-        ("Gucheng", datetime.datetime(2013, 3, 1)),
-        ("Gucheng", datetime.datetime(2014, 3, 1)),
-        ("Gucheng", datetime.datetime(2015, 3, 1)),
+        ("Beijing", datetime.datetime(2013, 3, 1)),
+        ("Beijing", datetime.datetime(2014, 3, 1)),
+        ("Beijing", datetime.datetime(2015, 3, 1)),
     ],
     names=["station", "datetime"],
 )
+df_preprocess_beijing = pd.DataFrame(
+    [[1, 2], [3, np.nan], [np.nan, 6]], columns=["a", "b"], index=index_preprocess_beijing
+)
 
-df_beijing_preprocess = pd.DataFrame(
-    [[1, 2], [3, np.nan], [np.nan, 6]], columns=["a", "b"], index=index_beijing_preprocess
+columns = ["mean_atomic_mass", "wtd_mean_atomic_mass"]
+df_conductor = pd.DataFrame(
+    [
+        [1, 2],
+        [3, 4],
+    ],
+    columns=columns,
 )
 
 df_monach_weather = pd.DataFrame(
@@ -86,6 +104,18 @@ df_monach_elec_preprocess = pd.DataFrame(
     index=pd.date_range(start="2002-01-01", periods=3, freq="30T"),
 )
 
+index_preprocess_offline = pd.MultiIndex.from_tuples(
+    [
+        ("Gucheng", datetime.datetime(2013, 3, 1)),
+        ("Gucheng", datetime.datetime(2014, 3, 1)),
+        ("Gucheng", datetime.datetime(2015, 3, 1)),
+    ],
+    names=["station", "datetime"],
+)
+df_preprocess_offline = pd.DataFrame(
+    [[1, 2], [3, np.nan], [np.nan, 6]], columns=["a", "b"], index=index_preprocess_offline
+)
+
 
 urllink = "https://archive.ics.uci.edu/ml/machine-learning-databases/00501/"
 zipname = "PRSA2017_Data_20130301-20170228"
@@ -95,13 +125,16 @@ zipname = "PRSA2017_Data_20130301-20170228"
 # def test_utils_data_download_data(zipname: str, urllink: str, mocker: MockerFixture) -> None:
 #     mocker.patch("urllib.request.urlretrieve")
 #     mocker.patch("zipfile.ZipFile")
-#     list_df_result = data.download_data(zipname, urllink)
+#     list_df_result = data.download_data_from_zip(zipname, urllink)
 
 
 @pytest.mark.parametrize(
     "name_data, df",
     [
-        ("Beijing", df_beijing),
+        ("Beijing", df_beijing_raw),
+        ("Superconductor", df_conductor),
+        ("Beijing_online", df_beijing_online),
+        ("Superconductor_online", df_conductor),
         ("Monach_weather", df_monach_weather),
         ("Monach_electricity_australia", df_monach_elec),
         ("Artificial", None),
@@ -109,25 +142,44 @@ zipname = "PRSA2017_Data_20130301-20170228"
     ],
 )
 def test_utils_data_get_data(name_data: str, df: pd.DataFrame, mocker: MockerFixture) -> None:
-    mock_download = mocker.patch("qolmat.utils.data.download_data", return_value=[df])
-    mocker.patch("qolmat.utils.data.preprocess_data_beijing", return_value=df_beijing_preprocess)
-    mock_get = mocker.patch("qolmat.utils.data.get_dataframes_in_folder", return_value=[df])
+    mock_download = mocker.patch("qolmat.utils.data.download_data_from_zip", return_value=[df])
+    mock_read = mocker.patch("qolmat.utils.data.read_csv_local", return_value=df)
+    mock_read_dl = mocker.patch("pandas.read_csv", return_value=df)
+    mocker.patch("qolmat.utils.data.preprocess_data_beijing", return_value=df_preprocess_beijing)
+
     try:
         df_result = data.get_data(name_data=name_data)
     except ValueError:
         assert name_data not in [
             "Beijing",
+            "Superconductor",
+            "Artificial",
+            "SNCF",
+            "Beijing_online",
+            "Superconductor_online",
+            "Monach_weather",
             "Monach_weather",
             "Monach_electricity_australia",
-            "Artificial",
         ]
         np.testing.assert_raises(ValueError, data.get_data, name_data)
         return
 
     if name_data == "Beijing":
         assert mock_download.call_count == 0
-        assert mock_get.call_count == 1
-        pd.testing.assert_frame_equal(df_result, df_beijing_preprocess)
+        assert mock_read.call_count == 1
+        pd.testing.assert_frame_equal(df_result, df.set_index(["station", "date"]))
+    elif name_data == "Superconductor":
+        assert mock_download.call_count == 0
+        assert mock_read.call_count == 1
+        pd.testing.assert_frame_equal(df_result, df)
+    elif name_data == "Beijing_online":
+        assert mock_download.call_count == 1
+        assert mock_read.call_count == 0
+        pd.testing.assert_frame_equal(df_result, df_preprocess_beijing)
+    elif name_data == "Superconductor_online":
+        assert mock_read_dl.call_count == 1
+        assert mock_read.call_count == 0
+        pd.testing.assert_frame_equal(df_result, df)
     elif name_data == "Artificial":
         expected_columns = ["signal", "X", "A", "E"]
         assert isinstance(df_result, pd.DataFrame)
@@ -144,7 +196,7 @@ def test_utils_data_get_data(name_data: str, df: pd.DataFrame, mocker: MockerFix
         assert False
 
 
-@pytest.mark.parametrize("df", [df_beijing_preprocess])
+@pytest.mark.parametrize("df", [df_preprocess_offline])
 def test_utils_data_add_holes(df: pd.DataFrame) -> None:
     df_out = data.add_holes(df, 0.0, 1)
     assert df_out.isna().sum().sum() == 2
@@ -152,19 +204,29 @@ def test_utils_data_add_holes(df: pd.DataFrame) -> None:
     assert df_out.isna().sum().sum() > 2
 
 
-@pytest.mark.parametrize("name_data", ["Beijing"])
-def test_utils_data_get_data_corrupted(name_data: str, mocker: MockerFixture) -> None:
-    mocker.patch("qolmat.utils.data.get_data", return_value=df_beijing_preprocess)
-    df_out = data.get_data_corrupted()
-    df_result = pd.DataFrame(
-        [[1, 2], [np.nan, np.nan], [np.nan, 6]], columns=["a", "b"], index=index_beijing_preprocess
-    )
-    pd.testing.assert_frame_equal(df_result, df_out)
+@pytest.mark.parametrize(
+    "name_data, df",
+    [
+        ("Beijing", df_beijing),
+    ],
+)
+def test_utils_data_get_data_corrupted(
+    name_data: str, df: pd.DataFrame, mocker: MockerFixture
+) -> None:
+    mock_get = mocker.patch("qolmat.utils.data.get_data", return_value=df)
+    df_out = data.get_data_corrupted(name_data)
+    print(df_out)
+    print(df)
+    assert mock_get.call_count == 1
+    assert df_out.shape == df.shape
+    pd.testing.assert_index_equal(df_out.index, df.index)
+    pd.testing.assert_index_equal(df_out.columns, df.columns)
+    assert df_out.isna().sum().sum() > df.isna().sum().sum()
 
 
-@pytest.mark.parametrize("df", [df_beijing_preprocess])
+@pytest.mark.parametrize("df", [df_preprocess_beijing])
 def test_utils_data_add_station_features(df: pd.DataFrame) -> None:
-    columns_out = ["a", "b"] + ["station=Gucheng"]
+    columns_out = ["a", "b"] + ["station=Beijing"]
     expected = pd.DataFrame(
         [
             [1, 2, 1.0],
@@ -172,13 +234,13 @@ def test_utils_data_add_station_features(df: pd.DataFrame) -> None:
             [np.nan, 6, 1.0],
         ],
         columns=columns_out,
-        index=index_beijing_preprocess,
+        index=index_preprocess_beijing,
     )
     result = data.add_station_features(df)
     pd.testing.assert_frame_equal(result, expected, atol=1e-3)
 
 
-@pytest.mark.parametrize("df", [df_beijing_preprocess])
+@pytest.mark.parametrize("df", [df_preprocess_beijing])
 def test_utils_data_add_datetime_features(df: pd.DataFrame) -> None:
     columns_out = ["a", "b"] + ["time_cos"]
     expected = pd.DataFrame(
@@ -188,7 +250,7 @@ def test_utils_data_add_datetime_features(df: pd.DataFrame) -> None:
             [np.nan, 6, 0.512],
         ],
         columns=columns_out,
-        index=index_beijing_preprocess,
+        index=index_preprocess_beijing,
     )
     result = data.add_datetime_features(df)
     pd.testing.assert_frame_equal(result, expected, atol=1e-3)
