@@ -102,5 +102,5 @@ Diffusion engine
     :template: class.rst
     
     imputations.imputers_pytorch.ImputerDiffusion
-    imputations.diffusions.diffusions.TabDDPM
-    imputations.diffusions.diffusions.TabDDPMTS
+    imputations.diffusions.ddpms.TabDDPM
+    imputations.diffusions.ddpms.TsDDPM
