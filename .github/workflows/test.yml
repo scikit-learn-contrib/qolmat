@@ -1,4 +1,4 @@
-name: Unit test Qolmat
+name: Unit test on many environments
 
 on:
   push:
@@ -6,6 +6,7 @@ on:
       -dev
       -main
   pull_request:
+    types: [opened, synchronized, reopened, ready_for_review]
   workflow_dispatch:
 
 jobs:
