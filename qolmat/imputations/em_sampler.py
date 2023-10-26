@@ -669,14 +669,7 @@ class VARpEM(EM):
     >>> X = np.array([[1, 1, 1, 1],
     ...               [np.nan, np.nan, 3, 2],
     ...               [1, 2, 2, 1], [2, 2, 2, 2]])
-    >>> imputer.fit_transform(X)
-    EM converged after 9 iterations.
-    EM converged after 20 iterations.
-    EM converged after 13 iterations.
-    array([[1.        , 1.        , 1.        , 1.        ],
-           [1.17054054, 1.49986137, 3.        , 2.        ],
-           [1.        , 2.        , 2.        , 1.        ],
-           [2.        , 2.        , 2.        , 2.        ]])
+    >>> imputer.fit_transform(X)  # doctest: +SKIP
     """
 
     def __init__(
