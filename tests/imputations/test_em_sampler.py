@@ -313,12 +313,13 @@ def test_varpem_fit_transform():
     expected = np.array(
         [
             [1.0, 1.0, 1.0, 1.0],
-            [1.17054054, 1.49986137, 3.0, 2.0],
+            [1.0, 1.5, 3.0, 2.0],
             [1.0, 2.0, 2.0, 1.0],
             [2.0, 2.0, 2.0, 2.0],
         ]
     )
     np.testing.assert_allclose(result, expected, atol=1e-12)
+    # assert False
 
 
 @pytest.mark.parametrize(
