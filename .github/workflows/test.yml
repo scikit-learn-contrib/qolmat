@@ -6,7 +6,7 @@ on:
       -dev
       -main
   pull_request:
-    types: [opened, synchronized, reopened, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 jobs:
