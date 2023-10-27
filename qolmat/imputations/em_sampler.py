@@ -296,7 +296,8 @@ class EM(BaseEstimator, TransformerMixin):
             # Stop criteria
             self.update_criteria_stop(X)
             if self._check_convergence():
-                print(f"EM converged after {iter_em} iterations.")
+                if self.verbose:
+                    print(f"EM converged after {iter_em} iterations.")
                 break
 
         self.dict_criteria_stop = {key: [] for key in self.dict_criteria_stop}
