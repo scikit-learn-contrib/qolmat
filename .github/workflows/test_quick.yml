@@ -1,22 +1,19 @@
-name: Unit test on many environments
+name: Unit test Qolmat
 
 on:
   push:
-    branches:
-      -dev
-      -main
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    branches-ignore:
+      - dev
+      - main
   workflow_dispatch:
 
 jobs:
-  build-linux:
-    if: github.event.pull_request.draft == false
+  basic-testing:
     runs-on: ${{matrix.os}}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
-        python-version: ['3.8', '3.9', '3.10', '3.11']
+        os: [ubuntu-latest]
+        python-version: [3.8]
     defaults:
       run:
         shell: bash -l {0}
@@ -36,12 +33,11 @@ jobs:
       - name: Test with pytest
         run: |
           conda install pytest
+          pip install -e .[pytorch]
           make coverage
+      - name: Test docstrings
+        run: make doctest
       - name: typing with mypy
         run: |
           mypy qolmat
           echo you should uncomment mypy qolmat and delete this line
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v3
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
