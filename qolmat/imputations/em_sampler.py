@@ -276,8 +276,6 @@ class EM(BaseEstimator, TransformerMixin):
             X_copy[~mask_na] = X_init[~mask_na]
             if estimate_params:
                 self.update_parameters(X_copy)
-        if np.sum(np.abs(X_copy)) > 1e9:
-            raise AssertionError
 
         return X_copy
 
