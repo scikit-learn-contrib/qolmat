@@ -306,6 +306,22 @@ def test_parameters_after_imputation_varpem(p: int):
     np.testing.assert_allclose(em.S, S, rtol=1e-1, atol=1e-1)
 
 
+def test_varpem_fit_transform():
+    imputer = em_sampler.VARpEM(method="sample", random_state=11)
+    X = np.array([[1, 1, 1, 1], [np.nan, np.nan, 3, 2], [1, 2, 2, 1], [2, 2, 2, 2]])
+    result = imputer.fit_transform(X)
+    expected = np.array(
+        [
+            [1.0, 1.0, 1.0, 1.0],
+            [1.0, 1.5, 3.0, 2.0],
+            [1.0, 2.0, 2.0, 1.0],
+            [2.0, 2.0, 2.0, 2.0],
+        ]
+    )
+    np.testing.assert_allclose(result, expected, atol=1e-12)
+    # assert False
+
+
 @pytest.mark.parametrize(
     "X, em, p",
     [(X_first_guess, em_sampler.MultiNormalEM(), 0), (X_first_guess, em_sampler.VARpEM(p=2), 2)],

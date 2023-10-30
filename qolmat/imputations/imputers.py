@@ -1114,10 +1114,10 @@ class ImputerResiduals(_Imputer):
 
     Examples
     --------
-    TODO review/remake this exemple
     >>> import numpy as np
     >>> import pandas as pd
-    >>> from qolmat.imputations.models import ImputeOnResiduals
+    >>> from qolmat.imputations.imputers import ImputerResiduals
+    >>> np.random.seed(100)
     >>> df = pd.DataFrame(index=pd.date_range('2015-01-01','2020-01-01'))
     >>> mean = 5
     >>> offset = 10
@@ -1127,11 +1127,24 @@ class ImputerResiduals(_Imputer):
     >>> noise_mean = 0
     >>> noise_var = 2
     >>> df['y'] = df['y'] + np.random.normal(noise_mean, noise_var, df.shape[0])
-    >>> np.random.seed(100)
     >>> mask = np.random.choice([True, False], size=df.shape)
     >>> df = df.mask(mask)
-    >>> imputor = ImputeOnResiduals(period=365, model="additive")
+    >>> imputor = ImputerResiduals(period=365, model_tsa="additive")
     >>> imputor.fit_transform(df)
+                        y
+    2015-01-01   1.501210
+    2015-01-02   5.691061
+    2015-01-03   4.404106
+    2015-01-04   3.531540
+    2015-01-05   3.129532
+    ...               ...
+    2019-12-28  10.288054
+    2019-12-29  10.632659
+    2019-12-30  14.900671
+    2019-12-31  12.957837
+    2020-01-01  12.780517
+    <BLANKLINE>
+    [1827 rows x 1 columns]
     """
 
     def __init__(
@@ -1353,10 +1366,10 @@ class ImputerMICE(_Imputer):
     ...                        columns=["var1", "var2", "var3", "var4"])
     >>> imputer.fit_transform(df)
        var1  var2  var3  var4
-    0   1.0   1.0   1.0   1.0
-    1   1.0   2.0   2.0   5.0
-    2   1.0   2.0   2.0   5.0
-    3   2.0   2.0   2.0   2.0
+    0  1.00  1.00  1.00  1.00
+    1  1.51  1.99  1.99  3.55
+    2  1.00  2.00  2.00  5.00
+    3  2.00  2.00  2.00  2.00
     """
 
     def __init__(
@@ -1470,18 +1483,18 @@ class ImputerRegressor(_Imputer):
     >>> import pandas as pd
     >>> from qolmat.imputations import imputers
     >>> from sklearn.ensemble import ExtraTreesRegressor
-    >>> imputer = imputers.ImputerRegressor(model=ExtraTreesRegressor())
+    >>> imputer = imputers.ImputerRegressor(estimator=ExtraTreesRegressor())
     >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
     ...                        [np.nan, np.nan, np.nan, np.nan],
     ...                        [1, 2, 2, 5],
     ...                        [2, 2, 2, 2]],
     ...                        columns=["var1", "var2", "var3", "var4"])
     >>> imputer.fit_transform(df)
-           var1      var2      var3      var4
-    0  1.000000  1.000000  1.000000  1.000000
-    1  1.333333  1.666667  1.666667  2.666667
-    2  1.000000  2.000000  2.000000  5.000000
-    3  2.000000  2.000000  2.000000  2.000000
+       var1  var2  var3  var4
+    0   1.0   1.0   1.0   1.0
+    1   1.0   2.0   2.0   2.0
+    2   1.0   2.0   2.0   5.0
+    3   2.0   2.0   2.0   2.0
     """
 
     def __init__(
