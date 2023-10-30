@@ -12,3 +12,4 @@ dependencies:
     - pip
     - pip:
       - sphinx-markdown-tables==0.0.17
+      - torch
