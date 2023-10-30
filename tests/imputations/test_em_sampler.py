@@ -1,5 +1,4 @@
-from typing import List
-
+from typing import List, Literal
 import numpy as np
 import pytest
 from numpy.typing import NDArray
@@ -279,6 +278,31 @@ def test_mean_covariance_multinormalem():
     np.testing.assert_allclose(covariance_imputed, covariance, rtol=1e-1, atol=1e-1)
 
 
+def test_multinormal_em_minimize_llik():
+    X, X_missing, mean, covariance = generate_multinormal_predefined_mean_cov(d=2, n=1000)
+    imputer = em_sampler.MultiNormalEM(method="mle", random_state=11)
+    X_imputed = imputer.fit_transform(X_missing)
+    llikelihood_imputed = imputer.get_loglikelihood(X_imputed)
+    for _ in range(10):
+        Delta = imputer.rng.uniform(0, 1, size=X.shape)
+        X_perturbated = X_imputed + Delta
+        llikelihood_perturbated = imputer.get_loglikelihood(X_perturbated)
+        assert llikelihood_perturbated < llikelihood_imputed
+    X_perturbated = X
+    X_perturbated[np.isnan(X)] = 0
+    llikelihood_perturbated = imputer.get_loglikelihood(X_perturbated)
+    assert llikelihood_perturbated < llikelihood_imputed
+
+
+@pytest.mark.parametrize("method", ["sample", "mle"])
+def test_multinormal_em_fit_transform(method: Literal["mle", "sample"]):
+    imputer = em_sampler.MultiNormalEM(method=method, random_state=11)
+    X = np.array([[1, 1, 1, 1], [np.nan, np.nan, 3, 2], [1, 2, 2, 1], [2, 2, 2, 2]])
+    result = imputer.fit_transform(X)
+    assert result.shape == X.shape
+    np.testing.assert_allclose(result[~np.isnan(X)], X[~np.isnan(X)])
+
+
 @pytest.mark.parametrize(
     "p",
     [1],
@@ -319,7 +343,6 @@ def test_varpem_fit_transform():
         ]
     )
     np.testing.assert_allclose(result, expected, atol=1e-12)
-    # assert False
 
 
 @pytest.mark.parametrize(
