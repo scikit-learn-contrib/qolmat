@@ -159,10 +159,9 @@ class _Imputer(_BaseImputer):
         else:
             self.ngroups_ = pd.Series(0, index=df.index).rename("_ngroup")
 
-        cols_with_nans = df.columns[df.isna().any()]
         self._setup_fit()
         if self.columnwise:
-            for col in cols_with_nans:
+            for col in df.columns:
                 self._fit_allgroups(df[[col]], col=col)
         else:
             self._fit_allgroups(df)
