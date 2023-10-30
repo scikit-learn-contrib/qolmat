@@ -1,5 +1,4 @@
 from typing import List, Literal
-
 import numpy as np
 import pytest
 from numpy.typing import NDArray
