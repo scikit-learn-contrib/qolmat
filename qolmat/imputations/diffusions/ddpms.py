@@ -69,6 +69,8 @@ class TabDDPM:
             Dropout probability, by default 0.0
         num_sampling : int, optional
             Number of samples generated for each cell, by default 1
+        random_state : int, optional
+            The seed of the pseudo random number generator to use, for reproductibility.
         """
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
@@ -540,6 +542,7 @@ class TsDDPM(TabDDPM):
         p_dropout: float = 0.0,
         num_sampling: int = 1,
         is_rolling: bool = False,
+        random_state: Union[None, int] = None,
     ):
         """Diffusion model for time-series data based on the works of
         Ho et al., 2020 (https://arxiv.org/abs/2006.11239),
@@ -578,6 +581,8 @@ class TsDDPM(TabDDPM):
             Number of samples generated for each cell, by default 1
         is_rolling : bool, optional
             Use pandas.DataFrame.rolling for preprocessing data, by default False
+        random_state : int, optional
+            The seed of the pseudo random number generator to use, for reproductibility.
         """
         super().__init__(
             num_noise_steps,
@@ -589,6 +594,7 @@ class TsDDPM(TabDDPM):
             num_blocks,
             p_dropout,
             num_sampling,
+            random_state=random_state,
         )
 
         self.dim_feedforward = dim_feedforward
