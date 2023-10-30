@@ -268,26 +268,16 @@ class EM(BaseEstimator, TransformerMixin):
             self.reset_learned_parameters()
         X_init = X.copy()
         gamma = self.get_gamma()
-        print("gamma:")
-        print(gamma)
         sqrt_gamma = np.real(spl.sqrtm(gamma))
         for i in range(self.n_iter_ou):
-            print(f"Iteration #{i}")
             noise = self.ampli * self.rng.normal(0, 1, size=(n_variables, n_samples))
             grad_X = self.gradient_X_loglik(X_copy)
-            print("grad")
-            print(self.dt * grad_X @ gamma)
-            print("noise")
-            print(np.sqrt(2 * self.dt) * noise @ sqrt_gamma)
             X_copy += self.dt * grad_X @ gamma + np.sqrt(2 * self.dt) * noise @ sqrt_gamma
             X_copy[~mask_na] = X_init[~mask_na]
             if estimate_params:
                 self.update_parameters(X_copy)
-        print("X_copy")
-        print(X_copy)
         if np.sum(np.abs(X_copy)) > 1e9:
             raise AssertionError
-        print()
 
         return X_copy
 
@@ -501,8 +491,6 @@ class MultiNormalEM(EM):
         NDArray
             Gamma matrix
         """
-        print("get_gamma")
-        print(self.cov)
         # gamma = np.diag(np.diagonal(self.cov))
         gamma = self.cov
         # gamma = np.eye(len(self.cov))

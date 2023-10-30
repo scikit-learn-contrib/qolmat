@@ -186,11 +186,9 @@ def test_utils_data_get_data(name_data: str, df: pd.DataFrame, mocker: MockerFix
         assert df_result.columns.tolist() == expected_columns
     elif name_data == "Monach_weather":
         assert mock_download.call_count == 1
-        print(df_result)
         pd.testing.assert_frame_equal(df_result, df_monach_weather_preprocess)
     elif name_data == "Monach_electricity_australia":
         assert mock_download.call_count == 1
-        print(df_result)
         pd.testing.assert_frame_equal(df_result, df_monach_elec_preprocess)
     else:
         assert False
