@@ -268,14 +268,26 @@ class EM(BaseEstimator, TransformerMixin):
             self.reset_learned_parameters()
         X_init = X.copy()
         gamma = self.get_gamma()
+        print("gamma:")
+        print(gamma)
         sqrt_gamma = np.real(spl.sqrtm(gamma))
-        for _ in range(self.n_iter_ou):
+        for i in range(self.n_iter_ou):
+            print(f"Iteration #{i}")
             noise = self.ampli * self.rng.normal(0, 1, size=(n_variables, n_samples))
             grad_X = self.gradient_X_loglik(X_copy)
+            print("grad")
+            print(self.dt * grad_X @ gamma)
+            print("noise")
+            print(np.sqrt(2 * self.dt) * noise @ sqrt_gamma)
             X_copy += self.dt * grad_X @ gamma + np.sqrt(2 * self.dt) * noise @ sqrt_gamma
             X_copy[~mask_na] = X_init[~mask_na]
             if estimate_params:
                 self.update_parameters(X_copy)
+        print("X_copy")
+        print(X_copy)
+        if np.sum(np.abs(X_copy)) > 1e9:
+            raise AssertionError
+        print()
 
         return X_copy
 
@@ -489,8 +501,10 @@ class MultiNormalEM(EM):
         NDArray
             Gamma matrix
         """
-        gamma = np.diag(np.diagonal(self.cov))
-        # gamma = self.cov
+        print("get_gamma")
+        print(self.cov)
+        # gamma = np.diag(np.diagonal(self.cov))
+        gamma = self.cov
         # gamma = np.eye(len(self.cov))
         return gamma
 
@@ -571,9 +585,9 @@ class MultiNormalEM(EM):
         NDArray
             DataFrame with imputed values.
         """
-        X_center = X - self.means[:, None]
+        X_center = X - self.means
         X_imputed = _conjugate_gradient(self.cov_inv, X_center, mask_na)
-        X_imputed = self.means[:, None] + X_imputed
+        X_imputed = self.means + X_imputed
         return X_imputed
 
     def _check_convergence(self) -> bool:

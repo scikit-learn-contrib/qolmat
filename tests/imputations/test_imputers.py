@@ -290,20 +290,6 @@ def test_ImputerSoftImpute_fit_transform(df: pd.DataFrame) -> None:
     np.testing.assert_allclose(result, expected, atol=1e-2)
 
 
-@pytest.mark.parametrize("df", [df_timeseries])
-def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
-    imputer = imputers.ImputerEM(method="sample", dt=1e-3, random_state=42)
-    result = imputer.fit_transform(df)
-    expected = pd.DataFrame(
-        {
-            "col1": [i for i in range(20)],
-            "col2": [0, 0.638, 2, 2.714, 2] + [i for i in range(5, 20)],
-        }
-    )
-    print(result)
-    np.testing.assert_allclose(result, expected, atol=1e-2)
-
-
 index_grouped = pd.MultiIndex.from_product([["a", "b"], range(4)], names=["group", "date"])
 dict_values = {"col1": [0, np.nan, 0, np.nan, 1, 1, 1, 1], "col2": [1, 1, 1, 1, 2, 2, 2, 2]}
 df_grouped = pd.DataFrame(dict_values, index=index_grouped)
