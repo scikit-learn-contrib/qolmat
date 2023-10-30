@@ -7,7 +7,6 @@ In this tutorial, we show how to use :class:`~qolmat.imputations.diffusions.ddpm
 and :class:`~qolmat.imputations.diffusions.ddpms.TsDDPM` classes.
 """
 
-# %%
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
