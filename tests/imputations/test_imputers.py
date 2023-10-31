@@ -37,7 +37,7 @@ df_groups = pd.DataFrame(
 def test_hyperparameters_get_hyperparameters() -> None:
     imputer = imputers.ImputerKNN(n_neighbors=3)
     hyperparams = imputer.get_hyperparams("col")
-    assert False
+
     assert hyperparams == {"n_neighbors": 3, "weights": "distance"}
 
 
