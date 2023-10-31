@@ -7,6 +7,9 @@ on:
       - main
   workflow_dispatch:
 
+env:
+  CACHE_NUMBER: 0  # increase to reset cache manually
+
 jobs:
   basic-testing:
     runs-on: ${{matrix.os}}
@@ -21,11 +24,28 @@ jobs:
     steps:
       - name: Git clone
         uses: actions/checkout@v3
-      - name: Set up venv for ci
+
+      - name: Setup Mambaforge
         uses: conda-incubator/setup-miniconda@v2
         with:
-          python-version: ${{matrix.python-version}}
-          environment-file: environment.ci.yml
+            miniforge-variant: Mambaforge
+            miniforge-version: latest
+            activate-environment: env_qolmat_ci
+            use-mamba: true
+
+      - name: Set cache date
+        run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
+
+      - uses: actions/cache@v2
+        with:
+          path: ${{ matrix.prefix }}
+          key: ${{ matrix.label }}-conda-${{ hashFiles('environment.ci.yml') }}-${{ env.DATE }}-${{ env.CACHE_NUMBER }}
+        id: cache
+
+      - name: Update environment
+        run: mamba env update -n env_qolmat_ci -f environment.ci.yml
+        if: steps.cache.outputs.cache-hit != 'true'
+
       - name: Lint with flake8
         run: |
           conda install flake8
