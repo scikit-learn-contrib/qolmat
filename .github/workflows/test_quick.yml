@@ -56,12 +56,9 @@ jobs:
 
       - name: Lint with flake8
         run: |
-          conda install flake8
           flake8
       - name: Test with pytest
         run: |
-          conda install pytest
-          pip install -e .[pytorch]
           make coverage
       - name: Test docstrings
         run: make doctest
