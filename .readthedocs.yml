@@ -9,6 +9,8 @@ python:
   install:
     - method: pip
       path: .
+      extra_requirements:
+        - pytorch
 
 conda:
   environment: environment.doc.yml
