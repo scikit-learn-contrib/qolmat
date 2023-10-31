@@ -1,4 +1,4 @@
-name: Unit test Qolmat
+name: Unit tests fast
 
 on:
   push:

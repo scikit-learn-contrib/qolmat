@@ -1,4 +1,4 @@
-name: Unit test on many environments
+name: Unit tests
 
 on:
   push:
