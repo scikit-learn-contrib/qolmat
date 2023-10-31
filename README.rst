@@ -47,7 +47,7 @@ Qolmat can be installed in different ways:
 .. code:: sh
 
     $ pip install qolmat  # installation via `pip`
-    $ pip install qolmat[pytorch] # if you need pytorch
+    $ pip install qolmat[pytorch] # if you need ImputerDiffusion relying on pytorch
     $ pip install git+https://github.com/Quantmetry/qolmat  # or directly from the github repository
 
 ⚡️ Quickstart
@@ -105,8 +105,8 @@ The full documentation can be found `on this link <https://qolmat.readthedocs.io
 
 **How does Qolmat work ?**
 
-Qolmat allows model selection for scikit-learn compatible imputation algorithms, by performing three steps pictured below:
-1) For each of the K folds, Qolmat artificially masks a set of observed values using a default or user specified `hole generator <explanation.html#hole-generator>`_,
+| Qolmat allows model selection for scikit-learn compatible imputation algorithms, by performing three steps pictured below:
+1) For each of the K folds, Qolmat artificially masks a set of observed values using a default or user specified `hole generator <explanation.html#hole-generator>`_.
 2) For each fold and each compared `imputation method <imputers.html>`_, Qolmat fills both the missing and the masked values, then computes each of the default or user specified `performance metrics <explanation.html#metrics>`_.
 3) For each compared imputer, Qolmat pools the computed metrics from the K folds into a single value.
 
@@ -117,7 +117,7 @@ This is very similar in spirit to the `cross_val_score <https://scikit-learn.org
 
 **Imputation methods**
 
-The following table contains the available imputation methods. We distinguish single imputation methods (aiming for pointwise accuracy, mostly deterministic) from multiple imputation methods (aiming for distribution similarity, mostly stochastic).
+The following table contains the available imputation methods. We distinguish single imputation methods (aiming for pointwise accuracy, mostly deterministic) from multiple imputation methods (aiming for distribution similarity, mostly stochastic). For further details regarding the distinction between single and multiple imputation, you can refer to the `Imputation article <https://en.wikipedia.org/wiki/Imputation_(statistics)>`_ on Wikipedia.
 
 .. list-table::
    :widths: 25 70 15 15
