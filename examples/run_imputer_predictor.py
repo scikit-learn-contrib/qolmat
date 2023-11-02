@@ -22,7 +22,7 @@ parser = argparse.ArgumentParser(description="Tabular data benchmark")
 parser.add_argument("--data", type=str, help="Name of data")
 parser.add_argument("--path", type=str, help="Path to store benchmarks", default="data/imp_pred")
 parser.add_argument("--batch_size", type=int, help="Batch size", default=1000)
-parser.add_argument("--n_folds", type=int, help="#folds", default=10)
+parser.add_argument("--n_folds", type=int, help="#folds", default=5)
 parser.add_argument("--n_masks", type=int, help="#masks", default=5)
 
 args = parser.parse_args()
@@ -44,18 +44,18 @@ benchmark = BenchmarkImputationPrediction(
 # Hole generators
 hole_generators = [
     None,
-    missing_patterns.MCAR(ratio_masked=0.05),
     missing_patterns.MCAR(ratio_masked=0.1),
-    missing_patterns.MCAR(ratio_masked=0.2),
+    missing_patterns.MCAR(ratio_masked=0.3),
     missing_patterns.MCAR(ratio_masked=0.5),
-    missing_patterns.MAR(ratio_masked=0.05),
-    missing_patterns.MAR(ratio_masked=0.1),
-    missing_patterns.MAR(ratio_masked=0.2),
-    missing_patterns.MAR(ratio_masked=0.5),
-    missing_patterns.MNAR(ratio_masked=0.05),
-    missing_patterns.MNAR(ratio_masked=0.1),
-    missing_patterns.MNAR(ratio_masked=0.2),
-    missing_patterns.MNAR(ratio_masked=0.5),
+    missing_patterns.MCAR(ratio_masked=0.7),
+    # missing_patterns.MAR(ratio_masked=0.1),
+    # missing_patterns.MAR(ratio_masked=0.3),
+    # missing_patterns.MAR(ratio_masked=0.5),
+    # missing_patterns.MAR(ratio_masked=0.7),
+    # missing_patterns.MNAR(ratio_masked=0.1),
+    # missing_patterns.MNAR(ratio_masked=0.3),
+    # missing_patterns.MNAR(ratio_masked=0.5),
+    # missing_patterns.MNAR(ratio_masked=0.7),
 ]
 
 # Imputation pipelines
@@ -76,17 +76,19 @@ transformer_imputation_x = ColumnTransformer(transformers=transformers)
 
 imputation_pipelines = [
     None,
-    {"imputer": imputers.ImputerMean()},
     {"imputer": imputers.ImputerMedian()},
-    {"imputer": imputers.ImputerMode()},
     {"imputer": imputers.ImputerShuffle()},
-    {"imputer": imputers.ImputerMICE(estimator=Ridge(), max_iter=100)},
+    {
+        "imputer": imputers.ImputerMICE(
+            estimator=XGBRegressor(tree_method="hist", n_jobs=1), max_iter=100
+        )
+    },
     {"imputer": imputers.ImputerKNN()},
     {"imputer": imputers.ImputerRPCA(max_iterations=100)},
-    {"imputer": imputers.ImputerEM(max_iter_em=100)},
+    # {"imputer": imputers.ImputerEM(max_iter_em=100, method='mle')},
     {
         "imputer": imputers_pytorch.ImputerDiffusion(
-            model=ddpms.TabDDPM(num_sampling=100), batch_size=args.batch_size, epochs=100
+            model=ddpms.TabDDPM(num_sampling=50), batch_size=args.batch_size, epochs=100
         )
     },
 ]
@@ -134,7 +136,7 @@ if column_target in columns_numerical:
         {
             "transformer_x": transformer_prediction_x,
             "transformer_y": transformer_prediction_y,
-            "predictor": XGBRegressor(),
+            "predictor": XGBRegressor(tree_method="hist", n_jobs=1),
             "handle_nan": True,
         },
     ]
@@ -163,7 +165,7 @@ if column_target in columns_categorical:
         {
             "transformer_x": transformer_prediction_x,
             "transformer_y": transformer_prediction_y,
-            "predictor": XGBClassifier(),
+            "predictor": XGBClassifier(tree_method="hist", n_jobs=1),
             "handle_nan": True,
             "add_nan_indicator": True,
         },

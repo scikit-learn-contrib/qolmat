@@ -839,6 +839,7 @@ def plot_bar_y_1D(
     add_annotation=True,
     add_confidence_interval=False,
     confidence_level=0.95,
+    title="",
 ):
     df_agg_plot = df_agg.reset_index()
     col_legend = cols_grouped[-1]
@@ -877,7 +878,12 @@ def plot_bar_y_1D(
     if add_annotation:
         fig.update_traces(texttemplate="%{text:.2}", textposition="outside")
     fig.update_layout(barmode="group")
-    fig.update_layout(title=f'{metric_name} as a function of {"+".join(cols_grouped)}')
+    title_ = f'{metric_name} as a function of {"+".join(cols_grouped)}'
+    if title != "":
+        title_ = f"{title}, {title_}"
+    fig.update_layout(title=title_)
+    fig.update_xaxes(title="+".join(cols_grouped[:-1]))
+    fig.update_layout(legend_title_text=str(cols_grouped[-1]))
 
     return fig
 
@@ -892,6 +898,7 @@ def plot_bar_y_nD(
     add_annotation=True,
     add_confidence_interval=False,
     confidence_level=0.95,
+    title="",
 ):
     col_legend_idx = []
     for i in range(len(cols_displayed) - 1):
@@ -946,17 +953,19 @@ def plot_bar_y_nD(
     for s in cols_displayed[1:]:
         col_y_inter.intersection_update(s[:2])
     if len(col_y_inter) != 0:
-        title = f'{" and ".join(metric_names)} as a function of {"+".join(cols_grouped)}'
-        title += f'for {"+".join(list(col_y_inter))}'
-        fig.update_layout(title=title)
+        title_ = f'{" and ".join(metric_names)} as a function of {"+".join(cols_grouped)}'
+        title_ += f'for {"+".join(list(col_y_inter))}'
     else:
-        fig.update_layout(
-            title=f'{" and ".join(metric_names)} as a function of {"+".join(cols_grouped)}'
-        )
+        title_ = f'{" and ".join(metric_names)} as a function of {"+".join(cols_grouped)}'
+    if title != "":
+        title_ = f"{title}, {title_}"
+    fig.update_layout(title=title_)
     type_names = "_".join(set([col[0] for col in cols_displayed]))
     if "prediction_score" in type_names:
         fig.update_yaxes(title_text="prediction_score", secondary_y=False)
     fig.update_yaxes(title_text="imputation_score", secondary_y=True)
+    fig.update_xaxes(title="+".join(cols_grouped))
+    fig.update_layout(legend_title_text="Options")
 
     return fig
 
@@ -969,6 +978,7 @@ def plot_bar(
     add_annotation=True,
     add_confidence_interval=False,
     confidence_level=0.95,
+    title="",
 ):
     df_agg = get_benchmark_aggregate(df, cols_groupby=cols_grouped, keep_values=True)
 
@@ -980,6 +990,7 @@ def plot_bar(
             add_annotation,
             add_confidence_interval,
             confidence_level,
+            title=title,
         )
     else:
         fig = plot_bar_y_nD(
@@ -989,6 +1000,8 @@ def plot_bar(
             add_annotation,
             add_confidence_interval,
             confidence_level,
+            title=title,
         )
     fig.update_yaxes(type="log")
+
     return fig
