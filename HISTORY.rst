@@ -6,6 +6,7 @@ History
 -------------------
 
 * Hotfix reference to tensorflow in the documentation, when it should be pytorch
+* Metrics KL forest has been removed from package
 
 0.1.0 (2023-10-11)
 -------------------
