@@ -2,11 +2,13 @@
 History
 =======
 
-0.1.1 (2023-??-??)
+0.1.1 (2023-11-03)
 -------------------
 
 * Hotfix reference to tensorflow in the documentation, when it should be pytorch
 * Metrics KL forest has been removed from package
+* EM imputer made more robust to colinearity, and transform bug patched
+* CICD made faster with mamba and a quick test setting
 
 0.1.0 (2023-10-11)
 -------------------
