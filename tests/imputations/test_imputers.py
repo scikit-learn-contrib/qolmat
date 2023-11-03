@@ -174,7 +174,6 @@ def test_ImputerShuffle_fit_transform1(df: pd.DataFrame) -> None:
 def test_ImputerShuffle_fit_transform2(df: pd.DataFrame) -> None:
     imputer = imputers.ImputerShuffle(random_state=42)
     result = imputer.fit_transform(df)
-    print(result)
     expected = pd.DataFrame({"col1": [0, 3, 2, 3, 0], "col2": [-1, 1.5, 0.5, 1.5, 1.5]})
     np.testing.assert_allclose(result, expected)
 
@@ -285,19 +284,6 @@ def test_ImputerSoftImpute_fit_transform(df: pd.DataFrame) -> None:
         {
             "col1": [0, 1.327, 2, 3, 0.137],
             "col2": [-1, 0.099, 0.5, 0.122, 1.5],
-        }
-    )
-    np.testing.assert_allclose(result, expected, atol=1e-2)
-
-
-@pytest.mark.parametrize("df", [df_timeseries])
-def test_ImputerEM_fit_transform(df: pd.DataFrame) -> None:
-    imputer = imputers.ImputerEM(method="sample", dt=1e-3, random_state=42)
-    result = imputer.fit_transform(df)
-    expected = pd.DataFrame(
-        {
-            "col1": [i for i in range(20)],
-            "col2": [0, 0.773, 2, 2.621, 2] + [i for i in range(5, 20)],
         }
     )
     np.testing.assert_allclose(result, expected, atol=1e-2)

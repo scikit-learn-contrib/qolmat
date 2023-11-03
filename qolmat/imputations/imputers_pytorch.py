@@ -9,7 +9,6 @@ from sklearn.base import BaseEstimator
 
 from qolmat.imputations.imputers import _Imputer, ImputerRegressor
 from qolmat.utils.exceptions import EstimatorNotDefined, PyTorchExtraNotInstalled
-from qolmat.imputations.diffusions.ddpms import TabDDPM, TsDDPM
 from qolmat.benchmark import metrics
 
 try:
@@ -471,12 +470,10 @@ def build_autoencoder(
 
     Examples
     --------
-    >>> encoder, decoder = build_autoencoder(
-                                                        input_dim=10,
-                                                        latent_dim=4,
-                                                        list_num_neurons=[32, 64, 128],
-                                                        output_dim=252
-                                                    )
+    >>> encoder, decoder = build_autoencoder(input_dim=10,
+    ...                                      latent_dim=4,
+    ...                                      list_num_neurons=[32, 64, 128],
+    ...                                      output_dim=252)
     >>> print(encoder)
     Sequential(
       (0): Linear(in_features=10, out_features=128, bias=True)

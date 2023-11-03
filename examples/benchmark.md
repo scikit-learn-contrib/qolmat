@@ -298,7 +298,7 @@ plt.show()
 ## (Optional) Deep Learning Model
 
 
-In this section, we present an MLP model of data imputation using Keras, which can be installed using a "pip install tensorflow".
+In this section, we present an MLP model of data imputation using Keras, which can be installed using a "pip install pytorch".
 
 ```python
 from qolmat.imputations import imputers_pytorch

@@ -32,7 +32,7 @@ You can create a virtual environment via `conda`:
     $ conda env create -f environment.dev.yml
     $ conda activate env_qolmat_dev
 
-If you need to use tensorflow, enter the command:
+If you need to use pytorch, enter the command:
 
 .. code:: sh
 

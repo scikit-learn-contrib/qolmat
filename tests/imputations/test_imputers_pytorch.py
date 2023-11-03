@@ -54,7 +54,6 @@ def test_ImputerRegressorPyTorch_fit_transform(df: pd.DataFrame) -> None:
             "col5": [93, 75, 2.132, 12, 2.345],
         }
     )
-    print(result["col5"])
     np.testing.assert_allclose(result, expected, atol=1e-3)
 
 
