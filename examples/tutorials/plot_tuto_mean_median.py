@@ -1,6 +1,6 @@
 """
 ========================================================================================
-Tutorial for comparison between mean and median imputations with uniform hole generation
+Comparison of basic imputers
 ========================================================================================
 
 In this tutorial, we show how to use the Qolmat comparator
@@ -31,11 +31,10 @@ from qolmat.utils import data, plot
 # the 82nd column contains the critical temperature which is used as the
 # target variable.
 # The data does not contain missing values; so for the purpose of this notebook,
-# we corrupt the data, with the ``qolmat.utils.data.add_holes`` function.
+# we corrupt the data, with the :func:`qolmat.utils.data.add_holes` function.
 # In this way, each column has missing values.
 
-df_data = data.get_data("Superconductor")
-df = data.add_holes(df_data, ratio_masked=0.2, mean_size=120)
+df = data.add_holes(data.get_data("Superconductor"), ratio_masked=0.2, mean_size=120)
 
 # %%
 # The dataset contains 82 columns. For simplicity,
@@ -76,10 +75,6 @@ imputer_mean = imputers.ImputerMean()
 imputer_median = imputers.ImputerMedian()
 dict_imputers = {"mean": imputer_mean, "median": imputer_median}
 
-generator_holes = missing_patterns.UniformHoleGenerator(
-    n_splits=2, subset=cols_to_impute, ratio_masked=0.1
-)
-
 metrics = ["mae", "wmape", "KL_columnwise"]
 
 # %%
@@ -88,9 +83,7 @@ metrics = ["mae", "wmape", "KL_columnwise"]
 # (those previously mentioned),
 # a list with the columns names to impute,
 # a generator of holes specifying the type of holes to create.
-# Just a few words about hole generation.
 # in this example, we have chosen the uniform hole generator.
-# You can see what this looks like.
 # For example, by imposing that 10% of missing data be created
 # ``ratio_masked=0.1`` and creating missing values in columns
 # ``subset=cols_to_impute``:

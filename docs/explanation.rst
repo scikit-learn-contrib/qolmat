@@ -99,7 +99,7 @@ We compute the associated complete dataset :math:`\hat{X}^{(k)}` for the partial
 -----------------
 
 Evaluating the imputers requires to generate holes that are representative of the holes at hand.
-The missingness mechanisms have been classified by Rubin [1] into MCAR, MAR and MNAR.
+The missingness mechanisms have been classified by :ref:`Rubin [1]<rubin-article>` into MCAR, MAR and MNAR.
 
 Suppose we have :math:`X_{obs}`, a subset of a complete data model :math:`X = (X_{obs}, X_{mis})`, which is not fully observable (:math:`X_{mis}` is the missing part).
 We define the matrix :math:`M` such that :math:`M_{ij}=1` if :math:`X_{ij}` is missing, and 0 otherwise, and we assume distribution of :math:`M` is parametrised by :math:`\psi`.
@@ -108,14 +108,14 @@ The observations are said to be Missing Completely at Random (MCAR) if the proba
 Formally,
 
 .. math::
-    P(M | X_{obs}, X_{mis}, \psi) = P(M, \psi), \quad \forall \psi.
+    P(M | X_{obs}, X_{mis}, \psi) = P(M | \psi), \quad \forall \psi.
 
 The observations are said to be Missing at Random (MAR) if the probability of an observation to be missing only depends on the observations. Formally,
 
 .. math::
     P(M | X_{obs}, X_{mis}, \psi) = P(M | X_{obs}, \psi), \quad \forall \psi, X_{mis}.
 
-Finally, the observations are said to be Missing Not at Random (MNAR) in all other cases, i.e. if P(M | X_{obs}, X_{mis}, \psi) does not simplify.
+Finally, the observations are said to be Missing Not at Random (MNAR) in all other cases, i.e. if :math:`P(M | X_{obs}, X_{mis}, \psi)` does not simplify.
 
 Qolmat allows to generate new missing values on a an existing dataset, but only in the MCAR case.
 
@@ -140,4 +140,7 @@ Qolmat can be used to search for hyperparameters in imputation functions. Let sa
 
 References
 ----------
+
+.. _rubin-article:
+
 [1] Rubin, Donald B. `Inference and missing data. <https://www.math.wsu.edu/faculty/xchen/stat115/lectureNotes3/Rubin%20Inference%20and%20Missing%20Data.pdf>`_ Biometrika 63.3 (1976): 581-592.

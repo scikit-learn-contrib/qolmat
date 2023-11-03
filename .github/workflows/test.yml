@@ -1,4 +1,4 @@
-name: Unit test Qolmat
+name: Unit tests
 
 on:
   push:
@@ -6,15 +6,17 @@ on:
       -dev
       -main
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 jobs:
   build-linux:
+    if: github.event.pull_request.draft == false
     runs-on: ${{matrix.os}}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        python-version: [3.8, 3.9]
+        python-version: ['3.8', '3.9', '3.10', '3.11']
     defaults:
       run:
         shell: bash -l {0}
@@ -27,16 +29,12 @@ jobs:
         with:
           python-version: ${{matrix.python-version}}
           environment-file: environment.ci.yml
-          channels: default, conda-forge
       - name: Lint with flake8
         run: |
-          conda install flake8
           flake8
       - name: Test with pytest
         run: |
-          conda install pytest
-          pytest
-          echo you should uncomment pytest and delete this line
+          make coverage
       - name: typing with mypy
         run: |
           mypy qolmat
