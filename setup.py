@@ -17,6 +17,7 @@ MAINTAINER_EMAIL = (
     "akngoho@quantmetry.com, "
     "chprat@quantmetry.com, "
     "gsaes@quantmetry.com"
+    "mabidi.quantmetry.com"
 )
 URL = "https://github.com/Quantmetry/qolmat"
 DOWNLOAD_URL = "https://pypi.org/project/qolmat/#files"
