@@ -23,7 +23,7 @@
 .. |Commits| image:: https://img.shields.io/github/commits-since/Quantmetry/qolmat/latest/main
 .. _Commits: https://github.com/Quantmetry/qolmat/commits/main
 
-.. |Codecov| image:: https://codecov.io/gh/quantmetry/qolmat/branch/master/graph/badge.svg
+.. |Codecov| image:: https://codecov.io/gh/quantmetry/qolmat/branch/main/graph/badge.svg
 .. _Codecov: https://codecov.io/gh/quantmetry/qolmat
 
 .. image:: https://raw.githubusercontent.com/Quantmetry/qolmat/main/docs/images/logo.png
@@ -105,7 +105,8 @@ The full documentation can be found `on this link <https://qolmat.readthedocs.io
 
 **How does Qolmat work ?**
 
-| Qolmat allows model selection for scikit-learn compatible imputation algorithms, by performing three steps pictured below:
+Qolmat allows model selection for scikit-learn compatible imputation algorithms, by performing three steps pictured below:
+
 1) For each of the K folds, Qolmat artificially masks a set of observed values using a default or user specified `hole generator <explanation.html#hole-generator>`_.
 2) For each fold and each compared `imputation method <imputers.html>`_, Qolmat fills both the missing and the masked values, then computes each of the default or user specified `performance metrics <explanation.html#metrics>`_.
 3) For each compared imputer, Qolmat pools the computed metrics from the K folds into a single value.
