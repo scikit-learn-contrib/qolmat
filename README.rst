@@ -23,7 +23,7 @@
 .. |Commits| image:: https://img.shields.io/github/commits-since/Quantmetry/qolmat/latest/main
 .. _Commits: https://github.com/Quantmetry/qolmat/commits/main
 
-.. |Codecov| image:: https://codecov.io/gh/quantmetry/qolmat/branch/master/graph/badge.svg
+.. |Codecov| image:: https://codecov.io/gh/quantmetry/qolmat/branch/main/graph/badge.svg
 .. _Codecov: https://codecov.io/gh/quantmetry/qolmat
 
 .. image:: https://raw.githubusercontent.com/Quantmetry/qolmat/main/docs/images/logo.png
