@@ -5,8 +5,8 @@ from typing import Dict, List, Optional, Tuple, TypeVar, Union
 
 import numpy as np
 import scipy as scp
-from scipy import linalg as lscp
-from scipy.sparse import dok_matrix
+from scipy.sparse import dok_matrix, identity
+from scipy.sparse.linalg import spsolve
 from numpy.typing import NDArray
 from sklearn import utils as sku
 
@@ -308,7 +308,7 @@ class RPCANoisy(RPCA):
             HtH += list_etas[i_period] * (list_H[i_period].T @ list_H[i_period])
 
         Ir = np.eye(rank)
-        In = np.eye(n_rows)
+        In = identity(n_rows)
 
         for _ in range(max_iterations):
             # print("Cost function", cost_function(D, X, A, Omega, tau, lam))
@@ -322,14 +322,14 @@ class RPCANoisy(RPCA):
                 for i_period, _ in enumerate(list_periods):
                     sums += mu * R[i_period] - list_H[i_period] @ Y
 
-                X = scp.linalg.solve(
-                    a=(1 + mu) * In + HtH,
-                    b=D - A + mu * L @ Q - Y + sums,
+                X = spsolve(
+                    (1 + mu) * In + HtH,
+                    D - A + mu * L @ Q - Y + sums,
                 )
             else:
-                X = scp.linalg.solve(
-                    a=(1 + mu) * In + 2 * HtH,
-                    b=D - A + mu * L @ Q - Y,
+                X = spsolve(
+                    (1 + mu) * In + 2 * HtH,
+                    D - A + mu * L @ Q - Y,
                 )
 
             A_Omega = rpca_utils.soft_thresholding(D - X, lam)
