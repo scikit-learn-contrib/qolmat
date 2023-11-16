@@ -159,10 +159,9 @@ class _Imputer(_BaseImputer):
         else:
             self.ngroups_ = pd.Series(0, index=df.index).rename("_ngroup")
 
-        cols_with_nans = df.columns[df.isna().any()]
         self._setup_fit()
         if self.columnwise:
-            for col in cols_with_nans:
+            for col in df.columns:
                 self._fit_allgroups(df[[col]], col=col)
         else:
             self._fit_allgroups(df)
@@ -1114,10 +1113,10 @@ class ImputerResiduals(_Imputer):
 
     Examples
     --------
-    TODO review/remake this exemple
     >>> import numpy as np
     >>> import pandas as pd
     >>> from qolmat.imputations.imputers import ImputerResiduals
+    >>> np.random.seed(100)
     >>> df = pd.DataFrame(index=pd.date_range('2015-01-01','2020-01-01'))
     >>> mean = 5
     >>> offset = 10
@@ -1127,11 +1126,24 @@ class ImputerResiduals(_Imputer):
     >>> noise_mean = 0
     >>> noise_var = 2
     >>> df['y'] = df['y'] + np.random.normal(noise_mean, noise_var, df.shape[0])
-    >>> np.random.seed(100)
     >>> mask = np.random.choice([True, False], size=df.shape)
     >>> df = df.mask(mask)
-    >>> imputor.fit_transform(df)  # doctest: +SKIP
     >>> imputor = ImputerResiduals(period=365, model_tsa="additive")
+    >>> imputor.fit_transform(df)
+                        y
+    2015-01-01   1.501210
+    2015-01-02   5.691061
+    2015-01-03   4.404106
+    2015-01-04   3.531540
+    2015-01-05   3.129532
+    ...               ...
+    2019-12-28  10.288054
+    2019-12-29  10.632659
+    2019-12-30  14.900671
+    2019-12-31  12.957837
+    2020-01-01  12.780517
+    <BLANKLINE>
+    [1827 rows x 1 columns]
     """
 
     def __init__(

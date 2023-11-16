@@ -9,7 +9,6 @@ from sklearn.base import BaseEstimator
 
 from qolmat.imputations.imputers import _Imputer, ImputerRegressor
 from qolmat.utils.exceptions import EstimatorNotDefined, PyTorchExtraNotInstalled
-from qolmat.imputations.diffusions.ddpms import TabDDPM, TsDDPM
 from qolmat.benchmark import metrics
 
 try:

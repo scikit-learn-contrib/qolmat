@@ -1,0 +1,68 @@
+name: Unit tests fast
+
+on:
+  push:
+    branches-ignore:
+      - dev
+      - main
+  workflow_dispatch:
+
+jobs:
+  basic-testing:
+    runs-on: ${{matrix.os}}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        python-version: [3.8]
+    defaults:
+      run:
+        shell: bash -l {0}
+
+    steps:
+      - name: Git clone
+        uses: actions/checkout@v3
+
+      # See caching environments
+      # https://github.com/conda-incubator/setup-miniconda#caching-environments
+      - name: Setup Mambaforge
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+            miniforge-variant: Mambaforge
+            miniforge-version: latest
+            activate-environment: env_qolmat_ci
+            use-mamba: true
+
+      - name: Get Date
+        id: get-date
+        run: echo "today=$(/bin/date -u '+%Y%m%d')" >> $GITHUB_OUTPUT
+
+      - name: Cache Conda env
+        uses: actions/cache@v2
+        with:
+          path: ${{ env.CONDA }}/envs
+          key:
+            conda-${{ runner.os }}--${{ runner.arch }}--${{
+            steps.get-date.outputs.today }}-${{
+            hashFiles('environment.ci.yml') }}-${{ env.CACHE_NUMBER
+            }}
+        env:
+          # Increase this value to reset cache if environment.ci.yml has not changed
+          CACHE_NUMBER: 0
+        id: cache
+
+      - name: Update environment
+        run: mamba env update -n env_qolmat_ci -f environment.ci.yml
+        if: steps.cache.outputs.cache-hit != 'true'
+
+      - name: Lint with flake8
+        run: |
+          flake8
+      - name: Test with pytest
+        run: |
+          make coverage
+      - name: Test docstrings
+        run: make doctest
+      - name: typing with mypy
+        run: |
+          mypy qolmat
+          echo you should uncomment mypy qolmat and delete this line

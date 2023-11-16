@@ -3,7 +3,7 @@ import codecs
 from setuptools import find_packages, setup
 
 DISTNAME = "qolmat"
-VERSION = "0.0.15"
+VERSION = "0.1.1"
 DESCRIPTION = "A Python library for optimal data imputation."
 LONG_DESCRIPTION_CONTENT_TYPE = "text/x-rst"
 with codecs.open("README.rst", encoding="utf-8-sig") as f:
@@ -16,7 +16,8 @@ MAINTAINER_EMAIL = (
     "jroussel@quantmetry.com, "
     "akngoho@quantmetry.com, "
     "chprat@quantmetry.com, "
-    "gsaes@quantmetry.com"
+    "gsaes@quantmetry.com, "
+    "mabidi.quantmetry.com"
 )
 URL = "https://github.com/Quantmetry/qolmat"
 DOWNLOAD_URL = "https://pypi.org/project/qolmat/#files"
