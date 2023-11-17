@@ -6,6 +6,7 @@ dependencies:
     - codecov
     - flake8
     - matplotlib
+    - plotly
     - mypy
     - numpy
     - numpydoc
