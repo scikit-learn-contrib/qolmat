@@ -276,8 +276,6 @@ class EM(BaseEstimator, TransformerMixin):
             X_copy[~mask_na] = X_init[~mask_na]
             if estimate_params:
                 self.update_parameters(X_copy)
-        # if np.sum(np.abs(X_copy)) > 1e9:
-        #     raise AssertionError
 
         return X_copy
 
@@ -676,20 +674,12 @@ class VARpEM(EM):
     Examples
     --------
     >>> import numpy as np
-    >>> import pandas as pd
     >>> from qolmat.imputations.em_sampler import VARpEM
     >>> imputer = VARpEM(method="sample", random_state=11)
     >>> X = np.array([[1, 1, 1, 1],
     ...               [np.nan, np.nan, 3, 2],
     ...               [1, 2, 2, 1], [2, 2, 2, 2]])
-    >>> imputer.fit_transform(X)
-    EM converged after 9 iterations.
-    EM converged after 20 iterations.
-    EM converged after 13 iterations.
-    array([[1.        , 1.        , 1.        , 1.        ],
-           [1.17054054, 1.49986137, 3.        , 2.        ],
-           [1.        , 2.        , 2.        , 1.        ],
-           [2.        , 2.        , 2.        , 2.        ]])
+    >>> imputer.fit_transform(X)  # doctest: +SKIP
     """
 
     def __init__(

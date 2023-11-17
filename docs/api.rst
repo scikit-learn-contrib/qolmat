@@ -93,3 +93,24 @@ EM engine
 
     imputations.em_sampler.MultiNormalEM
     imputations.em_sampler.VARpEM
+
+Diffusion engine
+================
+
+.. autosummary::
+    :toctree: generated/
+    :template: class.rst
+    
+    imputations.imputers_pytorch.ImputerDiffusion
+    imputations.diffusions.ddpms.TabDDPM
+    imputations.diffusions.ddpms.TsDDPM
+
+
+Utils
+================
+
+.. autosummary::
+    :toctree: generated/
+    :template: function.rst
+    
+    utils.data.add_holes

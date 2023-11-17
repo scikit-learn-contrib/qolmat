@@ -1,19 +1,18 @@
 name: env_qolmat_ci
 channels:
-    - conda-forge
     - defaults
+    - conda-forge
 dependencies:
-    - pip=23.0.1
+    - codecov
+    - flake8
+    - matplotlib
+    - mypy
+    - numpy
+    - numpydoc
+    - pytest
+    - pytest-cov
+    - pytest-mock
+    - pip
     - pip:
-          - codecov
-          - flake8
-          - matplotlib
-          - mypy
-          - numpy
-          - numpydoc
-          - pytest
-          - pytest-cov
-          - pytest-mock
-          - torch==2.0.1
-          - plotly
-          - -e .
+        - torch
+        - -e .

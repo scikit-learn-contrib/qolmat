@@ -98,14 +98,14 @@ Two parametric distributions are implemented:
 9. TabDDPM
 -----------
 
-:class:`qolmat.diffusions.TabDDPM` is a deep learning imputer based on Denoising Diffusion Probabilistic Models (DDPMs) [7] for handling multivariate tabular data. Our implementation mainly follows the works of [8, 9]. Diffusion models focus on modeling the process of data transitions from noisy and incomplete observations to the underlying true data. They include two main processes:
+:class:`~qolmat.imputations.diffusions.ddpms.TabDDPM` is a deep learning imputer based on Denoising Diffusion Probabilistic Models (DDPMs) [7] for handling multivariate tabular data. Our implementation mainly follows the works of [8, 9]. Diffusion models focus on modeling the process of data transitions from noisy and incomplete observations to the underlying true data. They include two main processes:
 
 * Forward process perturbs observed data to noise until all the original data structures are lost. The pertubation is done over a series of steps. Let :math:`X_{obs}` be observed data, :math:`T` be the number of steps that noises :math:`\epsilon \sim \mathcal{N}(0,I)` are added into the observed data. Therefore, :math:`X_{obs}^t = \bar{\alpha}_t \times X_{obs} + \sqrt{1-\bar{\alpha}_t} \times \epsilon` where :math:`\bar{\alpha}_t` controls the right amount of noise.
 * Reverse process removes noise and reconstructs the observed data. At each step :math:`t`, we train an autoencoder :math:`\epsilon_\theta` based on ResNet [9] to predict the added noise :math:`\epsilon_t` based on the rest of the observed data. The objective function is the error between the noise added in the forward process and the noise predicted by :math:`\epsilon_\theta`.
 
 In training phase, we use the self-supervised learning method of [8] to train incomplete data. In detail, our model randomly masks a part of observed data and computes loss from these masked data. Moving on to the inference phase, (1) missing data are replaced by Gaussian noises :math:`\epsilon \sim \mathcal{N}(0,I)`, (2) at each noise step from :math:`T` to 0, our model denoises these missing data based on :math:`\epsilon_\theta`.
 
-In the case of time-series data, we also propose :class:`qolmat.diffusions.TabDDPMTS` (built on top of :class:`qolmat.diffusions.TabDDPM`) to capture time-based relationships between data points in a dataset. In fact, the dataset is pre-processed by using sliding window method to obtain a set of data partitions. The noise prediction of the model :math:`\epsilon_\theta` takes into account not only the observed data at the current time step but also data from previous time steps. These time-based relationships are encoded by using a transformer-based architecture [8].
+In the case of time-series data, we also propose :class:`~qolmat.imputations.diffusions.ddpms.TsDDPM` (built on top of :class:`~qolmat.imputations.diffusions.ddpms.TabDDPM`) to capture time-based relationships between data points in a dataset. In fact, the dataset is pre-processed by using sliding window method to obtain a set of data partitions. The noise prediction of the model :math:`\epsilon_\theta` takes into account not only the observed data at the current time step but also data from previous time steps. These time-based relationships are encoded by using a transformer-based architecture [8].
 
 References
 ----------
