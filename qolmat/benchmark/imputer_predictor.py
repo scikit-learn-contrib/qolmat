@@ -18,6 +18,8 @@ from qolmat.benchmark.missing_patterns import _HoleGenerator
 from qolmat.benchmark import metrics as _imputation_metrics
 from qolmat.imputations.imputers import _Imputer
 
+from sklearn import linear_model
+
 
 class BenchmarkImputationPrediction:
     def __init__(
@@ -979,8 +981,12 @@ def plot_bar(
     add_confidence_interval=False,
     confidence_level=0.95,
     title="",
+    agg_func=pd.DataFrame.mean,
+    yaxes_type="-",
 ):
-    df_agg = get_benchmark_aggregate(df, cols_groupby=cols_grouped, keep_values=True)
+    df_agg = get_benchmark_aggregate(
+        df, cols_groupby=cols_grouped, agg_func=agg_func, keep_values=True
+    )
 
     if cols_displayed is None:
         fig = plot_bar_y_1D(
@@ -1002,6 +1008,63 @@ def plot_bar(
             confidence_level,
             title=title,
         )
-    fig.update_yaxes(type="log")
+    fig.update_yaxes(type=yaxes_type)
+    fig.update_layout(hovermode="x")
+
+    return fig
+
+
+def plot_scatter(
+    df,
+    cond={},
+    col_x="imputation_score_mae_test_set",
+    col_y="prediction_score_nan_mae",
+    col_legend="ratio_masked",
+    add_trend_line=True,
+    model=linear_model.LinearRegression(),
+):
+
+    col_legend = "ratio_masked"
+
+    df_plot = df.copy()
+    for k, v in cond.items():
+        df_plot = df_plot[df_plot[k] == v]
+
+    df_plot = df_plot.dropna()
+
+    fig = go.Figure()
+    for value in df_plot[col_legend].unique():
+        df_plot_ = df_plot[df_plot[col_legend] == value]
+        fig.add_trace(
+            go.Scatter(
+                x=df_plot_[col_x],
+                y=df_plot_[col_y],
+                name=str(value),
+                mode="markers",
+            )
+        )
+
+    if add_trend_line:
+        model.fit(df_plot[[col_x]], df_plot[col_y])
+        df_plot[f"{col_y}_predict"] = model.predict(df_plot[[col_x]])
+        fig.add_trace(
+            go.Scatter(
+                x=df_plot[col_x],
+                y=df_plot[f"{col_y}_predict"],
+                name="trend",
+                mode="lines",
+                marker=dict(color="black"),
+            )
+        )
+
+    fig.update_layout(legend_title=col_legend)
+    fig.update_xaxes(title=col_x)
+    fig.update_yaxes(title=col_y)
+    title = f"{col_y} as a function of {col_x}"
+    if len(cond) != 0:
+        title += "<br>for "
+        for k, v in cond.items():
+            title += f"{k}={v}, "
+    fig.update_layout(title=title[:-2])
 
     return fig
