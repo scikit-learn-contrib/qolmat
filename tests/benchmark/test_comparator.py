@@ -3,6 +3,7 @@ import pandas as pd
 from qolmat.benchmark import missing_patterns
 from qolmat.benchmark.comparator import Comparator, get_errors
 from qolmat.imputations import imputers
+import hyperopt as ho
 
 
 def test_get_errors():
@@ -16,16 +17,14 @@ def test_get_errors():
 
 
 def test_comparator_ealuate_errors_sample():
-    df = pd.DataFrame({"col1": [np.nan, 2, 3], "col2": [0, -1, np.nan]})
-    imputer_mean = imputers.ImputerMean()
-    imputer_median = imputers.ImputerMedian()
-    dict_models = {"mean": imputer_mean, "meadian": imputer_median}
+    df = pd.DataFrame({"col1": [0, 1, 3], "col2": [0, -1, 2]})
+    dict_imputers = {"Median": imputers.ImputerMedian()}
     selected_columns = ["col1", "col2"]
-    generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2, random_state=42)
+    generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=2)
 
-    compar = Comparator(dict_models, selected_columns, generator_holes)
-    result = compar.evaluate_errors_sample(imputer_mean, df)
-    print(result)
+    compar = Comparator(dict_imputers, selected_columns, generator_holes, metrics=["mae"])
+    result = compar.evaluate_errors_sample(dict_imputers["Median"], df)
+    assert result.notna().all()
 
 
 # import numpy as np

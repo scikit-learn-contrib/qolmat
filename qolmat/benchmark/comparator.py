@@ -13,19 +13,23 @@ def get_errors(
     df_mask: pd.DataFrame,
     list_metrics: List,
 ) -> pd.Series:
-    """Functions evaluating the reconstruction's quality
+    """Compute errors of imputation
 
     Parameters
     ----------
-    signal_ref : pd.DataFrame
-        reference/orginal signal
-    signal_imputed : pd.DataFrame
-        imputed signal
+    df_origin : pd.DataFrame
+        Origin DataFrame with np.nan
+    df_imputed : pd.DataFrame
+        Imputed DataFrame without np.nan
+    df_mask : pd.DataFrame
+        DataFrame of mask to compute the errors
+    list_metrics : List
+        List of metrics
 
     Returns
     -------
-    errors
-        pandas Series of results obtained via different metrics
+    pd.Series
+        Differents values of errors
     """
     dict_errors = {}
     for name_metric in list_metrics:
@@ -86,7 +90,7 @@ class Comparator:
 
         Parameters
         ----------
-        tested_model : any
+        imputer : Any
             imputation model
         df : pd.DataFrame
             dataframe to impute
@@ -116,13 +120,13 @@ class Comparator:
             )
             df_imputed = imputer_opti.fit_transform(df_corrupted)
             subset = self.generator_holes.subset
+            print(df)
             errors = get_errors(
                 df_origin[subset], df_imputed[subset], df_mask[subset], self.metrics
             )
             list_errors.append(errors)
         df_errors = pd.DataFrame(list_errors)
         errors_mean = df_errors.mean(axis=0)
-
         return errors_mean
 
     def compare(
