@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 import pandas as pd
 
 from prophet import Prophet
@@ -14,6 +14,34 @@ import cmdstanpy
 import logging
 
 logging.getLogger("cmdstanpy").disabled = True
+
+
+def features_engineering(df_train: pd.DataFrame, df_test: pd.DataFrame):
+    df_concat = pd.concat([df_train, df_test])
+    for col in df_train.columns:
+        rolling_means = (
+            df_concat[col]
+            .groupby(df_concat.index.dayofyear)
+            .rolling(3, min_periods=1)
+            .mean()
+            .shift(1)
+        )
+        rolling_means = rolling_means.reset_index(level=0, drop=True)
+        df_test[col + "_mean"] = rolling_means.loc[df_test.index]
+    return df_train, df_test
+
+
+def holes_mcar_features_engineering(
+    df_train: pd.DataFrame, df_test: pd.DataFrame, ratio_masked: float, mean_size: int
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    df_train_mcar = df_train.copy()
+    df_train_mcar["TEMP"] = data.add_holes(
+        pd.DataFrame(df_train["TEMP"]), ratio_masked=ratio_masked, mean_size=mean_size
+    )
+    df_train_mcar["TEMP_mask"] = 1 - df_train_mcar[["TEMP"]].isna().astype(int)
+
+    df_train_mcar, df_test = features_engineering(df_train=df_train_mcar, df_test=df_test)
+    return df_train_mcar, df_test
 
 
 def forecasters(
@@ -71,22 +99,6 @@ def forecasters(
     return dict_forecast_prophet, dict_forecast_esm, dict_forecast_ols, dict_forecast_xgboost
 
 
-def holes_mcar_features_engineering(
-    df_train: pd.DataFrame, df_test: pd.DataFrame, ratio_masked: float, mean_size: int
-):
-    df_train_mcar = df_train.copy()
-    df_train_mcar["TEMP"] = data.add_holes(
-        pd.DataFrame(df_train["TEMP"]), ratio_masked=ratio_masked, mean_size=mean_size
-    )
-    df_train_mcar["TEMP_mask"] = 1 - df_train_mcar[["TEMP"]].isna() * 1
-
-    for date in df_test.index:
-        day_month = date.strftime("%m-%d")
-        date_mean = df_train_mcar[df_train_mcar.index.strftime("%m-%d") == day_month].mean()
-        df_test.loc[date, "TEMP_mask_mean"] = date_mean["TEMP_mask"]
-    return df_train_mcar, df_test
-
-
 def forecasts_metrics(
     df_test: pd.DataFrame,
     dict_imputers: Dict[str, Any],
@@ -138,6 +150,28 @@ def compare_forecast(
     return df_forecast_metric
 
 
+def metric_xgboost_no_impute(
+    df_train: pd.DataFrame,
+    df_test: pd.DataFrame,
+):
+
+    df_train_FE, df_test_FE = features_engineering(df_train, df_test)
+    X_predict = df_test_FE.drop(["TEMP_mean", "TEMP"], axis=1)
+    X_predict = X_predict.rename(columns=lambda x: x.replace("_mean", ""))
+    X_predict = X_predict[["DEWP", "PRES", "time_cos"]]
+
+    model = XGBRegressor()
+    model.fit(df_train_FE.drop(["TEMP"], axis=1), df_train_FE["TEMP"])
+    predictions_xgboost = model.predict(X_predict)
+    predictions_df = pd.DataFrame(predictions_xgboost, columns=["TEMP"])
+    predictions_df.index = X_predict.index
+    df_origin = pd.DataFrame(df_test_FE["TEMP"])
+    df_mask = ~df_origin.isna()
+    fun_metric = metrics.get_metric("mae")
+    value_to_set = fun_metric(df_origin, predictions_df, df_mask).values[0]
+    return predictions_df, value_to_set
+
+
 def iter_compare_forecast(
     df_train: pd.DataFrame,
     df_test: pd.DataFrame,
@@ -146,26 +180,15 @@ def iter_compare_forecast(
     mean_size: int,
     nb_iteration: int,
 ):
-    all_forecast_metrics = []
 
+    all_forecast_metrics = []
     dict_forecast_xgboost_no_impute = {}
 
-    X_predict = df_test.drop(["TEMP_mean", "TEMP"], axis=1)
-    X_predict = X_predict.rename(columns=lambda x: x.replace("_mean", ""))
-    X_predict = X_predict[["DEWP", "PRES", "time_cos"]]
-
-    model = XGBRegressor()
-    model.fit(df_train.drop(["TEMP"], axis=1), df_train["TEMP"])
-    predictions_xgboost = model.predict(X_predict)
-    predictions_df = pd.DataFrame(predictions_xgboost, columns=["TEMP"])
-    predictions_df.index = X_predict.index
+    ## XGBoost No Impute ##
+    predictions_df, value_to_set = metric_xgboost_no_impute(df_train, df_test)
     for name_imputer in dict_imputers.keys():
         dict_forecast_xgboost_no_impute[name_imputer] = predictions_df
-
-    df_origin = pd.DataFrame(df_test["TEMP"])
-    df_mask = ~df_origin.isna()
-    fun_metric = metrics.get_metric("mae")
-    value_to_set = fun_metric(df_origin, predictions_df, df_mask).values[0]
+    ##
 
     for iter in range(nb_iteration):
         df_forecast_metric = compare_forecast(
