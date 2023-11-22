@@ -64,8 +64,8 @@ class Comparator:
 
         Returns
         -------
-        dictionary
-            dictionay of results obtained via different metrics
+        errors
+            pandas Series of results obtained via different metrics
         """
         dict_errors = {}
         for name_metric in self.metrics:

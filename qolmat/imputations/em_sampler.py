@@ -220,15 +220,11 @@ class EM(BaseEstimator, TransformerMixin):
             x_mat = X.copy()
             x_mat[mask_na] = x
             grad_x = self.gradient_X_loglik(x_mat)
-            grad_x[~mask_na] = 0
+            grad_x = grad_x[mask_na]
             return grad_x
 
         res = spo.minimize(fun_obj, X[mask_na], jac=fun_jac)
 
-        # for _ in range(1000):
-        #     grad = self.gradient_X_loglik(X)
-        #     grad[~mask_na] = 0
-        #     X += dt * grad
         x = res.x
         X_sol = X.copy()
         X_sol[mask_na] = x
