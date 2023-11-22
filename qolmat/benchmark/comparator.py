@@ -7,6 +7,34 @@ from qolmat.benchmark import hyperparameters, metrics
 from qolmat.benchmark.missing_patterns import _HoleGenerator
 
 
+def get_errors(
+    df_origin: pd.DataFrame,
+    df_imputed: pd.DataFrame,
+    df_mask: pd.DataFrame,
+    list_metrics: List,
+) -> pd.Series:
+    """Functions evaluating the reconstruction's quality
+
+    Parameters
+    ----------
+    signal_ref : pd.DataFrame
+        reference/orginal signal
+    signal_imputed : pd.DataFrame
+        imputed signal
+
+    Returns
+    -------
+    errors
+        pandas Series of results obtained via different metrics
+    """
+    dict_errors = {}
+    for name_metric in list_metrics:
+        fun_metric = metrics.get_metric(name_metric)
+        dict_errors[name_metric] = fun_metric(df_origin, df_imputed, df_mask)
+    errors = pd.concat(dict_errors.values(), keys=dict_errors.keys())
+    return errors
+
+
 class Comparator:
     """
     This class implements a comparator for evaluating different imputation methods.
@@ -46,33 +74,6 @@ class Comparator:
         self.metric_optim = metric_optim
         self.max_evals = max_evals
         self.verbose = verbose
-
-    def get_errors(
-        self,
-        df_origin: pd.DataFrame,
-        df_imputed: pd.DataFrame,
-        df_mask: pd.DataFrame,
-    ) -> pd.Series:
-        """Functions evaluating the reconstruction's quality
-
-        Parameters
-        ----------
-        signal_ref : pd.DataFrame
-            reference/orginal signal
-        signal_imputed : pd.DataFrame
-            imputed signal
-
-        Returns
-        -------
-        errors
-            pandas Series of results obtained via different metrics
-        """
-        dict_errors = {}
-        for name_metric in self.metrics:
-            fun_metric = metrics.get_metric(name_metric)
-            dict_errors[name_metric] = fun_metric(df_origin, df_imputed, df_mask)
-        errors = pd.concat(dict_errors.values(), keys=dict_errors.keys())
-        return errors
 
     def evaluate_errors_sample(
         self,
@@ -115,7 +116,9 @@ class Comparator:
             )
             df_imputed = imputer_opti.fit_transform(df_corrupted)
             subset = self.generator_holes.subset
-            errors = self.get_errors(df_origin[subset], df_imputed[subset], df_mask[subset])
+            errors = get_errors(
+                df_origin[subset], df_imputed[subset], df_mask[subset], self.metrics
+            )
             list_errors.append(errors)
         df_errors = pd.DataFrame(list_errors)
         errors_mean = df_errors.mean(axis=0)
