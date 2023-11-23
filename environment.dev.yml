@@ -27,7 +27,6 @@ dependencies:
           - flake8==6.0.0
           - jupytext==1.14.4
           - matplotlib==3.6.2
-          - plotly
           - mypy==1.1.1
           - numpydoc==1.5.0
           - pre-commit==2.21.0
@@ -35,4 +34,8 @@ dependencies:
           - pytest-cov==4.0.0
           - pytest-mock==3.10.0
           - sphinx_markdown_tables==0.0.17
+          - plotly
+          - xgboost
+          - torch
+          - datasets
           - -e .
