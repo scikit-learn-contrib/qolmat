@@ -1059,7 +1059,7 @@ def plot_scatter(
 
     fig.update_layout(legend_title=col_legend)
     fig.update_xaxes(title=col_x)
-    fig.update_yaxes(title=col_y) --
+    fig.update_yaxes(title=col_y)
     title = f"{col_y} as a function of {col_x}"
     if len(cond) != 0:
         title += "<br>for "
@@ -1069,31 +1069,34 @@ def plot_scatter(
 
     return fig
 
-def get_relative_score(x, df, col, method='gain'):
+
+def get_relative_score(x, df, col, method="gain"):
     # https://en.wikipedia.org/wiki/Relative_change
-    if x['hole_generator'] == 'None':
+    if x["hole_generator"] == "None":
         x_row = x[col]
         x_ref = df[
-            (df['dataset'] == x['dataset'])
-            & (df['n_fold'] == x['n_fold'])
-            & (df['hole_generator'] == x['hole_generator'])
-            & (df['ratio_masked'] == x['ratio_masked'])
-            & (df['predictor'] == x['predictor'])
-            & (df['imputer'] == 'None')][col]
+            (df["dataset"] == x["dataset"])
+            & (df["n_fold"] == x["n_fold"])
+            & (df["hole_generator"] == x["hole_generator"])
+            & (df["ratio_masked"] == x["ratio_masked"])
+            & (df["predictor"] == x["predictor"])
+            & (df["imputer"] == "None")
+        ][col]
     else:
         x_row = x[col]
         x_ref = df[
-            (df['dataset'] == x['dataset'])
-            & (df['n_fold'] == x['n_fold'])
-            & (df['hole_generator'] == x['hole_generator'])
-            & (df['ratio_masked'] == x['ratio_masked'])
-            & (df['n_mask'] == x['n_mask'])
-            & (df['predictor'] == x['predictor'])
-            & (df['imputer'] == 'None')][col]
+            (df["dataset"] == x["dataset"])
+            & (df["n_fold"] == x["n_fold"])
+            & (df["hole_generator"] == x["hole_generator"])
+            & (df["ratio_masked"] == x["ratio_masked"])
+            & (df["n_mask"] == x["n_mask"])
+            & (df["predictor"] == x["predictor"])
+            & (df["imputer"] == "None")
+        ][col]
 
-    if method == 'relative_percentage_gain':
+    if method == "relative_percentage_gain":
         x_out = ((x_ref - x_row) * 100) / x_ref
-    elif method == 'gain':
+    elif method == "gain":
         x_out = x_ref - x_row
     else:
         x_out = x_row - x_ref
