@@ -1059,7 +1059,7 @@ def plot_scatter(
 
     fig.update_layout(legend_title=col_legend)
     fig.update_xaxes(title=col_x)
-    fig.update_yaxes(title=col_y)
+    fig.update_yaxes(title=col_y) --
     title = f"{col_y} as a function of {col_x}"
     if len(cond) != 0:
         title += "<br>for "
