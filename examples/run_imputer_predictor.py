@@ -1,7 +1,7 @@
 import argparse
 import sys
 
-sys.path.append("/home/ec2-ngo/qolmat/")
+sys.path.append("/home/ec2-user/qolmat/")
 
 from datasets import load_dataset
 
@@ -85,7 +85,7 @@ imputation_pipelines = [
     },
     {"imputer": imputers.ImputerKNN()},
     {"imputer": imputers.ImputerRPCA(max_iterations=100)},
-    # {"imputer": imputers.ImputerEM(max_iter_em=100, method='mle')},
+    {"imputer": imputers.ImputerEM(max_iter_em=100, method="mle")},
     {
         "imputer": imputers_pytorch.ImputerDiffusion(
             model=ddpms.TabDDPM(num_sampling=50), batch_size=args.batch_size, epochs=100
