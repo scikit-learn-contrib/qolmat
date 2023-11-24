@@ -2,13 +2,26 @@
 History
 =======
 
-0.0.16 (2023-??-??)
+0.1.1 (2023-11-03)
+-------------------
+
+* Hotfix reference to tensorflow in the documentation, when it should be pytorch
+* Metrics KL forest has been removed from package
+* EM imputer made more robust to colinearity, and transform bug patched
+* CICD made faster with mamba and a quick test setting
+
+0.1.0 (2023-10-11)
 -------------------
 
 * VAR(p) EM sampler implemented, founding on a VAR(p) modelization such as the one described in `Lütkepohl (2005) New Introduction to Multiple Time Series Analysis`
 * EM and RPCA matrices transposed in the low-level impelmentation, however the API remains unchanged
-* Sparse matrices introduced in the RPCA impletation so as to speed up the execution
+* Sparse matrices introduced in the RPCA implementation so as to speed up the execution
+* Implementation of SoftImpute, which provides a fast but less robust alterantive to RPCA
+* Implementation of TabDDPM and TsDDPM, which are diffusion-based models for tabular data and time-series data, based on Denoising Diffusion Probabilistic Models. Their implementations follow the work of Tashiro et al., (2021) and Kotelnikov et al., (2023).
+* ImputerDiffusion is an imputer-wrapper of these two models TabDDPM and TsDDPM.
 * Docstrings and tests improved for the EM sampler
+* Fix ImputerPytorch
+* Update Benchmark Deep Learning
 
 0.0.15 (2023-08-03)
 -------------------

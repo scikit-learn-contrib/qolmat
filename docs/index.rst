@@ -3,21 +3,20 @@
 .. toctree::
    :maxdepth: 2
    :hidden:
-   :caption: Brief explanation
+   :caption: MODEL SELECTION FOR IMPUTATION
 
    explanation
-   RPCA
-   EM_sampler
-   hole_generator
+   examples/tutorials/plot_tuto_mean_median
+   examples/tutorials/plot_tuto_hole_generator
 
 .. toctree::
-   :maxdepth: 2 
+   :maxdepth: 2
    :hidden:
-   :caption: Simple examples
+   :caption: IMPUTERS
 
-   examples/imputation_example
-   examples/imputer_keras
-   examples/RPCA_example
+   imputers
+   examples/tutorials/plot_tuto_benchmark_TS
+   examples/tutorials/plot_tuto_diffusion_models
 
 .. toctree::
    :maxdepth: 2
@@ -25,4 +24,3 @@
    :caption: API
 
    api
-

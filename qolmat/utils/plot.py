@@ -9,6 +9,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.ticker as plticker
 import numpy as np
+from numpy.typing import NDArray
 import pandas as pd
 import scipy
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -155,7 +156,11 @@ def plot_images(
 
 
 def make_ellipses(
-    x, y, ax, n_std: float = 2, color: Union[str, Any, Tuple[float, float, float]] = "None"
+    x: NDArray,
+    y: NDArray,
+    ax: mpl.axes.Axes,
+    n_std: float = 2,
+    color: Union[str, Any, Tuple[float, float, float]] = "None",
 ):
     """
     Create a plot of the covariance confidence ellipse of *x* and *y*.
@@ -205,9 +210,9 @@ def compare_covariances(
     df_2: pd.DataFrame,
     col_x: str,
     col_y: str,
-    ax: mpl.axes._subplots.AxesSubplot,  # type: ignore # noqa
+    ax: mpl.axes.Axes,
     label: str = "",
-    color: Optional[Union[str, Tuple[float, float, float]]] = None,
+    color: Union[None, str, Tuple[float, float, float], Tuple[float, float, float, float]] = None,
 ):
     """
     Covariance plot: scatter plot with ellipses
@@ -228,7 +233,7 @@ def compare_covariances(
     df1 = df_1.dropna()
     df2 = df_2.dropna()
     if color is None:
-        color = tab10(0)  # type: ignore # noqa
+        color = tab10(0)
     ax.scatter(df2[col_x], df2[col_y], marker=".", color=color, s=2, alpha=0.7, label="imputed")
     ax.scatter(df1[col_x], df1[col_y], marker=".", color="black", s=2, alpha=0.7, label="original")
     make_ellipses(df1[col_x], df1[col_y], ax, color="black")

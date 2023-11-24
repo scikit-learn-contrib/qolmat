@@ -269,7 +269,7 @@ class EM(BaseEstimator, TransformerMixin):
         X_init = X.copy()
         gamma = self.get_gamma()
         sqrt_gamma = np.real(spl.sqrtm(gamma))
-        for _ in range(self.n_iter_ou):
+        for i in range(self.n_iter_ou):
             noise = self.ampli * self.rng.normal(0, 1, size=(n_variables, n_samples))
             grad_X = self.gradient_X_loglik(X_copy)
             X_copy += self.dt * grad_X @ gamma + np.sqrt(2 * self.dt) * noise @ sqrt_gamma
@@ -326,10 +326,16 @@ class EM(BaseEstimator, TransformerMixin):
                 self.p = p
                 self.fit_X(X)
                 n1, n2 = self.X.shape
-                aic = np.log(np.linalg.det(self.S)) + 2 * p * (n2**2) / n1
+                det = np.linalg.det(self.S)
+                if abs(det) < 1e-12:
+                    aic = -np.inf
+                else:
+                    aic = np.log(det) + 2 * p * (n2**2) / n1
                 if len(aics) > 0 and aic > aics[-1]:
                     break
                 aics.append(aic)
+                if aic == -np.inf:
+                    break
             self.p = int(np.argmin(aics))
             self.fit_X(X)
 
@@ -352,15 +358,14 @@ class EM(BaseEstimator, TransformerMixin):
         NDArray
             Final array after EM sampling.
         """
+        mask_na = np.isnan(X)
+
         # shape_original = X.shape
         if hash(X.tobytes()) == self.hash_fit:
             X = self.X
         else:
             X = utils.prepare_data(X, self.period)
-            # X = self.scaler.transform(X)
             X = utils.linear_interpolation(X)
-
-        mask_na = np.isnan(X)
 
         if self.method == "mle":
             X_transformed = self._maximize_likelihood(X, mask_na)
@@ -484,8 +489,8 @@ class MultiNormalEM(EM):
         NDArray
             Gamma matrix
         """
-        gamma = np.diag(np.diagonal(self.cov))
-        # gamma = self.cov
+        # gamma = np.diag(np.diagonal(self.cov))
+        gamma = self.cov
         # gamma = np.eye(len(self.cov))
         return gamma
 
@@ -566,9 +571,9 @@ class MultiNormalEM(EM):
         NDArray
             DataFrame with imputed values.
         """
-        X_center = X - self.means[:, None]
+        X_center = X - self.means
         X_imputed = _conjugate_gradient(self.cov_inv, X_center, mask_na)
-        X_imputed = self.means[:, None] + X_imputed
+        X_imputed = self.means + X_imputed
         return X_imputed
 
     def _check_convergence(self) -> bool:
@@ -655,6 +660,22 @@ class VARpEM(EM):
         Integer used to fold the temporal data periodically
     verbose: bool
         default `False`
+
+    Attributes
+    ----------
+    X_intermediate : list
+        List of pd.DataFrame giving the results of the EM process as function of the
+        iteration number.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from qolmat.imputations.em_sampler import VARpEM
+    >>> imputer = VARpEM(method="sample", random_state=11)
+    >>> X = np.array([[1, 1, 1, 1],
+    ...               [np.nan, np.nan, 3, 2],
+    ...               [1, 2, 2, 1], [2, 2, 2, 2]])
+    >>> imputer.fit_transform(X)  # doctest: +SKIP
     """
 
     def __init__(
@@ -820,6 +841,7 @@ class VARpEM(EM):
         stack_YY = np.stack(list_YY)
         self.YY = np.mean(stack_YY, axis=0)
         self.S = self.YY - self.ZY.T @ self.B - self.B.T @ self.ZY + self.B.T @ self.ZZ @ self.B
+        self.S[self.S < 1e-12] = 0
         self.S_inv = np.linalg.pinv(self.S, rcond=1e-10)
 
     def _check_convergence(self) -> bool:

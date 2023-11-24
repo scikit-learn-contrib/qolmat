@@ -1,19 +1,40 @@
 import os
 import sys
 import zipfile
+from datetime import datetime
 from math import pi
 from typing import List
 from urllib import request
-from datetime import datetime
-from distutils.util import strtobool
 
 import numpy as np
 import pandas as pd
 
 from qolmat.benchmark import missing_patterns
 
+CURRENT_DIR = os.path.abspath(os.path.dirname(__file__))
+ROOT_DIR = os.path.join(CURRENT_DIR, "..")
 
-def download_data(zipname: str, urllink: str, datapath: str = "data/") -> List[pd.DataFrame]:
+
+def read_csv_local(data_file_name: str) -> pd.DataFrame:
+    """Load csv files
+
+    Parameters
+    ----------
+    data_file_name : str
+        Filename. Has to be "beijing" or "conductors"
+
+    Returns
+    -------
+    df : pd.DataFrame
+        dataframe
+    """
+    df = pd.read_csv(os.path.join(ROOT_DIR, "data", f"{data_file_name}.csv"))
+    return df
+
+
+def download_data_from_zip(
+    zipname: str, urllink: str, datapath: str = "data/"
+) -> List[pd.DataFrame]:
     path_zip = os.path.join(datapath, zipname)
     path_zip_ext = path_zip + ".zip"
     url = os.path.join(urllink, zipname) + ".zip"
@@ -76,22 +97,13 @@ def get_data(
     pd.DataFrame
         requested data
     """
-    urllink1 = "https://zenodo.org/record/"
+    url_zenodo = "https://zenodo.org/record/"
     if name_data == "Beijing":
-        urllink = "https://archive.ics.uci.edu/static/public/381/"
-        zipname = "beijing+pm2+5+data"
-
-        list_df = download_data(zipname, urllink, datapath=datapath)
-        list_df = [preprocess_data_beijing(df) for df in list_df]
-        df = pd.concat(list_df)
+        df = read_csv_local("beijing")
+        df = df.set_index(["station", "date"])
         return df
-    elif name_data == "Beijing_offline":
-        # urllink = "https://archive.ics.uci.edu/dataset/381/beijing+pm2+5+data"
-        folder = "PRSA2017_Data_20130301-20170228"
-        path = os.path.join(datapath, folder)
-        list_df = get_dataframes_in_folder(path, ".csv")
-        list_df = [preprocess_data_beijing_offline(df) for df in list_df]
-        df = pd.concat(list_df)
+    if name_data == "Superconductor":
+        df = read_csv_local("conductors")
         return df
     elif name_data == "Artificial":
         city = "Wonderland"
@@ -120,10 +132,27 @@ def get_data(
         stations = sizes_stations.index.get_level_values("station").unique()[-n_groups_max:]
         df = df.loc[stations]
         return df
+    elif name_data == "Beijing_online":
+        # urllink = "https://archive.ics.uci.edu/static/public/381/"
+        # zipname = "beijing+pm2+5+data"
+        urllink = "https://archive.ics.uci.edu/static/public/501/"
+        zipname = "beijing+multi+site+air+quality+data"
+
+        list_df = download_data_from_zip(zipname, urllink, datapath=datapath)
+        list_df = [preprocess_data_beijing(df) for df in list_df]
+        df = pd.concat(list_df)
+        return df
+    elif name_data == "Superconductor_online":
+        csv_url = (
+            "https://huggingface.co/datasets/polinaeterna/"
+            "tabular-benchmark/resolve/main/reg_num/superconduct.csv"
+        )
+        df = pd.read_csv(csv_url, index_col=0)
+        return df
     elif name_data == "Monach_weather":
-        urllink = urllink1 + "4654822/files/weather_dataset.zip?download=1"
+        urllink = os.path.join(url_zenodo, "4654822/files/weather_dataset.zip?download=1")
         zipname = "weather_dataset"
-        list_loaded_data = download_data(zipname, urllink, datapath=datapath)
+        list_loaded_data = download_data_from_zip(zipname, urllink, datapath=datapath)
         loaded_data = list_loaded_data[0]
         df_list: List[pd.DataFrame] = []
         for k in range(len(loaded_data)):
@@ -143,9 +172,11 @@ def get_data(
         df = df[:minimum]
         return df
     elif name_data == "Monach_electricity_australia":
-        urllink = urllink1 + "4659727/files/australian_electricity_demand_dataset.zip?download=1"
+        urllink = os.path.join(
+            url_zenodo, "4659727/files/australian_electricity_demand_dataset.zip?download=1"
+        )
         zipname = "australian_electricity_demand_dataset"
-        list_loaded_data = download_data(zipname, urllink, datapath=datapath)
+        list_loaded_data = download_data_from_zip(zipname, urllink, datapath=datapath)
         loaded_data = list_loaded_data[0]
         df_list = []
         for k in range(len(loaded_data)):
@@ -194,29 +225,6 @@ def preprocess_data_beijing(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def preprocess_data_beijing_offline(df: pd.DataFrame) -> pd.DataFrame:
-    """Preprocess data from the "Beijing" datset
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        dataframe with some specific column names
-
-    Returns
-    -------
-    pd.DataFrame
-        preprocessed dataframe
-    """
-    df["datetime"] = pd.to_datetime(df[["year", "month", "day", "hour"]])
-    df.set_index(["station", "datetime"], inplace=True)
-    df.drop(columns=["year", "month", "day", "hour", "wd", "No"], inplace=True)
-    df.sort_index(inplace=True)
-    df = df.groupby(
-        ["station", df.index.get_level_values("datetime").floor("d")], group_keys=False
-    ).mean()
-    return df
-
-
 def add_holes(df: pd.DataFrame, ratio_masked: float, mean_size: int) -> pd.DataFrame:
     """
     Creates holes in a dataset with no missing value, starting from `df`. Only used in the
@@ -241,10 +249,17 @@ def add_holes(df: pd.DataFrame, ratio_masked: float, mean_size: int) -> pd.DataF
     pd.DataFrame
         dataframe with missing values
     """
-    groups = df.index.names.difference(["datetime", "date", "index"])
-    generator = missing_patterns.GeometricHoleGenerator(
-        1, ratio_masked=ratio_masked, subset=df.columns, groups=groups
-    )
+    try:
+        groups = df.index.names.difference(["datetime", "date", "index"])
+        generator = missing_patterns.GeometricHoleGenerator(
+            1, ratio_masked=ratio_masked, subset=df.columns, groups=groups
+        )
+    except ValueError:
+        print("No group")
+    else:
+        generator = missing_patterns.GeometricHoleGenerator(
+            1, ratio_masked=ratio_masked, subset=df.columns
+        )
 
     generator.dict_probas_out = {column: 1 / mean_size for column in df.columns}
     generator.dict_ratios = {column: 1 / len(df.columns) for column in df.columns}
@@ -448,7 +463,3 @@ def convert_tsf_to_dataframe(
         loaded_data = pd.DataFrame(all_data)
 
         return loaded_data
-        #     frequency,
-        #     forecast_horizon,
-        #     contain_missing_values,
-        #     contain_equal_length,
