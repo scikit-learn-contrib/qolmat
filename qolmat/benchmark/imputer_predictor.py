@@ -831,7 +831,9 @@ def get_confidence_interval(x, confidence_level=0.95):
         confidence=confidence_level, loc=np.mean(x), scale=scipy.stats.sem(x)
     )
     width = interval[1] - interval[0]
-    return [interval[0], interval[1], width]
+    width_plus = interval[1] - np.mean(x)
+    width_minus = np.mean(x) - interval[0]
+    return [interval[0], interval[1], width, width_plus, width_minus]
 
 
 def plot_bar_y_1D(
@@ -851,7 +853,7 @@ def plot_bar_y_1D(
     for value in df_agg_plot[col_legend].unique():
         df_agg_plot_ = df_agg_plot[df_agg_plot[col_legend] == value]
 
-        error_y_width = None
+        error_y = None
         if add_confidence_interval:
             value_ = list(col_displayed)
             value_[2] = value_[2] + "_values"
@@ -860,7 +862,15 @@ def plot_bar_y_1D(
                 .apply(lambda x: get_confidence_interval(x, confidence_level))
                 .to_list()
             )
-            error_y_width = dict(type="data", array=error_y[:, 2] / 2)
+
+            # error_y_width = dict(type="data", array=error_y[:, 3] / 2)
+            error_y_plus = error_y[:, 3]
+            array_y_minus = error_y[:, 4]
+
+            # error_y = error_y_width
+            error_y = dict(
+                type="data", symmetric=False, array=error_y_plus, arrayminus=array_y_minus
+            )
 
         text = None
         if add_annotation:
@@ -873,7 +883,7 @@ def plot_bar_y_1D(
                 showlegend=True,
                 name=str(value),
                 text=text,
-                error_y=error_y_width,
+                error_y=error_y,
             )
         )
     metric_name = col_displayed[2]
@@ -917,7 +927,8 @@ def plot_bar_y_nD(
         else:
             secondary_y = True
         offsetgroup = idx
-        error_y_width = None
+
+        error_y = None
         if add_confidence_interval:
             value_ = list(value)
             value_[2] = value[2] + "_values"
@@ -927,7 +938,14 @@ def plot_bar_y_nD(
                 .apply(lambda x: get_confidence_interval(x, confidence_level))
                 .to_list()
             )
-            error_y_width = dict(type="data", array=error_y[:, 2] / 2)
+            # error_y_width = dict(type="data", array=error_y[:, 2] / 2)
+            error_y_plus = error_y[:, 3]
+            array_y_minus = error_y[:, 4]
+
+            # error_y = error_y_width
+            error_y = dict(
+                type="data", symmetric=False, array=error_y_plus, arrayminus=array_y_minus
+            )
 
         text = None
         if add_annotation:
@@ -939,8 +957,8 @@ def plot_bar_y_nD(
                 x=np.array(df_agg.index.to_list()).transpose(),
                 y=df_agg.loc[:, value],
                 text=text,
-                error_y=error_y_width,
                 offsetgroup=offsetgroup,
+                error_y=error_y,
             ),
             secondary_y=secondary_y,
         )
