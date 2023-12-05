@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Tuple, Union
+from typing import Union
+from typing_extensions import Self
 
 import numpy as np
 from numpy.typing import NDArray
@@ -42,37 +43,18 @@ class RPCA(BaseEstimator, TransformerMixin):
         self.random_state = random_state
         self.verbose = verbose
 
-    def decompose_rpca_signal(
-        self,
-        X: NDArray,
-    ) -> Tuple[NDArray, NDArray]:
-        """
-        Compute the noisy RPCA with L1 or L2 time penalisation
+    def fit_basis(self, D: NDArray, Omega: NDArray) -> NDArray:
+        n_rows, n_cols = D.shape
+        if n_rows == 1 or n_cols == 1:
+            self.V = np.array([[1]])
+            return self
 
-        Parameters
-        ----------
-        X : NDArray
-            Observations
+        M, A, L, Q = self.decompose_rpca(D, Omega)
+        return Q
 
-        Returns
-        -------
-        M: NDArray
-            Low-rank signal
-        A: NDArray
-            Anomalies
-        """
-
-        D = utils.prepare_data(X, self.period)
-        Omega = ~np.isnan(D)
-        # D_proj = rpca_utils.impute_nans(D_init, method="median")
-        D = utils.linear_interpolation(D)
+    def decompose_on_basis(self, D: NDArray, Omega: NDArray, Q: NDArray) -> NDArray:
         n_rows, n_cols = D.shape
         if n_rows == 1 or n_cols == 1:
             return D, np.full_like(D, 0)
-
-        M, A = self.decompose_rpca(D, Omega)
-
-        M_final = utils.get_shape_original(M, X.shape)
-        A_final = utils.get_shape_original(A, X.shape)
-
-        return M_final, A_final
+        M, A, L, Q = self.decompose_rpca(D, Omega)
+        return M, A

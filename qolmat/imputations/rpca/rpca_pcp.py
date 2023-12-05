@@ -80,7 +80,7 @@ class RPCAPCP(RPCA):
         dict_params = {"mu": mu, "lam": lam}
         return dict_params
 
-    def decompose_rpca(self, D: NDArray, Omega: NDArray) -> Tuple[NDArray, NDArray]:
+    def decompose_rpca(self, D: NDArray, Omega: NDArray) -> Tuple[NDArray, NDArray, None, None]:
         """
         Estimate the relevant parameters then compute the PCP RPCA decomposition
 
@@ -97,6 +97,8 @@ class RPCAPCP(RPCA):
             Low-rank signal
         A: NDArray
             Anomalies
+        N1: None
+        N2: None
         """
         params_scale = self.get_params_scale(D)
 
@@ -126,7 +128,7 @@ class RPCAPCP(RPCA):
 
         self._check_cost_function_minimized(D, M, A, Omega, lam)
 
-        return M, A
+        return M, A, None, None
 
     def _check_cost_function_minimized(
         self,
