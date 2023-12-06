@@ -75,7 +75,7 @@ def test_check_cost_function_minimized_no_warning(
 @pytest.mark.parametrize("X", [X_complete])
 def test_rpca_rpca_pcp_get_params_scale(X: NDArray):
     """Test the parameters are well scaled."""
-    rpca_pcp = RPCAPCP(max_iterations=max_iterations, mu=0.5, lam=0.1)
+    rpca_pcp = RPCAPCP(max_iterations=max_iterations, mu=0.5, lam=0.1).fit_basis(X)
     result_dict = rpca_pcp.get_params_scale(X)
     result = list(result_dict.values())
     params_expected = [1 / 7, np.sqrt(2) / 2]
@@ -88,7 +88,7 @@ def test_rpca_rpca_pcp_zero_lambda_small_mu(X: NDArray, mu: float):
     The problem is ill-conditioned and the result depends
     on the parameter mu; case when mu is small.
     """
-    rpca_pcp = RPCAPCP(lam=0, mu=mu)
+    rpca_pcp = RPCAPCP(lam=0, mu=mu).fit_basis(X)
     X_result, A_result = rpca_pcp.decompose_rpca_signal(X)
     np.testing.assert_allclose(X_result, np.full_like(X, 0), atol=1e-4)
     np.testing.assert_allclose(A_result, X, atol=1e-4)
@@ -100,7 +100,7 @@ def test_rpca_rpca_pcp_zero_lambda_large_mu(X: NDArray, mu: float):
     The problem is ill-conditioned and the result depends
     on the parameter mu; case when mu is large.
     """
-    rpca_pcp = RPCAPCP(lam=0, mu=mu)
+    rpca_pcp = RPCAPCP(lam=0, mu=mu).fit_basis(X)
     X_result, A_result = rpca_pcp.decompose_rpca_signal(X)
     np.testing.assert_allclose(X_result, X, atol=1e-4)
     np.testing.assert_allclose(A_result, np.full_like(X, 0), atol=1e-4)
@@ -109,7 +109,7 @@ def test_rpca_rpca_pcp_zero_lambda_large_mu(X: NDArray, mu: float):
 @pytest.mark.parametrize("X, mu", [(X_complete, large_mu)])
 def test_rpca_rpca_pcp_large_lambda_small_mu(X: NDArray, mu: float):
     """Test RPCA PCP results with large lambda and small mu."""
-    rpca_pcp = RPCAPCP(lam=1e3, mu=mu)
+    rpca_pcp = RPCAPCP(lam=1e3, mu=mu).fit_basis(X)
     X_result, A_result = rpca_pcp.decompose_rpca_signal(X)
     np.testing.assert_allclose(X_result, X, atol=1e-4)
     np.testing.assert_allclose(A_result, np.full_like(X, 0), atol=1e-4)
@@ -121,7 +121,7 @@ def test_rpca_temporal_signal(synthetic_temporal_data):
     signal = synthetic_temporal_data
     period = 100
     lam = 0.1
-    rpca = RPCAPCP(period=period, lam=lam, mu=0.01)
+    rpca = RPCAPCP(period=period, lam=lam, mu=0.01).fit_basis(signal)
     X_result, A_result = rpca.decompose_rpca_signal(signal)
     X_input_rpca = utils.linear_interpolation(signal.reshape(period, -1))
     assert np.linalg.norm(X_input_rpca, "nuc") >= np.linalg.norm(

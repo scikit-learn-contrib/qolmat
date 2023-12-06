@@ -93,7 +93,7 @@ X_test = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]])
 @pytest.mark.parametrize("norm", ["L2"])
 def test_rpca_decompose_rpca_signal_shape(norm: str):
     """Test RPCA noisy results if tau and lambda equal zero."""
-    rpca = RPCANoisy(rank=2, norm=norm)
+    rpca = RPCANoisy(rank=2, norm=norm).fit_basis(X_test)
     X_result, A_result = rpca.decompose_rpca_signal(X_test)
     assert X_result.shape == X_test.shape
     assert A_result.shape == X_test.shape
@@ -102,7 +102,7 @@ def test_rpca_decompose_rpca_signal_shape(norm: str):
 @pytest.mark.parametrize("X, X_interpolated", [(X_incomplete, X_interpolated)])
 def test_rpca_noisy_zero_tau_zero_lambda(X: NDArray, X_interpolated: NDArray):
     """Test RPCA noisy results if tau and lambda equal zero."""
-    rpca = RPCANoisy(tau=0, lam=0, norm="L2")
+    rpca = RPCANoisy(tau=0, lam=0, norm="L2").fit_basis(X)
     X_result, A_result = rpca.decompose_rpca_signal(X)
     np.testing.assert_allclose(X_result, X_interpolated, atol=1e-4)
     np.testing.assert_allclose(A_result, np.full_like(X, 0), atol=1e-4)
@@ -114,7 +114,7 @@ def test_rpca_noisy_zero_tau_zero_lambda(X: NDArray, X_interpolated: NDArray):
 )
 def test_rpca_noisy_zero_tau(X: NDArray, lam: float, X_interpolated: NDArray):
     """Test RPCA noisy results if tau equals zero."""
-    rpca = RPCANoisy(tau=0, lam=lam, norm="L2")
+    rpca = RPCANoisy(tau=0, lam=lam, norm="L2").fit_basis(X)
     X_result, A_result = rpca.decompose_rpca_signal(X)
     np.testing.assert_allclose(X_result, X_interpolated, atol=1e-4)
     np.testing.assert_allclose(A_result, np.full_like(X, 0), atol=1e-4)
@@ -126,7 +126,7 @@ def test_rpca_noisy_zero_tau(X: NDArray, lam: float, X_interpolated: NDArray):
 )
 def test_rpca_noisy_zero_lambda(X: NDArray, tau: float, X_interpolated: NDArray):
     """Test RPCA noisy results if lambda equals zero."""
-    rpca = RPCANoisy(tau=tau, lam=0, norm="L2")
+    rpca = RPCANoisy(tau=tau, lam=0, norm="L2").fit_basis(X)
     X_result, A_result = rpca.decompose_rpca_signal(X)
     np.testing.assert_allclose(X_result, np.full_like(X, 0), atol=1e-4)
     np.testing.assert_allclose(A_result, X_interpolated, atol=1e-4)

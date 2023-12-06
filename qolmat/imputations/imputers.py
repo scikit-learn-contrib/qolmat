@@ -1783,13 +1783,9 @@ class ImputerRPCA(_Imputer):
         model = self.get_model(**hyperparams)
 
         X = df.astype(float).values
-        D = utils.prepare_data(X, model.period)
-        Omega = ~np.isnan(D)
-        D = utils.linear_interpolation(D)
+        model = model.fit_basis(X)
 
-        Q = model.fit_basis(D, Omega)
-
-        return Q
+        return model
 
     def _transform_element(
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
@@ -1821,20 +1817,11 @@ class ImputerRPCA(_Imputer):
         if self.method not in ["PCP", "noisy"]:
             raise ValueError("Argument method must be `PCP` or `noisy`!")
 
-        hyperparams = self.get_hyperparams(col=col)
-        model = self.get_model(random_state=self._rng, **hyperparams)
+        model = self._dict_fitting[col][ngroup]
         X = df.astype(float).values
 
-        D = utils.prepare_data(X, model.period)
-        Omega = ~np.isnan(D)
-        D = utils.linear_interpolation(D)
-
-        Q = self._dict_fitting[col][ngroup]
-        M, A = model.decompose_on_basis(D, Omega, Q)
-
-        M_final = utils.get_shape_original(M, X.shape)
-        A_final = utils.get_shape_original(A, X.shape)
-        X_imputed = M_final + A_final
+        M, A = model.decompose_rpca_signal(X)
+        X_imputed = M + A
 
         df_imputed = pd.DataFrame(X_imputed, index=df.index, columns=df.columns)
         df_imputed = df.where(~df.isna(), df_imputed)

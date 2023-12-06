@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Union
+from typing import Union, Tuple
 from typing_extensions import Self
 
 import numpy as np
@@ -43,18 +43,86 @@ class RPCA(BaseEstimator, TransformerMixin):
         self.random_state = random_state
         self.verbose = verbose
 
-    def fit_basis(self, D: NDArray, Omega: NDArray) -> NDArray:
+    def fit_basis(self, X: NDArray) -> Self:
+        """Fit RPCA model on data
+
+        Parameters
+        ----------
+        X : NDArray
+            Observations
+
+        Returns
+        -------
+        Self
+            Model RPCA
+        """
+        D = utils.prepare_data(X, self.period)
+        Omega = ~np.isnan(D)
+        D = utils.linear_interpolation(D)
+
         n_rows, n_cols = D.shape
         if n_rows == 1 or n_cols == 1:
             self.V = np.array([[1]])
             return self
 
-        M, A, L, Q = self.decompose_rpca(D, Omega)
-        return Q
+        _, _, _, Q = self.decompose_rpca(D, Omega)
 
-    def decompose_on_basis(self, D: NDArray, Omega: NDArray, Q: NDArray) -> NDArray:
+        self.Q = Q
+
+        return self
+
+    def decompose_on_basis(
+        self, D: NDArray, Omega: NDArray, Q: NDArray
+    ) -> Tuple[NDArray, NDArray]:
+        """Decompose data
+
+        Parameters
+        ----------
+        D : NDArray
+            Observations
+        Omega : NDArray
+            Boolean matrix indicating the observed values
+        Q : NDArray
+            Learned basis unitary array of shape (rank, n).
+
+        Returns
+        -------
+        Tuple[NDArray, NDArray]
+        M : np.ndarray
+            Low-rank signal matrix of shape (m, n).
+        A : np.ndarray
+            Anomalies matrix of shape (m, n).
+        """
         n_rows, n_cols = D.shape
         if n_rows == 1 or n_cols == 1:
             return D, np.full_like(D, 0)
-        M, A, L, Q = self.decompose_rpca(D, Omega)
+        M, A, _, _ = self.decompose_rpca(D, Omega)
         return M, A
+
+    def decompose_rpca_signal(self, X: NDArray) -> Tuple[NDArray, NDArray]:
+        """
+        Compute the noisy RPCA with L1 or L2 time penalisation
+
+        Parameters
+        ----------
+        X : NDArray
+            Observations
+
+        Returns
+        -------
+        M: NDArray
+            Low-rank signal
+        A: NDArray
+            Anomalies
+        """
+
+        D = utils.prepare_data(X, self.period)
+        Omega = ~np.isnan(D)
+        D = utils.linear_interpolation(D)
+
+        M, A = self.decompose_on_basis(D, Omega, self.Q)
+
+        M_final = utils.get_shape_original(M, X.shape)
+        A_final = utils.get_shape_original(A, X.shape)
+
+        return M_final, A_final

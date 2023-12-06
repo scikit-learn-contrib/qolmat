@@ -24,8 +24,11 @@ from qolmat.imputations.rpca.rpca import RPCA
 class RPCAMock(RPCA):
     def __init__(self):
         super().__init__()
+        self.Q = None
 
-    def decompose_rpca(self, D: NDArray, Omega: NDArray) -> Tuple[NDArray, NDArray]:
+    def decompose_on_basis(
+        self, D: NDArray, Omega: NDArray, Q: NDArray
+    ) -> Tuple[NDArray, NDArray]:
         self.call_count = 1
         return D, D
 

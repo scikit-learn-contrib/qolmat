@@ -113,15 +113,17 @@ class RPCANoisy(RPCA):
         }
 
     def decompose_on_basis(
-        self, D: NDArray, Omega: NDArray, Q: NDArray
+        self,
+        D: NDArray,
+        Omega: NDArray,
+        Q: NDArray,
     ) -> Tuple[NDArray, NDArray]:
-        params_scale = self.get_params_scale(D)
 
-        lam = params_scale["lam"] if self.lam is None else self.lam
-        rank = params_scale["rank"] if self.rank is None else self.rank
-        rank = int(rank)
-        tau = params_scale["tau"] if self.tau is None else self.tau
+        lam = self.params_scale["lam"]
+        # rank = int(self.params_scale["rank"])
+        tau = self.params_scale["tau"]
 
+        print(self.lam, lam)
         n_rows, n_cols = D.shape
         if n_rows == 1 or n_cols == 1:
             return D, np.full_like(D, 0)
@@ -130,6 +132,26 @@ class RPCANoisy(RPCA):
         Ir = np.eye(n_rank)
         L = np.zeros((n_rows, n_rank))
         A = np.zeros((n_rows, n_cols))
+
+        for _ in range(self.max_iterations):
+            A_prev = A.copy()
+            L_prev = L.copy()
+            L = scp.linalg.solve(
+                a=2 * tau * Ir + (Q @ Q.T),
+                b=Q @ (D - A).T,
+            ).T
+            A_Omega = rpca_utils.soft_thresholding(D - L @ Q, lam)
+            A_Omega_C = D - L @ Q
+            A = np.where(Omega, A_Omega, A_Omega_C)
+
+            Ac = np.linalg.norm(A - A_prev, np.inf)
+            Lc = np.linalg.norm(L - L_prev, np.inf)
+
+            tolerance = max([Ac, Lc])  # type: ignore # noqa
+
+            if tolerance < self.tol:
+                break
+
         for i in range(n_rows):
             d = D[i, :]
             omega = Omega[i, :]
@@ -146,6 +168,7 @@ class RPCANoisy(RPCA):
                 ).T
             L[i, :] = L_row
             A[i, :] = a
+
         M = L @ Q
 
         return M, A
@@ -171,12 +194,18 @@ class RPCANoisy(RPCA):
             Anomalies
         """
 
-        params_scale = self.get_params_scale(D)
+        self.params_scale = self.get_params_scale(D)
 
-        lam = params_scale["lam"] if self.lam is None else self.lam
-        rank = params_scale["rank"] if self.rank is None else self.rank
-        rank = int(rank)
-        tau = params_scale["tau"] if self.tau is None else self.tau
+        if self.lam is not None:
+            self.params_scale["lam"] = self.lam
+        if self.rank is not None:
+            self.params_scale["rank"] = self.rank
+        if self.tau is not None:
+            self.params_scale["tau"] = self.tau
+
+        lam = self.params_scale["lam"]
+        rank = int(self.params_scale["rank"])
+        tau = self.params_scale["tau"]
         mu = 1e-2 if self.mu is None else self.mu
 
         n_rows, _ = D.shape
