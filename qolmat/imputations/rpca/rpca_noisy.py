@@ -288,7 +288,7 @@ class RPCANoisy(RPCA):
         Y = np.zeros((n_rows, n_cols))
         X = D.copy()
         A = np.zeros((n_rows, n_cols))
-        U, S, Vt = np.linalg.svd(X)
+        U, S, Vt = np.linalg.svd(X, full_matrices=False)
 
         U = U[:, :rank]
         S = S[:rank]
