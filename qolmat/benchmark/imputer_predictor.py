@@ -164,7 +164,261 @@ class BenchmarkImputationPrediction:
 
         return df_benchmark
 
+    def compare_multiple(
+        self,
+        df_data: pd.DataFrame,
+        columns_numerical: List[str],
+        columns_categorical: List[str],
+        file_path: str,
+        hole_generators: List,
+        imputation_pipelines,
+        target_prediction_pipeline_pairs,
+        imputation_columns: List[str] = [],
+        n_imputations: int = 2,
+    ):
+        self.columns = df_data.columns.to_list()
+        self.columns_numerical = columns_numerical
+        self.columns_categorical = columns_categorical
+        if len(imputation_columns) == 0:
+            self.imputation_columns = self.columns
+        else:
+            self.imputation_columns = imputation_columns
+        self.n_imputations = n_imputations
+
+        list_benchmark = []
+        for idx_fold, (idx_train, idx_test) in tqdm.tqdm(
+            enumerate(KFold(n_splits=self.n_folds).split(df_data)), position=0, desc="benchmark"
+        ):
+            df_train = df_data.iloc[idx_train, :]
+            df_test = df_data.iloc[idx_test, :]
+            for target_column, prediction_pipelines in tqdm.tqdm(
+                target_prediction_pipeline_pairs.items(),
+                position=1,
+                leave=True,
+                desc=f"n_fold={idx_fold}",
+            ):
+                feature_columns = [col for col in self.columns if col != target_column]
+                df_train_x = df_train[feature_columns]
+                df_test_x = df_test[feature_columns]
+
+                for hole_generator in tqdm.tqdm(
+                    hole_generators, position=1, leave=False, desc=f"target_column={target_column}"
+                ):
+                    if hole_generator is not None:
+                        hole_generator.subset = [
+                            col for col in feature_columns if col in self.imputation_columns
+                        ]
+                        hole_generator.n_splits = self.n_masks
+
+                        for idx_mask, (df_mask_train, df_mask_test) in enumerate(
+                            zip(hole_generator.split(df_train_x), hole_generator.split(df_test_x))
+                        ):
+                            for imputation_pipeline in tqdm.tqdm(
+                                imputation_pipelines, position=1, leave=False
+                            ):
+                                (
+                                    out_imputations,
+                                    benchmark_imputations,
+                                ) = self.benchmark_imputation_multiple(
+                                    imputation_pipeline,
+                                    feature_columns,
+                                    df_train,
+                                    df_test,
+                                    df_mask_train,
+                                    df_mask_test,
+                                )
+                                for idx_imputation, (
+                                    out_imputation,
+                                    benchmark_imputation,
+                                ) in tqdm.tqdm(
+                                    enumerate(zip(out_imputations, benchmark_imputations)),
+                                    position=1,
+                                    leave=False,
+                                ):
+                                    for prediction_pipeline in tqdm.tqdm(
+                                        prediction_pipelines, position=1, leave=False
+                                    ):
+                                        benchmark_prediction = self.benchmark_prediction(
+                                            prediction_pipeline,
+                                            target_column,
+                                            feature_columns,
+                                            df_train,
+                                            df_test,
+                                            out_imputation["df_train_x_imputed"],
+                                            out_imputation["df_test_x_imputed"],
+                                            df_mask_train,
+                                            df_mask_test,
+                                        )
+
+                                        row_benchmark = self.get_row_benchmark(
+                                            df_train,
+                                            df_test,
+                                            idx_fold,
+                                            target_column,
+                                            hole_generator,
+                                            idx_mask,
+                                            imputation_pipeline,
+                                            prediction_pipeline,
+                                            benchmark_imputation,
+                                            benchmark_prediction,
+                                        )
+                                        row_benchmark["n_imputation"] = idx_imputation
+
+                                        list_benchmark.append(row_benchmark)
+                                        df_benchmark = pd.DataFrame(list_benchmark)
+                                        with open(file_path, "wb") as handle:
+                                            pickle.dump(
+                                                df_benchmark,
+                                                handle,
+                                                protocol=pickle.HIGHEST_PROTOCOL,
+                                            )
+                    else:
+                        for prediction_pipeline in tqdm.tqdm(
+                            prediction_pipelines, position=1, leave=False
+                        ):
+                            benchmark_prediction = self.benchmark_prediction(
+                                prediction_pipeline,
+                                target_column,
+                                feature_columns,
+                                df_train,
+                                df_test,
+                                df_train_x,
+                                df_test_x,
+                                None,
+                                None,
+                            )
+
+                            row_benchmark = self.get_row_benchmark(
+                                df_train,
+                                df_test,
+                                idx_fold,
+                                target_column,
+                                None,
+                                np.nan,
+                                None,
+                                prediction_pipeline,
+                                None,
+                                benchmark_prediction,
+                            )
+
+                            list_benchmark.append(row_benchmark)
+                            df_benchmark = pd.DataFrame(list_benchmark)
+                            with open(file_path, "wb") as handle:
+                                pickle.dump(df_benchmark, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+        return df_benchmark
+
     def benchmark_imputation(
+        self,
+        imputation_pipeline,
+        feature_columns,
+        df_train,
+        df_test,
+        df_mask_train,
+        df_mask_test,
+    ):
+        feature_columns_ = [col for col in feature_columns if col in self.imputation_columns]
+        df_train_x = df_train[feature_columns]
+        df_test_x = df_test[feature_columns]
+
+        df_train_x_corrupted = df_train_x.copy()
+        df_train_x_corrupted[df_mask_train] = np.nan
+
+        df_test_x_corrupted = df_test_x.copy()
+        df_test_x_corrupted[df_mask_test] = np.nan
+
+        benchmark = None
+        df_train_x_imputed = df_train_x_corrupted
+        df_test_x_imputed = df_test_x_corrupted
+        if imputation_pipeline is not None:
+            if "transformer_x" in imputation_pipeline:
+                transformer_imputation_x = imputation_pipeline["transformer_x"]
+            else:
+                transformer_imputation_x = None
+            imputer = imputation_pipeline["imputer"]
+
+            if transformer_imputation_x is not None:
+                # Suppose that all categories/values are known
+                df_data_x = pd.concat([df_train_x, df_test_x], axis=0)
+                transformer_imputation_x = transformer_imputation_x.fit(df_data_x)
+
+                df_train_x_transformed_corrupted = pd.DataFrame(
+                    transformer_imputation_x.transform(df_train_x_corrupted),
+                    columns=transformer_imputation_x.get_feature_names_out(
+                        df_train_x_corrupted.columns
+                    ),
+                    index=df_train_x_corrupted.index,
+                )
+                df_test_x_transformed_corrupted = pd.DataFrame(
+                    transformer_imputation_x.transform(df_test_x_corrupted),
+                    columns=transformer_imputation_x.get_feature_names_out(
+                        df_test_x_corrupted.columns
+                    ),
+                    index=df_test_x_corrupted.index,
+                )
+            else:
+                df_train_x_transformed_corrupted = df_train_x_corrupted
+                df_test_x_transformed_corrupted = df_test_x_corrupted
+
+            start_time = time.time()
+            imputer = imputer.fit(df_train_x_transformed_corrupted)
+            duration_imputation_fit = time.time() - start_time
+
+            start_time = time.time()
+            df_train_x_transformed_imputed = imputer.transform(df_train_x_transformed_corrupted)
+            duration_imputation_transform_train = time.time() - start_time
+
+            start_time = time.time()
+            df_test_x_transformed_imputed = imputer.transform(df_test_x_transformed_corrupted)
+            duration_imputation_transform_test = time.time() - start_time
+
+            if transformer_imputation_x is not None:
+                df_train_x_imputed = self.inverse_transform(
+                    transformer_imputation_x, df_train_x_transformed_imputed
+                )
+                df_test_x_imputed = self.inverse_transform(
+                    transformer_imputation_x, df_test_x_transformed_imputed
+                )
+            else:
+                df_train_x_imputed = df_train_x_transformed_imputed
+                df_test_x_imputed = df_test_x_transformed_imputed
+
+            (
+                dict_imp_score_mean_train,
+                dict_imp_scores_train,
+            ) = self.get_imputation_scores_by_dataframe(
+                df_train_x[feature_columns_],
+                df_train_x_imputed[feature_columns_],
+                df_mask_train[feature_columns_],
+            )
+
+            (
+                dict_imp_score_mean_test,
+                dict_imp_scores_test,
+            ) = self.get_imputation_scores_by_dataframe(
+                df_test_x[feature_columns_],
+                df_test_x_imputed[feature_columns_],
+                df_mask_test[feature_columns_],
+            )
+
+            benchmark = {
+                "dict_imp_score_mean_train": dict_imp_score_mean_train,
+                "dict_imp_scores_train": dict_imp_scores_train,
+                "dict_imp_score_mean_test": dict_imp_score_mean_test,
+                "dict_imp_scores_test": dict_imp_scores_test,
+                "duration_imputation_fit": duration_imputation_fit,
+                "duration_imputation_transform_train": duration_imputation_transform_train,
+                "duration_imputation_transform_test": duration_imputation_transform_test,
+            }
+
+        output = {
+            "df_train_x_imputed": df_train_x_imputed,
+            "df_test_x_imputed": df_test_x_imputed,
+        }
+
+        return output, benchmark
+
+    def benchmark_imputation_multiple(
         self,
         imputation_pipeline,
         feature_columns,
