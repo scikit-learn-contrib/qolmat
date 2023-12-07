@@ -1820,8 +1820,7 @@ class ImputerRPCA(_Imputer):
         model = self._dict_fitting[col][ngroup]
         X = df.astype(float).values
 
-        M, A = model.decompose_rpca_signal(X)
-        X_imputed = M + A
+        X_imputed = model.transform_with_basis(X)
 
         df_imputed = pd.DataFrame(X_imputed, index=df.index, columns=df.columns)
         df_imputed = df.where(~df.isna(), df_imputed)

@@ -26,6 +26,10 @@ class RPCAMock(RPCA):
         super().__init__()
         self.Q = None
 
+    def decompose_rpca(self, D: NDArray, Omega: NDArray) -> Tuple[NDArray, NDArray, None, None]:
+        self.call_count = 1
+        return D, D, None, None
+
     def decompose_on_basis(
         self, D: NDArray, Omega: NDArray, Q: NDArray
     ) -> Tuple[NDArray, NDArray]:
@@ -41,4 +45,11 @@ def test_rpca_decompose_rpca_signal() -> None:
     M, A = rpca.decompose_rpca_signal(X_incomplete)
     assert M.shape == X_incomplete.shape
     assert A.shape == X_incomplete.shape
+    assert rpca.call_count == 1
+
+
+def test_transform_with_basis() -> None:
+    rpca = RPCAMock()
+    X_imputed = rpca.transform_with_basis(X_incomplete)
+    assert X_imputed.shape == X_incomplete.shape
     assert rpca.call_count == 1

@@ -99,6 +99,36 @@ class RPCA(BaseEstimator, TransformerMixin):
         M, A, _, _ = self.decompose_rpca(D, Omega)
         return M, A
 
+    def transform_with_basis(self, X: NDArray) -> NDArray:
+        """
+        Compute the noisy RPCA with L1 or L2 time penalisation
+
+        Parameters
+        ----------
+        X : NDArray
+            Observations
+
+        Returns
+        -------
+        X_final: NDArray
+            M + A
+        """
+
+        D = utils.prepare_data(X, self.period)
+        Omega = ~np.isnan(D)
+        D = utils.linear_interpolation(D)
+        n_rows, n_cols = D.shape
+        if n_rows == 1 or n_cols == 1:
+            return D
+
+        M, A = self.decompose_on_basis(D, Omega, self.Q)
+
+        M_final = utils.get_shape_original(M, X.shape)
+        A_final = utils.get_shape_original(A, X.shape)
+
+        X_final = M_final + A_final
+        return X_final
+
     def decompose_rpca_signal(self, X: NDArray) -> Tuple[NDArray, NDArray]:
         """
         Compute the noisy RPCA with L1 or L2 time penalisation
@@ -119,8 +149,11 @@ class RPCA(BaseEstimator, TransformerMixin):
         D = utils.prepare_data(X, self.period)
         Omega = ~np.isnan(D)
         D = utils.linear_interpolation(D)
+        n_rows, n_cols = D.shape
+        if n_rows == 1 or n_cols == 1:
+            return D, np.full_like(D, 0)
 
-        M, A = self.decompose_on_basis(D, Omega, self.Q)
+        M, A, _, _ = self.decompose_rpca(D, Omega)
 
         M_final = utils.get_shape_original(M, X.shape)
         A_final = utils.get_shape_original(A, X.shape)

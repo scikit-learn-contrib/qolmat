@@ -120,10 +120,8 @@ class RPCANoisy(RPCA):
     ) -> Tuple[NDArray, NDArray]:
 
         lam = self.params_scale["lam"]
-        # rank = int(self.params_scale["rank"])
         tau = self.params_scale["tau"]
 
-        print(self.lam, lam)
         n_rows, n_cols = D.shape
         if n_rows == 1 or n_cols == 1:
             return D, np.full_like(D, 0)
@@ -151,23 +149,6 @@ class RPCANoisy(RPCA):
 
             if tolerance < self.tol:
                 break
-
-        for i in range(n_rows):
-            d = D[i, :]
-            omega = Omega[i, :]
-            L_row = np.zeros((1, n_rank))
-            a = np.full_like(d, 0)
-            for _ in range(self.max_iterations):
-                a_omega = rpca_utils.soft_thresholding(d - L_row @ Q, lam)
-                a_omega_C = d - L_row @ Q
-                a = np.where(omega, a_omega, a_omega_C)
-
-                L_row = scp.linalg.solve(
-                    a=2 * tau * Ir + (Q @ Q.T),
-                    b=Q @ (d - a).T,
-                ).T
-            L[i, :] = L_row
-            A[i, :] = a
 
         M = L @ Q
 
@@ -357,7 +338,7 @@ class RPCANoisy(RPCA):
         Y = np.zeros((n_rows, n_cols))
         X = D.copy()
         A = np.zeros((n_rows, n_cols))
-        U, S, Vt = np.linalg.svd(X)
+        U, S, Vt = np.linalg.svd(X, full_matrices=False)
 
         U = U[:, :rank]
         S = S[:rank]
