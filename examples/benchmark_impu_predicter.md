@@ -27,6 +27,8 @@ import pickle
 from scipy import stats
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
+from datasets import load_dataset
+
 import qolmat.benchmark.imputer_predictor as imppred
 ```
 
@@ -145,12 +147,88 @@ import qolmat.benchmark.imputer_predictor as imppred
 #     imputation_pipelines=imputation_pipelines,
 #     target_prediction_pipeline_pairs=target_prediction_pipeline_pairs,
 # )
-```
 
-```python
 # results = pd.read_pickle('data/benchmark_prediction.pkl')
 # results_agg = imppred.get_benchmark_aggregate(results, cols_groupby=['hole_generator', 'ratio_masked', 'imputer', 'predictor'])
 # results_agg
+```
+
+## Computational time
+
+```python
+# from qolmat.imputations import imputers, imputers_pytorch
+# from qolmat.imputations.diffusions import ddpms
+# from qolmat.benchmark import missing_patterns
+# from xgboost import XGBRegressor
+# import time
+
+# imputers = [
+#     imputers.ImputerMedian(),
+#     imputers.ImputerShuffle(),
+#     imputers.ImputerMICE(estimator=XGBRegressor(tree_method="hist", n_jobs=1), max_iter=100),
+#     imputers.ImputerKNN(),
+#     imputers.ImputerRPCA(max_iterations=100),
+#     imputers.ImputerEM(max_iter_em=100, method="mle"),
+#     imputers_pytorch.ImputerDiffusion(model=ddpms.TabDDPM(num_sampling=50), batch_size=1000, epochs=100)
+#     ]
+
+# benchmark_duration_rows = []
+# num_cols = 5
+# for num_rows in [100, 150]:
+#     df_sub_data = df_data.iloc[:num_rows, :num_cols]
+#     hole_generator = missing_patterns.MCAR(ratio_masked=0.1)
+#     df_sub_mask = hole_generator.split(df_sub_data)[0]
+#     df_sub_data[df_sub_mask] = np.nan
+
+#     for imputer in imputers:
+#         start_time = time.time()
+#         imputer = imputer.fit(df_sub_data)
+#         duration_imputation_fit = time.time() - start_time
+
+#         start_time = time.time()
+#         df_imputed = imputer.transform(df_sub_data)
+#         duration_imputation_transform = time.time() - start_time
+
+#         benchmark_duration_rows.append({
+#             'imputer': imputer.__class__.__name__,
+#             'n_columns': df_sub_data.shape[1],
+#             'size_data': df_sub_data.shape[0],
+#             'duration_imputation_fit': duration_imputation_fit,
+#             'duration_imputation_transform': duration_imputation_transform,
+#         })
+
+# benchmark_duration_cols = []
+# num_rows = 100
+# for num_cols in [5, 6]:
+#     df_sub_data = df_data.iloc[:num_rows, :num_cols]
+#     hole_generator = missing_patterns.MCAR(ratio_masked=0.1)
+#     df_sub_mask = hole_generator.split(df_sub_data)[0]
+#     df_sub_data[df_sub_mask] = np.nan
+
+#     for imputer in imputers:
+#         start_time = time.time()
+#         imputer = imputer.fit(df_sub_data)
+#         duration_imputation_fit = time.time() - start_time
+
+#         start_time = time.time()
+#         df_imputed = imputer.transform(df_sub_data)
+#         duration_imputation_transform = time.time() - start_time
+
+#         benchmark_duration_cols.append({
+#             'imputer': imputer.__class__.__name__,
+#             'n_columns': df_sub_data.shape[1],
+#             'size_data': df_sub_data.shape[0],
+#             'duration_imputation_fit': duration_imputation_fit,
+#             'duration_imputation_transform': duration_imputation_transform,
+#         })
+
+# df_benchmark_rows = pd.DataFrame(benchmark_duration_rows)
+# with open('data/imp_pred/benchmark_time_rows.pkl', "wb") as handle:
+#     pickle.dump(df_benchmark_rows, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+# df_benchmark_cols = pd.DataFrame(benchmark_duration_cols)
+# with open('data/imp_pred/benchmark_time_cols.pkl', "wb") as handle:
+#     pickle.dump(df_benchmark_cols, handle, protocol=pickle.HIGHEST_PROTOCOL)
 ```
 
 # Visualisation
@@ -380,52 +458,64 @@ fig = imppred.plot_bar(
 fig.update_layout(title=f"Average imputation performance ranks of {num_imputer} imputers with {num_dataset} datasets and {num_fold * num_mask} trials")
 fig.update_xaxes(title=f"Predictors and ratios of nan")
 fig.update_yaxes(title="Average rank")
-fig.update_layout(height=500, width=2000)
+fig.update_layout(height=400, width=2000)
 fig
 ```
 
 ### Observe separately each feature
 
 ```python
-results_plot.columns
-```
-
-```python
-results_plot_features = results_plot[['dataset', 'hole_generator', 'ratio_masked', 'imputer', 'predictor','imputation_scores_trainset']].copy()
-```
-
-```python
-results_plot_features
-```
-
-```python
-from datasets import load_dataset
-
 def scale_score(row, score_col, metric, data_mean):
-    print(row)
     scores_in = row[score_col][metric]
     scores_out = []
     for feature in scores_in:
-        scores_out.append(scores_in[feature]/data_mean[feature])
+        scores_out.append(scores_in[feature]/np.abs(data_mean[feature]))
     return np.mean(scores_out)
 
 score_col_in = 'imputation_scores_trainset'
 score_col_out = 'imputation_score_mae_scaled_train_set'
+
+# score_col_in = 'imputation_scores_testset'
+# score_col_out = 'imputation_score_mae_scaled_test_set'
+
 metric = 'imputation_score_mae'
 
-results_plot_features[score_col_out] = pd.NA
-for dataset_name in results_plot_features['dataset'].unique():
+results_plot[score_col_out] = np.NAN
+for dataset_name in results_plot['dataset'].unique():
     print(dataset_name)
     dataset = load_dataset("inria-soda/tabular-benchmark", data_files=f"reg_num/{dataset_name}.csv")
-    data_mean = dataset["train"].to_pandas().mean()
-    index = results_plot_features[results_plot_features['dataset']==dataset_name].index
-    results_plot_features.loc[index, score_col_out] = results_plot_features.loc[index, :].apply(lambda x: scale_score(x, score_col = score_col_in, metric = metric, data_mean = data_mean), axis=1)
+    data_mean = dataset["train"].to_pandas().abs().mean()
+    index = results_plot[(results_plot['dataset']==dataset_name) & (results_plot['imputer']!='None')].index
+    results_plot.loc[index, score_col_out] = results_plot.loc[index, :].apply(lambda x: scale_score(x, score_col = score_col_in, metric = metric, data_mean = data_mean), axis=1)
 
-    print(results_plot_features[results_plot_features['dataset']==dataset_name]['imputation_score_mae_scaled_train_set'].mean())
+    # print(results_plot_features[results_plot_features['dataset']==dataset_name]['imputation_score_mae_scaled_train_set'].mean())
 ```
 
 ```python
-results_plot_features
+results_plot_ = results_plot[~(results_plot['imputer'].isin(['None']))].copy()
+
+results_plot_['imputation_score_mae_scaled_rank_train_set'] = results_plot_.groupby(['dataset', 'n_fold', 'hole_generator', 'ratio_masked', 'n_mask', 'predictor'])['imputation_score_mae_scaled_train_set'].rank()
+results_plot_['imputation_score_mae_scaled_rank_test_set'] = results_plot_.groupby(['dataset', 'n_fold', 'hole_generator', 'ratio_masked', 'n_mask', 'predictor'])['imputation_score_mae_scaled_test_set'].rank()
+
+fig = imppred.plot_bar(
+    results_plot_,
+    cols_displayed=(("imputation_score", "test_set", "mae_scaled"),
+                   ("imputation_score", "train_set", "mae_scaled")),
+    cols_grouped=['ratio_masked', 'imputer'],
+    add_annotation=True,
+    add_confidence_interval=False,
+    agg_func=pd.DataFrame.mean)
+
+
+# fig.update_layout(title=f"Average imputation performance ranks of {num_imputer} imputers with {num_dataset} datasets and {num_fold * num_mask} trials")
+# fig.update_yaxes(title="Average rank")
+
+fig.update_layout(title=f"Average imputation performance score of {num_imputer} imputers with {num_dataset} datasets and {num_fold * num_mask} trials")
+fig.update_yaxes(title="Average score")
+
+fig.update_xaxes(title=f"Imputers and ratios of nan")
+fig.update_layout(height=500, width=2000)
+fig
 ```
 
 ## Which pair imputer-predictor achieves the best imputation performance, and at what ratio of missing values?
@@ -466,7 +556,7 @@ color_palette = dict([(key, value) for key, value in zip(results_plot_avg_rank.i
 ```
 
 ```python
-ratio_masked = 0.7
+# ratio_masked = 0.7
 # results_plot_critial_difference = results_plot[~(results_plot['hole_generator'].isin(['None'])) & ~(results_plot['imputer'].isin(['None'])) & (results_plot['ratio_masked'].isin([ratio_masked]))].copy()
 
 results_plot_critial_difference = results_plot[~(results_plot['hole_generator'].isin(['None'])) & ~(results_plot['imputer'].isin(['None']))].copy()
@@ -498,11 +588,11 @@ _ = sp.critical_difference_diagram(results_plot_avg_rank,
 print(results['dataset'].unique())
 
 dataset = 'elevators'
-fig = imppred.plot_scatter(results, cond={'dataset':dataset}, col_x='imputation_score_mae_train_set', col_y='prediction_score_notnan_mae')
+fig = imppred.plot_scatter(results_plot, cond={'dataset':dataset}, col_x='imputation_score_mae_scaled_train_set', col_y='prediction_score_notnan_mae')
 fig.update_layout(legend_title="Nan ratio")
 fig.update_layout(title=f"MAEs of all pairs imputer-predictor for 25 trials, on the dataset {dataset}")
 fig.update_xaxes(title=f"MAE for imputation on the train set")
-fig.update_yaxes(title="MAE for prediction on the test set (without imputation)")
+fig.update_yaxes(title="MAE for prediction on the test set without nan")
 fig.update_layout(height=500, width=1000)
 
 fig
@@ -512,28 +602,29 @@ fig
 print(results['predictor'].unique())
 
 predictor = 'Ridge'
-fig = imppred.plot_scatter(results, cond={'predictor':predictor}, col_x='imputation_score_mae_train_set', col_y='prediction_score_notnan_mae')
+fig = imppred.plot_scatter(results_plot, cond={'predictor':predictor}, col_x='imputation_score_mae_scaled_train_set', col_y='prediction_score_notnan_mae')
 fig.update_layout(legend_title="Nan ratio")
 fig.update_layout(title=f"MAEs of all pairs imputer-predictor for 25 trials, on the predictor {predictor}")
 fig.update_xaxes(title=f"MAE for imputation on the train set")
-fig.update_yaxes(title="MAE for prediction on the test set (without imputation)")
+fig.update_yaxes(title="MAE for prediction on the test set without nan")
 fig.update_layout(height=500, width=1000)
 
 fig
 ```
 
 ```python
-groupby_col = 'predictor'
+# groupby_col = 'predictor'
 # groupby_col = 'dataset'
-# groupby_col = 'ratio_masked'
+groupby_col = 'ratio_masked'
 # groupby_col = 'imputer'
 
 results_plot_ = results_plot[~(results_plot['imputer'].isin(['None']))].copy()
-
+# score_cols = ['imputation_score_mae_train_set', 'imputation_score_mae_test_set','prediction_score_notnan_mae', 'prediction_score_nan_mae']
+score_cols = ['imputation_score_mae_scaled_train_set', 'imputation_score_mae_scaled_test_set','prediction_score_notnan_mae', 'prediction_score_nan_mae']
 if groupby_col is None:
-    results_corr = results_plot_[['imputation_score_mae_train_set', 'imputation_score_mae_test_set','prediction_score_notnan_mae', 'prediction_score_nan_mae']].corr(method='spearman')
+    results_corr = results_plot_[score_cols].corr(method='spearman')
 else:
-    results_corr = results_plot_.groupby(groupby_col)[['imputation_score_mae_train_set', 'imputation_score_mae_test_set','prediction_score_notnan_mae', 'prediction_score_nan_mae']].corr(method='spearman')
+    results_corr = results_plot_.groupby(groupby_col)[score_cols].corr(method='spearman')
     print(f'#num_scores = {results_plot_.groupby(groupby_col).count().max().max()}')
 
 multi_index_columns = [
@@ -643,6 +734,29 @@ fig.update_xaxes(title=f"Predictors and ratios of nan")
 fig.update_yaxes(title="Average rank")
 fig.update_layout(height=500, width=2000)
 fig
+```
+
+### Find best features
+
+```python
+from sklearn.ensemble import HistGradientBoostingRegressor
+
+k_top_features = []
+for dataset_name in results_plot['dataset'].unique():
+    print(dataset_name)
+    dataset = load_dataset("inria-soda/tabular-benchmark", data_files=f"reg_num/{dataset_name}.csv")
+    df_data = dataset["train"].to_pandas()
+
+    columns = df_data.columns.to_list()
+    df_data_x = df_data[columns[:-1]]
+    df_data_y = df_data[columns[-1]]
+
+    model = HistGradientBoostingRegressor().fit(df_data_x,df_data_y)
+
+    feature_importances = dict([(key, value) for key, value in zip(columns, model.feature_importances_)])
+
+    print(feature_importances)
+    break
 ```
 
 ```python
