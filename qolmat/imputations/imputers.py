@@ -19,6 +19,7 @@ from statsmodels.tsa import seasonal as tsa_seasonal
 from qolmat.imputations import em_sampler
 from qolmat.imputations.rpca import rpca, rpca_noisy, rpca_pcp
 from qolmat.imputations import softimpute
+from qolmat.utils import utils
 from qolmat.utils.exceptions import NotDataFrame
 from qolmat.utils.utils import HyperValue
 
@@ -1157,7 +1158,12 @@ class ImputerResiduals(_Imputer):
         method_interpolation: Optional[str] = "linear",
     ):
         super().__init__(
-            imputer_params=("model_tsa", "period", "extrapolate_trend", "method_interpolation"),
+            imputer_params=(
+                "model_tsa",
+                "period",
+                "extrapolate_trend",
+                "method_interpolation",
+            ),
             groups=groups,
             columnwise=True,
         )
@@ -1746,6 +1752,43 @@ class ImputerRPCA(_Imputer):
             )
         return model
 
+    def _fit_element(
+        self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
+    ) -> em_sampler.EM:
+        """
+        Fits the imputer on `df`, at the group and/or column level depending onself.groups and
+        self.columnwise.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe on which the imputer is fitted
+        col : str, optional
+            Column on which the imputer is fitted, by default "__all__"
+        ngroup : int, optional
+            Id of the group on which the method is applied
+
+        Returns
+        -------
+        Any
+            Return fitted EM model
+
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
+        """
+        self._check_dataframe(df)
+        if self.method not in ["PCP", "noisy"]:
+            raise ValueError("Argument method must be `PCP` or `noisy`!")
+        hyperparams = self.get_hyperparams()
+        model = self.get_model(**hyperparams)
+
+        X = df.astype(float).values
+        model = model.fit_basis(X)
+
+        return model
+
     def _transform_element(
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
     ) -> pd.DataFrame:
@@ -1776,11 +1819,11 @@ class ImputerRPCA(_Imputer):
         if self.method not in ["PCP", "noisy"]:
             raise ValueError("Argument method must be `PCP` or `noisy`!")
 
-        hyperparams = self.get_hyperparams(col=col)
-        model = self.get_model(random_state=self._rng, **hyperparams)
+        model = self._dict_fitting[col][ngroup]
         X = df.astype(float).values
-        M, A = model.decompose_rpca_signal(X)
-        X_imputed = M + A
+
+        X_imputed = model.transform_with_basis(X)
+
         df_imputed = pd.DataFrame(X_imputed, index=df.index, columns=df.columns)
         df_imputed = df.where(~df.isna(), df_imputed)
 

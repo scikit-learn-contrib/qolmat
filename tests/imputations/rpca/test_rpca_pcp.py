@@ -121,7 +121,7 @@ def test_rpca_temporal_signal(synthetic_temporal_data):
     signal = synthetic_temporal_data
     period = 100
     lam = 0.1
-    rpca = RPCAPCP(period=period, lam=lam, mu=0.01)
+    rpca = RPCAPCP(period=period, lam=lam, mu=0.01).fit_basis(signal)
     X_result, A_result = rpca.decompose_rpca_signal(signal)
     X_input_rpca = utils.linear_interpolation(signal.reshape(period, -1))
     assert np.linalg.norm(X_input_rpca, "nuc") >= np.linalg.norm(

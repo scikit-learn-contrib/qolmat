@@ -112,7 +112,51 @@ class RPCANoisy(RPCA):
             "lam": lam,
         }
 
-    def decompose_rpca(self, D: NDArray, Omega: NDArray) -> Tuple[NDArray, NDArray]:
+    def decompose_on_basis(
+        self,
+        D: NDArray,
+        Omega: NDArray,
+        Q: NDArray,
+    ) -> Tuple[NDArray, NDArray]:
+
+        lam = self.params_scale["lam"]
+        tau = self.params_scale["tau"]
+
+        n_rows, n_cols = D.shape
+        if n_rows == 1 or n_cols == 1:
+            return D, np.full_like(D, 0)
+        # M, A, L, Q = self.decompose_rpca(D, Omega)
+        n_rank, _ = Q.shape
+        Ir = np.eye(n_rank)
+        L = np.zeros((n_rows, n_rank))
+        A = np.zeros((n_rows, n_cols))
+
+        for _ in range(self.max_iterations):
+            A_prev = A.copy()
+            L_prev = L.copy()
+            L = scp.linalg.solve(
+                a=2 * tau * Ir + (Q @ Q.T),
+                b=Q @ (D - A).T,
+            ).T
+            A_Omega = rpca_utils.soft_thresholding(D - L @ Q, lam)
+            A_Omega_C = D - L @ Q
+            A = np.where(Omega, A_Omega, A_Omega_C)
+
+            Ac = np.linalg.norm(A - A_prev, np.inf)
+            Lc = np.linalg.norm(L - L_prev, np.inf)
+
+            tolerance = max([Ac, Lc])  # type: ignore # noqa
+
+            if tolerance < self.tol:
+                break
+
+        M = L @ Q
+
+        return M, A
+
+    def decompose_rpca(
+        self, D: NDArray, Omega: NDArray
+    ) -> Tuple[NDArray, NDArray, NDArray, NDArray]:
         """
         Compute the noisy RPCA with L1 or L2 time penalisation
 
@@ -131,12 +175,18 @@ class RPCANoisy(RPCA):
             Anomalies
         """
 
-        params_scale = self.get_params_scale(D)
+        self.params_scale = self.get_params_scale(D)
 
-        lam = params_scale["lam"] if self.lam is None else self.lam
-        rank = params_scale["rank"] if self.rank is None else self.rank
-        rank = int(rank)
-        tau = params_scale["tau"] if self.tau is None else self.tau
+        if self.lam is not None:
+            self.params_scale["lam"] = self.lam
+        if self.rank is not None:
+            self.params_scale["rank"] = self.rank
+        if self.tau is not None:
+            self.params_scale["tau"] = self.tau
+
+        lam = self.params_scale["lam"]
+        rank = int(self.params_scale["rank"])
+        tau = self.params_scale["tau"]
         mu = 1e-2 if self.mu is None else self.mu
 
         n_rows, _ = D.shape
@@ -147,7 +197,7 @@ class RPCANoisy(RPCA):
                     f"than the number of rows in the matrix but {period} >= {n_rows}!"
                 )
 
-        M, A, U, V = self.decompose_rpca_algorithm(
+        M, A, L, Q = self.decompose_rpca_algorithm(
             D,
             Omega,
             rank,
@@ -163,7 +213,7 @@ class RPCANoisy(RPCA):
 
         self._check_cost_function_minimized(D, M, A, Omega, tau, lam)
 
-        return M, A
+        return M, A, L, Q
 
     def _check_cost_function_minimized(
         self,
@@ -274,10 +324,10 @@ class RPCANoisy(RPCA):
             Low-rank signal matrix of shape (m, n).
         A : np.ndarray
             Anomalies matrix of shape (m, n).
-        U : np.ndarray
+        L : np.ndarray
             Basis Unitary array of shape (m, rank).
-        V : np.ndarray
-            Basis Unitary array of shape (n, rank).
+        Q : np.ndarray
+            Basis Unitary array of shape (rank, n).
 
         """
 
@@ -370,10 +420,8 @@ class RPCANoisy(RPCA):
         X = L @ Q
 
         M = X
-        U = L
-        V = Q
 
-        return M, A, U, V
+        return M, A, L, Q
 
     @staticmethod
     def cost_function(
