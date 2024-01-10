@@ -1117,6 +1117,11 @@ def distance_anticorr(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFram
 
     df1 = df1[df_mask.any(axis=1)]
     df2 = df2[df_mask.any(axis=1)]
+
+    if len(df1) > 30000:
+        df1 = df1.sample(20000)
+        df2 = df2.sample(20000)
+
     return (1 - dcor.distance_correlation(df1.values, df2.values)) / 2
 
 
