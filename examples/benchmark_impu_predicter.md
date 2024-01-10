@@ -27,6 +27,8 @@ import pickle
 from scipy import stats
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
+import scikit_posthocs as sp
+
 from datasets import load_dataset
 
 import qolmat.benchmark.imputer_predictor as imppred
@@ -269,18 +271,24 @@ import qolmat.benchmark.imputer_predictor as imppred
 # results_3['dataset'] = 'MiamiHousing2016'
 # results_4 = pd.read_pickle('data/imp_pred/benchmark_elevators.pkl')
 # results_4['dataset'] = 'elevators'
-# results_5 = pd.read_pickle('data/imp_pred/benchmark_Brazilian_houses.pkl')
-# results_5['dataset'] = 'Brazilian_houses'
-# results_6 = pd.read_pickle('data/imp_pred/benchmark_houses.pkl')
-# results_6['dataset'] = 'houses'
+# results_5 = pd.read_pickle('data/imp_pred/benchmark_houses.pkl')
+# results_5['dataset'] = 'houses'
+# results_6 = pd.read_pickle('data/imp_pred/benchmark_Brazilian_houses.pkl')
+# results_6['dataset'] = 'Brazilian_houses'
+# results_7 = pd.read_pickle('data/imp_pred/benchmark_Bike_Sharing_Demand.pkl')
+# results_7['dataset'] = 'Bike_Sharing_Demand'
+# results_8 = pd.read_pickle('data/imp_pred/benchmark_diamonds.pkl')
+# results_8['dataset'] = 'diamonds'
+# results_9 = pd.read_pickle('data/imp_pred/benchmark_medical_charges.pkl')
+# results_9['dataset'] = 'medical_charges'
 
-# results = pd.concat([results_1, results_2, results_3, results_4, results_5, results_6]).reset_index(drop=True)
+# results = pd.concat([results_1, results_2, results_3,
+#                      results_4, results_5, results_6,
+#                      results_7, results_8, results_9,]).reset_index(drop=True)
 # with open('data/imp_pred/benchmark_all.pkl', "wb") as handle:
 #     pickle.dump(results, handle, protocol=pickle.HIGHEST_PROTOCOL)
-```
 
-```python
-# results = pd.read_pickle('data/imp_pred/benchmark_all.pkl')
+# # results = pd.read_pickle('data/imp_pred/benchmark_all.pkl')
 
 # results_agg = imppred.get_benchmark_aggregate(results, cols_groupby=['dataset', 'hole_generator', 'ratio_masked', 'imputer', 'predictor'])
 
@@ -289,10 +297,43 @@ import qolmat.benchmark.imputer_predictor as imppred
 # results_agg.to_csv('data/imp_pred/benchmark_all.csv', index=False)
 ```
 
+```python
+# results_1 = pd.read_pickle('data/imp_pred/benchmark_sulfur_new.pkl')
+# results_1['dataset'] = 'sulfur'
+# results_2 = pd.read_pickle('data/imp_pred/benchmark_wine_quality_new.pkl')
+# results_2['dataset'] = 'wine_quality'
+# results_3 = pd.read_pickle('data/imp_pred/benchmark_MiamiHousing2016_new.pkl')
+# results_3['dataset'] = 'MiamiHousing2016'
+# results_4 = pd.read_pickle('data/imp_pred/benchmark_elevators_new.pkl')
+# results_4['dataset'] = 'elevators'
+# results_5 = pd.read_pickle('data/imp_pred/benchmark_houses_new.pkl')
+# results_5['dataset'] = 'houses'
+# results_6 = pd.read_pickle('data/imp_pred/benchmark_Brazilian_houses_new.pkl')
+# results_6['dataset'] = 'Brazilian_houses'
+# results_7 = pd.read_pickle('data/imp_pred/benchmark_Bike_Sharing_Demand_new.pkl')
+# results_7['dataset'] = 'Bike_Sharing_Demand'
+# results_8 = pd.read_pickle('data/imp_pred/benchmark_diamonds_new.pkl')
+# results_8['dataset'] = 'diamonds'
+# results_9 = pd.read_pickle('data/imp_pred/benchmark_medical_charges_new.pkl')
+# results_9['dataset'] = 'medical_charges'
+
+# results = pd.concat([results_1, results_2, results_3,
+#                      results_4, results_5, results_6,
+#                      results_7, results_8, results_9]).reset_index(drop=True)
+# with open('data/imp_pred/benchmark_all_new.pkl', "wb") as handle:
+#     pickle.dump(results, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+# results_agg = imppred.get_benchmark_aggregate(results, cols_groupby=['dataset', 'hole_generator', 'ratio_masked', 'imputer', 'predictor'])
+
+# results_agg.reset_index(inplace=True)
+# results_agg.columns = ['_'.join(col).replace('__', '') for col in results_agg.columns.values]
+# results_agg.to_csv('data/imp_pred/benchmark_all_new.csv', index=False)
+```
+
 # Questions
 
 ```python
-results = pd.read_pickle('data/imp_pred/benchmark_all.pkl')
+results = pd.read_pickle('data/imp_pred/benchmark_all_new.pkl')
 results_plot = results.copy()
 ```
 
@@ -304,11 +345,12 @@ results_plot = results.copy()
 ```python
 num_dataset = len(results['dataset'].unique())
 num_predictor = len(results['predictor'].unique())
-num_imputer = len(results['imputer'].unique())
+num_imputer = len(results['imputer'].unique()) - 1
 num_fold = len(results['n_fold'].unique())
-num_ratio_masked = len(results['ratio_masked'].unique())
 # We remove the case [hole_generator=None, ratio_masked=0, n_mask=nan]
 num_mask = len(results['n_mask'].unique()) - 1
+num_ratio_masked = len(results['ratio_masked'].unique()) - 1
+num_trial = num_fold * num_mask
 
 print(f"datasets: {results['dataset'].unique()}")
 print(f"predictor: {results['predictor'].unique()}")
@@ -319,13 +361,20 @@ print(f"imputer: {results['imputer'].unique()}")
 results_plot[['dataset', 'hole_generator', 'ratio_masked', 'imputer', 'predictor']]
 ```
 
+```python
+results_plot.columns
+```
+
 ## Are imputer performances significantly different under all trials ? Friedman test
 
 https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.friedmanchisquare.html
 
 ```python
+# metric = "mae"
+metric = "wmape"
+
 results_plot_friedman_test_imputer = results_plot[results_plot['imputer']!='None'].copy()
-results_plot_friedman_test_imputer = results_plot_friedman_test_imputer.groupby(['dataset', 'n_fold', 'hole_generator', 'ratio_masked', 'n_mask', 'predictor', 'imputer'])['prediction_score_notnan_mae'].aggregate('first').unstack()
+results_plot_friedman_test_imputer = results_plot_friedman_test_imputer.groupby(['dataset', 'n_fold', 'hole_generator', 'ratio_masked', 'n_mask', 'predictor', 'imputer'])[f'prediction_score_notnan_{metric}'].aggregate('first').unstack()
 
 col = 'ratio_masked'
 for ratio_masked in results_plot_friedman_test_imputer.index.get_level_values(col).unique():
@@ -334,10 +383,13 @@ for ratio_masked in results_plot_friedman_test_imputer.index.get_level_values(co
 ```
 
 ```python
+# metric = "mae"
+metric = "wmape"
+
 results_plot_friedman_test_imputer_predictor = results_plot[results_plot['imputer']!='None'].copy()
 results_plot_friedman_test_imputer_predictor['imputer_predictor'] = results_plot_friedman_test_imputer_predictor['imputer'] + '_' + results_plot_friedman_test_imputer_predictor['predictor']
 
-results_plot_friedman_test_imputer_predictor = results_plot_friedman_test_imputer_predictor.groupby(['dataset', 'n_fold', 'hole_generator', 'ratio_masked', 'n_mask', 'imputer_predictor'])['prediction_score_notnan_mae'].aggregate('first').unstack()
+results_plot_friedman_test_imputer_predictor = results_plot_friedman_test_imputer_predictor.groupby(['dataset', 'n_fold', 'hole_generator', 'ratio_masked', 'n_mask', 'imputer_predictor'])[f'prediction_score_notnan_{metric}'].aggregate('first').unstack()
 
 col = 'ratio_masked'
 for ratio_masked in results_plot_friedman_test_imputer_predictor.index.get_level_values(col).unique():
@@ -358,12 +410,15 @@ print(f"num_runs = {num_runs} runs for each {num_dataset} datasets * {num_fold} 
 ```
 
 ```python
-results_plot['prediction_score_notnan_mae_relative_percentage_gain'] = results_plot.apply(lambda x: imppred.get_relative_score(x, results_plot, col='prediction_score_notnan_mae', method='relative_percentage_gain'), axis=1)
+# metric = 'mae'
+metric = 'wmape'
 
-results_plot['prediction_score_notnan_mae_gain'] = results_plot.apply(lambda x: imppred.get_relative_score(x, results_plot, col='prediction_score_notnan_mae', method='gain'), axis=1)
-results_plot['prediction_score_notnan_mae_gain_count'] = results_plot.apply(lambda x: 1 if x['prediction_score_notnan_mae_gain'] > 0 else 0, axis=1)
+# results_plot[f'prediction_score_notnan_{metric}_relative_percentage_gain'] = results_plot.apply(lambda x: imppred.get_relative_score(x, results_plot, col=f'prediction_score_notnan_{metric}', method='relative_percentage_gain'), axis=1)
 
-results_plot['prediction_score_notnan_mae_gain_ratio'] = results_plot['prediction_score_notnan_mae_gain_count']/num_runs
+results_plot[f'prediction_score_notnan_{metric}_gain'] = results_plot.apply(lambda x: imppred.get_relative_score(x, results_plot, col=f'prediction_score_notnan_{metric}', method='gain'), axis=1)
+results_plot[f'prediction_score_notnan_{metric}_gain_count'] = results_plot.apply(lambda x: 1 if x[f'prediction_score_notnan_{metric}_gain'] > 0 else 0, axis=1)
+
+results_plot[f'prediction_score_notnan_{metric}_gain_ratio'] = results_plot[f'prediction_score_notnan_{metric}_gain_count']/num_runs
 ```
 
 ### Ratio of runs
@@ -372,18 +427,20 @@ results_plot['prediction_score_notnan_mae_gain_ratio'] = results_plot['predictio
 # model = 'HistGradientBoostingRegressor'
 model = 'XGBRegressor'
 
+# metric = 'mae_gain_ratio'
+metric = 'wmape_gain_ratio'
+
 fig = imppred.plot_bar(
     results_plot[(results_plot['predictor'].isin([model]))
                  & ~(results_plot['imputer'].isin(['None']))
                  ],
-    col_displayed=("prediction_score", "test_set_not_nan", "mae_gain_ratio"),
+    col_displayed=("prediction_score", "test_set_not_nan", metric),
     cols_grouped=['hole_generator', 'ratio_masked', 'imputer'],
     add_annotation=True,
     add_confidence_interval=False,
-    title='XGBRegressor',
     agg_func=pd.DataFrame.sum)
 
-fig.update_layout(title=f"Ratio of runs (over {num_fold * num_mask} trials x {num_dataset} datasets) where predictive performance MAE <br>of {model} is enhanced through imputation compared to scenarios without imputation.")
+fig.update_layout(title=f"Ratio of runs (over {num_trial * num_dataset} runs = {num_trial} trials x {num_dataset} datasets) where predictive performance WMAPE <br>of {model} is enhanced through imputation compared to scenarios without imputation.")
 fig.update_xaxes(title="Types and Ratios of missing values")
 fig.update_yaxes(title="Ratio of runs")
 fig.update_layout(height=400, width=1000)
@@ -393,37 +450,45 @@ fig
 ### Gain
 
 ```python
-model = 'HistGradientBoostingRegressor'
-# model = 'XGBRegressor'
+# model = 'HistGradientBoostingRegressor'
+model = 'XGBRegressor'
+
+# metric = "mae_relative_percentage_gain"
+metric = "wmape_gain"
 
 fig = imppred.plot_bar(
     results_plot[(results_plot['predictor'].isin([model]))
                  & ~(results_plot['imputer'].isin(['None']))
-                #  & (results_plot['dataset'].isin(['sulfur']))
+                & (results_plot['dataset'].isin(['Bike_Sharing_Demand', 'medical_charges']))
                  ],
-    col_displayed=("prediction_score", "test_set_not_nan", "mae_relative_percentage_gain"),
+    col_displayed=("prediction_score", "test_set_not_nan", metric),
     cols_grouped=['dataset', 'ratio_masked', 'imputer'],
     add_annotation=False,
     add_confidence_interval=True,
     confidence_level=0.95,
-    title='XGBRegressor',
-    agg_func=pd.DataFrame.mean)
+    agg_func=pd.DataFrame.mean,
+    yaxes_type='log')
 
-fig.update_layout(title=f"Mean relative percentage gain of MAE over 25 trials, for {model}")
+# fig.update_layout(title=f"Mean relative percentage gain of MAE over {num_trial} trials, for {model}")
+fig.update_layout(title=f"Average gain of predictive performance (WMAPE) over {num_trial} trials, for {model}")
 fig.update_xaxes(title="Datasets and Ratios of missing values")
-fig.update_yaxes(title="1 - MAE(I+P) / MAE(P)")
-fig.update_layout(height=400, width=2000)
+# fig.update_yaxes(title="1 - MAE(I+P) / MAE(P)")
+fig.update_yaxes(title="WMAPE(I+P) - WMAPE(P)")
+fig.update_layout(height=400, width=1000)
 fig
 ```
 
 ### The Wilcoxon signed-rank test
 
 ```python
+# metric = 'mae_gain'
+metric = 'wmape_gain'
+
 results_plot_wilcoxon_test = results_plot[~(results_plot['imputer'].isin(['None'])) & (results_plot['predictor'].isin(['HistGradientBoostingRegressor','XGBRegressor']))].copy()
-groupby_cols = ['', 'predictor', 'imputer']
-num_runs = results_plot_wilcoxon_test.groupby(groupby_cols).count()['prediction_score_notnan_mae_gain'].max()
+groupby_cols = ['ratio_masked', 'predictor', 'imputer']
+num_runs = results_plot_wilcoxon_test.groupby(groupby_cols).count()[f'prediction_score_notnan_{metric}'].max()
 print(f'For a combinaison of {groupby_cols}, there are {num_runs} gains')
-results_plot_wilcoxon_test = pd.DataFrame(results_plot_wilcoxon_test.groupby(groupby_cols).apply(lambda x: stats.wilcoxon(x['prediction_score_notnan_mae_gain'], alternative='greater').pvalue).rename('wilcoxon_test_pvalue'))
+results_plot_wilcoxon_test = pd.DataFrame(results_plot_wilcoxon_test.groupby(groupby_cols).apply(lambda x: stats.wilcoxon(x[f'prediction_score_notnan_{metric}'], alternative='greater').pvalue).rename('wilcoxon_test_pvalue'))
 
 results_plot_wilcoxon_test[results_plot_wilcoxon_test['wilcoxon_test_pvalue'] < 0.05]
 
@@ -438,17 +503,53 @@ If a p-value < 5%, the null hypothesis that the median is negative can be reject
 ### Mean scores over all features
 
 ```python
+# metric = 'mae'
+metric = 'wmape'
+
 results_plot_ = results_plot[~(results_plot['imputer'].isin(['None']))].copy()
 
-results_plot_['imputation_score_mae_rank_train_set'] = results_plot_.groupby(['dataset', 'n_fold', 'hole_generator', 'ratio_masked', 'n_mask', 'predictor'])['imputation_score_mae_train_set'].rank()
-results_plot_['imputation_score_mae_rank_test_set'] = results_plot_.groupby(['dataset', 'n_fold', 'hole_generator', 'ratio_masked', 'n_mask', 'predictor'])['imputation_score_mae_test_set'].rank()
+results_plot_[f'imputation_score_{metric}_rank_train_set'] = results_plot_.groupby(['dataset', 'n_fold', 'hole_generator', 'ratio_masked', 'n_mask', 'predictor'])[f'imputation_score_{metric}_train_set'].rank()
+results_plot_[f'imputation_score_{metric}_rank_test_set'] = results_plot_.groupby(['dataset', 'n_fold', 'hole_generator', 'ratio_masked', 'n_mask', 'predictor'])[f'imputation_score_{metric}_test_set'].rank()
+
+results_plot_[f'prediction_score_notnan_{metric}_rank'] = results_plot_.groupby(['dataset', 'n_fold', 'hole_generator', 'ratio_masked', 'n_mask', 'predictor'])[f'prediction_score_notnan_{metric}'].rank()
 ```
 
 ```python
+# metric = "dist_corr_pattern"
+metric = "wmape"
+
+fig = imppred.plot_bar(
+    results_plot_[~(results_plot_['imputer'].isin(['None']))
+                #  & (results_plot_['dataset'].isin(['Bike_Sharing_Demand', 'medical_charges']))
+                 ],
+    col_displayed=("imputation_score", "test_set", metric),
+    # col_displayed=("prediction_score", "test_set_not_nan", metric),
+    cols_grouped=['dataset', 'ratio_masked', 'imputer'],
+    add_annotation=False,
+    add_confidence_interval=True,
+    confidence_level=0.95,
+    agg_func=pd.DataFrame.mean,
+    yaxes_type='log')
+
+fig.update_layout(title=f"Average imputation performance (WMAPE) over {num_trial} trials")
+fig.update_yaxes(title="WMAPE(I)")
+
+# fig.update_layout(title=f"Average prediction performance (WMAPE) over {num_trial} trials and {num_predictor} predictors")
+# fig.update_yaxes(title="WMAPE(P)")
+
+fig.update_xaxes(title="Datasets and Ratios of missing values")
+fig.update_layout(height=400, width=2000)
+fig
+```
+
+```python
+# metric = 'mae'
+metric = 'wmape'
+
 fig = imppred.plot_bar(
     results_plot_,
-    cols_displayed=(("imputation_score", "test_set", "mae_rank"),
-                   ("imputation_score", "train_set", "mae_rank")),
+    cols_displayed=(("imputation_score", "test_set", f"{metric}_rank"),
+                   ("imputation_score", "train_set", f"{metric}_rank")),
     cols_grouped=['ratio_masked', 'imputer'],
     add_annotation=True,
     add_confidence_interval=False,
@@ -462,66 +563,125 @@ fig.update_layout(height=400, width=2000)
 fig
 ```
 
-### Observe separately each feature
-
 ```python
-def scale_score(row, score_col, metric, data_mean):
-    scores_in = row[score_col][metric]
-    scores_out = []
-    for feature in scores_in:
-        scores_out.append(scores_in[feature]/np.abs(data_mean[feature]))
-    return np.mean(scores_out)
-
-score_col_in = 'imputation_scores_trainset'
-score_col_out = 'imputation_score_mae_scaled_train_set'
-
-# score_col_in = 'imputation_scores_testset'
-# score_col_out = 'imputation_score_mae_scaled_test_set'
-
-metric = 'imputation_score_mae'
-
-results_plot[score_col_out] = np.NAN
-for dataset_name in results_plot['dataset'].unique():
-    print(dataset_name)
-    dataset = load_dataset("inria-soda/tabular-benchmark", data_files=f"reg_num/{dataset_name}.csv")
-    data_mean = dataset["train"].to_pandas().abs().mean()
-    index = results_plot[(results_plot['dataset']==dataset_name) & (results_plot['imputer']!='None')].index
-    results_plot.loc[index, score_col_out] = results_plot.loc[index, :].apply(lambda x: scale_score(x, score_col = score_col_in, metric = metric, data_mean = data_mean), axis=1)
-
-    # print(results_plot_features[results_plot_features['dataset']==dataset_name]['imputation_score_mae_scaled_train_set'].mean())
-```
-
-```python
-results_plot_ = results_plot[~(results_plot['imputer'].isin(['None']))].copy()
-
-results_plot_['imputation_score_mae_scaled_rank_train_set'] = results_plot_.groupby(['dataset', 'n_fold', 'hole_generator', 'ratio_masked', 'n_mask', 'predictor'])['imputation_score_mae_scaled_train_set'].rank()
-results_plot_['imputation_score_mae_scaled_rank_test_set'] = results_plot_.groupby(['dataset', 'n_fold', 'hole_generator', 'ratio_masked', 'n_mask', 'predictor'])['imputation_score_mae_scaled_test_set'].rank()
+# metric = 'mae_rank'
+metric = 'wmape_rank'
 
 fig = imppred.plot_bar(
     results_plot_,
-    cols_displayed=(("imputation_score", "test_set", "mae_scaled"),
-                   ("imputation_score", "train_set", "mae_scaled")),
+    # col_displayed=("imputation_score", "test_set", metric),
+    col_displayed=("prediction_score", "test_set_not_nan", metric),
     cols_grouped=['ratio_masked', 'imputer'],
     add_annotation=True,
     add_confidence_interval=False,
-    agg_func=pd.DataFrame.mean)
+    confidence_level=0.95,
+    agg_func=pd.DataFrame.mean,
+    yaxes_type='log')
 
-
-# fig.update_layout(title=f"Average imputation performance ranks of {num_imputer} imputers with {num_dataset} datasets and {num_fold * num_mask} trials")
-# fig.update_yaxes(title="Average rank")
-
-fig.update_layout(title=f"Average imputation performance score of {num_imputer} imputers with {num_dataset} datasets and {num_fold * num_mask} trials")
-fig.update_yaxes(title="Average score")
-
-fig.update_xaxes(title=f"Imputers and ratios of nan")
-fig.update_layout(height=500, width=2000)
+fig.update_layout(title=f"Average ranks of imputeurs (based on prediction performance WMAPE) for {num_dataset *num_trial *num_predictor *num_ratio_masked} rounds<br>({num_dataset} datasets * {num_ratio_masked} ratios of nan * {num_predictor} predictors * {num_trial} trials)")
+# fig.update_layout(title=f"Average ranks of imputeurs (based on imputation performance WMAPE) for {num_datasets*num_trials*num_ratios} rounds<br>({num_datasets} datasets (test set) * {num_ratios} ratios of nan * {num_trials} trials)")
+fig.update_xaxes(title=f"Ratios of nan")
+fig.update_yaxes(title="Average rank")
+fig.update_layout(height=400, width=1000)
 fig
+```
+
+```python
+color_palette = dict([(key, value) for key, value in zip(results_plot_avg_rank.index, np.random.rand(len(results_plot_avg_rank),3))])
+```
+
+```python
+metric = 'wmape'
+
+ratio_masked = 0.3
+results_plot_critial_difference = results_plot_[~(results_plot_['hole_generator'].isin(['None'])) & ~(results_plot_['imputer'].isin(['None'])) & (results_plot_['ratio_masked'].isin([ratio_masked]))].copy()
+
+# results_plot_critial_difference = results_plot_[~(results_plot_['hole_generator'].isin(['None'])) & ~(results_plot_['imputer'].isin(['None']))].copy()
+
+results_plot_critial_difference['imputer_predictor'] = results_plot_critial_difference['imputer'] #+ '_' + results_plot_critial_difference['predictor']
+results_plot_avg_rank = results_plot_critial_difference.groupby(['imputer_predictor'])[f'prediction_score_notnan_{metric}_rank'].mean()
+
+# color_palette = dict([(key, value) for key, value in zip(results_plot_avg_rank.index, np.random.rand(len(results_plot_avg_rank),3))])
+
+results_plot_posthoc_conover_friedman = results_plot_critial_difference.groupby('imputer_predictor')[f'prediction_score_notnan_{metric}'].apply(list)
+results_plot_posthoc_conover_friedman = results_plot_posthoc_conover_friedman[~results_plot_posthoc_conover_friedman.index.isin(['None_Ridge'])]
+imputer_predictor_names = results_plot_posthoc_conover_friedman.index
+
+results_plot_posthoc_conover_friedman = np.array(list(results_plot_posthoc_conover_friedman.values)).T
+results_plot_posthoc_conover_friedman = sp.posthoc_conover_friedman(results_plot_posthoc_conover_friedman)
+
+results_plot_posthoc_conover_friedman.index = imputer_predictor_names
+results_plot_posthoc_conover_friedman.columns = imputer_predictor_names
+
+plt.figure(figsize=(7, 2))
+# plt.title(f'Average ranks for prediction performance')
+plt.title(f'Average ranks for prediction performance, ratio of nan = {ratio_masked}')
+_ = sp.critical_difference_diagram(results_plot_avg_rank,
+                                   results_plot_posthoc_conover_friedman,
+                                   color_palette=color_palette,)
+```
+
+### Observe separately each feature
+
+```python
+# def scale_score(row, score_col, metric, data_mean):
+#     scores_in = row[score_col][metric]
+#     scores_out = []
+#     for feature in scores_in:
+#         scores_out.append(scores_in[feature]/np.abs(data_mean[feature]))
+#     return np.mean(scores_out)
+
+# score_col_in = 'imputation_scores_trainset'
+# score_col_out = 'imputation_score_mae_scaled_train_set'
+
+# # score_col_in = 'imputation_scores_testset'
+# # score_col_out = 'imputation_score_mae_scaled_test_set'
+
+# metric = 'imputation_score_mae'
+
+# results_plot[score_col_out] = np.NAN
+# for dataset_name in results_plot['dataset'].unique():
+#     print(dataset_name)
+#     dataset = load_dataset("inria-soda/tabular-benchmark", data_files=f"reg_num/{dataset_name}.csv")
+#     data_mean = dataset["train"].to_pandas().abs().mean()
+#     index = results_plot[(results_plot['dataset']==dataset_name) & (results_plot['imputer']!='None')].index
+#     results_plot.loc[index, score_col_out] = results_plot.loc[index, :].apply(lambda x: scale_score(x, score_col = score_col_in, metric = metric, data_mean = data_mean), axis=1)
+
+#     # print(results_plot_features[results_plot_features['dataset']==dataset_name]['imputation_score_mae_scaled_train_set'].mean())
+```
+
+```python
+# results_plot_ = results_plot[~(results_plot['imputer'].isin(['None']))].copy()
+
+# results_plot_['imputation_score_mae_scaled_rank_train_set'] = results_plot_.groupby(['dataset', 'n_fold', 'hole_generator', 'ratio_masked', 'n_mask', 'predictor'])['imputation_score_mae_scaled_train_set'].rank()
+# results_plot_['imputation_score_mae_scaled_rank_test_set'] = results_plot_.groupby(['dataset', 'n_fold', 'hole_generator', 'ratio_masked', 'n_mask', 'predictor'])['imputation_score_mae_scaled_test_set'].rank()
+
+# fig = imppred.plot_bar(
+#     results_plot_,
+#     cols_displayed=(("imputation_score", "test_set", "mae_scaled"),
+#                    ("imputation_score", "train_set", "mae_scaled")),
+#     cols_grouped=['ratio_masked', 'imputer'],
+#     add_annotation=True,
+#     add_confidence_interval=False,
+#     agg_func=pd.DataFrame.mean)
+
+
+# # fig.update_layout(title=f"Average imputation performance ranks of {num_imputer} imputers with {num_dataset} datasets and {num_fold * num_mask} trials")
+# # fig.update_yaxes(title="Average rank")
+
+# fig.update_layout(title=f"Average imputation performance score of {num_imputer} imputers with {num_dataset} datasets and {num_fold * num_mask} trials")
+# fig.update_yaxes(title="Average score")
+
+# fig.update_xaxes(title=f"Imputers and ratios of nan")
+# fig.update_layout(height=500, width=2000)
+# fig
 ```
 
 ## Which pair imputer-predictor achieves the best imputation performance, and at what ratio of missing values?
 
 ```python
-results_plot['prediction_score_notnan_mae_rank'] = results_plot.groupby(['dataset', 'n_fold', 'hole_generator', 'ratio_masked', 'n_mask'])['prediction_score_notnan_mae'].rank()
+metric = 'wmape'
+results_plot[f'prediction_score_notnan_{metric}_rank'] = results_plot.groupby(['dataset', 'n_fold', 'hole_generator', 'ratio_masked', 'n_mask'])[f'prediction_score_notnan_{metric}'].rank()
 ```
 
 ```python
@@ -529,12 +689,14 @@ results_plot['prediction_score_notnan_mae_rank'] = results_plot.groupby(['datase
 # model = 'XGBRegressor'
 # model = 'Ridge'
 
+metric = 'wmape'
+
 fig = imppred.plot_bar(
     results_plot[
         ~(results_plot['hole_generator'].isin(['None']))
         # (results_plot['predictor'].isin([model ]))
         ],
-    col_displayed=("prediction_score", "test_set_not_nan", "mae_rank"),
+    col_displayed=("prediction_score", "test_set_not_nan", f"{metric}_rank"),
     cols_grouped=['predictor','ratio_masked', 'imputer'],
     add_annotation=True,
     add_confidence_interval=False,
@@ -556,15 +718,19 @@ color_palette = dict([(key, value) for key, value in zip(results_plot_avg_rank.i
 ```
 
 ```python
-# ratio_masked = 0.7
-# results_plot_critial_difference = results_plot[~(results_plot['hole_generator'].isin(['None'])) & ~(results_plot['imputer'].isin(['None'])) & (results_plot['ratio_masked'].isin([ratio_masked]))].copy()
+metric = 'wmape'
 
-results_plot_critial_difference = results_plot[~(results_plot['hole_generator'].isin(['None'])) & ~(results_plot['imputer'].isin(['None']))].copy()
+ratio_masked = 0.1
+results_plot_critial_difference = results_plot[~(results_plot['hole_generator'].isin(['None'])) & ~(results_plot['imputer'].isin(['None'])) & (results_plot['ratio_masked'].isin([ratio_masked]))].copy()
+
+# results_plot_critial_difference = results_plot[~(results_plot['hole_generator'].isin(['None'])) & ~(results_plot['imputer'].isin(['None']))].copy()
 
 results_plot_critial_difference['imputer_predictor'] = results_plot_critial_difference['imputer'] + '_' + results_plot_critial_difference['predictor']
-results_plot_avg_rank = results_plot_critial_difference.groupby(['imputer_predictor'])['prediction_score_notnan_mae_rank'].mean()
+results_plot_avg_rank = results_plot_critial_difference.groupby(['imputer_predictor'])[f'prediction_score_notnan_{metric}_rank'].mean()
 
-results_plot_posthoc_conover_friedman = results_plot_critial_difference.groupby('imputer_predictor')['prediction_score_notnan_mae'].apply(list)
+# color_palette = dict([(key, value) for key, value in zip(results_plot_avg_rank.index, np.random.rand(len(results_plot_avg_rank),3))])
+
+results_plot_posthoc_conover_friedman = results_plot_critial_difference.groupby('imputer_predictor')[f'prediction_score_notnan_{metric}'].apply(list)
 results_plot_posthoc_conover_friedman = results_plot_posthoc_conover_friedman[~results_plot_posthoc_conover_friedman.index.isin(['None_Ridge'])]
 imputer_predictor_names = results_plot_posthoc_conover_friedman.index
 
@@ -575,8 +741,8 @@ results_plot_posthoc_conover_friedman.index = imputer_predictor_names
 results_plot_posthoc_conover_friedman.columns = imputer_predictor_names
 
 plt.figure(figsize=(10, 5))
-plt.title(f'Critical difference diagram of average score ranks')
-# plt.title(f'Critical difference diagram of average score ranks, ratio of nan = {ratio_masked}')
+# plt.title(f'Average ranks for prediction performance')
+plt.title(f'Average ranks for prediction performance, ratio of nan = {ratio_masked}')
 _ = sp.critical_difference_diagram(results_plot_avg_rank,
                                    results_plot_posthoc_conover_friedman,
                                    color_palette=color_palette,)
@@ -587,12 +753,13 @@ _ = sp.critical_difference_diagram(results_plot_avg_rank,
 ```python
 print(results['dataset'].unique())
 
-dataset = 'elevators'
-fig = imppred.plot_scatter(results_plot, cond={'dataset':dataset}, col_x='imputation_score_mae_scaled_train_set', col_y='prediction_score_notnan_mae')
+metric = 'wmape'
+dataset = 'medical_charges'
+fig = imppred.plot_scatter(results_plot, cond={'dataset':dataset}, col_x=f'imputation_score_{metric}_train_set', col_y=f'prediction_score_notnan_{metric}')
 fig.update_layout(legend_title="Nan ratio")
-fig.update_layout(title=f"MAEs of all pairs imputer-predictor for 25 trials, on the dataset {dataset}")
-fig.update_xaxes(title=f"MAE for imputation on the train set")
-fig.update_yaxes(title="MAE for prediction on the test set without nan")
+fig.update_layout(title=f"Performance scores of all pairs imputer-predictor for {num_trial} trials, on the dataset {dataset}")
+fig.update_xaxes(title=f"WMAPE for imputation on the train set")
+fig.update_yaxes(title="WMAPE for prediction on the test set without nan")
 fig.update_layout(height=500, width=1000)
 
 fig
@@ -601,10 +768,11 @@ fig
 ```python
 print(results['predictor'].unique())
 
-predictor = 'Ridge'
-fig = imppred.plot_scatter(results_plot, cond={'predictor':predictor}, col_x='imputation_score_mae_scaled_train_set', col_y='prediction_score_notnan_mae')
+metric = 'wmape'
+predictor = 'XGBRegressor'
+fig = imppred.plot_scatter(results_plot, cond={'predictor':predictor}, col_x=f'imputation_score_{metric}_train_set', col_y=f'prediction_score_notnan_{metric}')
 fig.update_layout(legend_title="Nan ratio")
-fig.update_layout(title=f"MAEs of all pairs imputer-predictor for 25 trials, on the predictor {predictor}")
+fig.update_layout(title=f"MAEs of all pairs imputer-predictor for {num_trial} trials, on the predictor {predictor}")
 fig.update_xaxes(title=f"MAE for imputation on the train set")
 fig.update_yaxes(title="MAE for prediction on the test set without nan")
 fig.update_layout(height=500, width=1000)
@@ -618,9 +786,11 @@ fig
 groupby_col = 'ratio_masked'
 # groupby_col = 'imputer'
 
+metric = 'wmape'
+
 results_plot_ = results_plot[~(results_plot['imputer'].isin(['None']))].copy()
-# score_cols = ['imputation_score_mae_train_set', 'imputation_score_mae_test_set','prediction_score_notnan_mae', 'prediction_score_nan_mae']
-score_cols = ['imputation_score_mae_scaled_train_set', 'imputation_score_mae_scaled_test_set','prediction_score_notnan_mae', 'prediction_score_nan_mae']
+# score_cols = [f'imputation_score_{metric}_train_set', f'imputation_score_{metric}_test_set',f'prediction_score_notnan_{metric}', f'prediction_score_nan_{metric}']
+score_cols = [f'imputation_score_{metric}_train_set', f'imputation_score_{metric}_test_set',f'prediction_score_notnan_{metric}', f'prediction_score_nan_{metric}']
 if groupby_col is None:
     results_corr = results_plot_[score_cols].corr(method='spearman')
 else:
@@ -628,10 +798,10 @@ else:
     print(f'#num_scores = {results_plot_.groupby(groupby_col).count().max().max()}')
 
 multi_index_columns = [
-    ('imputation', 'mae', 'train_set'),
-    ('imputation', 'mae', 'test_set'),
-    ('prediction', 'mae', 'test_set_not_nan'),
-    ('prediction', 'mae', 'test_set_with_nan'),
+    ('imputation', metric, 'train_set'),
+    ('imputation', metric, 'test_set'),
+    ('prediction', metric, 'test_set_not_nan'),
+    ('prediction', metric, 'test_set_with_nan'),
 ]
 
 results_corr.columns = pd.MultiIndex.from_tuples(multi_index_columns)
@@ -656,7 +826,7 @@ else:
     hide_indices_train = (slice(None), slice(None), slice(None), 'train_set')
 
 results_corr.columns.names = ['task', 'metric', 'set']
-results_corr_plot = results_corr.xs('imputation', level=1, drop_level=False)[[('prediction', 'mae', 'test_set_not_nan'), ('prediction', 'mae', 'test_set_with_nan'),]].reorder_levels(reorder_levels)
+results_corr_plot = results_corr.xs('imputation', level=1, drop_level=False)[[('prediction', metric, 'test_set_not_nan'), ('prediction', metric, 'test_set_with_nan'),]].reorder_levels(reorder_levels)
 
 def mask_values(val):
     return f"opacity: {0}"
@@ -666,13 +836,13 @@ results_corr_plot\
     mask_values,
     subset=(
         hide_indices_test,
-        ('prediction', 'mae', 'test_set_not_nan')
+        ('prediction', metric, 'test_set_not_nan')
     ),
 ).applymap(
     mask_values,
     subset=(
         hide_indices_train,
-        ('prediction', 'mae', 'test_set_with_nan')
+        ('prediction', metric, 'test_set_with_nan')
     ),
 )
 ```
@@ -680,12 +850,14 @@ results_corr_plot\
 ## Dataset
 
 ```python
+metric = 'wmape'
+
 results_plot_wilcoxon_test = results_plot[~(results_plot['imputer'].isin(['None']))
                                           & (results_plot['predictor'].isin(['HistGradientBoostingRegressor','XGBRegressor']))].copy()
 groupby_cols = ['size_test_set', 'predictor', 'imputer']
-num_runs = results_plot_wilcoxon_test.groupby(groupby_cols).count()['prediction_score_notnan_mae_gain'].max()
+num_runs = results_plot_wilcoxon_test.groupby(groupby_cols).count()[f'prediction_score_notnan_{metric}_gain'].max()
 print(f'For a combinaison of {groupby_cols}, there are {num_runs} gains')
-results_plot_wilcoxon_test = pd.DataFrame(results_plot_wilcoxon_test.groupby(groupby_cols).apply(lambda x: stats.wilcoxon(x['prediction_score_notnan_mae_gain'], alternative='greater').pvalue).rename('wilcoxon_test_pvalue'))
+results_plot_wilcoxon_test = pd.DataFrame(results_plot_wilcoxon_test.groupby(groupby_cols).apply(lambda x: stats.wilcoxon(x[f'prediction_score_notnan_{metric}_gain'], alternative='greater').pvalue).rename('wilcoxon_test_pvalue'))
 
 ```
 
@@ -694,7 +866,6 @@ results_plot_wilcoxon_test['wilcoxon_test_pvalue_count'] = results_plot_wilcoxon
 ```
 
 ```python
-
 fig = go.Figure()
 
 for value in results_plot_wilcoxon_test.index.get_level_values('imputer').unique():
@@ -716,12 +887,15 @@ fig
 # model = 'XGBRegressor'
 # model = 'Ridge'
 
+# metric = "mae_rank"
+metric = "wmape_rank"
+
 fig = imppred.plot_bar(
     results_plot[
         ~(results_plot['hole_generator'].isin(['None']))
         # (results_plot['predictor'].isin([model ]))
         ],
-    col_displayed=("prediction_score", "test_set_not_nan", "mae_rank"),
+    col_displayed=("prediction_score", "test_set_not_nan", metric),
     cols_grouped=['dataset', 'predictor', 'imputer'],
     add_annotation=True,
     add_confidence_interval=False,
@@ -739,7 +913,7 @@ fig
 ### Find best features
 
 ```python
-from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.ensemble import GradientBoostingRegressor
 
 k_top_features = []
 for dataset_name in results_plot['dataset'].unique():
@@ -751,7 +925,7 @@ for dataset_name in results_plot['dataset'].unique():
     df_data_x = df_data[columns[:-1]]
     df_data_y = df_data[columns[-1]]
 
-    model = HistGradientBoostingRegressor().fit(df_data_x,df_data_y)
+    model = GradientBoostingRegressor().fit(df_data_x,df_data_y)
 
     feature_importances = dict([(key, value) for key, value in zip(columns, model.feature_importances_)])
 
