@@ -9,8 +9,12 @@ import tqdm
 import re
 import scipy
 import time
+from scipy import stats
+
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import matplotlib.pyplot as plt
+import scikit_posthocs as sp
 
 from sklearn.model_selection import KFold
 
@@ -1296,8 +1300,6 @@ def plot_scatter(
     model=linear_model.LinearRegression(),
 ):
 
-    col_legend = "ratio_masked"
-
     df_plot = df.copy()
     for k, v in cond.items():
         df_plot = df_plot[df_plot[k] == v]
@@ -1383,3 +1385,80 @@ def get_relative_score(
     else:
         x_out = x_row - x_ref
     return x_out.values
+
+
+def statistic_test(
+    df,
+    col_evaluated,
+    cols_grouped=[
+        "dataset",
+        "n_fold",
+        "hole_generator",
+        "ratio_masked",
+        "n_mask",
+        "predictor",
+        "imputer",
+    ],
+    cols_displayed=["ratio_masked", "predictor"],
+    func=stats.friedmanchisquare,
+):
+    df_values = df.groupby(cols_grouped)[col_evaluated].aggregate("first").unstack()
+    cols_displayed_ = cols_displayed
+    values = df_values.copy()
+
+    def get_value(values, df_values, cols_displayed):
+        col = cols_displayed[0]
+        if len(cols_displayed) > 1:
+            cols_displayed.remove(cols_displayed[0])
+            list_df = []
+            for v in df_values.index.get_level_values(col).unique():
+                df_out = get_value(df_values.xs(v, level=col), df_values, cols_displayed)
+                df_out[col] = v
+                list_df.append(df_out)
+
+            df_out = pd.concat(list_df)
+            first_col = df_out.pop(col)
+            df_out.insert(0, col, first_col)
+            return df_out
+        else:
+            list_out = []
+            for v in df_values.index.get_level_values(col).unique():
+                values_ = values.xs(v, level=col).values.T
+                res = func(*values_)
+                list_out.append(
+                    {
+                        col: v,
+                        "statistic": res.statistic,
+                        "pvalue": res.pvalue,
+                        "set_size": np.shape(values_),
+                    }
+                )
+            df_out = pd.DataFrame(list_out)
+            return df_out
+
+    return get_value(values, df_values, cols_displayed_)
+
+
+def plot_critical_difference_diagram(
+    df, col_model, col_rank, col_value, title="", color_palette=None, fig_size=(7, 2)
+):
+    df_avg_rank = df.groupby(col_model)[col_rank].mean()
+    df_values = df.groupby(col_model)[col_value].apply(list)
+    model_names = df_avg_rank.index
+
+    df_posthoc_conover_friedman = sp.posthoc_conover_friedman(np.array(list(df_values.values)).T)
+
+    df_posthoc_conover_friedman.index = model_names
+    df_posthoc_conover_friedman.columns = model_names
+
+    if color_palette is None:
+        color_palette = dict(
+            [(key, value) for key, value in zip(model_names, np.random.rand(len(model_names), 3))]
+        )
+    figure = plt.figure(figsize=fig_size)
+    plt.title(title)
+    _ = sp.critical_difference_diagram(
+        df_avg_rank, df_posthoc_conover_friedman, color_palette=color_palette
+    )
+
+    return figure

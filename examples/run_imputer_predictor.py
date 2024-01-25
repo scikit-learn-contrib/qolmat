@@ -37,8 +37,8 @@ size_data = len(df_data)
 benchmark = BenchmarkImputationPrediction(
     n_masks=args.n_masks,
     n_folds=args.n_folds,
-    imputation_metrics=["mae", "KL_columnwise"],
-    prediction_metrics=["mae"],
+    imputation_metrics=["wmape", "dist_corr_pattern"],
+    prediction_metrics=["wmape"],
 )
 
 # Hole generators
