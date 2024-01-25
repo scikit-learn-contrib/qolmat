@@ -1342,28 +1342,39 @@ def plot_scatter(
     return fig
 
 
-def get_relative_score(x, df, col, method="gain", ref_imputer="None"):
+def get_relative_score(
+    x, df, col, method="gain", ref_imputer="None", is_ref_hole_generator_none=False
+):
     # https://en.wikipedia.org/wiki/Relative_change
     x_row = x[col]
-    if x["hole_generator"] == "None":
+    if is_ref_hole_generator_none:
         x_ref = df[
             (df["dataset"] == x["dataset"])
             & (df["n_fold"] == x["n_fold"])
-            & (df["hole_generator"] == x["hole_generator"])
-            & (df["ratio_masked"] == x["ratio_masked"])
+            & (df["hole_generator"] == "None")
             & (df["predictor"] == x["predictor"])
             & (df["imputer"] == "None")
         ][col]
     else:
-        x_ref = df[
-            (df["dataset"] == x["dataset"])
-            & (df["n_fold"] == x["n_fold"])
-            & (df["hole_generator"] == x["hole_generator"])
-            & (df["ratio_masked"] == x["ratio_masked"])
-            & (df["n_mask"] == x["n_mask"])
-            & (df["predictor"] == x["predictor"])
-            & (df["imputer"] == ref_imputer)
-        ][col]
+        if x["hole_generator"] == "None":
+            x_ref = df[
+                (df["dataset"] == x["dataset"])
+                & (df["n_fold"] == x["n_fold"])
+                & (df["hole_generator"] == "None")
+                & (df["ratio_masked"] == x["ratio_masked"])
+                & (df["predictor"] == x["predictor"])
+                & (df["imputer"] == "None")
+            ][col]
+        else:
+            x_ref = df[
+                (df["dataset"] == x["dataset"])
+                & (df["n_fold"] == x["n_fold"])
+                & (df["hole_generator"] == x["hole_generator"])
+                & (df["ratio_masked"] == x["ratio_masked"])
+                & (df["n_mask"] == x["n_mask"])
+                & (df["predictor"] == x["predictor"])
+                & (df["imputer"] == ref_imputer)
+            ][col]
 
     if method == "relative_percentage_gain":
         x_out = ((x_ref - x_row)) / x_ref
