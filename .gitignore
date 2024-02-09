@@ -65,3 +65,4 @@ examples/local
 
 # Logs
 nohup.txt
+data/*.csv
