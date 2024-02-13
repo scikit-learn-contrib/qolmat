@@ -47,7 +47,13 @@ def synthetic_temporal_data():
     ],
 )
 def test_check_cost_function_minimized_warning(
-    obs: NDArray, lr: NDArray, ano: NDArray, omega: NDArray, lam: float, tau: float, norm: str
+    obs: NDArray,
+    lr: NDArray,
+    ano: NDArray,
+    omega: NDArray,
+    lam: float,
+    tau: float,
+    norm: str,
 ):
     """Test warning when the cost function is not minimized."""
     with pytest.warns(UserWarning):
@@ -69,7 +75,13 @@ def test_check_cost_function_minimized_warning(
     ],
 )
 def test_check_cost_function_minimized_no_warning(
-    obs: NDArray, lr: NDArray, ano: NDArray, omega: NDArray, lam: float, tau: float, norm: str
+    obs: NDArray,
+    lr: NDArray,
+    ano: NDArray,
+    omega: NDArray,
+    lam: float,
+    tau: float,
+    norm: str,
 ):
     """Test no warning when the cost function is minimized."""
     with warnings.catch_warnings(record=True) as record:
@@ -91,19 +103,27 @@ X_test = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]])
 
 
 @pytest.mark.parametrize("norm", ["L2"])
-def test_rpca_decompose_rpca_signal_shape(norm: str):
+def test_rpca_decompose_rpca_shape(norm: str):
     """Test RPCA noisy results if tau and lambda equal zero."""
-    rpca = RPCANoisy(rank=2, norm=norm)
-    X_result, A_result = rpca.decompose_rpca_signal(X_test)
-    assert X_result.shape == X_test.shape
-    assert A_result.shape == X_test.shape
+    rank = 2
+    rpca = RPCANoisy(rank=rank, norm=norm)
+    Omega = ~np.isnan(X_test)
+    M_result, A_result, L_result, Q_result = rpca.decompose_rpca(X_test, Omega)
+    n_rows, n_cols = X_test.shape
+    assert M_result.shape == (n_rows, n_cols)
+    assert A_result.shape == (n_rows, n_cols)
+    assert L_result.shape == (n_rows, rank)
+    assert Q_result.shape == (rank, n_cols)
 
 
 @pytest.mark.parametrize("X, X_interpolated", [(X_incomplete, X_interpolated)])
 def test_rpca_noisy_zero_tau_zero_lambda(X: NDArray, X_interpolated: NDArray):
     """Test RPCA noisy results if tau and lambda equal zero."""
     rpca = RPCANoisy(tau=0, lam=0, norm="L2")
-    X_result, A_result = rpca.decompose_rpca_signal(X)
+    Omega = ~np.isnan(X)
+    print(X)
+    print(Omega)
+    X_result, A_result, _, _ = rpca.decompose_rpca(X, Omega)
     np.testing.assert_allclose(X_result, X_interpolated, atol=1e-4)
     np.testing.assert_allclose(A_result, np.full_like(X, 0), atol=1e-4)
 
@@ -115,7 +135,8 @@ def test_rpca_noisy_zero_tau_zero_lambda(X: NDArray, X_interpolated: NDArray):
 def test_rpca_noisy_zero_tau(X: NDArray, lam: float, X_interpolated: NDArray):
     """Test RPCA noisy results if tau equals zero."""
     rpca = RPCANoisy(tau=0, lam=lam, norm="L2")
-    X_result, A_result = rpca.decompose_rpca_signal(X)
+    Omega = ~np.isnan(X)
+    X_result, A_result, _, _ = rpca.decompose_rpca(X, Omega)
     np.testing.assert_allclose(X_result, X_interpolated, atol=1e-4)
     np.testing.assert_allclose(A_result, np.full_like(X, 0), atol=1e-4)
 
@@ -127,7 +148,8 @@ def test_rpca_noisy_zero_tau(X: NDArray, lam: float, X_interpolated: NDArray):
 def test_rpca_noisy_zero_lambda(X: NDArray, tau: float, X_interpolated: NDArray):
     """Test RPCA noisy results if lambda equals zero."""
     rpca = RPCANoisy(tau=tau, lam=0, norm="L2")
-    X_result, A_result = rpca.decompose_rpca_signal(X)
+    Omega = ~np.isnan(X)
+    X_result, A_result, _, _ = rpca.decompose_rpca(X, Omega)
     np.testing.assert_allclose(X_result, np.full_like(X, 0), atol=1e-4)
     np.testing.assert_allclose(A_result, X_interpolated, atol=1e-4)
 
@@ -192,7 +214,14 @@ def test_rpca_noisy_temporal_signal_temporal_regularisations(synthetic_temporal_
     )
 
     X_result, A_result, _, _ = RPCANoisy.decompose_rpca_algorithm(
-        D, Omega, rank, tau, lam, list_periods=list_periods, list_etas=list_etas, norm="L2"
+        D,
+        Omega,
+        rank,
+        tau,
+        lam,
+        list_periods=list_periods,
+        list_etas=list_etas,
+        norm="L2",
     )
     cost_result = RPCANoisy.cost_function(
         D,

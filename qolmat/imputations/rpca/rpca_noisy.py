@@ -12,6 +12,7 @@ from sklearn import utils as sku
 
 from qolmat.imputations.rpca import rpca_utils
 from qolmat.imputations.rpca.rpca import RPCA
+from qolmat.utils import utils
 
 
 class RPCANoisy(RPCA):
@@ -32,8 +33,6 @@ class RPCANoisy(RPCA):
     ----------
     random_state : int, optional
         The seed of the pseudo random number generator to use, for reproductibility.
-    period: Optional[int]
-        number of rows of the reshaped matrix if the signal is a 1D-array
     rank: Optional[int]
         (estimated) low-rank of the matrix D
     mu: Optional[float]
@@ -60,7 +59,6 @@ class RPCANoisy(RPCA):
     def __init__(
         self,
         random_state: Union[None, int, np.random.RandomState] = None,
-        period: int = 1,
         rank: Optional[int] = None,
         mu: Optional[float] = None,
         tau: Optional[float] = None,
@@ -72,7 +70,7 @@ class RPCANoisy(RPCA):
         norm: str = "L2",
         verbose: bool = True,
     ) -> None:
-        super().__init__(period=period, max_iterations=max_iterations, tol=tol, verbose=verbose)
+        super().__init__(max_iterations=max_iterations, tol=tol, verbose=verbose)
         self.rng = sku.check_random_state(random_state)
         self.rank = rank
         self.mu = mu
@@ -103,6 +101,7 @@ class RPCANoisy(RPCA):
                     Regularization parameter for the L1 norm.
 
         """
+        D = utils.linear_interpolation(D)
         rank = rpca_utils.approx_rank(D)
         tau = 1.0 / np.sqrt(max(D.shape))
         lam = tau
@@ -115,12 +114,14 @@ class RPCANoisy(RPCA):
     def decompose_on_basis(
         self, D: NDArray, Omega: NDArray, Q: NDArray
     ) -> Tuple[NDArray, NDArray]:
+        D = utils.linear_interpolation(D)
         params_scale = self.get_params_scale(D)
 
         lam = params_scale["lam"] if self.lam is None else self.lam
         rank = params_scale["rank"] if self.rank is None else self.rank
         rank = int(rank)
         tau = params_scale["tau"] if self.tau is None else self.tau
+        tol = self.tol
 
         n_rows, n_cols = D.shape
         if n_rows == 1 or n_cols == 1:
@@ -128,27 +129,68 @@ class RPCANoisy(RPCA):
         # M, A, L, Q = self.decompose_rpca(D, Omega)
         n_rank, _ = Q.shape
         Ir = np.eye(n_rank)
-        L = np.zeros((n_rows, n_rank))
         A = np.zeros((n_rows, n_cols))
-        for i in range(n_rows):
-            d = D[i, :]
-            omega = Omega[i, :]
-            L_row = np.zeros((1, n_rank))
-            a = np.full_like(d, 0)
-            for _ in range(self.max_iterations):
-                a_omega = rpca_utils.soft_thresholding(d - L_row @ Q, lam)
-                a_omega_C = d - L_row @ Q
-                a = np.where(omega, a_omega, a_omega_C)
+        L = np.zeros((n_rows, n_rank))
+        for _ in range(self.max_iterations):
+            A_prev = A.copy()
+            L_prev = L.copy()
+            L = scp.linalg.solve(
+                a=2 * tau * Ir + (Q @ Q.T),
+                b=Q @ (D - A).T,
+            ).T
+            A_Omega = rpca_utils.soft_thresholding(D - L @ Q, lam)
+            A_Omega_C = D - L @ Q
+            A = np.where(Omega, A_Omega, A_Omega_C)
 
-                L_row = scp.linalg.solve(
-                    a=2 * tau * Ir + (Q @ Q.T),
-                    b=Q @ (d - a).T,
-                ).T
-            L[i, :] = L_row
-            A[i, :] = a
+            Ac = np.linalg.norm(A - A_prev, np.inf)
+            Lc = np.linalg.norm(L - L_prev, np.inf)
+
+            tolerance = max([Ac, Lc])  # type: ignore # noqa
+
+            if tolerance < tol:
+                break
+
         M = L @ Q
 
         return M, A
+
+    # def decompose_on_basis(
+    #     self, D: NDArray, Omega: NDArray, Q: NDArray
+    # ) -> Tuple[NDArray, NDArray]:
+    #     params_scale = self.get_params_scale(D)
+
+    #     lam = params_scale["lam"] if self.lam is None else self.lam
+    #     rank = params_scale["rank"] if self.rank is None else self.rank
+    #     rank = int(rank)
+    #     tau = params_scale["tau"] if self.tau is None else self.tau
+
+    #     n_rows, n_cols = D.shape
+    #     if n_rows == 1 or n_cols == 1:
+    #         return D, np.full_like(D, 0)
+    #     # M, A, L, Q = self.decompose_rpca(D, Omega)
+    #     n_rank, _ = Q.shape
+    #     Ir = np.eye(n_rank)
+    #     L = np.zeros((n_rows, n_rank))
+    #     A = np.zeros((n_rows, n_cols))
+    #     for i in range(n_rows):
+    #         d = D[i, :]
+    #         Omega = Omega[i, :]
+    #         L_row = np.zeros((1, n_rank))
+    #         a = np.full_like(d, 0)
+    #         for _ in range(self.max_iterations):
+    #             A_Omega = rpca_utils.soft_thresholding(d - L_row @ Q, lam)
+    #             A_Omega_C = d - L_row @ Q
+    #             a = np.where(Omega, A_Omega, A_Omega_C)
+
+    #             L_row = scp.linalg.solve(
+    #                 a=2 * tau * Ir + (Q @ Q.T),
+    #                 b=Q @ (d - a).T,
+    #             ).T
+    #         L[i, :] = L_row
+    #         A[i, :] = a
+    #     M = L @ Q
+
+    #     return M, A
 
     def decompose_rpca(
         self, D: NDArray, Omega: NDArray
@@ -186,6 +228,12 @@ class RPCANoisy(RPCA):
                     "The periods provided in argument in `list_periods` must smaller "
                     f"than the number of rows in the matrix but {period} >= {n_rows}!"
                 )
+
+        print("before")
+        print(D)
+        D = utils.linear_interpolation(D)
+        print("after")
+        print(D)
 
         M, A, L, Q = self.decompose_rpca_algorithm(
             D,

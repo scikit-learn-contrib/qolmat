@@ -2,7 +2,6 @@
 Modular utility functions for RPCA
 """
 
-
 import numpy as np
 from numpy.typing import NDArray
 import scipy
@@ -31,6 +30,8 @@ def approx_rank(
     """
     if threshold == 1:
         return min(M.shape)
+    print("approx_rank")
+    print(M)
     _, values_singular, _ = np.linalg.svd(M, full_matrices=True)
 
     cum_sum = np.cumsum(values_singular) / np.sum(values_singular)

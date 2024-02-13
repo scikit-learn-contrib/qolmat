@@ -1719,7 +1719,6 @@ class ImputerRPCA(_Imputer):
             hyperparams = {
                 key: hyperparams[key]
                 for key in [
-                    "period",
                     "mu",
                     "rank",
                     "tau",
@@ -1734,7 +1733,6 @@ class ImputerRPCA(_Imputer):
             hyperparams = {
                 key: hyperparams[key]
                 for key in [
-                    "period",
                     "rank",
                     "tau",
                     "lam",
@@ -1783,9 +1781,9 @@ class ImputerRPCA(_Imputer):
         model = self.get_model(**hyperparams)
 
         X = df.astype(float).values
-        D = utils.prepare_data(X, model.period)
+        D = utils.prepare_data(X, self.period)
         Omega = ~np.isnan(D)
-        D = utils.linear_interpolation(D)
+        # D = utils.linear_interpolation(D)
 
         Q = model.fit_basis(D, Omega)
 
@@ -1825,9 +1823,9 @@ class ImputerRPCA(_Imputer):
         model = self.get_model(random_state=self._rng, **hyperparams)
         X = df.astype(float).values
 
-        D = utils.prepare_data(X, model.period)
+        D = utils.prepare_data(X, self.period)
         Omega = ~np.isnan(D)
-        D = utils.linear_interpolation(D)
+        # D = utils.linear_interpolation(D)
 
         Q = self._dict_fitting[col][ngroup]
         M, A = model.decompose_on_basis(D, Omega, Q)

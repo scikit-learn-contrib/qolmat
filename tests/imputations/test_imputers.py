@@ -290,7 +290,10 @@ def test_ImputerSoftImpute_fit_transform(df: pd.DataFrame) -> None:
 
 
 index_grouped = pd.MultiIndex.from_product([["a", "b"], range(4)], names=["group", "date"])
-dict_values = {"col1": [0, np.nan, 0, np.nan, 1, 1, 1, 1], "col2": [1, 1, 1, 1, 2, 2, 2, 2]}
+dict_values = {
+    "col1": [0, np.nan, 0, np.nan, 1, 1, 1, 1],
+    "col2": [1, 1, 1, 1, 2, 2, 2, 2],
+}
 df_grouped = pd.DataFrame(dict_values, index=index_grouped)
 
 list_imputers = [

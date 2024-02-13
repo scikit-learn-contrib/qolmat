@@ -16,9 +16,6 @@ class RPCA(BaseEstimator, TransformerMixin):
 
     Parameters
     ----------
-    period: Optional[int]
-        Number of rows of the array if the array is
-        1D and reshaped into a 2D array, by default `None`.
     max_iter: int
         maximum number of iterations of the
         alternating direction method of multipliers,
@@ -31,13 +28,11 @@ class RPCA(BaseEstimator, TransformerMixin):
 
     def __init__(
         self,
-        period: int = 1,
         max_iterations: int = int(1e4),
         tol: float = 1e-6,
         random_state: Union[None, int, np.random.RandomState] = None,
         verbose: bool = True,
     ) -> None:
-        self.period = period
         self.max_iterations = max_iterations
         self.tol = tol
         self.random_state = random_state
@@ -51,10 +46,3 @@ class RPCA(BaseEstimator, TransformerMixin):
 
         M, A, L, Q = self.decompose_rpca(D, Omega)
         return Q
-
-    def decompose_on_basis(self, D: NDArray, Omega: NDArray, Q: NDArray) -> NDArray:
-        n_rows, n_cols = D.shape
-        if n_rows == 1 or n_cols == 1:
-            return D, np.full_like(D, 0)
-        M, A, L, Q = self.decompose_rpca(D, Omega)
-        return M, A

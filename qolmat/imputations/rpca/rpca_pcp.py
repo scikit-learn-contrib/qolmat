@@ -9,6 +9,7 @@ from sklearn import utils as sku
 
 from qolmat.imputations.rpca import rpca_utils
 from qolmat.imputations.rpca.rpca import RPCA
+from qolmat.utils import utils
 
 
 class RPCAPCP(RPCA):
@@ -44,14 +45,13 @@ class RPCAPCP(RPCA):
     def __init__(
         self,
         random_state: Union[None, int, np.random.RandomState] = None,
-        period: int = 1,
         mu: Optional[float] = None,
         lam: Optional[float] = None,
         max_iterations: int = int(1e4),
         tol: float = 1e-6,
         verbose: bool = True,
     ) -> None:
-        super().__init__(period=period, max_iterations=max_iterations, tol=tol, verbose=verbose)
+        super().__init__(max_iterations=max_iterations, tol=tol, verbose=verbose)
         self.rng = sku.check_random_state(random_state)
         self.mu = mu
         self.lam = lam
@@ -80,6 +80,13 @@ class RPCAPCP(RPCA):
         dict_params = {"mu": mu, "lam": lam}
         return dict_params
 
+    def decompose_on_basis(self, D: NDArray, Omega: NDArray, Q: NDArray) -> NDArray:
+        n_rows, n_cols = D.shape
+        if n_rows == 1 or n_cols == 1:
+            return D, np.full_like(D, 0)
+        M, A, L, Q = self.decompose_rpca(D, Omega)
+        return M, A
+
     def decompose_rpca(self, D: NDArray, Omega: NDArray) -> Tuple[NDArray, NDArray, None, None]:
         """
         Estimate the relevant parameters then compute the PCP RPCA decomposition
@@ -104,6 +111,8 @@ class RPCAPCP(RPCA):
 
         mu = params_scale["mu"] if self.mu is None else self.mu
         lam = params_scale["lam"] if self.lam is None else self.lam
+
+        D = utils.linear_interpolation(D)
 
         D_norm = np.linalg.norm(D, "fro")
 
