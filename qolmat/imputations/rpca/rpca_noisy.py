@@ -141,6 +141,7 @@ class RPCANoisy(RPCA):
             A_Omega = rpca_utils.soft_thresholding(D - L @ Q, lam)
             A_Omega_C = D - L @ Q
             A = np.where(Omega, A_Omega, A_Omega_C)
+            # A = np.where(Omega, A_Omega, 0)
 
             Ac = np.linalg.norm(A - A_prev, np.inf)
             Lc = np.linalg.norm(L - L_prev, np.inf)
@@ -229,11 +230,7 @@ class RPCANoisy(RPCA):
                     f"than the number of rows in the matrix but {period} >= {n_rows}!"
                 )
 
-        print("before")
-        print(D)
         D = utils.linear_interpolation(D)
-        print("after")
-        print(D)
 
         M, A, L, Q = self.decompose_rpca_algorithm(
             D,
@@ -421,8 +418,9 @@ class RPCANoisy(RPCA):
                 )
 
             A_Omega = rpca_utils.soft_thresholding(D - X, lam)
-            A_Omega_C = D - X
-            A = np.where(Omega, A_Omega, A_Omega_C)
+            # A_Omega_C = D - X
+            # A = np.where(Omega, A_Omega, A_Omega_C)
+            A = np.where(Omega, A_Omega, 0)
 
             Q = scp.linalg.solve(
                 a=tau * Ir + mu * (L.T @ L),

@@ -121,8 +121,6 @@ def test_rpca_noisy_zero_tau_zero_lambda(X: NDArray, X_interpolated: NDArray):
     """Test RPCA noisy results if tau and lambda equal zero."""
     rpca = RPCANoisy(tau=0, lam=0, norm="L2")
     Omega = ~np.isnan(X)
-    print(X)
-    print(Omega)
     X_result, A_result, _, _ = rpca.decompose_rpca(X, Omega)
     np.testing.assert_allclose(X_result, X_interpolated, atol=1e-4)
     np.testing.assert_allclose(A_result, np.full_like(X, 0), atol=1e-4)
