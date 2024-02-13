@@ -112,7 +112,10 @@ class RPCANoisy(RPCA):
         }
 
     def decompose_on_basis(
-        self, D: NDArray, Omega: NDArray, Q: NDArray
+        self,
+        D: NDArray,
+        Omega: NDArray,
+        Q: NDArray,
     ) -> Tuple[NDArray, NDArray]:
         D = utils.linear_interpolation(D)
         params_scale = self.get_params_scale(D)
@@ -214,12 +217,18 @@ class RPCANoisy(RPCA):
             Anomalies
         """
 
-        params_scale = self.get_params_scale(D)
+        self.params_scale = self.get_params_scale(D)
 
-        lam = params_scale["lam"] if self.lam is None else self.lam
-        rank = params_scale["rank"] if self.rank is None else self.rank
-        rank = int(rank)
-        tau = params_scale["tau"] if self.tau is None else self.tau
+        if self.lam is not None:
+            self.params_scale["lam"] = self.lam
+        if self.rank is not None:
+            self.params_scale["rank"] = self.rank
+        if self.tau is not None:
+            self.params_scale["tau"] = self.tau
+
+        lam = self.params_scale["lam"]
+        rank = int(self.params_scale["rank"])
+        tau = self.params_scale["tau"]
         mu = 1e-2 if self.mu is None else self.mu
 
         n_rows, _ = D.shape
@@ -373,7 +382,7 @@ class RPCANoisy(RPCA):
         Y = np.zeros((n_rows, n_cols))
         X = D.copy()
         A = np.zeros((n_rows, n_cols))
-        U, S, Vt = np.linalg.svd(X)
+        U, S, Vt = np.linalg.svd(X, full_matrices=False)
 
         U = U[:, :rank]
         S = S[:rank]

@@ -30,7 +30,7 @@ def approx_rank(
     """
     if threshold == 1:
         return min(M.shape)
-    _, values_singular, _ = np.linalg.svd(M, full_matrices=True)
+    _, values_singular, _ = np.linalg.svd(M, full_matrices=False)
 
     cum_sum = np.cumsum(values_singular) / np.sum(values_singular)
     rank = np.argwhere(cum_sum > threshold)[0][0] + 1

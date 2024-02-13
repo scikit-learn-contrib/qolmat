@@ -24,6 +24,7 @@ from qolmat.imputations.rpca.rpca import RPCA
 class RPCAMock(RPCA):
     def __init__(self):
         super().__init__()
+        self.Q = None
 
     def decompose_rpca(
         self, D: NDArray, Omega: NDArray
@@ -42,4 +43,11 @@ def test_rpca_fit_basis() -> None:
     _, n_cols = X_incomplete.shape
     _, n_colsQ = Q.shape
     assert n_cols == n_colsQ
+    assert rpca.call_count == 1
+
+
+def test_transform_with_basis() -> None:
+    rpca = RPCAMock()
+    X_imputed = rpca.transform_with_basis(X_incomplete)
+    assert X_imputed.shape == X_incomplete.shape
     assert rpca.call_count == 1

@@ -1784,8 +1784,7 @@ class ImputerRPCA(_Imputer):
         D = utils.prepare_data(X, self.period)
         Omega = ~np.isnan(D)
         # D = utils.linear_interpolation(D)
-
-        Q = model.fit_basis(D, Omega)
+        Q = model.fit_basis(X, Omega)
 
         return Q
 
@@ -1818,9 +1817,9 @@ class ImputerRPCA(_Imputer):
         self._check_dataframe(df)
         if self.method not in ["PCP", "noisy"]:
             raise ValueError("Argument method must be `PCP` or `noisy`!")
+        hyperparams = self.get_hyperparams()
+        model = self.get_model(**hyperparams)
 
-        hyperparams = self.get_hyperparams(col=col)
-        model = self.get_model(random_state=self._rng, **hyperparams)
         X = df.astype(float).values
 
         D = utils.prepare_data(X, self.period)

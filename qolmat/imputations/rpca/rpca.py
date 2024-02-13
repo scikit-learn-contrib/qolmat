@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Union
+from typing import Union, Tuple
 from typing_extensions import Self
 
 import numpy as np
@@ -38,7 +38,23 @@ class RPCA(BaseEstimator, TransformerMixin):
         self.random_state = random_state
         self.verbose = verbose
 
-    def fit_basis(self, D: NDArray, Omega: NDArray) -> NDArray:
+    def fit_basis(self, D: NDArray, Omega: NDArray) -> Self:
+        """Fit RPCA model on data
+
+        Parameters
+        ----------
+        D : NDArray
+            Observations
+        Omega: NDArrau
+            boolean matrix indicating the observed values
+
+        Returns
+        -------
+        Self
+            Model RPCA
+        """
+        D = utils.linear_interpolation(D)
+
         n_rows, n_cols = D.shape
         if n_rows == 1 or n_cols == 1:
             self.V = np.array([[1]])
