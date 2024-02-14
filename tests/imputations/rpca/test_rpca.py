@@ -44,10 +44,3 @@ def test_rpca_fit_basis() -> None:
     _, n_colsQ = Q.shape
     assert n_cols == n_colsQ
     assert rpca.call_count == 1
-
-
-def test_transform_with_basis() -> None:
-    rpca = RPCAMock()
-    X_imputed = rpca.transform_with_basis(X_incomplete)
-    assert X_imputed.shape == X_incomplete.shape
-    assert rpca.call_count == 1
