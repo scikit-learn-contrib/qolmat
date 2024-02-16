@@ -360,6 +360,11 @@ print(f"imputer: {results_plot['imputer'].unique()}")
 ```
 
 ```python
+dict_type_set = {"test_set": "test sets", "train_set": "train sets"}
+dict_metric = {"wmape": "WMAPE", "dist_corr_pattern": "Corr. distance"}
+```
+
+```python
 results_plot[['dataset', 'hole_generator', 'ratio_masked', 'imputer', 'predictor']]
 ```
 
@@ -425,7 +430,7 @@ evaluated_set = 'test_set'
 imppred.statistic_test(results_plot[results_plot['imputer']!='None'], col_evaluated=f'imputation_score_{metric}_{evaluated_set}', cols_grouped=['dataset', 'n_fold', 'hole_generator', 'ratio_masked', 'n_mask', 'imputer'], cols_displayed=['ratio_masked'], func=stats.friedmanchisquare)
 ```
 
-## Performance of predictors trained on imputed data vs complete data
+## Performance gain of predictors trained on imputed data vs complete data
 
 - Gain = Score(Prediction_Data_complete) - Score(Imputation + Prediction_Data_complet)
 - Gain = Score(Prediction_Data_complete) - Score(Imputation + Prediction_Data_incomplet)
@@ -629,7 +634,7 @@ wilcoxon_test[wilcoxon_test['wilcoxon_test_pvalue'] < 0.05]
 If a p-value < 5%, the null hypothesis that the median is negative can be rejected at a confidence level of 5% in favor of the alternative that the median is greater than zero.
 
 
-## Prediction performance: Imputation conditional vs Imputation constant
+## Performance gain for prediction: Imputation conditional vs Imputation constant
 
 
 - Imputation conditional: KNN, MICE, RPCA, Diffusion
@@ -986,12 +991,12 @@ for v in values:
 metric = "dist_corr_pattern"
 # metric = "wmape"
 
-type_set = "test_set"
-# type_set = "train_set"
+# type_set = "test_set"
+type_set = "train_set"
 
 fig = imppred.plot_bar(
     results_plot[~(results_plot['imputer'].isin(['None']))
-                 & (results_plot['dataset'].isin(['Bike_Sharing_Demand', 'medical_charges']))
+                #  & (results_plot['dataset'].isin(['Bike_Sharing_Demand', 'medical_charges']))
                  ],
     col_displayed=("imputation_score", type_set, metric),
     cols_grouped=['dataset', 'ratio_masked', 'imputer'],
@@ -1001,14 +1006,11 @@ fig = imppred.plot_bar(
     agg_func=pd.DataFrame.mean,
     yaxes_type='log')
 
-if type_set == "test_set":
-    fig.update_layout(title=f"Average imputation performance over {num_trial} trials.<br>Evaluation based on WMAPE computed on imputed test sets.")
-if type_set == "train_set":
-    fig.update_layout(title=f"Average imputation performance over {num_trial} trials.<br>Evaluation based on WMAPE computed on imputed train sets.")
-fig.update_yaxes(title="WMAPE(I)")
+fig.update_layout(title=f"Average imputation performance over {num_trial} trials.<br>Evaluation based on {dict_metric[metric]} computed on imputed {dict_type_set[type_set]}.")
 
+fig.update_yaxes(title=f"{dict_metric[metric]}(I)")
 fig.update_xaxes(title="Datasets and Ratios of missing values")
-fig.update_layout(height=400, width=1000)
+fig.update_layout(height=400, width=2000)
 fig
 ```
 
@@ -1026,7 +1028,8 @@ fig
 ```
 
 ```python
-metric = 'wmape'
+metric = "dist_corr_pattern"
+# metric = 'wmape'
 
 fig = imppred.plot_bar(
     results_plot[~(results_plot['imputer'].isin(['None']))
@@ -1048,6 +1051,7 @@ fig
 ##### Critical difference diagram of average score ranks
 
 ```python
+# metric = "dist_corr_pattern"
 metric = 'wmape'
 
 type_set = "test_set"
@@ -1205,17 +1209,17 @@ fig
 model = 'Ridge'
 
 # groupby_col = 'ratio_masked'
-groupby_col = 'dataset'
+# groupby_col = 'dataset'
 # groupby_col = 'imputer'
 # groupby_col = 'predictor'
-# groupby_col = None
+groupby_col = None
 
-# metric_imp = 'dist_corr_pattern'
-metric_imp = 'wmape'
+metric_imp = 'dist_corr_pattern'
+# metric_imp = 'wmape'
 metric_pred = 'wmape'
 
 results_plot_ = results_plot[~(results_plot['imputer'].isin(['None']))
-                             & (results_plot['predictor'].isin([model]))
+                            #  & (results_plot['predictor'].isin([model]))
                              #& ~(results_plot['dataset'].isin(['Bike_Sharing_Demand', 'sulfur', 'MiamiHousing2016']))
                              ].copy()
 score_cols = [f'imputation_score_{metric_imp}_train_set', f'imputation_score_{metric_imp}_test_set',f'prediction_score_notnan_{metric_pred}', f'prediction_score_nan_{metric_pred}']
@@ -1226,10 +1230,10 @@ else:
     print(f'#num_scores = {results_plot_.groupby(groupby_col).count().max().max()}')
 
 multi_index_columns = [
-    ('imputation', metric, 'train_set'),
-    ('imputation', metric, 'test_set'),
-    ('prediction', metric, 'test_set_not_nan'),
-    ('prediction', metric, 'test_set_with_nan'),
+    ('imputation', metric_imp, 'train_set'),
+    ('imputation', metric_imp, 'test_set'),
+    ('prediction', metric_pred, 'test_set_not_nan'),
+    ('prediction', metric_pred, 'test_set_with_nan'),
 ]
 
 results_corr.columns = pd.MultiIndex.from_tuples(multi_index_columns)
@@ -1256,7 +1260,7 @@ else:
     level = 1
 
 results_corr.columns.names = ['task', 'metric', 'set']
-results_corr_plot = results_corr.xs('imputation', level=level, drop_level=False)[[('prediction', metric, 'test_set_not_nan'), ('prediction', metric, 'test_set_with_nan'),]].reorder_levels(reorder_levels)
+results_corr_plot = results_corr.xs('imputation', level=level, drop_level=False)[[('prediction', metric_pred, 'test_set_not_nan'), ('prediction', metric_pred, 'test_set_with_nan'),]].reorder_levels(reorder_levels)
 
 
 def mask_values(val):
@@ -1267,13 +1271,13 @@ results_corr_plot\
     mask_values,
     subset=(
         hide_indices_test,
-        ('prediction', metric, 'test_set_not_nan')
+        ('prediction', metric_pred, 'test_set_not_nan')
     ),
 ).applymap(
     mask_values,
     subset=(
         hide_indices_train,
-        ('prediction', metric, 'test_set_with_nan')
+        ('prediction', metric_pred, 'test_set_with_nan')
     ),
 )
 ```
