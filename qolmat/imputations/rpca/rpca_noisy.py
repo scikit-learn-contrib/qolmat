@@ -36,7 +36,7 @@ class RPCANoisy(RPCA):
     rank: Optional[int]
         (estimated) low-rank of the matrix D
     mu: Optional[float]
-        initial stiffness parameter for the constraint on X, L and Q
+        initial stiffness parameter for the constraint on M, L and Q
     tau: Optional[float]
         penalizing parameter for the nuclear norm
     lam: Optional[float]
@@ -310,7 +310,7 @@ class RPCANoisy(RPCA):
         function_str = "1/2 $ ||D-M-A||_2 + tau ||D||_* + lam ||A||_1"
         if len(self.list_etas) > 0:
             for eta in self.list_etas:
-                function_str += f"{eta} ||XH||_{self.norm}"
+                function_str += f"{eta} ||MH||_{self.norm}"
 
         if self.verbose and (round(cost_start, 4) - round(cost_end, 4)) <= -1e-2:
             warnings.warn(
@@ -348,7 +348,7 @@ class RPCANoisy(RPCA):
         lam: Optional[float]
             penalizing parameter for the sparse matrix
         mu: Optional[float]
-            initial stiffness parameter for the constraint on X, L and Q
+            initial stiffness parameter for the constraint on M, L and Q
         list_periods: Optional[List[int]]
             list of periods, linked to the Toeplitz matrices
         list_etas: Optional[List[float]]
@@ -379,9 +379,9 @@ class RPCANoisy(RPCA):
 
         # init
         Y = np.zeros((n_rows, n_cols))
-        X = D.copy()
+        M = D.copy()
         A = np.zeros((n_rows, n_cols))
-        U, S, Vt = np.linalg.svd(X, full_matrices=False)
+        U, S, Vt = np.linalg.svd(M, full_matrices=False)
 
         U = U[:, :rank]
         S = S[:rank]
@@ -404,8 +404,8 @@ class RPCANoisy(RPCA):
         In = identity(n_rows)
 
         for _ in range(max_iterations):
-            # print("Cost function", cost_function(D, X, A, Omega, tau, lam))
-            X_temp = X.copy()
+            # print("Cost function", cost_function(D, M, A, Omega, tau, lam))
+            M_temp = M.copy()
             A_temp = A.copy()
             L_temp = L.copy()
             Q_temp = Q.copy()
@@ -415,31 +415,31 @@ class RPCANoisy(RPCA):
                 for i_period, _ in enumerate(list_periods):
                     sums += mu * R[i_period] - list_H[i_period] @ Y
 
-                X = spsolve(
+                M = spsolve(
                     (1 + mu) * In + HtH,
                     D - A + mu * L @ Q - Y + sums,
                 )
             else:
-                X = spsolve(
+                M = spsolve(
                     (1 + mu) * In + 2 * HtH,
                     D - A + mu * L @ Q - Y,
                 )
 
-            A_Omega = rpca_utils.soft_thresholding(D - X, lam)
-            A_Omega_C = D - X
+            A_Omega = rpca_utils.soft_thresholding(D - M, lam)
+            A_Omega_C = D - M
             A = np.where(Omega, A_Omega, A_Omega_C)
 
             Q = scp.linalg.solve(
                 a=tau * Ir + mu * (L.T @ L),
-                b=L.T @ (mu * X + Y),
+                b=L.T @ (mu * M + Y),
             )
 
             L = scp.linalg.solve(
                 a=tau * Ir + mu * (Q @ Q.T),
-                b=Q @ (mu * X.T + Y.T),
+                b=Q @ (mu * M.T + Y.T),
             ).T
 
-            Y += mu * (X - L @ Q)
+            Y += mu * (M - L @ Q)
             if norm == "L1":
                 for i_period, _ in enumerate(list_periods):
                     eta = list_etas[i_period]
@@ -447,11 +447,11 @@ class RPCANoisy(RPCA):
 
             mu = min(mu * rho, mu_bar)
 
-            Xc = np.linalg.norm(X - X_temp, np.inf)
+            Mc = np.linalg.norm(M - M_temp, np.inf)
             Ac = np.linalg.norm(A - A_temp, np.inf)
             Lc = np.linalg.norm(L - L_temp, np.inf)
             Qc = np.linalg.norm(Q - Q_temp, np.inf)
-            tolerance = max([Xc, Ac, Lc, Qc])  # type: ignore # noqa
+            tolerance = max([Mc, Ac, Lc, Qc])  # type: ignore # noqa
             if norm == "L1":
                 for i_period, _ in enumerate(list_periods):
                     Rc = np.linalg.norm(R[i_period] - R_temp[i_period], np.inf)
@@ -460,9 +460,9 @@ class RPCANoisy(RPCA):
             if tolerance < tol:
                 break
 
-        X = L @ Q
+        M = L @ Q
 
-        M = X
+        M = M
 
         return M, A, L, Q
 
