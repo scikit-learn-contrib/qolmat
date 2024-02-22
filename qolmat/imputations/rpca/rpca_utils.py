@@ -2,6 +2,7 @@
 Modular utility functions for RPCA
 """
 
+from typing import Tuple
 import numpy as np
 from numpy.typing import NDArray
 import scipy
@@ -60,7 +61,7 @@ def soft_thresholding(
     return np.sign(X) * np.maximum(np.abs(X) - threshold, 0)
 
 
-def svd_thresholding(X: NDArray, threshold: float) -> NDArray:
+def svd_thresholding(X: NDArray, threshold: float) -> Tuple[NDArray, NDArray]:
     """
     Apply the shrinkage operator to the singular values obtained from the SVD of X.
 
@@ -73,16 +74,20 @@ def svd_thresholding(X: NDArray, threshold: float) -> NDArray:
 
     Returns
     -------
-    NDArray
-        Array obtained by computing U * shrink(s) * V where
+    Tuple[NDArray, NDArray]
+        Two arrays L and Q of minimal Frobenius norm such that L @ Q = U * shrink(s) * V where
             U is the array of left singular vectors of X
             V is the array of the right singular vectors of X
             s is the array of the singular values as a diagonal array
+        L and Q minimize
     """
 
     U, s, Vh = np.linalg.svd(X, full_matrices=False)
     s = soft_thresholding(s, threshold)
-    return U @ (np.diag(s) @ Vh)
+    # return U @ (np.diag(s) @ Vh)
+    L = U @ np.sqrt(np.diag(s))
+    Q = np.sqrt(np.diag(s)) @ Vh
+    return L, Q
 
 
 def l1_norm(M: NDArray) -> float:

@@ -80,14 +80,18 @@ class RPCAPCP(RPCA):
         dict_params = {"mu": mu, "lam": lam}
         return dict_params
 
-    def decompose_on_basis(self, D: NDArray, Omega: NDArray, Q: NDArray) -> NDArray:
+    def decompose_on_basis(
+        self, D: NDArray, Omega: NDArray, Q: NDArray
+    ) -> Tuple[NDArray, NDArray]:
         n_rows, n_cols = D.shape
         if n_rows == 1 or n_cols == 1:
             return D, np.full_like(D, 0)
         M, A, L, Q = self.decompose_rpca(D, Omega)
         return M, A
 
-    def decompose_rpca(self, D: NDArray, Omega: NDArray) -> Tuple[NDArray, NDArray, None, None]:
+    def decompose_rpca(
+        self, D: NDArray, Omega: NDArray
+    ) -> Tuple[NDArray, NDArray, NDArray, NDArray]:
         """
         Estimate the relevant parameters then compute the PCP RPCA decomposition
 
@@ -123,7 +127,8 @@ class RPCAPCP(RPCA):
 
         M: NDArray = D - A
         for iteration in range(self.max_iterations):
-            M = rpca_utils.svd_thresholding(D - A + Y / mu, 1 / mu)
+            L, Q = rpca_utils.svd_thresholding(D - A + Y / mu, 1 / mu)
+            M = L @ Q
             A = rpca_utils.soft_thresholding(D - M + Y / mu, lam / mu)
             A[~Omega] = (D - M)[~Omega]
 
@@ -137,7 +142,7 @@ class RPCAPCP(RPCA):
 
         self._check_cost_function_minimized(D, M, A, Omega, lam)
 
-        return M, A, None, None
+        return M, A, L, Q
 
     def _check_cost_function_minimized(
         self,
