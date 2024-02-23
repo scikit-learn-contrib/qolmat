@@ -115,7 +115,7 @@ In the case of time-series data, we also propose :class:`~qolmat.imputations.dif
 References
 ----------
 
-[1] Candès, Emmanuel J., et al. `Robust principal component analysis? <https://arxiv.org/abs/2001.05484>`_ Journal of the ACM (JACM) 58.3 (2011): 1-37.
+[1] Candès, Emmanuel J., et al. `Robust principal component analysis? <https://arxiv.org/pdf/0912.3599.pdf>`_ Journal of the ACM (JACM) 58.3 (2011): 1-37.
 
 [2] Botterman, HL., Roussel, J., Morzadec, T., Jabbari, A., Brunel, N. `Robust PCA for Anomaly Detection and Data Imputation in Seasonal Time Series <https://link.springer.com/chapter/10.1007/978-3-031-25891-6_21>`_ in International Conference on Machine Learning, Optimization, and Data Science. Cham: Springer Nature Switzerland (2022).
 
@@ -131,7 +131,7 @@ References
 
 [8] Ho, Jonathan, Ajay Jain, and Pieter Abbeel. `Denoising diffusion probabilistic models. <https://arxiv.org/abs/2006.11239>`_ Advances in neural information processing systems 33 (2020): 6840-6851.
 
-[9] Tashiro, Yusuke, et al. `Csdi: Conditional score-based diffusion models for probabilistic time series imputation. <https://arxiv.org/abs/2107.03502>`_ Advances in Neural Information Processing Systems 34 (2021): 24804-24816.
+[9] Tashiro, Yusuke, et al. `CSDI: Conditional score-based diffusion models for probabilistic time series imputation. <https://arxiv.org/abs/2107.03502>`_ Advances in Neural Information Processing Systems 34 (2021): 24804-24816.
 
 [10] Kotelnikov, Akim, et al. `Tabddpm: Modelling tabular data with diffusion models. <https://icml.cc/virtual/2023/poster/24703>`_ International Conference on Machine Learning. PMLR, 2023.
 

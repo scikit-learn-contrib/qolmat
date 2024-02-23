@@ -6,6 +6,7 @@ from typing import Optional, Tuple, Union
 import numpy as np
 from numpy.typing import NDArray
 from sklearn import utils as sku
+import scipy as scp
 
 from qolmat.imputations.rpca import rpca_utils
 from qolmat.imputations.rpca.rpca import RPCA
@@ -80,13 +81,73 @@ class RPCAPCP(RPCA):
         dict_params = {"mu": mu, "lam": lam}
         return dict_params
 
+    # def decompose_on_basis(
+    #     self, D: NDArray, Omega: NDArray, Q: NDArray
+    # ) -> Tuple[NDArray, NDArray]:
+    #     n_rows, n_cols = D.shape
+    #     if n_rows == 1 or n_cols == 1:
+    #         return D, np.full_like(D, 0)
+    #     M, A, L, Q = self.decompose_rpca(D, Omega)
+    #     return M, A
+
     def decompose_on_basis(
         self, D: NDArray, Omega: NDArray, Q: NDArray
     ) -> Tuple[NDArray, NDArray]:
         n_rows, n_cols = D.shape
+        rank, _ = Q.shape
         if n_rows == 1 or n_cols == 1:
             return D, np.full_like(D, 0)
-        M, A, L, Q = self.decompose_rpca(D, Omega)
+        params_scale = self.get_params_scale(D)
+
+        mu = params_scale["mu"] if self.mu is None else self.mu
+        lam = params_scale["lam"] if self.lam is None else self.lam
+
+        D = utils.linear_interpolation(D)
+
+        # D_norm = np.linalg.norm(D, "fro")
+
+        A = np.array(np.full_like(D, 0))
+        L = np.zeros((n_rows, rank))
+        M = np.array(np.full_like(D, 0))
+        Y = np.array(np.full_like(D, 0))
+
+        # errors: NDArray = np.full((self.max_iterations,), fill_value=np.nan)
+
+        # M: NDArray = D - A
+        for _ in range(self.max_iterations):
+            # A_prev = A.copy()
+            # L_prev = L.copy()
+            # L = Y @ Q.T
+
+            # A = rpca_utils.soft_thresholding(D - M + Y / mu, lam * mu)
+
+            # A[~Omega] = (D - M)[~Omega]
+
+            # Y += mu * (D - M - A)
+
+            # errors[iteration] = error
+
+            A_Omega = rpca_utils.soft_thresholding(D - M + Y / mu, lam * mu)
+            A_Omega_C = D - M
+            A = np.where(Omega, A_Omega, A_Omega_C)
+
+            L = scp.linalg.solve(
+                a=Q @ Q.T,
+                b=Q @ (D - A + Y / mu),
+            ).T
+            M = L @ Q
+
+            Y += mu * (D - M - A)
+
+            # drift_A = np.linalg.norm(A - A_prev, np.inf)
+            # drift_L = np.linalg.norm(L - L_prev, np.inf)
+            # error = max([drift_A, drift_L])
+
+            # if error < self.tol:
+            #     break
+
+        self._check_cost_function_minimized(D, M, A, Omega, lam)
+
         return M, A
 
     def decompose_rpca(
@@ -127,9 +188,9 @@ class RPCAPCP(RPCA):
 
         M: NDArray = D - A
         for iteration in range(self.max_iterations):
-            L, Q = rpca_utils.svd_thresholding(D - A + Y / mu, 1 / mu)
+            L, Q = rpca_utils.svd_thresholding(D - A + Y / mu, mu)
             M = L @ Q
-            A = rpca_utils.soft_thresholding(D - M + Y / mu, lam / mu)
+            A = rpca_utils.soft_thresholding(D - M + Y / mu, lam * mu)
             A[~Omega] = (D - M)[~Omega]
 
             Y += mu * (D - M - A)
