@@ -111,91 +111,28 @@ class RPCANoisy(RPCA):
             "lam": lam,
         }
 
-    def decompose_on_basis(
-        self,
-        D: NDArray,
-        Omega: NDArray,
-        Q: NDArray,
-    ) -> Tuple[NDArray, NDArray]:
-        D = utils.linear_interpolation(D)
-        params_scale = self.get_params_scale(D)
+    def decompose(self, D: NDArray, Omega: NDArray) -> Tuple[NDArray, NDArray]:
+        """
+        Compute the noisy RPCA with L1 or L2 time penalisation
 
-        lam = params_scale["lam"] if self.lam is None else self.lam
-        rank = params_scale["rank"] if self.rank is None else self.rank
-        rank = int(rank)
-        tau = params_scale["tau"] if self.tau is None else self.tau
-        tol = self.tol
+        Parameters
+        ----------
+        D : NDArray
+            Matrix of the observations
+        Omega: NDArray
+            Matrix of missingness, with boolean data
 
-        n_rows, n_cols = D.shape
-        if n_rows == 1 or n_cols == 1:
-            return D, np.full_like(D, 0)
-        # M, A, L, Q = self.decompose_rpca(D, Omega)
-        n_rank, _ = Q.shape
-        Ir = np.eye(n_rank)
-        A = np.zeros((n_rows, n_cols))
-        L = np.zeros((n_rows, n_rank))
-        for _ in range(self.max_iterations):
-            A_prev = A.copy()
-            L_prev = L.copy()
-            L = scp.linalg.solve(
-                a=2 * tau * Ir + (Q @ Q.T),
-                b=Q @ (D - A).T,
-            ).T
-            A_Omega = rpca_utils.soft_thresholding(D - L @ Q, lam)
-            A_Omega_C = D - L @ Q
-            A = np.where(Omega, A_Omega, A_Omega_C)
-
-            Ac = np.linalg.norm(A - A_prev, np.inf)
-            Lc = np.linalg.norm(L - L_prev, np.inf)
-
-            tolerance = max([Ac, Lc])  # type: ignore # noqa
-
-            if tolerance < tol:
-                break
-
-        M = L @ Q
-
+        Returns
+        -------
+        M: NDArray
+            Low-rank signal
+        A: NDArray
+            Anomalies
+        """
+        M, A, _, _ = self.decompose_with_basis(D, Omega)
         return M, A
 
-    # def decompose_on_basis(
-    #     self, D: NDArray, Omega: NDArray, Q: NDArray
-    # ) -> Tuple[NDArray, NDArray]:
-    #     params_scale = self.get_params_scale(D)
-
-    #     lam = params_scale["lam"] if self.lam is None else self.lam
-    #     rank = params_scale["rank"] if self.rank is None else self.rank
-    #     rank = int(rank)
-    #     tau = params_scale["tau"] if self.tau is None else self.tau
-
-    #     n_rows, n_cols = D.shape
-    #     if n_rows == 1 or n_cols == 1:
-    #         return D, np.full_like(D, 0)
-    #     # M, A, L, Q = self.decompose_rpca(D, Omega)
-    #     n_rank, _ = Q.shape
-    #     Ir = np.eye(n_rank)
-    #     L = np.zeros((n_rows, n_rank))
-    #     A = np.zeros((n_rows, n_cols))
-    #     for i in range(n_rows):
-    #         d = D[i, :]
-    #         Omega = Omega[i, :]
-    #         L_row = np.zeros((1, n_rank))
-    #         a = np.full_like(d, 0)
-    #         for _ in range(self.max_iterations):
-    #             A_Omega = rpca_utils.soft_thresholding(d - L_row @ Q, lam)
-    #             A_Omega_C = d - L_row @ Q
-    #             a = np.where(Omega, A_Omega, A_Omega_C)
-
-    #             L_row = scp.linalg.solve(
-    #                 a=2 * tau * Ir + (Q @ Q.T),
-    #                 b=Q @ (d - a).T,
-    #             ).T
-    #         L[i, :] = L_row
-    #         A[i, :] = a
-    #     M = L @ Q
-
-    #     return M, A
-
-    def decompose_rpca(
+    def decompose_with_basis(
         self, D: NDArray, Omega: NDArray
     ) -> Tuple[NDArray, NDArray, NDArray, NDArray]:
         """
@@ -214,6 +151,10 @@ class RPCANoisy(RPCA):
             Low-rank signal
         A: NDArray
             Anomalies
+        L: NDArray
+            Coefficients of the low-rank matrix in the reduced basis
+        Q: NDArray
+            Reduced basis of the low-rank matrix
         """
 
         self.params_scale = self.get_params_scale(D)
@@ -240,7 +181,7 @@ class RPCANoisy(RPCA):
 
         D = utils.linear_interpolation(D)
 
-        M, A, L, Q = self.decompose_rpca_algorithm(
+        M, A, L, Q = self.minimise_loss(
             D,
             Omega,
             rank,
@@ -258,68 +199,8 @@ class RPCANoisy(RPCA):
 
         return M, A, L, Q
 
-    def _check_cost_function_minimized(
-        self,
-        observations: NDArray,
-        low_rank: NDArray,
-        anomalies: NDArray,
-        Omega: NDArray,
-        tau: float,
-        lam: float,
-    ):
-        """Check that the functional minimized by the RPCA
-        is smaller at the end than at the beginning
-
-        Parameters
-        ----------
-        observations : NDArray
-            observations matrix with first linear interpolation
-        low_rank : NDArray
-            low_rank matrix resulting from RPCA
-        anomalies : NDArray
-            sparse matrix resulting from RPCA
-        Omega: NDArrau
-            boolean matrix indicating the observed values
-        tau : float
-            parameter penalizing the nuclear norm of the low rank part
-        lam : float
-            parameter penalizing the L1-norm of the anomaly/sparse part
-        """
-        cost_start = self.cost_function(
-            observations,
-            observations,
-            np.full_like(observations, 0),
-            Omega,
-            tau,
-            lam,
-            self.list_periods,
-            self.list_etas,
-            norm=self.norm,
-        )
-        cost_end = self.cost_function(
-            observations,
-            low_rank,
-            anomalies,
-            Omega,
-            tau,
-            lam,
-            self.list_periods,
-            self.list_etas,
-            norm=self.norm,
-        )
-        function_str = "1/2 $ ||D-M-A||_2 + tau ||D||_* + lam ||A||_1"
-        if len(self.list_etas) > 0:
-            for eta in self.list_etas:
-                function_str += f"{eta} ||MH||_{self.norm}"
-
-        if self.verbose and (round(cost_start, 4) - round(cost_end, 4)) <= -1e-2:
-            warnings.warn(
-                f"RPCA algorithm may provide bad results. Function {function_str} increased from"
-                f" {cost_start} to {cost_end} instead of decreasing!".format("%.2f")
-            )
-
     @staticmethod
-    def decompose_rpca_algorithm(
+    def minimise_loss(
         D: NDArray,
         Omega: NDArray,
         rank: int,
@@ -465,6 +346,112 @@ class RPCANoisy(RPCA):
         M = M
 
         return M, A, L, Q
+
+    def decompose_on_basis(
+        self,
+        D: NDArray,
+        Omega: NDArray,
+        Q: NDArray,
+    ) -> Tuple[NDArray, NDArray]:
+        D = utils.linear_interpolation(D)
+        params_scale = self.get_params_scale(D)
+
+        lam = params_scale["lam"] if self.lam is None else self.lam
+        rank = params_scale["rank"] if self.rank is None else self.rank
+        rank = int(rank)
+        tau = params_scale["tau"] if self.tau is None else self.tau
+        tol = self.tol
+
+        n_rows, n_cols = D.shape
+        if n_rows == 1 or n_cols == 1:
+            return D, np.full_like(D, 0)
+        # M, A, L, Q = self.decompose_rpca(D, Omega)
+        n_rank, _ = Q.shape
+        Ir = np.eye(n_rank)
+        A = np.zeros((n_rows, n_cols))
+        L = np.zeros((n_rows, n_rank))
+        for _ in range(self.max_iterations):
+            A_prev = A.copy()
+            L_prev = L.copy()
+            L = scp.linalg.solve(
+                a=2 * tau * Ir + (Q @ Q.T),
+                b=Q @ (D - A).T,
+            ).T
+            A_Omega = rpca_utils.soft_thresholding(D - L @ Q, lam)
+            A_Omega_C = D - L @ Q
+            A = np.where(Omega, A_Omega, A_Omega_C)
+
+            Ac = np.linalg.norm(A - A_prev, np.inf)
+            Lc = np.linalg.norm(L - L_prev, np.inf)
+
+            tolerance = max([Ac, Lc])  # type: ignore # noqa
+
+            if tolerance < tol:
+                break
+
+        M = L @ Q
+
+        return M, A
+
+    def _check_cost_function_minimized(
+        self,
+        observations: NDArray,
+        low_rank: NDArray,
+        anomalies: NDArray,
+        Omega: NDArray,
+        tau: float,
+        lam: float,
+    ):
+        """Check that the functional minimized by the RPCA
+        is smaller at the end than at the beginning
+
+        Parameters
+        ----------
+        observations : NDArray
+            observations matrix with first linear interpolation
+        low_rank : NDArray
+            low_rank matrix resulting from RPCA
+        anomalies : NDArray
+            sparse matrix resulting from RPCA
+        Omega: NDArrau
+            boolean matrix indicating the observed values
+        tau : float
+            parameter penalizing the nuclear norm of the low rank part
+        lam : float
+            parameter penalizing the L1-norm of the anomaly/sparse part
+        """
+        cost_start = self.cost_function(
+            observations,
+            observations,
+            np.full_like(observations, 0),
+            Omega,
+            tau,
+            lam,
+            self.list_periods,
+            self.list_etas,
+            norm=self.norm,
+        )
+        cost_end = self.cost_function(
+            observations,
+            low_rank,
+            anomalies,
+            Omega,
+            tau,
+            lam,
+            self.list_periods,
+            self.list_etas,
+            norm=self.norm,
+        )
+        function_str = "1/2 $ ||D-M-A||_2 + tau ||D||_* + lam ||A||_1"
+        if len(self.list_etas) > 0:
+            for eta in self.list_etas:
+                function_str += f"{eta} ||MH||_{self.norm}"
+
+        if self.verbose and (round(cost_start, 4) - round(cost_end, 4)) <= -1e-2:
+            warnings.warn(
+                f"RPCA algorithm may provide bad results. Function {function_str} increased from"
+                f" {cost_start} to {cost_end} instead of decreasing!".format("%.2f")
+            )
 
     @staticmethod
     def cost_function(

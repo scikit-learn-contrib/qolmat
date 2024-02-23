@@ -1635,22 +1635,16 @@ class ImputerRegressor(_Imputer):
         return df_imputed
 
 
-class ImputerRPCA(_Imputer):
+class ImputerRpcaPcp(_Imputer):
     """
-    This class implements the Robust Principal Component Analysis imputation.
-
-    The imputation minimizes a loss function combining a low-rank criterium on the dataframe and
-    a L1 penalization on the residuals.
+    This class implements the Robust Principal Component Analysis imputation with Principal
+    Component Pursuit. The imputation minimizes a loss function combining a low-rank criterium on
+    the dataframe and a L1 penalization on the residuals.
 
     Parameters
     ----------
     groups: Tuple[str, ...]
         List of column names to group by, by default []
-    method : str
-        Name of the RPCA method:
-            "PCP" for basic RPCA, bad at imputing
-            "noisy" for noisy RPCA, with possible regularisations, wihch is recommended since
-            it is more stable
     columnwise : bool
         For the RPCA method to be applied columnwise (with reshaping of
         each column into an array)
@@ -1660,7 +1654,129 @@ class ImputerRPCA(_Imputer):
     def __init__(
         self,
         groups: Tuple[str, ...] = (),
-        method: str = "noisy",
+        columnwise: bool = False,
+        random_state: Union[None, int, np.random.RandomState] = None,
+        period: int = 1,
+        mu: Optional[float] = None,
+        lam: Optional[float] = None,
+        max_iterations: int = int(1e4),
+        tol: float = 1e-6,
+        verbose: bool = False,
+    ) -> None:
+        super().__init__(
+            imputer_params=(
+                "period",
+                "mu",
+                "lam",
+                "max_iterations",
+                "tol",
+                "norm",
+            ),
+            groups=groups,
+            columnwise=columnwise,
+            random_state=random_state,
+        )
+
+        self.period = period
+        self.mu = mu
+        self.lam = lam
+        self.max_iterations = max_iterations
+        self.tol = tol
+        self.verbose = verbose
+
+    def get_model(self, **hyperparams) -> rpca.RPCA:
+        """
+        Get the underlying model of the imputer based on its attributes.
+
+        Returns
+        -------
+        rpca.RPCA
+            RPCA model to be used in the fit and transform methods.
+        """
+        hyperparams = {
+            key: hyperparams[key]
+            for key in [
+                "mu",
+                "rank",
+                "tau",
+                "lam",
+                "max_iterations",
+                "tol",
+                "norm",
+            ]
+        }
+        model = rpca_pcp.RpcaPcp(random_state=self._rng, verbose=self.verbose, **hyperparams)
+
+        return model
+
+    def _transform_element(
+        self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
+    ) -> pd.DataFrame:
+        """
+        Transforms the dataframe `df`, at the group and/or column level depending onself.groups and
+        self.columnwise.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe or column to impute
+        col : str, optional
+            Column transformed by the imputer, by default "__all__"
+        ngroup : int, optional
+            Id of the group on which the method is applied
+
+        Returns
+        -------
+        pd.DataFrame
+            Imputed dataframe.
+
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
+        """
+        self._check_dataframe(df)
+        hyperparams = self.get_hyperparams()
+        model = self.get_model(**hyperparams)
+
+        X = df.astype(float).values
+
+        D = utils.prepare_data(X, self.period)
+        Omega = ~np.isnan(D)
+        # D = utils.linear_interpolation(D)
+
+        Q = self._dict_fitting[col][ngroup]
+        M, A = model.decompose(D, Omega, Q)
+
+        M_final = utils.get_shape_original(M, X.shape)
+        A_final = utils.get_shape_original(A, X.shape)
+        X_imputed = M_final + A_final
+
+        df_imputed = pd.DataFrame(X_imputed, index=df.index, columns=df.columns)
+        df_imputed = df.where(~df.isna(), df_imputed)
+
+        return df_imputed
+
+
+class ImputerRpcaNoisy(_Imputer):
+    """
+    This class implements the Robust Principal Component Analysis imputation with added noise.
+    The imputation minimizes a loss function combining a low-rank criterium on the dataframe and
+    a L1 penalization on the residuals.
+
+    Parameters
+    ----------
+    groups: Tuple[str, ...]
+        List of column names to group by, by default []
+    columnwise : bool
+        For the RPCA method to be applied columnwise (with reshaping of
+        each column into an array)
+        or to be applied directly on the dataframe. By default, the value is set to False.
+    """
+
+    def __init__(
+        self,
+        groups: Tuple[str, ...] = (),
         columnwise: bool = False,
         random_state: Union[None, int, np.random.RandomState] = None,
         period: int = 1,
@@ -1693,7 +1809,6 @@ class ImputerRPCA(_Imputer):
             random_state=random_state,
         )
 
-        self.method = method
         self.period = period
         self.mu = mu
         self.rank = rank
@@ -1715,37 +1830,21 @@ class ImputerRPCA(_Imputer):
         rpca.RPCA
             RPCA model to be used in the fit and transform methods.
         """
-        if self.method == "PCP":
-            hyperparams = {
-                key: hyperparams[key]
-                for key in [
-                    "mu",
-                    "rank",
-                    "tau",
-                    "lam",
-                    "max_iterations",
-                    "tol",
-                    "norm",
-                ]
-            }
-            model = rpca_pcp.RPCAPCP(random_state=self._rng, verbose=self.verbose, **hyperparams)
-        elif self.method == "noisy":
-            hyperparams = {
-                key: hyperparams[key]
-                for key in [
-                    "rank",
-                    "tau",
-                    "lam",
-                    "list_periods",
-                    "list_etas",
-                    "max_iterations",
-                    "tol",
-                    "norm",
-                ]
-            }
-            model = rpca_noisy.RPCANoisy(
-                random_state=self._rng, verbose=self.verbose, **hyperparams
-            )
+
+        hyperparams = {
+            key: hyperparams[key]
+            for key in [
+                "rank",
+                "tau",
+                "lam",
+                "list_periods",
+                "list_etas",
+                "max_iterations",
+                "tol",
+                "norm",
+            ]
+        }
+        model = rpca_noisy.RPCANoisy(random_state=self._rng, verbose=self.verbose, **hyperparams)
         return model
 
     def _fit_element(
@@ -1775,8 +1874,6 @@ class ImputerRPCA(_Imputer):
             Input has to be a pandas.DataFrame.
         """
         self._check_dataframe(df)
-        if self.method not in ["PCP", "noisy"]:
-            raise ValueError("Argument method must be `PCP` or `noisy`!")
         hyperparams = self.get_hyperparams()
         model = self.get_model(**hyperparams)
 
@@ -1784,7 +1881,7 @@ class ImputerRPCA(_Imputer):
         D = utils.prepare_data(X, self.period)
         Omega = ~np.isnan(D)
         # D = utils.linear_interpolation(D)
-        Q = model.fit_basis(X, Omega)
+        _, _, _, Q = model.decompose_with_basis(X, Omega)
 
         return Q
 
@@ -1815,8 +1912,6 @@ class ImputerRPCA(_Imputer):
             Input has to be a pandas.DataFrame.
         """
         self._check_dataframe(df)
-        if self.method not in ["PCP", "noisy"]:
-            raise ValueError("Argument method must be `PCP` or `noisy`!")
         hyperparams = self.get_hyperparams()
         model = self.get_model(**hyperparams)
 

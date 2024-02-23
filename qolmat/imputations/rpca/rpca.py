@@ -37,28 +37,3 @@ class RPCA(BaseEstimator, TransformerMixin):
         self.tol = tol
         self.random_state = random_state
         self.verbose = verbose
-
-    def fit_basis(self, D: NDArray, Omega: NDArray) -> Self:
-        """Fit RPCA model on data
-
-        Parameters
-        ----------
-        D : NDArray
-            Observations
-        Omega: NDArrau
-            boolean matrix indicating the observed values
-
-        Returns
-        -------
-        Self
-            Model RPCA
-        """
-        D = utils.linear_interpolation(D)
-
-        n_rows, n_cols = D.shape
-        if n_rows == 1 or n_cols == 1:
-            self.V = np.array([[1]])
-            return self
-
-        M, A, L, Q = self.decompose_rpca(D, Omega)
-        return Q

@@ -12,7 +12,7 @@ from qolmat.imputations.rpca.rpca import RPCA
 from qolmat.utils import utils
 
 
-class RPCAPCP(RPCA):
+class RpcaPcp(RPCA):
     """
     This class implements the basic RPCA decomposition using Alternating Lagrangian Multipliers.
 
@@ -80,20 +80,10 @@ class RPCAPCP(RPCA):
         dict_params = {"mu": mu, "lam": lam}
         return dict_params
 
-    def decompose_on_basis(
-        self, D: NDArray, Omega: NDArray, Q: NDArray
-    ) -> Tuple[NDArray, NDArray]:
-        n_rows, n_cols = D.shape
-        if n_rows == 1 or n_cols == 1:
-            return D, np.full_like(D, 0)
-        M, A, L, Q = self.decompose_rpca(D, Omega)
-        return M, A
-
-    def decompose_rpca(
-        self, D: NDArray, Omega: NDArray
-    ) -> Tuple[NDArray, NDArray, NDArray, NDArray]:
+    def decompose(self, D: NDArray, Omega: NDArray) -> Tuple[NDArray, NDArray]:
         """
-        Estimate the relevant parameters then compute the PCP RPCA decomposition
+        Estimate the relevant parameters then compute the PCP RPCA decomposition, using the
+        Augumented Largrangian Multiplier (ALM)
 
         Parameters
         ----------
@@ -108,8 +98,6 @@ class RPCAPCP(RPCA):
             Low-rank signal
         A: NDArray
             Anomalies
-        N1: None
-        N2: None
         """
         params_scale = self.get_params_scale(D)
 
@@ -127,8 +115,7 @@ class RPCAPCP(RPCA):
 
         M: NDArray = D - A
         for iteration in range(self.max_iterations):
-            L, Q = rpca_utils.svd_thresholding(D - A + Y / mu, 1 / mu)
-            M = L @ Q
+            M = rpca_utils.svd_thresholding(D - A + Y / mu, 1 / mu)
             A = rpca_utils.soft_thresholding(D - M + Y / mu, lam / mu)
             A[~Omega] = (D - M)[~Omega]
 
@@ -142,7 +129,7 @@ class RPCAPCP(RPCA):
 
         self._check_cost_function_minimized(D, M, A, Omega, lam)
 
-        return M, A, L, Q
+        return M, A
 
     def _check_cost_function_minimized(
         self,

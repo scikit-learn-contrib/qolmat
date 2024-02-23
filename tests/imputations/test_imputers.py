@@ -80,7 +80,7 @@ expected2 = {
 def test_hyperparameters_get_hyperparameters_modified(
     col: str, expected: Dict[str, HyperValue]
 ) -> None:
-    imputer = imputers.ImputerRPCA()
+    imputer = imputers.ImputerRpcaNoisy()
     for key, val in hyperparams_global.items():
         setattr(imputer, key, val)
     imputer.imputer_params = tuple(set(imputer.imputer_params) | set(hyperparams_global.keys()))
@@ -262,7 +262,7 @@ def test_ImputerRegressor_fit_transform(df: pd.DataFrame) -> None:
 
 @pytest.mark.parametrize("df", [df_timeseries])
 def test_ImputerRPCA_fit_transform(df: pd.DataFrame) -> None:
-    imputer = imputers.ImputerRPCA(columnwise=False, max_iterations=100, tau=1, lam=0.3)
+    imputer = imputers.ImputerRpcaNoisy(columnwise=False, max_iterations=100, tau=1, lam=0.3)
     imputer = imputer.fit(df)
     result = imputer.transform(df)
     expected = pd.DataFrame(
@@ -319,7 +319,7 @@ list_imputers = [
     imputers.ImputerKNN(groups=("group",)),
     imputers.ImputerMICE(groups=("group",)),
     imputers.ImputerRegressor(groups=("group",), estimator=LinearRegression()),
-    imputers.ImputerRPCA(groups=("group",)),
+    imputers.ImputerRpcaNoisy(groups=("group",)),
     imputers.ImputerEM(groups=("group",)),
 ]
 
@@ -346,7 +346,7 @@ def test_models_fit_transform_grouped(imputer):
         imputers.KNNImputer(),
         imputers.ImputerMICE(),
         imputers.ImputerRegressor(),
-        imputers.ImputerRPCA(tau=0, lam=0),
+        imputers.ImputerRpcaNoisy(tau=0, lam=0),
         imputers.ImputerEM(),
     ]
 )
