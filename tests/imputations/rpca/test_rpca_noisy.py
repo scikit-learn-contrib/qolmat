@@ -5,7 +5,7 @@ import pytest
 from numpy.typing import NDArray
 
 from qolmat.imputations.rpca import rpca_utils
-from qolmat.imputations.rpca.rpca_noisy import RPCANoisy
+from qolmat.imputations.rpca.rpca_noisy import RpcaNoisy
 from qolmat.utils import utils
 from qolmat.utils.data import generate_artificial_ts
 
@@ -57,7 +57,7 @@ def test_check_cost_function_minimized_warning(
 ):
     """Test warning when the cost function is not minimized."""
     with pytest.warns(UserWarning):
-        RPCANoisy()._check_cost_function_minimized(obs, lr, ano, omega, lam, tau)
+        RpcaNoisy()._check_cost_function_minimized(obs, lr, ano, omega, lam, tau)
 
 
 @pytest.mark.parametrize(
@@ -85,14 +85,14 @@ def test_check_cost_function_minimized_no_warning(
 ):
     """Test no warning when the cost function is minimized."""
     with warnings.catch_warnings(record=True) as record:
-        RPCANoisy()._check_cost_function_minimized(obs, lr, ano, omega, lam, tau)
+        RpcaNoisy()._check_cost_function_minimized(obs, lr, ano, omega, lam, tau)
     assert len(record) == 0
 
 
 @pytest.mark.parametrize("X", [X_complete])
 def test_rpca_noisy_get_params_scale(X: NDArray):
     """Test the parameters are well scaled."""
-    rpca = RPCANoisy(max_iterations=max_iterations, tau=0.5, lam=0.1)
+    rpca = RpcaNoisy(max_iterations=max_iterations, tau=0.5, lam=0.1)
     result_dict = rpca.get_params_scale(X)
     result = list(result_dict.values())
     params_expected = [2, np.sqrt(2) / 2, np.sqrt(2) / 2]
@@ -106,7 +106,7 @@ X_test = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]])
 def test_rpca_decompose_rpca_shape(norm: str):
     """Test RPCA noisy results if tau and lambda equal zero."""
     rank = 2
-    rpca = RPCANoisy(rank=rank, norm=norm)
+    rpca = RpcaNoisy(rank=rank, norm=norm)
     Omega = ~np.isnan(X_test)
     M_result, A_result, L_result, Q_result = rpca.decompose_with_basis(X_test, Omega)
     n_rows, n_cols = X_test.shape
@@ -119,7 +119,7 @@ def test_rpca_decompose_rpca_shape(norm: str):
 @pytest.mark.parametrize("X, X_interpolated", [(X_incomplete, X_interpolated)])
 def test_rpca_noisy_zero_tau_zero_lambda(X: NDArray, X_interpolated: NDArray):
     """Test RPCA noisy results if tau and lambda equal zero."""
-    rpca = RPCANoisy(tau=0, lam=0, norm="L2")
+    rpca = RpcaNoisy(tau=0, lam=0, norm="L2")
     Omega = ~np.isnan(X)
     X_result, A_result, _, _ = rpca.decompose_with_basis(X, Omega)
     np.testing.assert_allclose(X_result, X_interpolated, atol=1e-4)
@@ -132,7 +132,7 @@ def test_rpca_noisy_zero_tau_zero_lambda(X: NDArray, X_interpolated: NDArray):
 )
 def test_rpca_noisy_zero_tau(X: NDArray, lam: float, X_interpolated: NDArray):
     """Test RPCA noisy results if tau equals zero."""
-    rpca = RPCANoisy(tau=0, lam=lam, norm="L2")
+    rpca = RpcaNoisy(tau=0, lam=lam, norm="L2")
     Omega = ~np.isnan(X)
     X_result, A_result, _, _ = rpca.decompose_with_basis(X, Omega)
     np.testing.assert_allclose(X_result, X_interpolated, atol=1e-4)
@@ -145,7 +145,7 @@ def test_rpca_noisy_zero_tau(X: NDArray, lam: float, X_interpolated: NDArray):
 )
 def test_rpca_noisy_zero_lambda(X: NDArray, tau: float, X_interpolated: NDArray):
     """Test RPCA noisy results if lambda equals zero."""
-    rpca = RPCANoisy(tau=tau, lam=0, norm="L2")
+    rpca = RpcaNoisy(tau=tau, lam=0, norm="L2")
     Omega = ~np.isnan(X)
     X_result, A_result, _, _ = rpca.decompose_with_basis(X, Omega)
     np.testing.assert_allclose(X_result, np.full_like(X, 0), atol=1e-4)
@@ -167,10 +167,10 @@ def test_rpca_noisy_decompose_rpca(synthetic_temporal_data):
 
     low_rank_init = D
     anomalies_init = np.zeros(D.shape)
-    cost_init = RPCANoisy.cost_function(D, low_rank_init, anomalies_init, Omega, tau, lam)
+    cost_init = RpcaNoisy.cost_function(D, low_rank_init, anomalies_init, Omega, tau, lam)
 
-    X_result, A_result, _, _ = RPCANoisy.minimise_loss(D, Omega, rank, tau, lam)
-    cost_result = RPCANoisy.cost_function(D, X_result, A_result, Omega, tau, lam)
+    X_result, A_result, _, _ = RpcaNoisy.minimise_loss(D, Omega, rank, tau, lam)
+    cost_result = RpcaNoisy.cost_function(D, X_result, A_result, Omega, tau, lam)
 
     assert cost_result <= cost_init
 
@@ -199,7 +199,7 @@ def test_rpca_noisy_temporal_signal_temporal_regularisations(synthetic_temporal_
     low_rank_init = D
     anomalies_init = np.zeros(D.shape)
 
-    cost_init = RPCANoisy.cost_function(
+    cost_init = RpcaNoisy.cost_function(
         D,
         low_rank_init,
         anomalies_init,
@@ -211,7 +211,7 @@ def test_rpca_noisy_temporal_signal_temporal_regularisations(synthetic_temporal_
         norm="L2",
     )
 
-    X_result, A_result, _, _ = RPCANoisy.minimise_loss(
+    X_result, A_result, _, _ = RpcaNoisy.minimise_loss(
         D,
         Omega,
         rank,
@@ -221,7 +221,7 @@ def test_rpca_noisy_temporal_signal_temporal_regularisations(synthetic_temporal_
         list_etas=list_etas,
         norm="L2",
     )
-    cost_result = RPCANoisy.cost_function(
+    cost_result = RpcaNoisy.cost_function(
         D,
         X_result,
         A_result,

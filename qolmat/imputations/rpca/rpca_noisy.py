@@ -15,7 +15,7 @@ from qolmat.imputations.rpca.rpca import RPCA
 from qolmat.utils import utils
 
 
-class RPCANoisy(RPCA):
+class RpcaNoisy(RPCA):
     """
     This class implements a noisy version of the so-called 'improved RPCA'
 

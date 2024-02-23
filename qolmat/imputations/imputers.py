@@ -1844,7 +1844,7 @@ class ImputerRpcaNoisy(_Imputer):
                 "norm",
             ]
         }
-        model = rpca_noisy.RPCANoisy(random_state=self._rng, verbose=self.verbose, **hyperparams)
+        model = rpca_noisy.RpcaNoisy(random_state=self._rng, verbose=self.verbose, **hyperparams)
         return model
 
     def _fit_element(
