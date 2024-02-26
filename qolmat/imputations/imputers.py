@@ -1823,11 +1823,9 @@ class ImputerRpcaNoisy(_Imputer):
         model = rpca_noisy.RpcaNoisy(random_state=self._rng, verbose=self.verbose, **hyperparams)
         return model
 
-    def _fit_element(
-        self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
-    ) -> rpca_noisy.RpcaNoisy:
+    def _fit_element(self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0) -> NDArray:
         """
-        Fits the imputer on `df`, at the group and/or column level depending onself.groups and
+        Fits the imputer on `df`, at the group and/or column level depending on self.groups and
         self.columnwise.
 
         Parameters
@@ -1841,8 +1839,8 @@ class ImputerRpcaNoisy(_Imputer):
 
         Returns
         -------
-        Any
-            Return fitted EM model
+        NDArray
+            Returns the reduced decomposition basis
 
         Raises
         ------
