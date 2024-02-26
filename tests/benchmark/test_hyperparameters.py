@@ -33,7 +33,7 @@ dict_config_opti = {
             "col1": {"min": 0.1, "max": 6, "type": "Real"},
             "col2": {"min": 1, "max": 4, "type": "Real"},
         },
-        "tol": {"min": 1e-6, "max": 0.1, "type": "Real"},
+        "tolerance": {"min": 1e-6, "max": 0.1, "type": "Real"},
         "max_iter": {"min": 99, "max": 100, "type": "Integer"},
         "norm": {"categories": ["L1", "L2"], "type": "Categorical"},
     }

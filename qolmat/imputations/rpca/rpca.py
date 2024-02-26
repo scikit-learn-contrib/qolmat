@@ -20,7 +20,7 @@ class RPCA(BaseEstimator, TransformerMixin):
         maximum number of iterations of the
         alternating direction method of multipliers,
         by default 1e4.
-    tol: float
+    tolerance: float
         Tolerance for stopping criteria, by default 1e-6
     verbose: bool
         default `False`
@@ -29,11 +29,11 @@ class RPCA(BaseEstimator, TransformerMixin):
     def __init__(
         self,
         max_iterations: int = int(1e4),
-        tol: float = 1e-6,
+        tolerance: float = 1e-6,
         random_state: Union[None, int, np.random.RandomState] = None,
         verbose: bool = True,
     ) -> None:
         self.max_iterations = max_iterations
-        self.tol = tol
+        self.tolerance = tolerance
         self.random_state = random_state
         self.verbose = verbose

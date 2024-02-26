@@ -47,7 +47,7 @@ class RpcaNoisy(RPCA):
         list of penalizing parameters for the corresponding period in list_periods
     max_iterations: Optional[int]
         stopping criteria, maximum number of iterations. By default, the value is set to 10_000
-    tol: Optional[float]
+    tolerance: Optional[float]
         stoppign critera, minimum difference between 2 consecutive iterations. By default,
         the value is set to 1e-6
     norm: Optional[str]
@@ -66,11 +66,11 @@ class RpcaNoisy(RPCA):
         list_periods: List[int] = [],
         list_etas: List[float] = [],
         max_iterations: int = int(1e4),
-        tol: float = 1e-6,
+        tolerance: float = 1e-6,
         norm: str = "L2",
         verbose: bool = True,
     ) -> None:
-        super().__init__(max_iterations=max_iterations, tol=tol, verbose=verbose)
+        super().__init__(max_iterations=max_iterations, tolerance=tolerance, verbose=verbose)
         self.rng = sku.check_random_state(random_state)
         self.rank = rank
         self.mu = mu
@@ -171,13 +171,18 @@ class RpcaNoisy(RPCA):
         tau = self.params_scale["tau"]
         mu = 1e-2 if self.mu is None else self.mu
 
-        n_rows, _ = D.shape
+        n_rows, n_cols = D.shape
         for period in self.list_periods:
             if not period < n_rows:
                 raise ValueError(
                     "The periods provided in argument in `list_periods` must smaller "
                     f"than the number of rows in the matrix but {period} >= {n_rows}!"
                 )
+        # if (n_rows == 1) or (n_cols == 1):
+        #     warnings.warn(
+        #         f"RPCA algorithm may provide bad results. Function {function_str} increased from"
+        #         f" {cost_start} to {cost_end} instead of decreasing!".format("%.2f")
+        #     )
 
         D = utils.linear_interpolation(D)
 
@@ -191,7 +196,7 @@ class RpcaNoisy(RPCA):
             self.list_periods,
             self.list_etas,
             max_iterations=self.max_iterations,
-            tol=self.tol,
+            tolerance=self.tolerance,
             norm=self.norm,
         )
 
@@ -210,7 +215,7 @@ class RpcaNoisy(RPCA):
         list_periods: List[int] = [],
         list_etas: List[float] = [],
         max_iterations: int = 10000,
-        tol: float = 1e-6,
+        tolerance: float = 1e-6,
         norm: str = "L2",
     ) -> Tuple:
         """
@@ -236,7 +241,7 @@ class RpcaNoisy(RPCA):
             list of penalizing parameters for the corresponding period in list_periods
         max_iterations: Optional[int]
             stopping criteria, maximum number of iterations. By default, the value is set to 10_000
-        tol: Optional[float]
+        tolerance: Optional[float]
             stoppign critera, minimum difference between 2 consecutive iterations. By default,
             the value is set to 1e-6
         norm: Optional[str]
@@ -262,11 +267,12 @@ class RpcaNoisy(RPCA):
         Y = np.zeros((n_rows, n_cols))
         M = D.copy()
         A = np.zeros((n_rows, n_cols))
-        U, S, Vt = np.linalg.svd(M, full_matrices=False)
 
+        U, S, Vt = np.linalg.svd(M, full_matrices=False)
         U = U[:, :rank]
         S = S[:rank]
         Vt = Vt[:rank, :]
+
         L = U @ np.diag(np.sqrt(S))
         Q = np.diag(np.sqrt(S)) @ Vt
 
@@ -285,7 +291,6 @@ class RpcaNoisy(RPCA):
         In = identity(n_rows)
 
         for _ in range(max_iterations):
-            # print("Cost function", cost_function(D, M, A, Omega, tau, lam))
             M_temp = M.copy()
             A_temp = A.copy()
             L_temp = L.copy()
@@ -305,6 +310,7 @@ class RpcaNoisy(RPCA):
                     (1 + mu) * In + 2 * HtH,
                     D - A + mu * L @ Q - Y,
                 )
+            M = M.reshape(D.shape)
 
             A_Omega = rpca_utils.soft_thresholding(D - M, lam)
             A_Omega_C = D - M
@@ -338,7 +344,7 @@ class RpcaNoisy(RPCA):
                     Rc = np.linalg.norm(R[i_period] - R_temp[i_period], np.inf)
                     tolerance = max(tolerance, Rc)  # type: ignore # noqa
 
-            if tolerance < tol:
+            if tolerance < tolerance:
                 break
 
         M = L @ Q
@@ -360,7 +366,7 @@ class RpcaNoisy(RPCA):
         rank = params_scale["rank"] if self.rank is None else self.rank
         rank = int(rank)
         tau = params_scale["tau"] if self.tau is None else self.tau
-        tol = self.tol
+        tolerance = self.tolerance
 
         n_rows, n_cols = D.shape
         if n_rows == 1 or n_cols == 1:
@@ -386,7 +392,7 @@ class RpcaNoisy(RPCA):
 
             tolerance = max([Ac, Lc])  # type: ignore # noqa
 
-            if tolerance < tol:
+            if tolerance < tolerance:
                 break
 
         M = L @ Q

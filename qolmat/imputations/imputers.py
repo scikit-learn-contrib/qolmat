@@ -1098,7 +1098,7 @@ class ImputerResiduals(_Imputer):
         List of column names to group by, by default []
     period : int
         Period of the series. Must be used if x is not a pandas object or if
-        the index of x does not have  a frequency. Overrides default
+        the index of x does not have a frequency. Overrides default
         periodicity of x if x is a pandas object with a timeseries index.
     model_tsa : Optional[str]
         Type of seasonal component "additive" or "multiplicative". Abbreviations are accepted.
@@ -1204,7 +1204,6 @@ class ImputerResiduals(_Imputer):
             values.interpolate(method=hyperparams["method_interpolation"]).ffill().bfill()
         )
         result = tsa_seasonal.seasonal_decompose(
-            # df.interpolate().bfill().ffill(),
             values_interp,
             model=hyperparams["model_tsa"],
             period=hyperparams["period"],
@@ -1338,45 +1337,6 @@ class ImputerKNN(_Imputer):
 
 
 class ImputerMICE(_Imputer):
-    """
-    This class implements an iterative imputer in the multivariate case.
-    It imputes each Series within a DataFrame multiple times using an iteration of fits
-    and transformations to reach a stable state of imputation each time.
-    It uses sklearn.impute.IterativeImputer, see the docs for more information about the
-    arguments.
-
-    Parameters
-    ----------
-    groups: Tuple[str, ...]
-        List of column names to group by, by default []
-    estimator : Optional[] = LinearRegression()
-        Estimator for imputing a column based on the others
-    random_state : Union[None, int, np.random.RandomState], optional
-        Determine the randomness of the imputer, by default None
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import pandas as pd
-    >>> from qolmat.imputations import imputers
-    >>> from sklearn.ensemble import ExtraTreesRegressor
-    >>> imputer = imputers.ImputerMICE(estimator=ExtraTreesRegressor(),
-    ...                                random_state=42,
-    ...                                sample_posterior=False,
-    ...                                max_iter=100)
-    >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
-    ...                        [np.nan, np.nan, np.nan, np.nan],
-    ...                        [1, 2, 2, 5],
-    ...                        [2, 2, 2, 2]],
-    ...                        columns=["var1", "var2", "var3", "var4"])
-    >>> imputer.fit_transform(df)
-       var1  var2  var3  var4
-    0  1.00  1.00  1.00  1.00
-    1  1.51  1.99  1.99  3.55
-    2  1.00  2.00  2.00  5.00
-    3  2.00  2.00  2.00  2.00
-    """
-
     def __init__(
         self,
         groups: Tuple[str, ...] = (),
@@ -1385,6 +1345,21 @@ class ImputerMICE(_Imputer):
         sample_posterior=False,
         max_iter=100,
     ) -> None:
+        """_summary_
+
+        Parameters
+        ----------
+        groups : Tuple[str, ...], optional
+            _description_, by default ()
+        estimator : Optional[BaseEstimator], optional
+            _description_, by default None
+        random_state : Union[None, int, np.random.RandomState], optional
+            _description_, by default None
+        sample_posterior : bool, optional
+            _description_, by default False
+        max_iter : int, optional
+            _description_, by default 100
+        """
         super().__init__(
             imputer_params=("sample_posterior", "max_iter"),
             groups=groups,
@@ -1481,6 +1456,8 @@ class ImputerRegressor(_Imputer):
         - if `row` all non complete rows will be removed from the train dataset, and will not be
         used for the inferance,
         - if `column` all non complete columns will be ignored.
+    random_state : Union[None, int, np.random.RandomState], optional
+        Controls the randomness of the fit_transform, by default None
 
     Examples
     --------
@@ -1649,6 +1626,8 @@ class ImputerRpcaPcp(_Imputer):
         For the RPCA method to be applied columnwise (with reshaping of
         each column into an array)
         or to be applied directly on the dataframe. By default, the value is set to False.
+    random_state : Union[None, int, np.random.RandomState], optional
+        Controls the randomness of the fit_transform, by default None
     """
 
     def __init__(
@@ -1660,7 +1639,7 @@ class ImputerRpcaPcp(_Imputer):
         mu: Optional[float] = None,
         lam: Optional[float] = None,
         max_iterations: int = int(1e4),
-        tol: float = 1e-6,
+        tolerance: float = 1e-6,
         verbose: bool = False,
     ) -> None:
         super().__init__(
@@ -1669,8 +1648,7 @@ class ImputerRpcaPcp(_Imputer):
                 "mu",
                 "lam",
                 "max_iterations",
-                "tol",
-                "norm",
+                "tolerance",
             ),
             groups=groups,
             columnwise=columnwise,
@@ -1681,10 +1659,10 @@ class ImputerRpcaPcp(_Imputer):
         self.mu = mu
         self.lam = lam
         self.max_iterations = max_iterations
-        self.tol = tol
+        self.tolerance = tolerance
         self.verbose = verbose
 
-    def get_model(self, **hyperparams) -> rpca.RPCA:
+    def get_model(self, **hyperparams) -> rpca_pcp.RpcaPcp:
         """
         Get the underlying model of the imputer based on its attributes.
 
@@ -1697,12 +1675,9 @@ class ImputerRpcaPcp(_Imputer):
             key: hyperparams[key]
             for key in [
                 "mu",
-                "rank",
-                "tau",
                 "lam",
                 "max_iterations",
-                "tol",
-                "norm",
+                "tolerance",
             ]
         }
         model = rpca_pcp.RpcaPcp(random_state=self._rng, verbose=self.verbose, **hyperparams)
@@ -1745,8 +1720,7 @@ class ImputerRpcaPcp(_Imputer):
         Omega = ~np.isnan(D)
         # D = utils.linear_interpolation(D)
 
-        Q = self._dict_fitting[col][ngroup]
-        M, A = model.decompose(D, Omega, Q)
+        M, A = model.decompose(D, Omega)
 
         M_final = utils.get_shape_original(M, X.shape)
         A_final = utils.get_shape_original(A, X.shape)
@@ -1772,6 +1746,8 @@ class ImputerRpcaNoisy(_Imputer):
         For the RPCA method to be applied columnwise (with reshaping of
         each column into an array)
         or to be applied directly on the dataframe. By default, the value is set to False.
+    random_state : Union[None, int, np.random.RandomState], optional
+        Controls the randomness of the fit_transform, by default None
     """
 
     def __init__(
@@ -1787,7 +1763,7 @@ class ImputerRpcaNoisy(_Imputer):
         list_periods: Tuple[int, ...] = (),
         list_etas: Tuple[float, ...] = (),
         max_iterations: int = int(1e4),
-        tol: float = 1e-6,
+        tolerance: float = 1e-6,
         norm: Optional[str] = "L2",
         verbose: bool = False,
     ) -> None:
@@ -1801,7 +1777,7 @@ class ImputerRpcaNoisy(_Imputer):
                 "list_periods",
                 "list_etas",
                 "max_iterations",
-                "tol",
+                "tolerance",
                 "norm",
             ),
             groups=groups,
@@ -1817,11 +1793,11 @@ class ImputerRpcaNoisy(_Imputer):
         self.list_periods = list_periods
         self.list_etas = list_etas
         self.max_iterations = max_iterations
-        self.tol = tol
+        self.tolerance = tolerance
         self.norm = norm
         self.verbose = verbose
 
-    def get_model(self, **hyperparams) -> rpca.RPCA:
+    def get_model(self, **hyperparams) -> rpca_noisy.RpcaNoisy:
         """
         Get the underlying model of the imputer based on its attributes.
 
@@ -1840,7 +1816,7 @@ class ImputerRpcaNoisy(_Imputer):
                 "list_periods",
                 "list_etas",
                 "max_iterations",
-                "tol",
+                "tolerance",
                 "norm",
             ]
         }
@@ -1935,10 +1911,24 @@ class ImputerRpcaNoisy(_Imputer):
 
 
 class ImputerSoftImpute(_Imputer):
-    """_summary_
+    """
+    This class implements the Soft Impute method:
+
+    Hastie, Trevor, et al. Matrix completion and low-rank SVD via fast alternating least squares.
+    The Journal of Machine Learning Research 16.1 (2015): 3367-3402.
+
+    This imputation technique is less robust than the RPCA, although it can provide faster.
 
     Parameters
     ----------
+    groups: Tuple[str, ...]
+        List of column names to group by, by default []
+    columnwise : bool
+        For the RPCA method to be applied columnwise (with reshaping of
+        each column into an array)
+        or to be applied directly on the dataframe. By default, the value is set to False.
+    random_state : Union[None, int, np.random.RandomState], optional
+        Controls the randomness of the fit_transform, by default None
     """
 
     def __init__(
@@ -1952,7 +1942,6 @@ class ImputerSoftImpute(_Imputer):
         tau: float = 0,
         max_iterations: int = 100,
         verbose: bool = False,
-        projected: bool = True,
     ):
         super().__init__(
             imputer_params=(
@@ -1962,7 +1951,6 @@ class ImputerSoftImpute(_Imputer):
                 "tau",
                 "max_iterations",
                 "verbose",
-                "projected",
             ),
             groups=groups,
             columnwise=columnwise,
@@ -1974,47 +1962,67 @@ class ImputerSoftImpute(_Imputer):
         self.tau = tau
         self.max_iterations = max_iterations
         self.verbose = verbose
-        self.projected = projected
 
-    def _fit_element(
-        self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
-    ) -> softimpute.SoftImpute:
+    def get_model(self, **hyperparams) -> softimpute.SoftImpute:
         """
-        Fits the imputer on `df`, at the group and/or column level depending on
-        self.groups and self.columnwise.
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            Dataframe on which the imputer is fitted
-        col : str, optional
-            Column on which the imputer is fitted, by default "__all__"
-        ngroup : int, optional
-            Id of the group on which the method is applied
+        Get the underlying model of the imputer based on its attributes.
 
         Returns
         -------
-        Any
-            Return fitted SoftImpute model
-
-        Raises
-        ------
-        NotDataFrame
-            Input has to be a pandas.DataFrame.
+        softimpute.SoftImpute
+            Soft Impute model to be used in the transform method.
         """
-        self._check_dataframe(df)
-        assert col == "__all__"
-        hyperparams = self.get_hyperparams()
-        model = softimpute.SoftImpute(random_state=self._rng, **hyperparams)
-        model = model.fit(df.values)
+        hyperparams = {
+            key: hyperparams[key]
+            for key in [
+                "tau",
+                "max_iterations",
+                "tolerance",
+            ]
+        }
+        model = softimpute.SoftImpute(random_state=self._rng, verbose=self.verbose, **hyperparams)
+
         return model
+
+    # def _fit_element(
+    #     self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
+    # ) -> softimpute.SoftImpute:
+    #     """
+    #     Fits the imputer on `df`, at the group and/or column level depending on
+    #     self.groups and self.columnwise.
+
+    #     Parameters
+    #     ----------
+    #     df : pd.DataFrame
+    #         Dataframe on which the imputer is fitted
+    #     col : str, optional
+    #         Column on which the imputer is fitted, by default "__all__"
+    #     ngroup : int, optional
+    #         Id of the group on which the method is applied
+
+    #     Returns
+    #     -------
+    #     Any
+    #         Return fitted SoftImpute model
+
+    #     Raises
+    #     ------
+    #     NotDataFrame
+    #         Input has to be a pandas.DataFrame.
+    #     """
+    #     self._check_dataframe(df)
+    #     assert col == "__all__"
+    #     hyperparams = self.get_hyperparams()
+    #     model = softimpute.SoftImpute(random_state=self._rng, **hyperparams)
+    #     model = model.fit(df.values)
+    #     return model
 
     def _transform_element(
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
     ) -> pd.DataFrame:
         """
-        Transforms the fataframe `df`, at the group level depending on
-        self.groups
+        Transforms the dataframe `df`, at the group and/or column level depending onself.groups and
+        self.columnwise.
 
         Parameters
         ----------
@@ -2022,11 +2030,13 @@ class ImputerSoftImpute(_Imputer):
             Dataframe or column to impute
         col : str, optional
             Column transformed by the imputer, by default "__all__"
+        ngroup : int, optional
+            Id of the group on which the method is applied
 
         Returns
         -------
         pd.DataFrame
-            Imputed dataframe
+            Imputed dataframe.
 
         Raises
         ------
@@ -2034,10 +2044,25 @@ class ImputerSoftImpute(_Imputer):
             Input has to be a pandas.DataFrame.
         """
         self._check_dataframe(df)
-        assert col == "__all__"
-        model = self._dict_fitting["__all__"][ngroup]
-        X_imputed = model.transform(df.values)
-        return pd.DataFrame(X_imputed, index=df.index, columns=df.columns)
+        hyperparams = self.get_hyperparams()
+        model = self.get_model(**hyperparams)
+
+        X = df.astype(float).values
+
+        D = utils.prepare_data(X, self.period)
+        Omega = ~np.isnan(D)
+        # D = utils.linear_interpolation(D)
+
+        M, A = model.decompose(D, Omega)
+
+        M_final = utils.get_shape_original(M, X.shape)
+        A_final = utils.get_shape_original(A, X.shape)
+        X_imputed = M_final + A_final
+
+        df_imputed = pd.DataFrame(X_imputed, index=df.index, columns=df.columns)
+        df_imputed = df.where(~df.isna(), df_imputed)
+
+        return df_imputed
 
     def _more_tags(self):
         return {

@@ -49,7 +49,7 @@ def test_soft_impute_fit(X: NDArray) -> None:
 @pytest.mark.parametrize("X", [X])
 def test_soft_impute_transform(X: NDArray) -> None:
     """Test transform shape and no more np.nan"""
-    model = softimpute.SoftImpute(projected=True)
+    model = softimpute.SoftImpute()
     model.fit(X)
     X_transformed = model.transform(X)
     assert X_transformed.shape == X.shape
@@ -59,7 +59,7 @@ def test_soft_impute_transform(X: NDArray) -> None:
 @pytest.mark.parametrize("X", [X])
 def test_soft_impute_convergence(X: NDArray) -> None:
     """Test type of the check convergence"""
-    model = softimpute.SoftImpute(projected=True)
+    model = softimpute.SoftImpute()
     model.fit(X)
     U = model.u
     Dsq = model.d
@@ -70,7 +70,7 @@ def test_soft_impute_convergence(X: NDArray) -> None:
 
 def test_soft_impute_convergence_with_none() -> None:
     """Test check type None and raise error"""
-    model = softimpute.SoftImpute(projected=True)
+    model = softimpute.SoftImpute()
     with pytest.raises(ValueError):
         _ = model._check_convergence(
             None,

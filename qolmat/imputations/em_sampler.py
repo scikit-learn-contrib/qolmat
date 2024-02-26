@@ -40,7 +40,7 @@ def _conjugate_gradient(A: NDArray, X: NDArray, mask: NDArray) -> NDArray:
     b[~mask] = 0
     xn, pn, rn = np.zeros(X_temp.shape), b, b  # Initialisation
     for n in range(n_iter + 2):
-        # if np.max(np.sum(rn**2)) < tol : # Condition de sortie " usuelle "
+        # if np.max(np.sum(rn**2)) < tolerance : # Condition de sortie " usuelle "
         #     X_temp[mask_isna] = xn[mask_isna]
         #     return X_temp.transpose()
         Apn = pn @ A
