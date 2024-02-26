@@ -350,7 +350,7 @@ def test_models_fit_transform_grouped(imputer):
         imputers.ImputerRegressor(),
         imputers.ImputerRpcaNoisy(tau=0, lam=0),
         imputers.ImputerRpcaPcp(lam=0),
-        imputers.ImputerSoftImpute(tau=0),
+        imputers.ImputerSoftImpute(),
         imputers.ImputerEM(),
     ]
 )

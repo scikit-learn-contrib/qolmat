@@ -260,6 +260,7 @@ class RpcaNoisy(RPCA):
 
         """
 
+        print("minimise_loss")
         rho = 1.1
         n_rows, n_cols = D.shape
 
@@ -338,13 +339,13 @@ class RpcaNoisy(RPCA):
             Ac = np.linalg.norm(A - A_temp, np.inf)
             Lc = np.linalg.norm(L - L_temp, np.inf)
             Qc = np.linalg.norm(Q - Q_temp, np.inf)
-            tolerance = max([Mc, Ac, Lc, Qc])  # type: ignore # noqa
+            error_max = max([Mc, Ac, Lc, Qc])  # type: ignore # noqa
             if norm == "L1":
                 for i_period, _ in enumerate(list_periods):
                     Rc = np.linalg.norm(R[i_period] - R_temp[i_period], np.inf)
-                    tolerance = max(tolerance, Rc)  # type: ignore # noqa
+                    error_max = max(error_max, Rc)  # type: ignore # noqa
 
-            if tolerance < tolerance:
+            if error_max < tolerance:
                 break
 
         M = L @ Q

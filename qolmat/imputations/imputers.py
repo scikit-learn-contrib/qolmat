@@ -1825,7 +1825,7 @@ class ImputerRpcaNoisy(_Imputer):
 
     def _fit_element(
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
-    ) -> em_sampler.EM:
+    ) -> rpca_noisy.RpcaNoisy:
         """
         Fits the imputer on `df`, at the group and/or column level depending onself.groups and
         self.columnwise.
@@ -1937,9 +1937,9 @@ class ImputerSoftImpute(_Imputer):
         columnwise: bool = False,
         random_state: Union[None, int, np.random.RandomState] = None,
         period: int = 1,
-        rank: int = 2,
+        rank: Optional[int] = None,
         tolerance: float = 1e-05,
-        tau: float = 0,
+        tau: Optional[float] = None,
         max_iterations: int = 100,
         verbose: bool = False,
     ):
@@ -2051,7 +2051,6 @@ class ImputerSoftImpute(_Imputer):
 
         D = utils.prepare_data(X, self.period)
         Omega = ~np.isnan(D)
-        # D = utils.linear_interpolation(D)
 
         M, A = model.decompose(D, Omega)
 

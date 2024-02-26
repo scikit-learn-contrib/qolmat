@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Optional, Tuple, Union
+import warnings
 
 import numpy as np
 from numpy.typing import NDArray
@@ -55,9 +56,9 @@ class SoftImpute(BaseEstimator, TransformerMixin):
     def __init__(
         self,
         period: int = 1,
-        rank: int = 2,
+        rank: Optional[int] = None,
         tolerance: float = 1e-05,
-        tau: float = 0,
+        tau: Optional[float] = None,
         max_iterations: int = 100,
         random_state: Union[None, int, np.random.RandomState] = None,
         verbose: bool = False,
@@ -70,78 +71,30 @@ class SoftImpute(BaseEstimator, TransformerMixin):
         self.random_state = sku.check_random_state(random_state)
         self.verbose = verbose
 
-    # def decompose(self, X: NDArray, Omega: NDArray) -> Tuple[NDArray, NDArray]:
-    #     """
-    #     Compute the Soft Impute decomposition
+    def get_params_scale(self, X: NDArray):
+        """
+        Get parameters for scaling in Soft Impute based on the input data.
 
-    #     Parameters
-    #     ----------
-    #     D : NDArray
-    #         Matrix of the observations
-    #     Omega: NDArray
-    #         Matrix of missingness, with boolean data
+        Parameters
+        ----------
+        X : np.ndarray
+            Input data matrix of shape (m, n).
 
-    #     Returns
-    #     -------
-    #     M: NDArray
-    #         Low-rank signal
-    #     A: NDArray
-    #         Anomalies
-    #     """
-    #     print()
-    #     print()
-    #     print(X.shape)
-    #     print()
-    #     X = utils.linear_interpolation(X)
+        Returns
+        -------
+        dict
+            A dictionary containing the following parameters:
+                - "rank" : float
+                    Rank estimate for low-rank matrix decomposition.
+                - "tau" : float
+                    Parameter for the nuclear norm penality
 
-    #     n, m = X.shape
-    #     V = np.zeros((m, self.rank))
-    #     U = self.random_state.normal(0.0, 1.0, (n, self.rank))
-    #     U, _, _ = np.linalg.svd(U, full_matrices=False)
-    #     D2 = np.ones((self.rank, 1))
-    #     col_means = np.nanmean(X, axis=0)
-    #     np.copyto(X, col_means, where=~Omega)
-    #     if self.rank is None:
-    #         self.rank = rpca_utils.approx_rank(X)
-    #     for iter_ in range(self.max_iterations):
-    #         U_old = U
-    #         V_old = V
-    #         D2_old = D2
-
-    #         BDt = U.T @ X
-    #         if self.tau > 0:
-    #             BDt *= D2 / (D2**2 + self.tau)
-    #         Vtilde, D2tilde, Rt = np.linalg.svd(BDt.T, full_matrices=False)
-    #         V = Vtilde
-    #         D2 = D2tilde.reshape(-1, 1)
-    #         U = U @ Rt
-    #         X_hat = U @ (D2 * V.T)
-    #         X[~Omega] = X_hat[~Omega]
-
-    #         A = (X @ V).T
-    #         if self.tau > 0:
-    #             A *= D2 / (D2 + self.tau)
-    #         Lsvd = np.linalg.svd(A.T, full_matrices=False)
-    #         U = Lsvd[0]
-    #         D2 = Lsvd[1][:, np.newaxis]
-    #         V = V @ Lsvd[2]
-    #         X_hat = U @ (D2 * V.T)
-    #         X[~Omega] = X_hat[~Omega]
-
-    #         ratio = self._check_convergence(U_old, D2_old, V_old, U, D2, V)
-    #         if self.verbose:
-    #             print(f"iter {iter_}: ratio = {round(ratio, 4)}")
-    #         if ratio < self.tolerance:
-    #             break
-
-    #     u = U[:, : self.rank]
-    #     d = D2[: self.rank]
-    #     v = V[:, : self.rank]
-
-    #     M = u @ np.diag(d.T[0]) @ (v).T
-    #     A = X - M
-
-    #     return M, A
+        """
+        X = utils.linear_interpolation(X)
+        rank = rpca_utils.approx_rank(X)
+        tau = 1 / np.sqrt(np.max(X.shape))
+        dict_params = {"rank": rank, "tau": tau}
+        return dict_params
 
     def decompose(self, X: NDArray, Omega: NDArray) -> Tuple[NDArray, NDArray]:
         """
@@ -149,7 +102,7 @@ class SoftImpute(BaseEstimator, TransformerMixin):
 
         Parameters
         ----------
-        D : NDArray
+        X : NDArray
             Matrix of the observations
         Omega: NDArray
             Matrix of missingness, with boolean data
@@ -161,29 +114,29 @@ class SoftImpute(BaseEstimator, TransformerMixin):
         A: NDArray
             Anomalies
         """
-        assert self.tau > 0
-        if self.rank is None:
-            self.rank = rpca_utils.approx_rank(X)
-        # X = utils.linear_interpolation(X)
+        params_scale = self.get_params_scale(X)
+        rank = params_scale["rank"] if self.rank is None else self.rank
+        tau = params_scale["tau"] if self.tau is None else self.tau
+        assert tau > 0
 
         # Step 1 : Initializing
         n, m = X.shape
-        V = np.zeros((m, self.rank))
-        U = self.random_state.normal(0.0, 1.0, (n, self.rank))
+        V = np.zeros((m, rank))
+        U = self.random_state.normal(0.0, 1.0, (n, rank))
         U, _, _ = np.linalg.svd(U, full_matrices=False)
-        D = np.ones((1, self.rank))
-        # col_means = np.nanmean(X, axis=0)
-        # np.copyto(X, col_means, where=~Omega)
+        D = np.ones((1, rank))
 
         A = U * D
         B = V * D
+        M = A @ B.T
+        cost_start = self.cost_function(X, M, A, Omega, tau)
         for iter_ in range(self.max_iterations):
             U_old = U
             V_old = V
             D_old = D
 
             # Step 2 : Upate on B
-            D2_invreg = (D**2 + self.tau) ** (-1)
+            D2_invreg = (D**2 + tau) ** (-1)
             Btilde = ((U * D).T @ np.where(Omega, X - A @ B.T, 0) + (B * D**2).T).T
             Btilde = Btilde * D2_invreg
 
@@ -193,8 +146,8 @@ class SoftImpute(BaseEstimator, TransformerMixin):
             B = V * D
 
             # Step 3 : Upate on A
-            D2_invreg = (D**2 + self.tau) ** (-1)
-            Atilde = ((V * D).T @ np.where(Omega, X.T - B @ A.T, 0) + (A * D**2).T).T
+            D2_invreg = (D**2 + tau) ** (-1)
+            Atilde = ((V * D).T @ np.where(Omega, X - A @ B.T, 0).T + (A * D**2).T).T
             Atilde = Atilde * D2_invreg
 
             Utilde, D2tilde, _ = np.linalg.svd(Atilde * D, full_matrices=False)
@@ -213,85 +166,19 @@ class SoftImpute(BaseEstimator, TransformerMixin):
         Xstar = np.where(Omega, X - A @ B.T, 0) + A @ B.T
         M = Xstar @ V
         U, D, Rt = np.linalg.svd(M, full_matrices=False)
-        D = rpca_utils.soft_thresholding(D, self.tau)
+        D = rpca_utils.soft_thresholding(D, tau)
         M = (U * D) @ Rt @ V.T
 
         A = np.where(Omega, X - M, 0)
 
+        cost_end = self.cost_function(X, M, A, Omega, tau)
+        if self.verbose and (cost_end > cost_start + 1e-9):
+            warnings.warn(
+                f"Convergence failed: cost function increased from"
+                f" {cost_start} to {cost_end} instead of decreasing!".format("%.2f")
+            )
+
         return M, A
-
-    # def fit(self, D: NDArray, y=None) -> SoftImpute:
-    #     """Fit the imputer on D.
-
-    #     Parameters
-    #     ----------
-    #     D : NDArray
-    #         Input data
-
-    #     y : Ignored
-    #         Not used, present here for API consistency by convention.
-
-    #     Returns
-    #     -------
-    #     self : object
-    #         The fitted `SoftImpute` class instance.
-    #     """
-    #     D = D.copy()
-    #     D = utils.prepare_data(D, self.period)
-
-    #     if not isinstance(D, np.ndarray):
-    #         raise AssertionError("Invalid type. D must be a NDArray.")
-
-    #     n, m = D.shape
-    #     mask = np.isnan(D)
-    #     V = np.zeros((m, self.rank))
-    #     U = self.random_state.normal(0.0, 1.0, (n, self.rank))
-    #     U, _, _ = np.linalg.svd(U, full_matrices=False)
-    #     Dsq = np.ones((self.rank, 1))
-    #     col_means = np.nanmean(D, axis=0)
-    #     np.copyto(D, col_means, where=np.isnan(D))
-    #     if self.rank is None:
-    #         self.rank = rpca_utils.approx_rank(D)
-    #     for iter_ in range(self.max_iterations):
-    #         U_old = U
-    #         V_old = V
-    #         Dsq_old = Dsq
-
-    #         Q = U.T @ D
-    #         if self.tau > 0:
-    #             tmp = Dsq / (Dsq + self.tau)
-    #             Q = Q * tmp
-    #         Bsvd = np.linalg.svd(Q.T, full_matrices=False)
-    #         V = Bsvd[0]
-    #         Dsq = Bsvd[1][:, np.newaxis]
-    #         U = U @ Bsvd[2]
-    #         tmp = Dsq * V.T
-    #         D_hat = U @ tmp
-    #         D[mask] = D_hat[mask]
-
-    #         L = (D @ V).T
-    #         if self.tau > 0:
-    #             tmp = Dsq / (Dsq + self.tau)
-    #             L = L * tmp
-    #         Lsvd = np.linalg.svd(L.T, full_matrices=False)
-    #         U = Lsvd[0]
-    #         Dsq = Lsvd[1][:, np.newaxis]
-    #         V = V @ Lsvd[2]
-    #         tmp = Dsq * V.T
-    #         D_hat = U @ tmp
-    #         D[mask] = D_hat[mask]
-
-    #         ratio = self._check_convergence(U_old, Dsq_old, V_old, U, Dsq, V)
-    #         if self.verbose:
-    #             print(f"iter {iter_}: ratio = {round(ratio, 4)}")
-    #         if ratio < self.tolerance:
-    #             break
-
-    #     self.u = U[:, : self.rank]
-    #     self.d = Dsq[: self.rank]
-    #     self.v = V[:, : self.rank]
-
-    #     return self
 
     def _check_convergence(
         self,
@@ -362,3 +249,36 @@ class SoftImpute(BaseEstimator, TransformerMixin):
     #         raise AssertionError("Result contains NaN. This is a bug.")
 
     #     return D_transformed
+
+    @staticmethod
+    def cost_function(
+        X: NDArray,
+        M: NDArray,
+        A: NDArray,
+        Omega: NDArray,
+        tau: float,
+    ):
+        """
+        Compute cost function for different RPCA algorithm
+
+        Parameters
+        ----------
+        X : NDArray
+            Matrix of observations
+        M : NDArray
+            Low-rank signal
+        A : NDArray
+            Anomalies
+        Omega : NDArray
+            Mask for observations
+        tau: Optional[float]
+            penalizing parameter for the nuclear norm
+
+        Returns
+        -------
+        float
+            Value of the cost function minimized by the Soft Impute algorithm
+        """
+        norm_frobenius = np.sum(np.where(Omega, X - M, 0) ** 2)
+        norm_nuclear = np.linalg.norm(M, "nuc")
+        return norm_frobenius + tau * norm_nuclear

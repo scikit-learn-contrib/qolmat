@@ -49,7 +49,7 @@ with :math:`\mathbf{E} = \mathbf{D} - \mathbf{M} - \mathbf{A}`.
 SoftImpute is an iterative method for matrix completion that uses nuclear-norm regularization [11]. It is a faster alternative to RPCA, although it is much less robust due to the quadratic penalization. Given a matrix :math:`\mathbf{D} \in \mathbb{R}^{n \times d}` with observed entries indexed by the set :math:`\Omega`, this algorithm solves the following problem:
 
 .. math::
-    \text{minimise}_{\mathbf{L} \in \mathbb{R}^{n \times r}, \mathbf{Q} \in \mathbb{R}^{d \times r}} \quad \Vert P_{\Omega}(\mathbf{D} - \mathbf{L}\mathbf{Q}) \Vert_F^2 + \tau \Vert \mathbf{L} \Vert_F^2 + \tau \Vert \mathbf{Q} \Vert_F^2
+    \text{minimise}_{\mathbf{M} \in \mathbb{R}^{n \times d}, rg(M) \leq r} \quad \Vert P_{\Omega}(\mathbf{D} - \mathbf{M}) \Vert_F^2 + \tau \Vert \mathbf{M} \Vert_*
 
 The imputed values are then given by the matrix :math:`M=LQ` on the unobserved data. See the :class:`~qolmat.imputations.imputers.ImputerSoftImpute` class for implementation details.
 
