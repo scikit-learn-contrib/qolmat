@@ -22,7 +22,7 @@ Multiple Imputation by Chained Equation: multiple imputations based on ICE. It u
 
 5. RPCA
 -------
-Robust Principal Component Analysis (RPCA) is a modification of the statistical procedure of PCA which allows to work with a data matrix :math:`\mathbf{D} \in \mathbb{R}^{n \times d}` containing missing values and grossly corrupted observations. We consider here the imputation task alone, but these methods can also tackle anomaly correction. See the :class:`~qolmat.imputations.imputers.ImputerRPCA` class.
+Robust Principal Component Analysis (RPCA) is a modification of the statistical procedure of PCA which allows to work with a data matrix :math:`\mathbf{D} \in \mathbb{R}^{n \times d}` containing missing values and grossly corrupted observations. We consider here the imputation task alone, but these methods can also tackle anomaly correction.
 
 Two cases are considered.
 
@@ -34,6 +34,7 @@ The class :class:`RPCAPCP` implements a matrix decomposition :math:`\mathbf{D} =
    \text{min}_{\mathbf{M} \in \mathbb{R}^{m \times n}} \quad \Vert \mathbf{M} \Vert_* + \lambda \Vert P_\Omega(\mathbf{D-M}) \Vert_1
 
 with :math:`\mathbf{A} = \mathbf{D} - \mathbf{M}`. The operator :math:`P_{\Omega}` is the projection operator on the set of observed data :math:`\Omega`, so that there is no penalization for the components of :math:`A` corresponding to unobserved data. The imputed values are then given by the matrix :math:`M` on the unobserved data.
+See the :class:`~qolmat.imputations.imputers.ImputerRpcaPcp` class for implementation details.
 
 **Noisy RPCA** [2, 3, 4]
 
@@ -43,6 +44,7 @@ The class :class:`RPCANoisy` implements an recommanded improved version, which r
    \text{min}_{\mathbf{M, A} \in \mathbb{R}^{m \times n}} \quad \Vert P_{\Omega} (\mathbf{D}-\mathbf{M}-\mathbf{A}) \Vert_F^2 + \tau \Vert \mathbf{M} \Vert_* + \lambda \Vert \mathbf{A} \Vert_1 + \sum_{k=1}^K \eta_k \Vert \mathbf{M H_k} \Vert_p
 
 with :math:`\mathbf{E} = \mathbf{D} - \mathbf{M} - \mathbf{A}`.
+See the :class:`~qolmat.imputations.imputers.ImputerRpcaNoisy` class for implementation details.
 
 6. SoftImpute
 -------------
@@ -51,7 +53,8 @@ SoftImpute is an iterative method for matrix completion that uses nuclear-norm r
 .. math::
     \text{minimise}_{\mathbf{M} \in \mathbb{R}^{n \times d}, rg(M) \leq r} \quad \Vert P_{\Omega}(\mathbf{D} - \mathbf{M}) \Vert_F^2 + \tau \Vert \mathbf{M} \Vert_*
 
-The imputed values are then given by the matrix :math:`M=LQ` on the unobserved data. See the :class:`~qolmat.imputations.imputers.ImputerSoftImpute` class for implementation details.
+The imputed values are then given by the matrix :math:`M=LQ` on the unobserved data.
+See the :class:`~qolmat.imputations.imputers.ImputerSoftImpute` class for implementation details.
 
 7. KNN
 ------

@@ -23,7 +23,9 @@ Imputers
     imputations.imputers.ImputerOracle
     imputations.imputers.ImputerRegressor
     imputations.imputers.ImputerResiduals
-    imputations.imputers.ImputerRPCA
+    imputations.imputers.ImputerRpcaPcp
+    imputations.imputers.ImputerRpcaNoisy
+    imputations.imputers.ImputerSoftImpute
     imputations.imputers.ImputerShuffle
 
 Comparator

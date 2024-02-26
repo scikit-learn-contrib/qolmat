@@ -127,13 +127,13 @@ imputer_spline = imputers.ImputerInterpolation(groups=("station",), method="spli
 imputer_shuffle = imputers.ImputerShuffle(groups=("station",))
 imputer_residuals = imputers.ImputerResiduals(groups=("station",), period=365, model_tsa="additive", extrapolate_trend="freq", method_interpolation="linear")
 
-imputer_rpca = imputers.ImputerRPCA(groups=("station",), columnwise=False, max_iterations=500, tau=2, lam=0.05)
-imputer_rpca_opti = imputers.ImputerRPCA(groups=("station",), columnwise=False, max_iterations=256)
+imputer_rpca = imputers.ImputerRpcaNoisy(groups=("station",), columnwise=False, max_iterations=500, tau=2, lam=0.05)
+imputer_rpca_opti = imputers.ImputerRpcaNoisy(groups=("station",), columnwise=False, max_iterations=256)
 dict_config_opti["RPCA_opti"] = {
     "tau": ho.hp.uniform("tau", low=.5, high=5),
     "lam": ho.hp.uniform("lam", low=.1, high=1),
 }
-imputer_rpca_opticw = imputers.ImputerRPCA(groups=("station",), columnwise=False, max_iterations=256)
+imputer_rpca_opticw = imputers.ImputerRpcaNoisy(groups=("station",), columnwise=False, max_iterations=256)
 dict_config_opti["RPCA_opticw"] = {
     "tau/TEMP": ho.hp.uniform("tau/TEMP", low=.5, high=5),
     "tau/PRES": ho.hp.uniform("tau/PRES", low=.5, high=5),
