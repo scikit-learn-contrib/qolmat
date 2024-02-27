@@ -45,10 +45,11 @@ class SoftImpute(BaseEstimator, TransformerMixin):
     >>> import numpy as np
     >>> from qolmat.imputations.softimpute import SoftImpute
     >>> D = np.array([[1, 2, np.nan, 4], [1, 5, 3, np.nan], [4, 2, 3, 2], [1, 1, 5, 4]])
-    >>> M, A = SoftImpute(random_state=11).decompose(D)
+    >>> Omega = ~np.isnan(D)
+    >>> M, A = SoftImpute(random_state=11).decompose(D, Omega)
     >>> print(M + A)
-    [[1.         2.         3.7242757  4.        ]
-     [1.         5.         3.         1.97846028]
+    [[1.         2.         4.12611456 4.        ]
+     [1.         5.         3.         0.87217939]
      [4.         2.         3.         2.        ]
      [1.         1.         5.         4.        ]]
     """
@@ -159,9 +160,11 @@ class SoftImpute(BaseEstimator, TransformerMixin):
             ratio = SoftImpute._check_convergence(U_old, D_old, V_old, U, D, V)
             if self.verbose:
                 print(f"Iteration {iter_}: ratio = {round(ratio, 4)}")
-            if ratio < self.tolerance:
-                print(f"Convergence reached at iteration {iter_} with ratio = {round(ratio, 4)}")
-                break
+                if ratio < self.tolerance:
+                    print(
+                        f"Convergence reached at iteration {iter_} with ratio = {round(ratio, 4)}"
+                    )
+                    break
 
         Xstar = np.where(Omega, X - A @ B.T, 0) + A @ B.T
         M = Xstar @ V
