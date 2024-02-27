@@ -261,7 +261,7 @@ def test_ImputerRegressor_fit_transform(df: pd.DataFrame) -> None:
 
 
 @pytest.mark.parametrize("df", [df_timeseries])
-def test_ImputerRPCA_fit_transform(df: pd.DataFrame) -> None:
+def test_ImputerRpcaNoisy_fit_transform(df: pd.DataFrame) -> None:
     imputer = imputers.ImputerRpcaNoisy(columnwise=False, max_iterations=100, tau=1, lam=0.3)
     imputer = imputer.fit(df)
     result = imputer.transform(df)
