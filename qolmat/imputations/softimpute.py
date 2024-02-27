@@ -45,8 +45,8 @@ class SoftImpute(BaseEstimator, TransformerMixin):
     >>> import numpy as np
     >>> from qolmat.imputations.softimpute import SoftImpute
     >>> D = np.array([[1, 2, np.nan, 4], [1, 5, 3, np.nan], [4, 2, 3, 2], [1, 1, 5, 4]])
-    >>> D = SoftImpute(random_state=11).fit_transform(D)
-    >>> print(D)
+    >>> M, A = SoftImpute(random_state=11).decompose(D)
+    >>> print(M + A)
     [[1.         2.         3.7242757  4.        ]
      [1.         5.         3.         1.97846028]
      [4.         2.         3.         2.        ]
@@ -129,7 +129,7 @@ class SoftImpute(BaseEstimator, TransformerMixin):
         A = U * D
         B = V * D
         M = A @ B.T
-        cost_start = self.cost_function(X, M, A, Omega, tau)
+        cost_start = SoftImpute.cost_function(X, M, A, Omega, tau)
         for iter_ in range(self.max_iterations):
             U_old = U
             V_old = V
@@ -156,7 +156,7 @@ class SoftImpute(BaseEstimator, TransformerMixin):
             A = U * D
 
             # Step 4 : Stopping upon convergence
-            ratio = self._check_convergence(U_old, D_old, V_old, U, D, V)
+            ratio = SoftImpute._check_convergence(U_old, D_old, V_old, U, D, V)
             if self.verbose:
                 print(f"Iteration {iter_}: ratio = {round(ratio, 4)}")
             if ratio < self.tolerance:
@@ -171,7 +171,7 @@ class SoftImpute(BaseEstimator, TransformerMixin):
 
         A = np.where(Omega, X - M, 0)
 
-        cost_end = self.cost_function(X, M, A, Omega, tau)
+        cost_end = SoftImpute.cost_function(X, M, A, Omega, tau)
         if self.verbose and (cost_end > cost_start + 1e-9):
             warnings.warn(
                 f"Convergence failed: cost function increased from"
@@ -180,8 +180,8 @@ class SoftImpute(BaseEstimator, TransformerMixin):
 
         return M, A
 
+    @staticmethod
     def _check_convergence(
-        self,
         U_old: NDArray,
         D_old: NDArray,
         V_old: NDArray,
