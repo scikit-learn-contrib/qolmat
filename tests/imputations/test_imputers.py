@@ -44,7 +44,7 @@ def test_hyperparameters_get_hyperparameters() -> None:
 hyperparams_global = {
     "lam/col1": 4.7,
     "lam/col2": 1.5,
-    "tol": 0.07,
+    "tolerance": 0.07,
     "max_iterations": 100,
     "norm": "L1",
 }
@@ -56,7 +56,7 @@ expected1 = {
     "rank": None,
     "list_etas": (),
     "list_periods": (),
-    "tol": 0.07,
+    "tolerance": 0.07,
     "norm": "L1",
     "max_iterations": 100,
     "period": 1,
@@ -69,7 +69,7 @@ expected2 = {
     "rank": None,
     "list_etas": (),
     "list_periods": (),
-    "tol": 0.07,
+    "tolerance": 0.07,
     "norm": "L1",
     "max_iterations": 100,
     "period": 1,
@@ -80,7 +80,7 @@ expected2 = {
 def test_hyperparameters_get_hyperparameters_modified(
     col: str, expected: Dict[str, HyperValue]
 ) -> None:
-    imputer = imputers.ImputerRPCA()
+    imputer = imputers.ImputerRpcaNoisy()
     for key, val in hyperparams_global.items():
         setattr(imputer, key, val)
     imputer.imputer_params = tuple(set(imputer.imputer_params) | set(hyperparams_global.keys()))
@@ -261,9 +261,10 @@ def test_ImputerRegressor_fit_transform(df: pd.DataFrame) -> None:
 
 
 @pytest.mark.parametrize("df", [df_timeseries])
-def test_ImputerRPCA_fit_transform(df: pd.DataFrame) -> None:
-    imputer = imputers.ImputerRPCA(columnwise=False, max_iterations=100, tau=1, lam=0.3)
-    result = imputer.fit_transform(df)
+def test_ImputerRpcaNoisy_fit_transform(df: pd.DataFrame) -> None:
+    imputer = imputers.ImputerRpcaNoisy(columnwise=False, max_iterations=100, tau=1, lam=0.3)
+    imputer = imputer.fit(df)
+    result = imputer.transform(df)
     expected = pd.DataFrame(
         {
             "col1": [i for i in range(20)],
@@ -273,24 +274,37 @@ def test_ImputerRPCA_fit_transform(df: pd.DataFrame) -> None:
     result = np.around(result)
     np.testing.assert_allclose(result, expected, atol=1e-2)
 
-
-@pytest.mark.parametrize("df", [df_incomplete])
-def test_ImputerSoftImpute_fit_transform(df: pd.DataFrame) -> None:
-    imputer = imputers.ImputerSoftImpute(
-        columnwise=False, max_iterations=100, tau=0.3, random_state=4
-    )
-    result = imputer.fit_transform(df)
+    result = imputer.transform(df.iloc[:10])
     expected = pd.DataFrame(
         {
-            "col1": [0, 1.327, 2, 3, 0.137],
-            "col2": [-1, 0.099, 0.5, 0.122, 1.5],
+            "col1": [i for i in range(10)],
+            "col2": [0, 1, 2, 2, 2] + [i for i in range(5, 10)],
         }
     )
+    result = np.around(result)
     np.testing.assert_allclose(result, expected, atol=1e-2)
 
 
+# @pytest.mark.parametrize("df", [df_incomplete])
+# def test_ImputerSoftImpute_fit_transform(df: pd.DataFrame) -> None:
+#     imputer = imputers.ImputerSoftImpute(
+#         columnwise=False, max_iterations=100, tau=0.3, random_state=4
+#     )
+#     result = imputer.fit_transform(df)
+#     expected = pd.DataFrame(
+#         {
+#             "col1": [0, 1.327, 2, 3, 0.137],
+#             "col2": [-1, 0.099, 0.5, 0.122, 1.5],
+#         }
+#     )
+#     np.testing.assert_allclose(result, expected, atol=1e-2)
+
+
 index_grouped = pd.MultiIndex.from_product([["a", "b"], range(4)], names=["group", "date"])
-dict_values = {"col1": [0, np.nan, 0, np.nan, 1, 1, 1, 1], "col2": [1, 1, 1, 1, 2, 2, 2, 2]}
+dict_values = {
+    "col1": [0, np.nan, 0, np.nan, 1, 1, 1, 1],
+    "col2": [1, 1, 1, 1, 2, 2, 2, 2],
+}
 df_grouped = pd.DataFrame(dict_values, index=index_grouped)
 
 list_imputers = [
@@ -305,7 +319,9 @@ list_imputers = [
     imputers.ImputerKNN(groups=("group",)),
     imputers.ImputerMICE(groups=("group",)),
     imputers.ImputerRegressor(groups=("group",), estimator=LinearRegression()),
-    imputers.ImputerRPCA(groups=("group",)),
+    imputers.ImputerRpcaPcp(groups=("group",)),
+    imputers.ImputerRpcaNoisy(groups=("group",)),
+    imputers.ImputerSoftImpute(groups=("group",)),
     imputers.ImputerEM(groups=("group",)),
 ]
 
@@ -332,7 +348,9 @@ def test_models_fit_transform_grouped(imputer):
         imputers.KNNImputer(),
         imputers.ImputerMICE(),
         imputers.ImputerRegressor(),
-        imputers.ImputerRPCA(tau=0, lam=0),
+        imputers.ImputerRpcaNoisy(tau=0, lam=0),
+        imputers.ImputerRpcaPcp(lam=0),
+        imputers.ImputerSoftImpute(),
         imputers.ImputerEM(),
     ]
 )

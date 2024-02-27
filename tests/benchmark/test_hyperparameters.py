@@ -9,19 +9,22 @@ from qolmat.benchmark.hyperparameters import HyperValue
 
 # from hyperparameters import HyperValue
 from qolmat.benchmark.missing_patterns import _HoleGenerator, EmpiricalHoleGenerator
-from qolmat.imputations.imputers import _Imputer, ImputerRPCA
+from qolmat.imputations.imputers import _Imputer, ImputerRpcaNoisy
 
 import hyperopt as ho
 
 df_origin = pd.DataFrame({"col1": [0, np.nan, 2, 4, np.nan], "col2": [-1, np.nan, 0.5, 1, 1.5]})
 df_imputed = pd.DataFrame({"col1": [0, 1, 2, 3.5, 4], "col2": [-1.5, 0, 1.5, 2, 1.5]})
 df_mask = pd.DataFrame(
-    {"col1": [False, False, True, False, False], "col2": [True, False, True, True, False]}
+    {
+        "col1": [False, False, True, False, False],
+        "col2": [True, False, True, True, False],
+    }
 )
 df_corrupted = df_origin.copy()
 df_corrupted[df_mask] = np.nan
 
-imputer_rpca = ImputerRPCA(tau=2, random_state=42, columnwise=True, period=1)
+imputer_rpca = ImputerRpcaNoisy(tau=2, random_state=42, columnwise=True, period=1)
 dict_imputers_rpca = {"rpca": imputer_rpca}
 generator_holes = EmpiricalHoleGenerator(n_splits=1, ratio_masked=0.5)
 dict_config_opti = {
@@ -30,7 +33,7 @@ dict_config_opti = {
             "col1": {"min": 0.1, "max": 6, "type": "Real"},
             "col2": {"min": 1, "max": 4, "type": "Real"},
         },
-        "tol": {"min": 1e-6, "max": 0.1, "type": "Real"},
+        "tolerance": {"min": 1e-6, "max": 0.1, "type": "Real"},
         "max_iter": {"min": 99, "max": 100, "type": "Integer"},
         "norm": {"categories": ["L1", "L2"], "type": "Categorical"},
     }

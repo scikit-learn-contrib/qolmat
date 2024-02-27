@@ -9,9 +9,10 @@ from sklearn import utils as sku
 
 from qolmat.imputations.rpca import rpca_utils
 from qolmat.imputations.rpca.rpca import RPCA
+from qolmat.utils import utils
 
 
-class RPCAPCP(RPCA):
+class RpcaPcp(RPCA):
     """
     This class implements the basic RPCA decomposition using Alternating Lagrangian Multipliers.
 
@@ -34,7 +35,7 @@ class RPCAPCP(RPCA):
         penalizing parameter for the sparse matrix
     max_iterations: Optional[int]
         stopping criteria, maximum number of iterations. By default, the value is set to 10_000
-    tol: Optional[float]
+    tolerance: Optional[float]
         stoppign critera, minimum difference between 2 consecutive iterations. By default,
         the value is set to 1e-6
     verbose: Optional[bool]
@@ -44,14 +45,13 @@ class RPCAPCP(RPCA):
     def __init__(
         self,
         random_state: Union[None, int, np.random.RandomState] = None,
-        period: int = 1,
         mu: Optional[float] = None,
         lam: Optional[float] = None,
         max_iterations: int = int(1e4),
-        tol: float = 1e-6,
+        tolerance: float = 1e-6,
         verbose: bool = True,
     ) -> None:
-        super().__init__(period=period, max_iterations=max_iterations, tol=tol, verbose=verbose)
+        super().__init__(max_iterations=max_iterations, tolerance=tolerance, verbose=verbose)
         self.rng = sku.check_random_state(random_state)
         self.mu = mu
         self.lam = lam
@@ -75,14 +75,16 @@ class RPCAPCP(RPCA):
                     Regularization parameter for the L1 norm.
 
         """
+        D = utils.linear_interpolation(D)
         mu = D.size / (4.0 * rpca_utils.l1_norm(D))
         lam = 1 / np.sqrt(np.max(D.shape))
         dict_params = {"mu": mu, "lam": lam}
         return dict_params
 
-    def decompose_rpca(self, D: NDArray, Omega: NDArray) -> Tuple[NDArray, NDArray]:
+    def decompose(self, D: NDArray, Omega: NDArray) -> Tuple[NDArray, NDArray]:
         """
-        Estimate the relevant parameters then compute the PCP RPCA decomposition
+        Estimate the relevant parameters then compute the PCP RPCA decomposition, using the
+        Augumented Largrangian Multiplier (ALM)
 
         Parameters
         ----------
@@ -103,6 +105,8 @@ class RPCAPCP(RPCA):
         mu = params_scale["mu"] if self.mu is None else self.mu
         lam = params_scale["lam"] if self.lam is None else self.lam
 
+        D = utils.linear_interpolation(D)
+
         D_norm = np.linalg.norm(D, "fro")
 
         A = np.array(np.full_like(D, 0))
@@ -112,6 +116,7 @@ class RPCAPCP(RPCA):
 
         M: NDArray = D - A
         for iteration in range(self.max_iterations):
+
             M = rpca_utils.svd_thresholding(D - A + Y / mu, 1 / mu)
             A = rpca_utils.soft_thresholding(D - M + Y / mu, lam / mu)
             A[~Omega] = (D - M)[~Omega]
@@ -121,7 +126,7 @@ class RPCAPCP(RPCA):
             error = np.linalg.norm(D - M - A, "fro") / D_norm
             errors[iteration] = error
 
-            if error < self.tol:
+            if error < self.tolerance:
                 break
 
         self._check_cost_function_minimized(D, M, A, Omega, lam)

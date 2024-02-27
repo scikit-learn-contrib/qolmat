@@ -2,7 +2,7 @@
 Modular utility functions for RPCA
 """
 
-
+from typing import Tuple
 import numpy as np
 from numpy.typing import NDArray
 import scipy
@@ -31,7 +31,7 @@ def approx_rank(
     """
     if threshold == 1:
         return min(M.shape)
-    _, values_singular, _ = np.linalg.svd(M, full_matrices=True)
+    _, values_singular, _ = np.linalg.svd(M, full_matrices=False)
 
     cum_sum = np.cumsum(values_singular) / np.sum(values_singular)
     rank = np.argwhere(cum_sum > threshold)[0][0] + 1
@@ -75,7 +75,7 @@ def svd_thresholding(X: NDArray, threshold: float) -> NDArray:
     Returns
     -------
     NDArray
-        Array obtained by computing U * shrink(s) * V where
+        M = U * shrink(s) * V where
             U is the array of left singular vectors of X
             V is the array of the right singular vectors of X
             s is the array of the singular values as a diagonal array

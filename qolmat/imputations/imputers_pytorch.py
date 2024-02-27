@@ -98,7 +98,7 @@ class ImputerRegressorPyTorch(ImputerRegressor):
                 loss.backward()
                 optimizer.step()
                 if (epoch + 1) % 10 == 0:
-                    print(f"Epoch [{epoch+1}/{self.epochs}], Loss: {loss.item():.4f}")
+                    print(f"Epoch [{epoch + 1}/{self.epochs}], Loss: {loss.item():.4f}")
         return estimator
 
     def _predict_estimator(self, estimator: nn.Sequential, X: pd.DataFrame) -> pd.Series:
@@ -213,7 +213,7 @@ class Autoencoder(nn.Module):
             loss.backward()
             optimizer.step()
             if (epoch + 1) % 10 == 0:
-                print(f"Epoch [{epoch+1}/{self.epochs}], Loss: {loss.item():.4f}")
+                print(f"Epoch [{epoch + 1}/{self.epochs}], Loss: {loss.item():.4f}")
             list_loss.append(loss.item())
         self.loss.extend([list_loss])
         return self
@@ -363,7 +363,9 @@ class ImputerAutoencoder(_Imputer):
         df_train = df_train.fillna(df_train.mean())
         scaler = StandardScaler()
         df_train_scaler = pd.DataFrame(
-            scaler.fit_transform(df_train), index=df_train.index, columns=df_train.columns
+            scaler.fit_transform(df_train),
+            index=df_train.index,
+            columns=df_train.columns,
         )
         X = df_train_scaler.values
         mask = df.isna().values
@@ -671,4 +673,7 @@ class ImputerDiffusion(_Imputer):
         return self.model.summary
 
     def get_summary_architecture(self) -> Dict:
-        return {"number_parameters": self.model.num_params, "epsilon_model": self.model._eps_model}
+        return {
+            "number_parameters": self.model.num_params,
+            "epsilon_model": self.model._eps_model,
+        }
