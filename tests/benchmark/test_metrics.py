@@ -20,7 +20,10 @@ df_complete = pd.DataFrame({"col1": [0, 2, 2, 3, 4], "col2": [-1, -2, 0.5, 1, 1.
 df_imputed = pd.DataFrame({"col1": [0, 1, 2, 3.5, 4], "col2": [-1.5, 0, 1.5, 2, 1.5]})
 
 df_mask = pd.DataFrame(
-    {"col1": [False, False, True, True, False], "col2": [True, False, True, True, False]}
+    {
+        "col1": [False, False, True, True, False],
+        "col2": [True, False, True, True, False],
+    }
 )
 
 
@@ -134,17 +137,6 @@ def test_kl_divergence_gaussian(
 @pytest.mark.parametrize("df1", [df_incomplete])
 @pytest.mark.parametrize("df2", [df_imputed])
 @pytest.mark.parametrize("df_mask", [df_mask])
-def test_kl_divergence_forest(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> None:
-    result = metrics.kl_divergence_forest(df1, df1, df_mask)
-    np.testing.assert_allclose(result, 0, atol=1e-3)
-
-    result = metrics.kl_divergence_forest(df1, df2, df_mask)
-    np.testing.assert_allclose(result, 6.21e-2, rtol=1e-2)
-
-
-@pytest.mark.parametrize("df1", [df_incomplete])
-@pytest.mark.parametrize("df2", [df_imputed])
-@pytest.mark.parametrize("df_mask", [df_mask])
 def test_frechet_distance(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> None:
     result = metrics.frechet_distance(df1, df1, df_mask)
     np.testing.assert_allclose(result, 0, atol=1e-3)
@@ -230,7 +222,10 @@ df_imputed_cat = pd.DataFrame(
 )
 
 df_mask_cat = pd.DataFrame(
-    {"col1": [False, False, True, True, False], "col2": [True, False, True, True, False]}
+    {
+        "col1": [False, False, True, True, False],
+        "col2": [True, False, True, True, False],
+    }
 )
 
 

@@ -191,8 +191,7 @@ Concretely, the comparator takes as input a dataframe to impute, a proportion of
 Note these metrics compute reconstruction errors; it tells nothing about the distances between the "true" and "imputed" distributions.
 
 ```python
-metrics = ["mae", "wmape", "KL_columnwise", "KL_forest", "ks_test", "dist_corr_pattern"]
-# metrics = ["KL_forest"]
+metrics = ["mae", "wmape", "KL_columnwise", "ks_test", "dist_corr_pattern"]
 comparison = comparator.Comparator(
     dict_imputers,
     cols_to_impute,
