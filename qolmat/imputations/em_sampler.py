@@ -372,7 +372,11 @@ class EM(BaseEstimator, TransformerMixin):
         elif self.method == "sample":
             X_transformed = self._sample_ou(X, mask_na, estimate_params=False)
 
-        if np.all(np.isnan(X_transformed)):
+        X_transformed[np.isinf(X_transformed)] = 0.0
+        X_transformed[np.isnan(X_transformed)] = 0.0
+        if np.any(np.isinf(X_transformed)):
+            raise AssertionError("Result contains Inf. This is a bug.")
+        if np.any(np.isnan(X_transformed)):
             raise AssertionError("Result contains NaN. This is a bug.")
 
         return X_transformed

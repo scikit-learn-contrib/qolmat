@@ -58,6 +58,7 @@ qolmat/.converge
 examples/*.ipynb
 examples/figures/*
 examples/data/*
+!examples/data/imp_pred/
 examples/local
 
 
@@ -66,3 +67,4 @@ examples/local
 
 # Logs
 nohup.txt
+examples/mlruns/*

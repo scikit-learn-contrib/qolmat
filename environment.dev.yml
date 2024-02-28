@@ -34,4 +34,8 @@ dependencies:
           - pytest-cov==4.0.0
           - pytest-mock==3.10.0
           - sphinx_markdown_tables==0.0.17
+          - plotly
+          - xgboost
+          - torch
+          - datasets
           - -e .

@@ -9,6 +9,8 @@ import pandas as pd
 from sklearn import utils as sku
 from sklearn.utils import resample
 import math
+from scipy import optimize
+from scipy.special import expit
 
 from qolmat.utils.exceptions import NoMissingValue, SubsetIsAString
 
@@ -48,6 +50,50 @@ def get_sizes_max(values_isna: pd.Series) -> pd.Series[int]:
     sizes_max = sizes_max.fillna(0)
     sizes_max = sizes_max.astype(int)
     return sizes_max
+
+
+def pick_coeffs(
+    X: np.ndarray,
+    idxs_obs: np.ndarray,
+    idxs_nas: np.ndarray,
+    self_mask: bool = False,
+) -> np.ndarray:
+    n, d = X.shape
+    if self_mask:
+        coeffs = np.random.rand(d)
+        Wx = X * coeffs
+        coeffs /= np.std(Wx, 0)
+    else:
+        d_obs = len(idxs_obs)
+        d_na = len(idxs_nas)
+        coeffs = np.random.rand(d_obs, d_na)
+        Wx = X[:, idxs_obs] @ coeffs
+        coeffs /= np.std(Wx, 0, keepdims=True)
+    return coeffs
+
+
+def fit_intercepts(
+    X: np.ndarray, coeffs: np.ndarray, p: float, self_mask: bool = False
+) -> np.ndarray:
+    if self_mask:
+        d = len(coeffs)
+        intercepts = np.zeros(d)
+        for j in range(d):
+
+            def f(x: np.ndarray) -> np.ndarray:
+                return expit(X * coeffs[j] + x).mean().item() - p
+
+            intercepts[j] = optimize.bisect(f, -1000, 1000)
+    else:
+        d_obs, d_na = coeffs.shape
+        intercepts = np.zeros(d_na)
+        for j in range(d_na):
+
+            def f(x: np.ndarray) -> np.ndarray:
+                return expit(np.dot(X, coeffs[:, j]) + x).mean().item() - p
+
+            intercepts[j] = optimize.bisect(f, -1000, 1000)
+    return intercepts
 
 
 class _HoleGenerator:
@@ -726,3 +772,218 @@ class GroupedHoleGenerator(_HoleGenerator):
             list_masks.append(df_mask)
 
         return list_masks
+
+
+class MCAR(UniformHoleGenerator):
+    """This class implements a way to generate holes in a dataframe.
+    The holes are generated randomly, using the resample method of scikit learn.
+
+    Parameters
+    ----------
+    n_splits : int, optional
+        Number of splits, by default 1.
+    subset : Optional[List[str]], optional
+        Names of the columns for which holes must be created, by default None
+    ratio_masked : Optional[float], optional
+        Ratio of masked values ​​to add, by default 0.05.
+    random_state : Optional[int], optional
+        The seed used by the random number generator, by default 42.
+    """
+
+    def __init__(
+        self,
+        n_splits: int = 1,
+        subset: Optional[List[str]] = None,
+        ratio_masked: float = 0.05,
+        random_state: Union[None, int, np.random.RandomState] = None,
+    ):
+        super().__init__(
+            n_splits=n_splits, subset=subset, ratio_masked=ratio_masked, random_state=random_state
+        )
+
+    def _check_subset(self, X: pd.DataFrame):
+        if self.subset is None:
+            self.subset = X.columns
+        if isinstance(self.subset, str):
+            raise SubsetIsAString(self.subset)
+
+
+class MAR(_HoleGenerator):
+    """This class implements a way to generate holes in a dataframe.
+    Missing at random mechanism with a logistic masking model.
+    First, a subset of variables with *no* missing values is randomly selected.
+    The remaining variables have missing values according to a logistic model
+    with random weights, re-scaled so as to attain the desired proportion
+    of missing values on those variables.
+    This class is based on the function MAR_mask in
+    https://github.com/vanderschaarlab/hyperimpute/blob/main/src/hyperimpute/plugins/utils/simulate.py
+
+
+    Parameters
+    ----------
+    n_splits : int, optional
+        Number of splits, by default 1.
+    subset : Optional[List[str]], optional
+        Names of the columns for which holes must be created, by default None
+    ratio_masked : Optional[float], optional
+        Ratio of masked values ​​to add, by default 0.05.
+    ratio_observed : Optional[float], optional
+        Proportion of variables with *no* missing values that will be used
+        for the logistic masking model, by default 0.1.
+    sample_columns: bool, optional
+        Sample variables that will all be observed, by default True.
+    random_state : Optional[int], optional
+        The seed used by the random number generator, by default 42.
+    """
+
+    def __init__(
+        self,
+        n_splits: int = 1,
+        subset: Optional[List[str]] = None,
+        ratio_masked: float = 0.05,
+        ratio_observed: float = 0.1,
+        sample_columns: bool = True,
+        random_state: Union[None, int, np.random.RandomState] = None,
+    ):
+        super().__init__(
+            n_splits=n_splits, subset=subset, ratio_masked=ratio_masked, random_state=random_state
+        )
+        self.ratio_observed = ratio_observed
+        self.sample_columns = sample_columns
+
+    def _check_subset(self, X: pd.DataFrame):
+        if self.subset is None:
+            self.subset = X.columns
+        if isinstance(self.subset, str):
+            raise SubsetIsAString(self.subset)
+
+    def generate_mask(self, X: pd.DataFrame) -> pd.DataFrame:
+        df_mask = pd.DataFrame(False, index=X.index, columns=X.columns)
+
+        n, d = X.shape
+
+        d_obs = max(
+            int(self.ratio_observed * d), 1
+        )  # number of variables that will have no missing values (at least one variable)
+        d_na = d - d_obs  # number of variables that will have missing values
+
+        # Sample variables that will all be observed, and those with missing values:
+        if self.sample_columns:
+            idxs_obs = np.random.choice(d, d_obs, replace=False)
+        else:
+            idxs_obs = np.array(list(range(d_obs)))
+
+        idxs_nas = np.array([i for i in range(d) if i not in idxs_obs])
+
+        # Other variables will have NA proportions that depend on those observed variables,
+        # through a logistic model
+        # The parameters of this logistic model are random.
+
+        # Pick coefficients so that W^Tx has unit variance (avoids shrinking)
+        coeffs = pick_coeffs(X.values, idxs_obs, idxs_nas)
+        # Pick the intercepts to have a desired amount of missing values
+        intercepts = fit_intercepts(X.iloc[:, idxs_obs].values, coeffs, self.ratio_masked)
+
+        ps = expit(X.iloc[:, idxs_obs].values @ coeffs + intercepts)
+
+        ber = np.random.rand(n, d_na)
+        df_mask.iloc[:, idxs_nas] = ber < ps
+
+        return df_mask
+
+
+class MNAR(_HoleGenerator):
+    """This class implements a way to generate holes in a dataframe.
+    Missing not at random mechanism with a logistic masking model.
+    It implements two mechanisms:
+    (i) Missing probabilities are selected with a logistic model, taking all variables as inputs.
+    Hence, values that are inputs can also be missing.
+    (ii) Variables are split into a set of intputs for a logistic model, and a set whose missing
+    probabilities are determined by the logistic model.
+    Then inputs are then masked MCAR (hence, missing values from the second set will depend on
+    masked values.
+    In either case, weights are random and the intercept is selected to attain the desired
+    proportion of missing values.
+    This class is based on the function MNAR_mask_logistic in
+    https://github.com/vanderschaarlab/hyperimpute/blob/main/src/hyperimpute/plugins/utils/simulate.py
+
+
+    Parameters
+    ----------
+    n_splits : int, optional
+        Number of splits, by default 1.
+    subset : Optional[List[str]], optional
+        Names of the columns for which holes must be created, by default None
+    ratio_masked : Optional[float], optional
+        Ratio of masked values ​​to add, by default 0.05.
+    ratio_variable :Optional[float], optional
+        Proportion of variables that will be used for the logistic masking model
+        (only if exclude_inputs), by default 0.3.
+    exclude_inputs :
+        True: mechanism (ii) is used, False: (i)
+    random_state : Optional[int], optional
+        The seed used by the random number generator, by default 42.
+    """
+
+    def __init__(
+        self,
+        n_splits: int = 1,
+        subset: Optional[List[str]] = None,
+        ratio_masked: float = 0.05,
+        ratio_variable: float = 0.3,
+        exclude_inputs: bool = True,
+        random_state: Union[None, int, np.random.RandomState] = None,
+    ):
+        super().__init__(
+            n_splits=n_splits, subset=subset, ratio_masked=ratio_masked, random_state=random_state
+        )
+        self.ratio_variable = ratio_variable
+        self.exclude_inputs = exclude_inputs
+
+    def _check_subset(self, X: pd.DataFrame):
+        if self.subset is None:
+            self.subset = X.columns
+        if isinstance(self.subset, str):
+            raise SubsetIsAString(self.subset)
+
+    def generate_mask(self, X: pd.DataFrame) -> pd.DataFrame:
+        df_mask = pd.DataFrame(False, index=X.index, columns=X.columns)
+        n, d = X.shape
+        d_params = (
+            max(int(self.ratio_variable * d), 1) if self.exclude_inputs else d
+        )  # number of variables used as inputs (at least 1)
+        d_na = (
+            d - d_params if self.exclude_inputs else d
+        )  # number of variables masked with the logistic model
+
+        # Sample variables that will be parameters for the logistic regression:
+        idxs_params = (
+            np.random.choice(d, d_params, replace=False) if self.exclude_inputs else np.arange(d)
+        )
+        idxs_nas = (
+            np.array([i for i in range(d) if i not in idxs_params])
+            if self.exclude_inputs
+            else np.arange(d)
+        )
+
+        # Other variables will have NA proportions selected by a logistic model
+        # The parameters of this logistic model are random.
+
+        # Pick coefficients so that W^Tx has unit variance (avoids shrinking)
+        coeffs = pick_coeffs(X.values, idxs_params, idxs_nas)
+        # Pick the intercepts to have a desired amount of missing values
+        intercepts = fit_intercepts(X.iloc[:, idxs_params].values, coeffs, self.ratio_masked)
+
+        ps = expit(X.iloc[:, idxs_params].values @ coeffs + intercepts)
+
+        ber = np.random.rand(n, d_na)
+        df_mask.iloc[:, idxs_nas] = ber < ps
+
+        # If the inputs of the logistic model are excluded from MNAR missingness,
+        # mask some values used in the logistic model at random.
+        # This makes the missingness of other variables potentially dependent on masked values
+
+        if self.exclude_inputs:
+            df_mask.iloc[:, idxs_params] = np.random.rand(n, d_params) < self.ratio_masked
+
+        return df_mask

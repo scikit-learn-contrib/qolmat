@@ -164,6 +164,8 @@ class _Imputer(_BaseImputer):
         if self.columnwise:
             for col in df.columns:
                 self._fit_allgroups(df[[col]], col=col)
+            # for col in cols_with_nans:
+            # self._fit_allgroups(df[[col]], col=col)
         else:
             self._fit_allgroups(df)
 

@@ -18,187 +18,6 @@ EPS = np.finfo(float).eps
 ###########################
 
 
-def columnwise_metric(
-    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame, metric: Callable, **kwargs
-) -> pd.Series:
-    """For each column, compute a metric score based on the true dataframe
-    and the predicted dataframe
-
-    Parameters
-    ----------
-    df1 : pd.DataFrame
-        True dataframe
-    df2 : pd.DataFrame
-        Predicted dataframe
-    df_mask : pd.DataFrame
-        Elements of the dataframes to compute on
-    metric : Callable
-        metric function
-
-    Returns
-    -------
-    pd.Series
-        Series of scores for all columns
-    """
-    values = {}
-    for col in df1.columns:
-        df1_col = df1.loc[df_mask[col], col]
-        df2_col = df2.loc[df_mask[col], col]
-        assert df1_col.notna().all()
-        assert df2_col.notna().all()
-        values[col] = metric(df1_col, df2_col, **kwargs)
-    return pd.Series(values)
-
-
-def mean_squared_error(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.Series:
-    """Mean squared error between two dataframes.
-
-    Parameters
-    ----------
-    df1 : pd.DataFrame
-        True dataframe
-    df2 : pd.DataFrame
-        Predicted dataframe
-    df_mask : pd.DataFrame
-        Elements of the dataframes to compute on
-
-    Returns
-    -------
-    pd.Series
-    """
-    return columnwise_metric(df1, df2, df_mask, skm.mean_squared_error)
-
-
-def root_mean_squared_error(
-    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
-) -> pd.Series:
-    """Root mean squared error between two dataframes.
-
-    Parameters
-    ----------
-    df1 : pd.DataFrame
-        True dataframe
-    df2 : pd.DataFrame
-        Predicted dataframe
-    df_mask : pd.DataFrame
-        Elements of the dataframes to compute on
-
-    Returns
-    -------
-    pd.Series
-    """
-    return columnwise_metric(df1, df2, df_mask, skm.mean_squared_error, squared=False)
-
-
-def mean_absolute_error(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.Series:
-    """Mean absolute error between two dataframes.
-
-    Parameters
-    ----------
-    df1 : pd.DataFrame
-        True dataframe
-    df2 : pd.DataFrame
-        Predicted dataframe
-    df_mask : pd.DataFrame
-        Elements of the dataframes to compute on
-
-    Returns
-    -------
-    pd.Series
-    """
-    return columnwise_metric(df1, df2, df_mask, skm.mean_absolute_error)
-
-
-def mean_absolute_percentage_error(
-    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
-) -> pd.Series:
-    """Mean absolute percentage error between two dataframes.
-
-    Parameters
-    ----------
-    df1 : pd.DataFrame
-        True dataframe
-    df2 : pd.DataFrame
-        Predicted dataframe
-    df_mask : pd.DataFrame
-        Elements of the dataframes to compute on
-
-    Returns
-    -------
-    pd.Series
-    """
-    return columnwise_metric(df1, df2, df_mask, skm.mean_absolute_percentage_error)
-
-
-def _weighted_mean_absolute_percentage_error_1D(values1: pd.Series, values2: pd.Series) -> float:
-    """Weighted mean absolute percentage error between two series.
-    Based on https://en.wikipedia.org/wiki/Mean_absolute_percentage_error
-
-    Parameters
-    ----------
-    values1 : pd.Series
-        true series
-    values2 : pd.Series
-        predicted series
-
-    Returns
-    -------
-    float
-        Weighted mean absolute percentage error
-    """
-    return (values1 - values2).abs().sum() / values1.abs().sum()
-
-
-def weighted_mean_absolute_percentage_error(
-    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
-) -> pd.Series:
-    """Weighted mean absolute percentage error between two dataframes.
-
-    Parameters
-    ----------
-    df1 : pd.DataFrame
-        True dataframe
-    df2 : pd.DataFrame
-        Predicted dataframe
-    df_mask : pd.DataFrame
-        Elements of the dataframes to compute on
-
-    Returns
-    -------
-    pd.Series
-    """
-    return columnwise_metric(df1, df2, df_mask, _weighted_mean_absolute_percentage_error_1D)
-
-
-def dist_wasserstein(
-    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame, method: str = "columnwise"
-) -> pd.Series:
-    """Wasserstein distances between columns of 2 dataframes.
-    Wasserstein distance can only be computed columnwise
-
-    Parameters
-    ----------
-    df1 : pd.DataFrame
-        True dataframe
-    df2 : pd.DataFrame
-        Predicted dataframe
-    df_mask : pd.DataFrame
-        Elements of the dataframes to compute on
-
-    Returns
-    -------
-    pd.Series
-        wasserstein distances
-    """
-    if method == "columnwise":
-        return columnwise_metric(df1, df2, df_mask, scipy.stats.wasserstein_distance)
-    else:
-        raise AssertionError(
-            f"The parameter of the function wasserstein_distance should be one of"
-            f"the following: [`columnwise`], not `{method}`!"
-        )
-
-
 def _get_numerical_features(df1: pd.DataFrame) -> List[str]:
     """Get numerical features from dataframe
 
@@ -247,6 +66,218 @@ def _get_categorical_features(df1: pd.DataFrame) -> List[str]:
         raise Exception("No categorical feature is found.")
     else:
         return cols_categorical
+
+
+def columnwise_metric(
+    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame, metric: Callable, **kwargs
+) -> pd.Series:
+    """For each column, compute a metric score based on the true dataframe
+    and the predicted dataframe
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        True dataframe
+    df2 : pd.DataFrame
+        Predicted dataframe
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
+    metric : Callable
+        metric function
+
+    Returns
+    -------
+    pd.Series
+        Series of scores for all columns
+    """
+    values = {}
+    for col in df1.columns:
+        df1_col = df1.loc[df_mask[col], col]
+        df2_col = df2.loc[df_mask[col], col]
+        assert df1_col.notna().all()
+        assert df2_col.notna().all()
+        values[col] = metric(df1_col, df2_col, **kwargs)
+    return pd.Series(values)
+
+
+def mean_squared_error(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.Series:
+    """Mean squared error between two dataframes.
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        True dataframe
+    df2 : pd.DataFrame
+        Predicted dataframe
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
+
+    Returns
+    -------
+    pd.Series
+    """
+    cols_numerical = _get_numerical_features(df1)
+    return columnwise_metric(
+        df1[cols_numerical], df2[cols_numerical], df_mask[cols_numerical], skm.mean_squared_error
+    )
+
+
+def root_mean_squared_error(
+    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
+) -> pd.Series:
+    """Root mean squared error between two dataframes.
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        True dataframe
+    df2 : pd.DataFrame
+        Predicted dataframe
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
+
+    Returns
+    -------
+    pd.Series
+    """
+    cols_numerical = _get_numerical_features(df1)
+    return columnwise_metric(
+        df1[cols_numerical],
+        df2[cols_numerical],
+        df_mask[cols_numerical],
+        skm.mean_squared_error,
+        squared=False,
+    )
+
+
+def mean_absolute_error(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.Series:
+    """Mean absolute error between two dataframes.
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        True dataframe
+    df2 : pd.DataFrame
+        Predicted dataframe
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
+
+    Returns
+    -------
+    pd.Series
+    """
+    cols_numerical = _get_numerical_features(df1)
+    return columnwise_metric(
+        df1[cols_numerical], df2[cols_numerical], df_mask[cols_numerical], skm.mean_absolute_error
+    )
+
+
+def mean_absolute_percentage_error(
+    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
+) -> pd.Series:
+    """Mean absolute percentage error between two dataframes.
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        True dataframe
+    df2 : pd.DataFrame
+        Predicted dataframe
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
+
+    Returns
+    -------
+    pd.Series
+    """
+    cols_numerical = _get_numerical_features(df1)
+    return columnwise_metric(
+        df1[cols_numerical],
+        df2[cols_numerical],
+        df_mask[cols_numerical],
+        skm.mean_absolute_percentage_error,
+    )
+
+
+def _weighted_mean_absolute_percentage_error_1D(values1: pd.Series, values2: pd.Series) -> float:
+    """Weighted mean absolute percentage error between two series.
+    Based on https://en.wikipedia.org/wiki/Mean_absolute_percentage_error
+
+    Parameters
+    ----------
+    values1 : pd.Series
+        true series
+    values2 : pd.Series
+        predicted series
+
+    Returns
+    -------
+    float
+        Weighted mean absolute percentage error
+    """
+    return (values1 - values2).abs().sum() / values1.abs().sum()
+
+
+def weighted_mean_absolute_percentage_error(
+    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
+) -> pd.Series:
+    """Weighted mean absolute percentage error between two dataframes.
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        True dataframe
+    df2 : pd.DataFrame
+        Predicted dataframe
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
+
+    Returns
+    -------
+    pd.Series
+    """
+    cols_numerical = _get_numerical_features(df1)
+    return columnwise_metric(
+        df1[cols_numerical],
+        df2[cols_numerical],
+        df_mask[cols_numerical],
+        _weighted_mean_absolute_percentage_error_1D,
+    )
+
+
+def dist_wasserstein(
+    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame, method: str = "columnwise"
+) -> pd.Series:
+    """Wasserstein distances between columns of 2 dataframes.
+    Wasserstein distance can only be computed columnwise
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        True dataframe
+    df2 : pd.DataFrame
+        Predicted dataframe
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
+
+    Returns
+    -------
+    pd.Series
+        wasserstein distances
+    """
+    if method == "columnwise":
+        cols_numerical = _get_numerical_features(df1)
+        return columnwise_metric(
+            df1[cols_numerical],
+            df2[cols_numerical],
+            df_mask[cols_numerical],
+            scipy.stats.wasserstein_distance,
+        )
+    else:
+        raise AssertionError(
+            f"The parameter of the function wasserstein_distance should be one of"
+            f"the following: [`columnwise`], not `{method}`!"
+        )
 
 
 def kolmogorov_smirnov_test_1D(df1: pd.Series, df2: pd.Series) -> float:
@@ -570,6 +601,60 @@ def mean_diff_corr_matrix_categorical_vs_numerical_features(
     )
     diff_corr = (df_corr1 - df_corr2).abs().mean(axis=1)
     return pd.Series(diff_corr, index=cols_categorical)
+
+
+def f1_score(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.Series:
+    """
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        true dataframe
+    df2 : pd.DataFrame
+        predicted dataframe
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
+
+    Returns
+    -------
+    pd.Series
+        the F1 score
+    """
+    cols_categorical = _get_categorical_features(df1)
+    return columnwise_metric(
+        df1[cols_categorical],
+        df2[cols_categorical],
+        df_mask[cols_categorical],
+        skm.f1_score,
+        average="weighted",
+    )
+
+
+def roc_auc_score(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.Series:
+    """
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        true dataframe
+    df2 : pd.DataFrame
+        predicted dataframe
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
+
+    Returns
+    -------
+    pd.Series
+        Area Under the Receiver Operating Characteristic Curve (ROC AUC)
+    """
+    cols_categorical = _get_categorical_features(df1)
+    return columnwise_metric(
+        df1[cols_categorical],
+        df2[cols_categorical],
+        df_mask[cols_categorical],
+        skm.roc_auc_score,
+        average="weighted",
+    )
 
 
 ###########################
@@ -992,8 +1077,13 @@ def kl_divergence(
             min_n_rows=min_n_rows,
         )
     elif method == "random_forest":
+        cols_numerical = _get_numerical_features(df1)
         return pattern_based_weighted_mean_metric(
-            df1, df2, df_mask, kl_divergence_forest, min_n_rows=min_n_rows
+            df1[cols_numerical],
+            df2[cols_numerical],
+            df_mask[cols_numerical],
+            kl_divergence_forest,
+            min_n_rows=min_n_rows,
         )
     else:
         raise AssertionError(
@@ -1021,8 +1111,17 @@ def distance_anticorr(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFram
     float
         Distance correlation score
     """
-    df1 = df1.loc[df_mask.any(axis=1)]
-    df2 = df2.loc[df_mask.any(axis=1)]
+    cols_numerical = _get_numerical_features(df1)
+    df1 = df1[cols_numerical]
+    df2 = df2[cols_numerical]
+
+    df1 = df1[df_mask.any(axis=1)]
+    df2 = df2[df_mask.any(axis=1)]
+
+    if len(df1) > 30000:
+        df1 = df1.sample(20000)
+        df2 = df2.sample(20000)
+
     return (1 - dcor.distance_correlation(df1.values, df2.values)) / 2
 
 
@@ -1088,6 +1187,7 @@ def get_metric(name: str) -> Callable:
         "KL_gaussian": partial(kl_divergence, method="gaussian"),
         "KL_forest": partial(kl_divergence, method="random_forest"),
         "ks_test": kolmogorov_smirnov_test,
+        "total_variance_distance": total_variance_distance,
         "correlation_diff": mean_difference_correlation_matrix_numerical_features,
         "energy": sum_energy_distances,
         "frechet": frechet_distance,
@@ -1095,5 +1195,7 @@ def get_metric(name: str) -> Callable:
             pattern_based_weighted_mean_metric,
             metric=distance_anticorr,
         ),
+        "f1_score": f1_score,
+        "roc_auc_score": roc_auc_score,
     }
     return dict_metrics[name]
