@@ -2,6 +2,14 @@
 History
 =======
 
+0.1.2 (2024-02-28)
+------------------
+
+* RPCA Noisy now has separate fit and transform methods, allowing to impute efficiently new data without retraining
+* The class ImputerRPCA has been splitted between a class ImputerRpcaNoisy, which can fit then transform, and a class ImputerRpcaPcp which can only fit_transform
+* The class SoftImpute has been recoded to better fit the architecture, and is more tested
+* The class RPCANoisy now relies on sparse matrices for H, speeding it up for large instances
+
 0.1.1 (2023-11-03)
 -------------------
 
