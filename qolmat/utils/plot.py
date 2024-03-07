@@ -156,6 +156,55 @@ def plot_images(
 
 
 def make_ellipses(
+    mean_x: float,
+    mean_y: float,
+    cov: NDArray,
+    ax: mpl.axes.Axes,
+    n_std: float = 2,
+    color: Union[str, Any, Tuple[float, float, float]] = "None",
+):
+    """
+    Create a plot of the covariance confidence ellipse of *x* and *y*.
+
+    Parameters
+    ----------
+    mean_x : float
+        Abscisse of the ellipse center
+    mean_y : float
+        Ordinate of the ellipse center
+    cov : NDArray
+        Covariance matrix defining the ellipse
+    ax : matplotlib.axes.Axes
+        The axes object to draw the ellipse into.
+
+    n_std : float
+        The number of standard deviations to determine the ellipse's radiuses.
+
+    color : Optional[str]
+        facecolor
+
+    Returns
+    -------
+    matplotlib.patches.Ellipse
+    """
+
+    pearson = cov[0, 1] / np.sqrt(cov[0, 0] * cov[1, 1])
+    ell_radius_x = np.sqrt(1 + pearson) * 2.5
+    ell_radius_y = np.sqrt(1 - pearson) * 2.5
+    ell = mpl.patches.Ellipse((0, 0), width=ell_radius_x, height=ell_radius_y, facecolor=color)
+    scale_x = np.sqrt(cov[0, 0]) * n_std
+    scale_y = np.sqrt(cov[1, 1]) * n_std
+    transf = (
+        mpl.transforms.Affine2D().rotate_deg(45).scale(scale_x, scale_y).translate(mean_x, mean_y)
+    )
+    ell.set_transform(transf + ax.transData)
+    ax.add_patch(ell)
+    ell.set_clip_box(ax.bbox)
+    ell.set_alpha(0.4)
+    ax.set_aspect("equal", "datalim")
+
+
+def make_ellipses_from_data(
     x: NDArray,
     y: NDArray,
     ax: mpl.axes.Axes,
@@ -187,22 +236,9 @@ def make_ellipses(
         raise ValueError("x and y must be the same size")
 
     cov = np.cov(x, y)
-    pearson = cov[0, 1] / np.sqrt(cov[0, 0] * cov[1, 1])
-    ell_radius_x = np.sqrt(1 + pearson) * 2.5
-    ell_radius_y = np.sqrt(1 - pearson) * 2.5
-    ell = mpl.patches.Ellipse((0, 0), width=ell_radius_x, height=ell_radius_y, facecolor=color)
-    scale_x = np.sqrt(cov[0, 0]) * n_std
     mean_x = np.mean(x)
-    scale_y = np.sqrt(cov[1, 1]) * n_std
     mean_y = np.mean(y)
-    transf = (
-        mpl.transforms.Affine2D().rotate_deg(45).scale(scale_x, scale_y).translate(mean_x, mean_y)
-    )
-    ell.set_transform(transf + ax.transData)
-    ax.add_patch(ell)
-    ell.set_clip_box(ax.bbox)
-    ell.set_alpha(0.4)
-    ax.set_aspect("equal", "datalim")
+    make_ellipses(mean_x, mean_y, cov, ax, n_std, color)
 
 
 def compare_covariances(
@@ -235,9 +271,17 @@ def compare_covariances(
     if color is None:
         color = tab10(0)
     ax.scatter(df2[col_x], df2[col_y], marker=".", color=color, s=2, alpha=0.7, label="imputed")
-    ax.scatter(df1[col_x], df1[col_y], marker=".", color="black", s=2, alpha=0.7, label="original")
-    make_ellipses(df1[col_x], df1[col_y], ax, color="black")
-    make_ellipses(df2[col_x], df2[col_y], ax, color=color)
+    ax.scatter(
+        df1[col_x],
+        df1[col_y],
+        marker=".",
+        color="black",
+        s=2,
+        alpha=0.7,
+        label="original",
+    )
+    make_ellipses_from_data(df1[col_x], df1[col_y], ax, color="black")
+    make_ellipses_from_data(df2[col_x], df2[col_y], ax, color=color)
     ax.set_xlabel(col_x)
     ax.set_ylabel(col_y)
 
@@ -297,7 +341,7 @@ def multibar(
                 color=color_col,
             )
             plt.xticks(x, df.index)
-        ax.bar_label(rect, padding=3, fmt=f"%.{decimals}f")
+        ax.bar_label(rect, padding=3, fmt=f"%.{decimals}g")
 
     plt.legend(loc=(1, 0))
 

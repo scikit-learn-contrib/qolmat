@@ -56,3 +56,12 @@ class EstimatorNotDefined(Exception):
 class SingleSample(Exception):
     def __init__(self):
         super().__init__("""This imputer cannot be fitted on a single sample!""")
+
+
+class IllConditioned(Exception):
+    def __init__(self, min_sv: float, min_std: float):
+        super().__init__(
+            f"The covariance matrix is ill-conditioned, indicating high-colinearity: the smallest "
+            f"singular value of the data matrix is smaller than the threshold min_std ({min_sv} < "
+            f"{min_std}). Consider removing columns of decreasing the threshold."
+        )

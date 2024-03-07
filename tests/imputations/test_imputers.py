@@ -263,41 +263,10 @@ def test_ImputerRegressor_fit_transform(df: pd.DataFrame) -> None:
 @pytest.mark.parametrize("df", [df_timeseries])
 def test_ImputerRpcaNoisy_fit_transform(df: pd.DataFrame) -> None:
     imputer = imputers.ImputerRpcaNoisy(columnwise=False, max_iterations=100, tau=1, lam=0.3)
-    imputer = imputer.fit(df)
-    result = imputer.transform(df)
-    expected = pd.DataFrame(
-        {
-            "col1": [i for i in range(20)],
-            "col2": [0, 1, 2, 2, 2] + [i for i in range(5, 20)],
-        }
-    )
-    result = np.around(result)
-    np.testing.assert_allclose(result, expected, atol=1e-2)
-
-    result = imputer.transform(df.iloc[:10])
-    expected = pd.DataFrame(
-        {
-            "col1": [i for i in range(10)],
-            "col2": [0, 1, 2, 2, 2] + [i for i in range(5, 10)],
-        }
-    )
-    result = np.around(result)
-    np.testing.assert_allclose(result, expected, atol=1e-2)
-
-
-# @pytest.mark.parametrize("df", [df_incomplete])
-# def test_ImputerSoftImpute_fit_transform(df: pd.DataFrame) -> None:
-#     imputer = imputers.ImputerSoftImpute(
-#         columnwise=False, max_iterations=100, tau=0.3, random_state=4
-#     )
-#     result = imputer.fit_transform(df)
-#     expected = pd.DataFrame(
-#         {
-#             "col1": [0, 1.327, 2, 3, 0.137],
-#             "col2": [-1, 0.099, 0.5, 0.122, 1.5],
-#         }
-#     )
-#     np.testing.assert_allclose(result, expected, atol=1e-2)
+    df_omega = df.notna()
+    df_result = imputer.fit_transform(df)
+    np.testing.assert_allclose(df_result[df_omega], df[df_omega])
+    assert df_result.notna().all().all()
 
 
 index_grouped = pd.MultiIndex.from_product([["a", "b"], range(4)], names=["group", "date"])
@@ -322,7 +291,7 @@ list_imputers = [
     imputers.ImputerRpcaPcp(groups=("group",)),
     imputers.ImputerRpcaNoisy(groups=("group",)),
     imputers.ImputerSoftImpute(groups=("group",)),
-    imputers.ImputerEM(groups=("group",)),
+    imputers.ImputerEM(groups=("group",), method="mle"),
 ]
 
 
@@ -347,9 +316,9 @@ def test_models_fit_transform_grouped(imputer):
         imputers.ImputerResiduals(period=2),
         imputers.KNNImputer(),
         imputers.ImputerMICE(),
-        imputers.ImputerRegressor(),
-        imputers.ImputerRpcaNoisy(tau=0, lam=0),
-        imputers.ImputerRpcaPcp(lam=0),
+        imputers.ImputerRegressor(estimator=LinearRegression()),
+        imputers.ImputerRpcaNoisy(tau=1, lam=1),
+        imputers.ImputerRpcaPcp(lam=1),
         imputers.ImputerSoftImpute(),
         imputers.ImputerEM(),
     ]

@@ -75,8 +75,7 @@ class RpcaPcp(RPCA):
                     Regularization parameter for the L1 norm.
 
         """
-        D = utils.linear_interpolation(D)
-        mu = D.size / (4.0 * rpca_utils.l1_norm(D))
+        mu = min(1e3, D.size / (4.0 * rpca_utils.l1_norm(D)))
         lam = 1 / np.sqrt(np.max(D.shape))
         dict_params = {"mu": mu, "lam": lam}
         return dict_params
@@ -100,12 +99,13 @@ class RpcaPcp(RPCA):
         A: NDArray
             Anomalies
         """
+        D = utils.linear_interpolation(D)
+        if np.all(D == 0):
+            return D, D
         params_scale = self.get_params_scale(D)
 
         mu = params_scale["mu"] if self.mu is None else self.mu
         lam = params_scale["lam"] if self.lam is None else self.lam
-
-        D = utils.linear_interpolation(D)
 
         D_norm = np.linalg.norm(D, "fro")
 

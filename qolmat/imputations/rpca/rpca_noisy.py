@@ -28,32 +28,6 @@ class RpcaNoisy(RPCA):
     Chen, Yuxin, et al. "Bridging convex and nonconvex optimization in robust PCA: Noise, outliers
     and missing data."
     The Annals of Statistics 49.5 (2021): 2948-2971.
-
-    Parameters
-    ----------
-    random_state : int, optional
-        The seed of the pseudo random number generator to use, for reproductibility.
-    rank: Optional[int]
-        (estimated) low-rank of the matrix D
-    mu: Optional[float]
-        initial stiffness parameter for the constraint on M, L and Q
-    tau: Optional[float]
-        penalizing parameter for the nuclear norm
-    lam: Optional[float]
-        penalizing parameter for the sparse matrix
-    list_periods: Optional[List[int]]
-        list of periods, linked to the Toeplitz matrices
-    list_etas: Optional[List[float]]
-        list of penalizing parameters for the corresponding period in list_periods
-    max_iterations: Optional[int]
-        stopping criteria, maximum number of iterations. By default, the value is set to 10_000
-    tolerance: Optional[float]
-        stoppign critera, minimum difference between 2 consecutive iterations. By default,
-        the value is set to 1e-6
-    norm: Optional[str]
-        error norm, can be "L1" or "L2". By default, the value is set to "L2"
-    verbose: Optional[bool]
-        verbosity level, if False the warnings are silenced
     """
 
     def __init__(
@@ -70,6 +44,33 @@ class RpcaNoisy(RPCA):
         norm: str = "L2",
         verbose: bool = True,
     ) -> None:
+        """
+        Parameters
+        ----------
+        random_state : int, optional
+            The seed of the pseudo random number generator to use, for reproductibility.
+        rank: Optional[int]
+            Upper bound of the rank to be estimated
+        mu: Optional[float]
+            initial stiffness parameter for the constraint M = L Q
+        tau: Optional[float]
+            penalizing parameter for the nuclear norm
+        lam: Optional[float]
+            penalizing parameter for the sparse matrix
+        list_periods: Optional[List[int]]
+            list of periods, linked to the Toeplitz matrices
+        list_etas: Optional[List[float]]
+            list of penalizing parameters for the corresponding period in list_periods
+        max_iterations: Optional[int]
+            stopping criteria, maximum number of iterations. By default, the value is set to 10_000
+        tolerance: Optional[float]
+            stoppign critera, minimum difference between 2 consecutive iterations. By default,
+            the value is set to 1e-6
+        norm: Optional[str]
+            error norm, can be "L1" or "L2". By default, the value is set to "L2"
+        verbose: Optional[bool]
+            verbosity level, if False the warnings are silenced
+        """
         super().__init__(max_iterations=max_iterations, tolerance=tolerance, verbose=verbose)
         self.rng = sku.check_random_state(random_state)
         self.rank = rank
@@ -101,7 +102,6 @@ class RpcaNoisy(RPCA):
                     Regularization parameter for the L1 norm.
 
         """
-        D = utils.linear_interpolation(D)
         rank = rpca_utils.approx_rank(D)
         tau = 1.0 / np.sqrt(max(D.shape))
         lam = tau
@@ -136,7 +136,8 @@ class RpcaNoisy(RPCA):
         self, D: NDArray, Omega: NDArray
     ) -> Tuple[NDArray, NDArray, NDArray, NDArray]:
         """
-        Compute the noisy RPCA with L1 or L2 time penalisation
+        Compute the noisy RPCA with L1 or L2 time penalisation, and returns the decomposition of
+        the low-rank matrix.
 
         Parameters
         ----------
@@ -156,7 +157,7 @@ class RpcaNoisy(RPCA):
         Q: NDArray
             Reduced basis of the low-rank matrix
         """
-
+        D = utils.linear_interpolation(D)
         self.params_scale = self.get_params_scale(D)
 
         if self.lam is not None:
@@ -178,13 +179,6 @@ class RpcaNoisy(RPCA):
                     "The periods provided in argument in `list_periods` must smaller "
                     f"than the number of rows in the matrix but {period} >= {n_rows}!"
                 )
-        # if (n_rows == 1) or (n_cols == 1):
-        #     warnings.warn(
-        #         f"RPCA algorithm may provide bad results. Function {function_str} increased from"
-        #         f" {cost_start} to {cost_end} instead of decreasing!".format("%.2f")
-        #     )
-
-        D = utils.linear_interpolation(D)
 
         M, A, L, Q = self.minimise_loss(
             D,
@@ -219,7 +213,11 @@ class RpcaNoisy(RPCA):
         norm: str = "L2",
     ) -> Tuple:
         """
-        Compute the noisy RPCA with a L2 time penalisation
+        Compute the noisy RPCA with a L2 time penalisation.
+
+        This function computes the noisy Robust Principal Component Analysis (RPCA) using a L2 time
+        penalisation. It iteratively minimizes a loss function to separate the low-rank and sparse
+        components from the input data matrix.
 
         Parameters
         ----------
@@ -227,40 +225,49 @@ class RpcaNoisy(RPCA):
             Observations matrix of shape (m, n).
         Omega : np.ndarray
             Binary matrix indicating the observed entries of D, shape (m, n).
-        rank: Optional[int]
-            (estimated) low-rank of the matrix D
-        tau: Optional[float]
-            penalizing parameter for the nuclear norm
-        lam: Optional[float]
-            penalizing parameter for the sparse matrix
-        mu: Optional[float]
-            initial stiffness parameter for the constraint on M, L and Q
-        list_periods: Optional[List[int]]
-            list of periods, linked to the Toeplitz matrices
-        list_etas: Optional[List[float]]
-            list of penalizing parameters for the corresponding period in list_periods
-        max_iterations: Optional[int]
-            stopping criteria, maximum number of iterations. By default, the value is set to 10_000
-        tolerance: Optional[float]
-            stoppign critera, minimum difference between 2 consecutive iterations. By default,
-            the value is set to 1e-6
-        norm: Optional[str]
-            error norm, can be "L1" or "L2". By default, the value is set to "L2"
+        rank : int
+            Estimated low-rank of the matrix D.
+        tau : float
+            Penalizing parameter for the nuclear norm.
+        lam : float
+            Penalizing parameter for the sparse matrix.
+        mu : float, optional
+            Initial stiffness parameter for the constraint on M, L, and Q. Defaults
+            to 1e-2.
+        list_periods : List[int], optional
+            List of periods linked to the Toeplitz matrices. Defaults to [].
+        list_etas : List[float], optional
+            List of penalizing parameters for the corresponding periods in list_periods. Defaults
+            to [].
+        max_iterations : int, optional
+            Stopping criteria, maximum number of iterations. Defaults to 10000.
+        tolerance : float, optional
+            Stopping criteria, minimum difference between 2 consecutive iterations.
+            Defaults to 1e-6.
+        norm : str, optional
+            Error norm, can be "L1" or "L2". Defaults to "L2".
 
         Returns
         -------
-        M : np.ndarray
-            Low-rank signal matrix of shape (m, n).
-        A : np.ndarray
-            Anomalies matrix of shape (m, n).
-        L : np.ndarray
-            Basis Unitary array of shape (m, rank).
-        Q : np.ndarray
-            Basis Unitary array of shape (rank, n).
+        Tuple
+            A tuple containing the following elements:
+            - M : np.ndarray
+                Low-rank signal matrix of shape (m, n).
+            - A : np.ndarray
+                Anomalies matrix of shape (m, n).
+            - L : np.ndarray
+                Basis unitary array of shape (m, rank).
+            - Q : np.ndarray
+                Basis unitary array of shape (rank, n).
+
+        Raises
+        ------
+        ValueError
+            If the periods provided in the argument in `list_periods` are not
+            smaller than the number of rows in the matrix.
 
         """
 
-        print("minimise_loss")
         rho = 1.1
         n_rows, n_cols = D.shape
 
@@ -316,7 +323,6 @@ class RpcaNoisy(RPCA):
             A_Omega = rpca_utils.soft_thresholding(D - M, lam)
             A_Omega_C = D - M
             A = np.where(Omega, A_Omega, A_Omega_C)
-
             Q = scp.linalg.solve(
                 a=tau * Ir + mu * (L.T @ L),
                 b=L.T @ (mu * M + Y),
@@ -360,6 +366,27 @@ class RpcaNoisy(RPCA):
         Omega: NDArray,
         Q: NDArray,
     ) -> Tuple[NDArray, NDArray]:
+        """
+        Decompose the matrix D with an observation matrix Omega using the noisy RPCA algorithm,
+        with a fixed reduced basis given by the matrix Q. This allows to impute new data without
+        resolving the optimization problem on the whole dataset.
+
+        Parameters
+        ----------
+        D : NDArray
+            _description_
+        Omega : NDArray
+            _description_
+        Q : NDArray
+            _description_
+
+        Returns
+        -------
+        Tuple[NDArray, NDArray]
+            A tuple representing the decomposition of D with:
+            - M: low-rank matrix
+            - A: sparse matrix
+        """
         D = utils.linear_interpolation(D)
         params_scale = self.get_params_scale(D)
 
@@ -402,23 +429,24 @@ class RpcaNoisy(RPCA):
 
     def _check_cost_function_minimized(
         self,
-        observations: NDArray,
-        low_rank: NDArray,
-        anomalies: NDArray,
+        D: NDArray,
+        M: NDArray,
+        A: NDArray,
         Omega: NDArray,
         tau: float,
         lam: float,
     ):
-        """Check that the functional minimized by the RPCA
-        is smaller at the end than at the beginning
+        """
+        Check that the functional minimized by the RPCA is smaller at the end than at the
+        beginning.
 
         Parameters
         ----------
-        observations : NDArray
+        D : NDArray
             observations matrix with first linear interpolation
-        low_rank : NDArray
+        M : NDArray
             low_rank matrix resulting from RPCA
-        anomalies : NDArray
+        A : NDArray
             sparse matrix resulting from RPCA
         Omega: NDArrau
             boolean matrix indicating the observed values
@@ -428,9 +456,9 @@ class RpcaNoisy(RPCA):
             parameter penalizing the L1-norm of the anomaly/sparse part
         """
         cost_start = self.cost_function(
-            observations,
-            observations,
-            np.full_like(observations, 0),
+            D,
+            D,
+            np.full_like(D, 0),
             Omega,
             tau,
             lam,
@@ -439,9 +467,9 @@ class RpcaNoisy(RPCA):
             norm=self.norm,
         )
         cost_end = self.cost_function(
-            observations,
-            low_rank,
-            anomalies,
+            D,
+            M,
+            A,
             Omega,
             tau,
             lam,
@@ -449,12 +477,12 @@ class RpcaNoisy(RPCA):
             self.list_etas,
             norm=self.norm,
         )
-        function_str = "1/2 $ ||D-M-A||_2 + tau ||D||_* + lam ||A||_1"
+        function_str = "1/2 ||D-M-A||_2 + tau ||D||_* + lam ||A||_1"
         if len(self.list_etas) > 0:
             for eta in self.list_etas:
                 function_str += f"{eta} ||MH||_{self.norm}"
 
-        if self.verbose and (round(cost_start, 4) - round(cost_end, 4)) <= -1e-2:
+        if self.verbose and (cost_end > cost_start * (1 + 1e-6)):
             warnings.warn(
                 f"RPCA algorithm may provide bad results. Function {function_str} increased from"
                 f" {cost_start} to {cost_end} instead of decreasing!".format("%.2f")
@@ -462,9 +490,9 @@ class RpcaNoisy(RPCA):
 
     @staticmethod
     def cost_function(
-        observations: NDArray,
-        low_rank: NDArray,
-        anomalies: NDArray,
+        D: NDArray,
+        M: NDArray,
+        A: NDArray,
         Omega: NDArray,
         tau: float,
         lam: float,
@@ -473,15 +501,15 @@ class RpcaNoisy(RPCA):
         norm: str = "L2",
     ):
         """
-        Compute cost function for different RPCA algorithm
+        Estimated cost function for the noisy RPCA algorithm
 
         Parameters
         ----------
-        observations : NDArray
+        D : NDArray
             Matrix of observations
-        low_rank : NDArray
+        M : NDArray
             Low-rank signal
-        anomalies : NDArray
+        A : NDArray
             Anomalies
         Omega : NDArray
             Mask for observations
@@ -506,20 +534,17 @@ class RpcaNoisy(RPCA):
         temporal_norm: float = 0
         if len(list_etas) > 0:
             # matrices for temporal correlation
-            list_H = [
-                rpca_utils.toeplitz_matrix(period, observations.shape[0])
-                for period in list_periods
-            ]
+            list_H = [rpca_utils.toeplitz_matrix(period, D.shape[0]) for period in list_periods]
             if norm == "L1":
                 for eta, H_matrix in zip(list_etas, list_H):
-                    temporal_norm += eta * np.sum(np.abs(H_matrix @ low_rank))
+                    temporal_norm += eta * np.sum(np.abs(H_matrix @ M))
             elif norm == "L2":
                 for eta, H_matrix in zip(list_etas, list_H):
-                    temporal_norm += eta * float(np.linalg.norm(H_matrix @ low_rank, "fro"))
-        anomalies_norm = np.sum(np.abs(anomalies * Omega))
+                    temporal_norm += eta * float(np.linalg.norm(H_matrix @ M, "fro"))
+        anomalies_norm = np.sum(np.abs(A * Omega))
         cost = (
-            1 / 2 * ((Omega * (observations - low_rank - anomalies)) ** 2).sum()
-            + tau * np.linalg.norm(low_rank, "nuc")
+            1 / 2 * ((Omega * (D - M - A)) ** 2).sum()
+            + tau * np.linalg.norm(M, "nuc")
             + lam * anomalies_norm
             + temporal_norm
         )

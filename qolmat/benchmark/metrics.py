@@ -1011,7 +1011,7 @@ def get_metric(name: str) -> Callable:
         "ks_test": kolmogorov_smirnov_test,
         "correlation_diff": mean_difference_correlation_matrix_numerical_features,
         "energy": sum_energy_distances,
-        "frechet": frechet_distance,
+        "frechet": frechet_distance_pattern,
         "dist_corr_pattern": partial(
             pattern_based_weighted_mean_metric,
             metric=distance_anticorr,
