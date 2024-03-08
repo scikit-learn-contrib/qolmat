@@ -420,3 +420,39 @@ def test_gradient_X_loglik(em: em_sampler.EM, p: int):
     dL = (loglik2 - loglik) / delta
     dL_theo = (grad_L * U).sum().sum()
     np.testing.assert_allclose(dL, dL_theo, rtol=1e-1, atol=1e-1)
+
+
+@pytest.mark.parametrize(
+    "em",
+    [
+        em_sampler.VARpEM(p=1),
+        em_sampler.VARpEM(p=2),
+    ],
+)
+def test_pretreatment_temporal(em):
+    mask2 = mask.copy()
+    mask2[0, 0] = True
+    mask2[:, 2] = True
+    X_result, mask_result = em.pretreatment(X_missing, mask2)
+    X_expected = np.array(
+        [[2, 4, 1], [2, 4, 3], [1, 4, np.nan], [-1, 2, 1], [1, 1, np.nan]],
+        dtype=float,
+    )
+    mask_expected = mask.copy()
+    mask_expected[:2, 1] = False
+    mask_expected[:, 2] = True
+    np.testing.assert_allclose(X_result, X_expected)
+    np.testing.assert_allclose(mask_result, mask_expected)
+
+
+@pytest.mark.parametrize(
+    "em",
+    [
+        em_sampler.MultiNormalEM(),
+        em_sampler.VARpEM(p=0),
+    ],
+)
+def test_pretreatment_tabular(em):
+    X_result, mask_result = em.pretreatment(X_missing, mask)
+    np.testing.assert_allclose(X_result, X_missing)
+    np.testing.assert_allclose(mask_result, mask)

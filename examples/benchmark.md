@@ -233,7 +233,8 @@ dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_imputers.i
 ```
 
 ```python
-station = df_plot.index.get_level_values("station")[0]
+# station = df_plot.index.get_level_values("station")[0]
+station = "Huairou"
 df_station = df_plot.loc[station]
 # dfs_imputed_station = {name: df_plot.loc[station] for name, df_plot in dfs_imputed.items()}
 dfs_imputed_station = {name: df_plot.loc[station] for name, df_plot in dfs_imputed.items()}
@@ -241,10 +242,6 @@ dfs_imputed_station = {name: df_plot.loc[station] for name, df_plot in dfs_imput
 
 Let's look at the imputations.
 When the data is missing at random, imputation is easier. Missing block are more challenging.
-
-```python
-dfs_imputed_station["VAR_max"]
-```
 
 ```python
 for col in cols_to_impute:
@@ -264,6 +261,19 @@ for col in cols_to_impute:
     ax.tick_params(axis='both', which='major', labelsize=17)
     plt.show()
 
+```
+
+```python
+dfs_imputed_station
+```
+
+```python
+X = dfs_imputed_station["VAR_max"]
+model = dict_imputers["VAR_max"]._dict_fitting["__all__"][0]
+```
+
+```python
+model.B
 ```
 
 ```python
@@ -476,6 +486,14 @@ for i, col in enumerate(cols_to_impute[:-1]):
         i_plot += 1
         ax.legend()
 plt.show()
+```
+
+```python
+
+```
+
+```python
+dfs_imputed["VAR_max"].groupby("station").min()
 ```
 
 ## Auto-correlation

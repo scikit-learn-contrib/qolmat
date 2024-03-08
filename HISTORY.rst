@@ -12,6 +12,7 @@ History
 * Speed up of the EM algorithm likelihood maximization, using the conjugate gradient method
 * The ImputeRegressor class now handles the nans by `row` by default
 * The metric `frechet` was not correctly called and has been patched
+* The EM algorithm with VAR(p) now fills initial holes in order to avoid exponential explosions
 
 0.1.2 (2024-02-28)
 ------------------

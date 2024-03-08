@@ -12,10 +12,6 @@ from typing_extensions import Self
 
 from qolmat.utils import utils
 
-from matplotlib import pyplot as plt
-
-from qolmat.utils.exceptions import IllConditioned
-
 
 def _conjugate_gradient(A: NDArray, X: NDArray, mask: NDArray) -> NDArray:
     """
@@ -423,6 +419,8 @@ class EM(BaseEstimator, TransformerMixin):
             X = self.init_imputation(X)
             warm_start = False
 
+        X, mask_na = self.pretreatment(X, mask_na)
+
         if (self.method == "mle") or not warm_start:
             X = self._maximize_likelihood(X, mask_na)
         if self.method == "sample":
@@ -432,6 +430,26 @@ class EM(BaseEstimator, TransformerMixin):
             raise AssertionError("Result contains NaN. This is a bug.")
 
         return X
+
+    def pretreatment(self, X, mask_na) -> NDArray:
+        """
+        Pretreats the data before imputation by EM, making it more robust.
+
+        Parameters
+        ----------
+        X : NDArray
+            Data matrix without nans
+        mask_na : NDArray
+            Boolean matrix indicating which entries are to be imputed
+
+        Returns
+        -------
+        Tuple[NDArray, NDArray]
+            A tuple containing:
+            - X the pretreatd data matrix
+            - mask_na the updated mask
+        """
+        return X, mask_na
 
     def _check_conditionning(self, X: NDArray):
         """
@@ -1036,6 +1054,39 @@ class VARpEM(EM):
             Imputed matrix
         """
         return utils.linear_interpolation(X)
+
+    def pretreatment(self, X, mask_na) -> NDArray:
+        """
+        Pretreats the data before imputation by EM, making it more robust. In the case of the
+        VAR(p) model we carry the first observation backward on each variable to avoid explosive
+        imputations.
+
+        Parameters
+        ----------
+        X : NDArray
+            Data matrix without nans
+        mask_na : NDArray
+            Boolean matrix indicating which entries are to be imputed
+
+        Returns
+        -------
+        Tuple[NDArray, NDArray]
+            A tuple containing:
+            - X the pretreatd data matrix
+            - mask_na the updated mask
+        """
+        if self.p == 0:
+            return X, mask_na
+        X = X.copy()
+        mask_na = mask_na.copy()
+        n_rows, n_cols = X.shape
+        for col in range(n_cols):
+            n_holes_left = np.sum(np.cumsum(~mask_na[:, col]) == 0)
+            if n_holes_left == n_rows:
+                continue
+            X[:n_holes_left, col] = X[n_holes_left, col]
+            mask_na[:n_holes_left, col] = False
+        return X, mask_na
 
     def _check_convergence(self) -> bool:
         """
