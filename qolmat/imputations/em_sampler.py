@@ -1,5 +1,6 @@
 from abc import abstractmethod
-from typing import Dict, List, Literal, Union
+from typing import Dict, List, Literal, Tuple, Union
+import warnings
 
 import numpy as np
 from numpy.typing import NDArray
@@ -20,7 +21,7 @@ def _conjugate_gradient(A: NDArray, X: NDArray, mask: NDArray) -> NDArray:
     Parameters
     ----------
     A : NDArray
-        Symmetrical matrix defining the quadratic optimization problem
+        Symmetrical matrix defining the quadratic minimization problem
     X : NDArray
         Array containing the values to optimize
     mask : NDArray
@@ -35,21 +36,32 @@ def _conjugate_gradient(A: NDArray, X: NDArray, mask: NDArray) -> NDArray:
     X_temp = X[rows_imputed, :].copy()
     mask = mask[rows_imputed, :].copy()
     n_iter = mask.sum(axis=1).max()
+    n_rows, n_cols = X_temp.shape
     X_temp[mask] = 0
     b = -X_temp @ A
     b[~mask] = 0
-    xn, pn, rn = np.zeros(X_temp.shape), b, b  # Initialisation
+    xn, pn, rn = np.zeros((n_rows, n_cols)), b, b  # Initialisation
+    alphan = np.zeros(n_rows)
+    betan = np.zeros(n_rows)
     for n in range(n_iter + 2):
         # if np.max(np.sum(rn**2)) < tolerance : # Condition de sortie " usuelle "
         #     X_temp[mask_isna] = xn[mask_isna]
         #     return X_temp.transpose()
         Apn = pn @ A
         Apn[~mask] = 0
-        alphan = np.sum(rn**2, axis=1) / np.sum(pn * Apn, axis=1)
-        alphan[np.isnan(alphan)] = 0  # we stop updating if convergence is reached for this date
+        numerator = np.sum(rn**2, axis=1)
+        denominator = np.sum(pn * Apn, axis=1)
+        not_converged = denominator != 0
+        # we stop updating if convergence is reached for this row
+        alphan[not_converged] = numerator[not_converged] / denominator[not_converged]
+
         xn, rnp1 = xn + pn * alphan[:, None], rn - Apn * alphan[:, None]
-        betan = np.sum(rnp1**2, axis=1) / np.sum(rn**2, axis=1)
-        betan[np.isnan(betan)] = 0  # we stop updating if convergence is reached for this date
+        numerator = np.sum(rnp1**2, axis=1)
+        denominator = np.sum(rn**2, axis=1)
+        not_converged = denominator != 0
+        # we stop updating if convergence is reached for this row
+        betan[not_converged] = numerator[not_converged] / denominator[not_converged]
+
         pn, rn = rnp1 + pn * betan[:, None], rnp1
 
     X_temp[mask] = xn[mask]
@@ -116,6 +128,8 @@ class EM(BaseEstimator, TransformerMixin):
     stagnation_loglik : float, optional
         Threshold below which an absolute difference of the log likelihood indicates the
         convergence of the parameters
+    min_std: float, optional
+        Threshold below which the initial data matrix is considered ill-conditioned
     period : int, optional
         Integer used to fold the temporal data periodically
     verbose : bool, optional
@@ -134,6 +148,7 @@ class EM(BaseEstimator, TransformerMixin):
         tolerance: float = 1e-4,
         stagnation_threshold: float = 5e-3,
         stagnation_loglik: float = 2,
+        min_std: float = 1e-6,
         period: int = 1,
         verbose: bool = False,
     ):
@@ -151,10 +166,14 @@ class EM(BaseEstimator, TransformerMixin):
         self.stagnation_threshold = stagnation_threshold
         self.stagnation_loglik = stagnation_loglik
 
+        self.min_std = min_std
+
         self.dict_criteria_stop: Dict[str, List] = {}
         self.period = period
         self.verbose = verbose
         self.n_samples = n_samples
+        self.hash_fit = 0
+        self.shape = (0, 0)
 
     def _check_convergence(self) -> bool:
         return False
@@ -176,6 +195,18 @@ class EM(BaseEstimator, TransformerMixin):
         self.update_parameters(X)
         self.combine_parameters()
 
+    def fit_parameters_with_missingness(self, X: NDArray):
+        """
+        First estimation of the model parameters based on data with missing values.
+
+        Parameters
+        ----------
+        X : NDArray
+            Data matrix with missingness
+        """
+        X_imp = self.init_imputation(X)
+        self.fit_parameters(X_imp)
+
     def update_criteria_stop(self, X: NDArray):
         self.loglik = self.get_loglikelihood(X)
 
@@ -190,9 +221,22 @@ class EM(BaseEstimator, TransformerMixin):
     ) -> NDArray:
         return np.empty  # type: ignore #noqa
 
-    def get_gamma(self) -> NDArray:
-        n_rows, n_cols = self.shape_original
-        return np.ones((1, n_cols))
+    def get_gamma(self, n_cols: int) -> NDArray:
+        """
+        Normalization matrix in the sampling process.
+
+        Parameters
+        ----------
+        n_cols : int
+            Number of variables in the data matrix
+
+        Returns
+        -------
+        NDArray
+            Gamma matrix
+        """
+        # return np.ones((1, n_cols))
+        return np.eye(n_cols)
 
     def _maximize_likelihood(self, X: NDArray, mask_na: NDArray) -> NDArray:
         """Get the argmax of a posterior distribution using the BFGS algorithm.
@@ -200,7 +244,7 @@ class EM(BaseEstimator, TransformerMixin):
         Parameters
         ----------
         X : NDArray
-            Input numpy array.
+            Input numpy array without missingness
         mask_na : NDArray
             Boolean dataframe indicating which coefficients should be resampled, and are therefore
             the variables of the optimization
@@ -214,22 +258,19 @@ class EM(BaseEstimator, TransformerMixin):
         def fun_obj(x):
             x_mat = X.copy()
             x_mat[mask_na] = x
-            return self.get_loglikelihood(x_mat)
+            return -self.get_loglikelihood(x_mat)
 
         def fun_jac(x):
             x_mat = X.copy()
             x_mat[mask_na] = x
-            grad_x = self.gradient_X_loglik(x_mat)
-            grad_x[~mask_na] = 0
+            grad_x = -self.gradient_X_loglik(x_mat)
+            grad_x = grad_x[mask_na]
             return grad_x
 
-        res = spo.minimize(fun_obj, X[mask_na], jac=fun_jac)
-
-        # for _ in range(1000):
-        #     grad = self.gradient_X_loglik(X)
-        #     grad[~mask_na] = 0
-        #     X += dt * grad
+        # the method BFGS is much slower, probabily not adapted to the high-dimension setting
+        res = spo.minimize(fun_obj, X[mask_na], jac=fun_jac, method="CG")
         x = res.x
+
         X_sol = X.copy()
         X_sol[mask_na] = x
         return X_sol
@@ -263,16 +304,17 @@ class EM(BaseEstimator, TransformerMixin):
             Sampled data matrix
         """
         X_copy = X.copy()
-        n_variables, n_samples = X_copy.shape
+        n_rows, n_cols = X_copy.shape
         if estimate_params:
             self.reset_learned_parameters()
         X_init = X.copy()
-        gamma = self.get_gamma()
+        gamma = self.get_gamma(n_cols)
         sqrt_gamma = np.real(spl.sqrtm(gamma))
+
         for i in range(self.n_iter_ou):
-            noise = self.ampli * self.rng.normal(0, 1, size=(n_variables, n_samples))
-            grad_X = self.gradient_X_loglik(X_copy)
-            X_copy += self.dt * grad_X @ gamma + np.sqrt(2 * self.dt) * noise @ sqrt_gamma
+            noise = self.ampli * self.rng.normal(0, 1, size=(n_rows, n_cols))
+            grad_X = -self.gradient_X_loglik(X_copy)
+            X_copy += -self.dt * grad_X @ gamma + np.sqrt(2 * self.dt) * noise @ sqrt_gamma
             X_copy[~mask_na] = X_init[~mask_na]
             if estimate_params:
                 self.update_parameters(X_copy)
@@ -283,20 +325,27 @@ class EM(BaseEstimator, TransformerMixin):
         mask_na = np.isnan(X)
 
         # first imputation
-        X = utils.linear_interpolation(X)
-        self.fit_parameters(X)
+        X_imp = self.init_imputation(X)
+        self._check_conditionning(X_imp)
+
+        self.fit_parameters_with_missingness(X)
 
         if not np.any(mask_na):
             self.X = X
+            return
+
+        X = self._maximize_likelihood(X_imp, mask_na)
 
         for iter_em in range(self.max_iter_em):
             X = self._sample_ou(X, mask_na)
+
             self.combine_parameters()
 
             # Stop criteria
             self.update_criteria_stop(X)
             if self._check_convergence():
-                print(f"EM converged after {iter_em} iterations.")
+                if self.verbose:
+                    print(f"EM converged after {iter_em} iterations.")
                 break
 
         self.dict_criteria_stop = {key: [] for key in self.dict_criteria_stop}
@@ -359,23 +408,80 @@ class EM(BaseEstimator, TransformerMixin):
             Final array after EM sampling.
         """
         mask_na = np.isnan(X)
+        X = X.copy()
 
         # shape_original = X.shape
         if hash(X.tobytes()) == self.hash_fit:
             X = self.X
+            warm_start = True
         else:
             X = utils.prepare_data(X, self.period)
-            X = utils.linear_interpolation(X)
+            X = self.init_imputation(X)
+            warm_start = False
 
-        if self.method == "mle":
-            X_transformed = self._maximize_likelihood(X, mask_na)
-        elif self.method == "sample":
-            X_transformed = self._sample_ou(X, mask_na, estimate_params=False)
+        X, mask_na = self.pretreatment(X, mask_na)
 
-        if np.all(np.isnan(X_transformed)):
+        if (self.method == "mle") or not warm_start:
+            X = self._maximize_likelihood(X, mask_na)
+        if self.method == "sample":
+            X = self._sample_ou(X, mask_na, estimate_params=False)
+
+        if np.all(np.isnan(X)):
             raise AssertionError("Result contains NaN. This is a bug.")
 
-        return X_transformed
+        return X
+
+    def pretreatment(self, X, mask_na) -> Tuple[NDArray, NDArray]:
+        """
+        Pretreats the data before imputation by EM, making it more robust.
+
+        Parameters
+        ----------
+        X : NDArray
+            Data matrix without nans
+        mask_na : NDArray
+            Boolean matrix indicating which entries are to be imputed
+
+        Returns
+        -------
+        Tuple[NDArray, NDArray]
+            A tuple containing:
+            - X the pretreatd data matrix
+            - mask_na the updated mask
+        """
+        return X, mask_na
+
+    def _check_conditionning(self, X: NDArray):
+        """
+        Check that the data matrix X is not ill-conditioned. Running the EM algorithm on data with
+        colinear columns leads to numerical instability and unconsistent results.
+
+        Parameters
+        ----------
+        X : NDArray
+            Data matrix
+
+        Raises
+        ------
+        IllConditioned
+            Data matrix is ill-conditioned due to colinear columns.
+        """
+        n_rows, n_cols = X.shape
+        # if n_rows == 1 the function np.cov returns a float
+        if n_rows == 1:
+            min_sv = 0
+        else:
+            cov = np.cov(X, bias=True, rowvar=False).reshape(n_cols, -1)
+            _, sv, _ = spl.svd(cov)
+            min_sv = min(np.sqrt(sv))
+        if min_sv < self.min_std:
+            warnings.warn(
+                f"The covariance matrix is ill-conditioned, indicating high-colinearity: the "
+                f"smallest singular value of the data matrix is smaller than the threshold "
+                f"min_std ({min_sv} < {self.min_std}). Consider removing columns of decreasing "
+                f"the threshold."
+            )
+            # raise IllConditioned(min_sv, self.min_std)
 
 
 class MultiNormalEM(EM):
@@ -392,6 +498,8 @@ class MultiNormalEM(EM):
     n_iter_ou : int, optional
         Number of iterations for the Gibbs sampling method (+ noise addition),
         necessary for convergence, by default 50.
+    n_samples : int, optional
+        Number of data samples used to estimate the parameters of the distribution. Default, 10
     ampli : float, optional
         Whether to sample the posterior (1)
         or to maximise likelihood (0), by default 1.
@@ -420,6 +528,7 @@ class MultiNormalEM(EM):
         method: Literal["mle", "sample"] = "sample",
         max_iter_em: int = 200,
         n_iter_ou: int = 50,
+        n_samples: int = 10,
         ampli: float = 1,
         random_state: Union[None, int, np.random.RandomState] = None,
         dt: float = 2e-2,
@@ -433,6 +542,7 @@ class MultiNormalEM(EM):
             method=method,
             max_iter_em=max_iter_em,
             n_iter_ou=n_iter_ou,
+            n_samples=n_samples,
             ampli=ampli,
             random_state=random_state,
             dt=dt,
@@ -480,18 +590,28 @@ class MultiNormalEM(EM):
         grad_X = -(X - self.means) @ self.cov_inv
         return grad_X
 
-    def get_gamma(self) -> NDArray:
+    def get_gamma(self, n_cols: int) -> NDArray:
         """
-        Normalisation matrix used to stabilize the sampling process
+        If the covariance matrix is not full-rank, defines the projection matrix keeping the
+        sampling process in the relevant subspace.
+
+        Parameters
+        ----------
+        n_cols : int
+            Number of variables in the data matrix
 
         Returns
         -------
         NDArray
             Gamma matrix
         """
-        # gamma = np.diag(np.diagonal(self.cov))
-        gamma = self.cov
+        U, diag, Vt = spl.svd(self.cov)
+        diag_trunc = np.where(diag < self.min_std**2, 0, diag)
+        diag_trunc = np.where(diag_trunc == 0, 0, np.min(diag_trunc))
+
+        gamma = (U * diag_trunc) @ Vt
         # gamma = np.eye(len(self.cov))
+
         return gamma
 
     def update_criteria_stop(self, X: NDArray):
@@ -554,6 +674,34 @@ class MultiNormalEM(EM):
         self.cov = cov_intragroup + cov_intergroup
         self.cov_inv = np.linalg.pinv(self.cov)
 
+    def fit_parameters_with_missingness(self, X: NDArray):
+        """
+        First estimation of the model parameters based on data with missing values.
+
+        Parameters
+        ----------
+        X : NDArray
+            Data matrix with missingness
+        """
+        self.means = np.nanmean(X, axis=0)
+        self.cov = utils.nancov(X)
+        self.cov_inv = np.linalg.pinv(self.cov)
+
+    def set_parameters(self, means: NDArray, cov: NDArray):
+        """
+        Sets the model parameters from a user value.
+
+        Parameters
+        ----------
+        means : NDArray
+            Specified value for the mean vector
+        cov : NDArray
+            Specified value for the covariance matrix
+        """
+        self.means = means
+        self.cov = cov
+        self.cov_inv = np.linalg.pinv(self.cov)
+
     def _maximize_likelihood(self, X: NDArray, mask_na: NDArray) -> NDArray:
         """
         Get the argmax of a posterior distribution.
@@ -561,7 +709,7 @@ class MultiNormalEM(EM):
         Parameters
         ----------
         X : NDArray
-            Input DataFrame.
+            Input DataFrame without missingness
         mask_na : NDArray
             Boolean dataframe indicating which coefficients should be resampled, and are therefore
             the variables of the optimization
@@ -575,6 +723,22 @@ class MultiNormalEM(EM):
         X_imputed = _conjugate_gradient(self.cov_inv, X_center, mask_na)
         X_imputed = self.means + X_imputed
         return X_imputed
+
+    def init_imputation(self, X: NDArray) -> NDArray:
+        """
+        First simple imputation before iterating.
+
+        Parameters
+        ----------
+        X : NDArray
+            Data matrix, with missing values
+
+        Returns
+        -------
+        NDArray
+            Imputed matrix
+        """
+        return utils.impute_nans(X, method="median")
 
     def _check_convergence(self) -> bool:
         """
@@ -597,12 +761,18 @@ class MultiNormalEM(EM):
         list_logliks = self.dict_criteria_stop["logliks"]
 
         n_iter = len(list_means)
-        if n_iter < 10:
+        if n_iter < 3:
             return False
 
         min_diff_means1 = min_diff_Linf(list_covs, n_steps=1)
         min_diff_covs1 = min_diff_Linf(list_means, n_steps=1)
         min_diff_reached = min_diff_means1 < self.tolerance and min_diff_covs1 < self.tolerance
+
+        if min_diff_reached:
+            return True
+
+        if n_iter < 7:
+            return False
 
         min_diff_means5 = min_diff_Linf(list_covs, n_steps=5)
         min_diff_covs5 = min_diff_Linf(list_means, n_steps=5)
@@ -617,8 +787,7 @@ class MultiNormalEM(EM):
         max_loglik = (min_diff_loglik5_ord1 < self.stagnation_loglik) or (
             min_diff_loglik5_ord2 < self.stagnation_loglik
         )
-
-        return min_diff_reached or min_diff_stable or max_loglik
+        return min_diff_stable or max_loglik
 
 
 class VARpEM(EM):
@@ -760,17 +929,28 @@ class VARpEM(EM):
 
         return grad_1 + grad_2
 
-    def get_gamma(self) -> NDArray:
+    def get_gamma(self, n_cols: int) -> NDArray:
         """
-        Normalisation matrix used to stabilize the sampling process
+        If the noise matrix is not full-rank, defines the projection matrix keeping the
+        sampling process in the relevant subspace. Rescales the process to avoid instabilities.
+
+        Parameters
+        ----------
+        n_cols : int
+            Number of variables in the data matrix
 
         Returns
         -------
         NDArray
             Gamma matrix
         """
-        # gamma = np.diagonal(self.S).reshape(1, -1)
-        gamma = self.S
+        U, diag, Vt = spl.svd(self.S)
+        diag_trunc = np.where(diag < self.min_std**2, 0, diag)
+        diag_trunc = np.where(diag_trunc == 0, 0, np.min(diag_trunc))
+
+        gamma = (U * diag_trunc) @ Vt
+        # gamma = np.eye(len(self.cov))
+
         return gamma
 
     def update_criteria_stop(self, X: NDArray):
@@ -841,8 +1021,66 @@ class VARpEM(EM):
         stack_YY = np.stack(list_YY)
         self.YY = np.mean(stack_YY, axis=0)
         self.S = self.YY - self.ZY.T @ self.B - self.B.T @ self.ZY + self.B.T @ self.ZZ @ self.B
-        self.S[self.S < 1e-12] = 0
+        self.S[np.abs(self.S) < 1e-12] = 0
         self.S_inv = np.linalg.pinv(self.S, rcond=1e-10)
+
+    def set_parameters(self, B: NDArray, S: NDArray):
+        """
+        Sets the model parameters from a user value.
+
+        Parameters
+        ----------
+        means : NDArray
+            Specified value for the autoregression matrix
+        S : NDArray
+            Specified value for the noise covariance matrix
+        """
+        self.B = B
+        self.S = S
+        self.S_inv = np.linalg.pinv(self.S)
+
+    def init_imputation(self, X: NDArray) -> NDArray:
+        """
+        First simple imputation before iterating.
+
+        Parameters
+        ----------
+        X : NDArray
+            Data matrix, with missing values
+
+        Returns
+        -------
+        NDArray
+            Imputed matrix
+        """
+        return utils.linear_interpolation(X)
+
+    def pretreatment(self, X, mask_na) -> Tuple[NDArray, NDArray]:
+        """
+        Pretreats the data before imputation by EM, making it more robust. In the case of the
+        VAR(p) model we freeze the naive imputation on the first observations if all variables are
+        missing to avoid explosive imputations.
+
+        Parameters
+        ----------
+        X : NDArray
+            Data matrix without nans
+        mask_na : NDArray
+            Boolean matrix indicating which entries are to be imputed
+
+        Returns
+        -------
+        Tuple[NDArray, NDArray]
+            A tuple containing:
+            - X the pretreatd data matrix
+            - mask_na the updated mask
+        """
+        if self.p == 0:
+            return X, mask_na
+        mask_na = mask_na.copy()
+        n_holes_left = np.sum(~np.cumsum(~mask_na, axis=0).any(axis=1))
+        mask_na[:n_holes_left] = False
+        return X, mask_na
 
     def _check_convergence(self) -> bool:
         """
@@ -866,12 +1104,18 @@ class VARpEM(EM):
         list_logliks = self.dict_criteria_stop["logliks"]
 
         n_iter = len(list_B)
-        if n_iter < 10:
+        if n_iter < 3:
             return False
 
         min_diff_B1 = min_diff_Linf(list_B, n_steps=1)
         min_diff_S1 = min_diff_Linf(list_S, n_steps=1)
         min_diff_reached = min_diff_B1 < self.tolerance and min_diff_S1 < self.tolerance
+
+        if min_diff_reached:
+            return True
+
+        if n_iter < 7:
+            return False
 
         min_diff_B5 = min_diff_Linf(list_B, n_steps=5)
         min_diff_S5 = min_diff_Linf(list_S, n_steps=5)
@@ -884,5 +1128,4 @@ class VARpEM(EM):
         max_loglik = (max_loglik5_ord1 < self.stagnation_loglik) or (
             max_loglik5_ord2 < self.stagnation_loglik
         )
-
-        return min_diff_reached or min_diff_stable or max_loglik
+        return min_diff_stable or max_loglik

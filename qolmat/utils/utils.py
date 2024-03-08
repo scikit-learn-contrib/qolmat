@@ -215,3 +215,18 @@ def create_lag_matrices(X: NDArray, p: int) -> Tuple[NDArray, NDArray]:
     Z = np.concatenate(list_X_lag, axis=1)
     Y = X[-n_rows_new:, :]
     return Z, Y
+
+
+def nancov(X: NDArray) -> NDArray:
+    _, n_cols = X.shape
+    cov = np.nan * np.zeros((n_cols, n_cols))
+    mask = np.isnan(X)
+    for i in range(n_cols):
+        Di = X[:, i] - np.nanmean(X[:, i])
+        for j in range(n_cols):
+            select = (~mask[:, i]) & (~mask[:, j])
+            Di = X[select, i] - np.mean(X[select, i])
+            Dj = X[select, j] - np.mean(X[select, j])
+            cov[i, j] = np.nanmean(Di * Dj)
+    cov = impute_nans(cov, method="zeros")
+    return cov

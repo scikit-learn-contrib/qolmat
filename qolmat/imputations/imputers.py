@@ -201,12 +201,15 @@ class _Imputer(_BaseImputer):
 
         cols_with_nans = df.columns[df.isna().any()]
 
-        if self.columnwise:
-            df_imputed = df.copy()
-            for col in cols_with_nans:
-                df_imputed[col] = self._transform_allgroups(df[[col]], col=col)
+        if cols_with_nans.empty:
+            df_imputed = df
         else:
-            df_imputed = self._transform_allgroups(df)
+            if self.columnwise:
+                df_imputed = df.copy()
+                for col in cols_with_nans:
+                    df_imputed[col] = self._transform_allgroups(df[[col]], col=col)
+            else:
+                df_imputed = self._transform_allgroups(df)
 
         if df_imputed.isna().any().any():
             raise AssertionError("Result of imputation contains NaN!")
@@ -1456,6 +1459,7 @@ class ImputerRegressor(_Imputer):
         - if `row` all non complete rows will be removed from the train dataset, and will not be
         used for the inferance,
         - if `column` all non complete columns will be ignored.
+        By default, `row`
     random_state : Union[None, int, np.random.RandomState], optional
         Controls the randomness of the fit_transform, by default None
 
@@ -1484,7 +1488,7 @@ class ImputerRegressor(_Imputer):
         imputer_params: Tuple[str, ...] = ("handler_nan",),
         groups: Tuple[str, ...] = (),
         estimator: Optional[BaseEstimator] = None,
-        handler_nan: str = "column",
+        handler_nan: str = "row",
         random_state: Union[None, int, np.random.RandomState] = None,
     ):
         super().__init__(
@@ -1547,7 +1551,6 @@ class ImputerRegressor(_Imputer):
         assert col == "__all__"
         cols_with_nans = df.columns[df.isna().any()]
         dict_estimators: Dict[str, BaseEstimator] = dict()
-
         for col in cols_with_nans:
             # Selects only the valid values in the Train Set according to the chosen method
             X, y = self.get_Xy_valid(df, col)
@@ -1604,6 +1607,8 @@ class ImputerRegressor(_Imputer):
 
             # Selects only non-NaN values for the Test Set
             is_na = y.isna()
+            if not np.any(is_na):
+                continue
             X = X.loc[is_na]
 
             y_hat = self._predict_estimator(model, X)
@@ -1720,7 +1725,13 @@ class ImputerRpcaPcp(_Imputer):
         Omega = ~np.isnan(D)
         # D = utils.linear_interpolation(D)
 
-        M, A = model.decompose(D, Omega)
+        means = np.nanmean(D, axis=0)
+        stds = np.nanstd(D, axis=0)
+        stds = np.where(stds, stds, 1)
+        D_scale = (D - means) / stds
+        M, A = model.decompose(D_scale, Omega)
+        M = M * stds + means
+        A = A * stds + means
 
         M_final = utils.get_shape_original(M, X.shape)
         A_final = utils.get_shape_original(A, X.shape)
@@ -1823,7 +1834,9 @@ class ImputerRpcaNoisy(_Imputer):
         model = rpca_noisy.RpcaNoisy(random_state=self._rng, verbose=self.verbose, **hyperparams)
         return model
 
-    def _fit_element(self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0) -> NDArray:
+    def _fit_element(
+        self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
+    ) -> Tuple[NDArray, NDArray, NDArray]:
         """
         Fits the imputer on `df`, at the group and/or column level depending on self.groups and
         self.columnwise.
@@ -1839,8 +1852,11 @@ class ImputerRpcaNoisy(_Imputer):
 
         Returns
         -------
-        NDArray
-            Returns the reduced decomposition basis
+        Tuple
+            A tuple made of:
+            - the reduced decomposition basis
+            - the estimated mean of the columns
+            - the estimated standard deviation of the columns
 
         Raises
         ------
@@ -1855,9 +1871,14 @@ class ImputerRpcaNoisy(_Imputer):
         D = utils.prepare_data(X, self.period)
         Omega = ~np.isnan(D)
         # D = utils.linear_interpolation(D)
-        _, _, _, Q = model.decompose_with_basis(X, Omega)
 
-        return Q
+        means = np.nanmean(D, axis=0)
+        stds = np.nanstd(D, axis=0)
+        stds = np.where(stds, stds, 1)
+        D_scale = (D - means) / stds
+        _, _, _, Q = model.decompose_with_basis(D_scale, Omega)
+
+        return Q, means, stds
 
     def _transform_element(
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
@@ -1895,14 +1916,16 @@ class ImputerRpcaNoisy(_Imputer):
         Omega = ~np.isnan(D)
         # D = utils.linear_interpolation(D)
 
-        Q = self._dict_fitting[col][ngroup]
-        M, A = model.decompose_on_basis(D, Omega, Q)
+        Q, means, stds = self._dict_fitting[col][ngroup]
+
+        D_scale = (D - means) / stds
+        M, A = model.decompose_on_basis(D_scale, Omega, Q)
+        M = M * stds + means
+        A = A * stds + means
 
         M_final = utils.get_shape_original(M, X.shape)
-        A_final = utils.get_shape_original(A, X.shape)
-        X_imputed = M_final + A_final
 
-        df_imputed = pd.DataFrame(X_imputed, index=df.index, columns=df.columns)
+        df_imputed = pd.DataFrame(M_final, index=df.index, columns=df.columns)
         df_imputed = df.where(~df.isna(), df_imputed)
 
         return df_imputed
@@ -2230,6 +2253,8 @@ class ImputerEM(_Imputer):
         """
         self._check_dataframe(df)
 
+        if df.notna().all().all():
+            return df
         model = self._dict_fitting[col][ngroup]
 
         X = df.values.astype(float)
