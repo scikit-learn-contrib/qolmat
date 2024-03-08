@@ -431,18 +431,18 @@ def test_gradient_X_loglik(em: em_sampler.EM, p: int):
 )
 def test_pretreatment_temporal(em):
     mask2 = mask.copy()
-    mask2[0, 0] = True
-    mask2[:, 2] = True
+    mask2[0, :] = True
     X_result, mask_result = em.pretreatment(X_missing, mask2)
-    X_expected = np.array(
-        [[2, 4, 1], [2, 4, 3], [1, 4, np.nan], [-1, 2, 1], [1, 1, np.nan]],
-        dtype=float,
-    )
     mask_expected = mask.copy()
-    mask_expected[:2, 1] = False
-    mask_expected[:, 2] = True
-    np.testing.assert_allclose(X_result, X_expected)
+    mask_expected[0, :] = False
+    np.testing.assert_allclose(X_result, X_missing)
     np.testing.assert_allclose(mask_result, mask_expected)
+
+
+# X_missing = np.array(
+#     [[1, np.nan, 1], [2, np.nan, 3], [1, 4, np.nan], [-1, 2, 1], [1, 1, np.nan]],
+#     dtype=float,
+# )
 
 
 @pytest.mark.parametrize(

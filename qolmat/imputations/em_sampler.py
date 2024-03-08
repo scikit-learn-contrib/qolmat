@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Dict, List, Literal, Union
+from typing import Dict, List, Literal, Tuple, Union
 import warnings
 
 import numpy as np
@@ -431,7 +431,7 @@ class EM(BaseEstimator, TransformerMixin):
 
         return X
 
-    def pretreatment(self, X, mask_na) -> NDArray:
+    def pretreatment(self, X, mask_na) -> Tuple[NDArray, NDArray]:
         """
         Pretreats the data before imputation by EM, making it more robust.
 
@@ -1055,11 +1055,11 @@ class VARpEM(EM):
         """
         return utils.linear_interpolation(X)
 
-    def pretreatment(self, X, mask_na) -> NDArray:
+    def pretreatment(self, X, mask_na) -> Tuple[NDArray, NDArray]:
         """
         Pretreats the data before imputation by EM, making it more robust. In the case of the
-        VAR(p) model we carry the first observation backward on each variable to avoid explosive
-        imputations.
+        VAR(p) model we freeze the naive imputation on the first observations if all variables are
+        missing to avoid explosive imputations.
 
         Parameters
         ----------
@@ -1077,15 +1077,9 @@ class VARpEM(EM):
         """
         if self.p == 0:
             return X, mask_na
-        X = X.copy()
         mask_na = mask_na.copy()
-        n_rows, n_cols = X.shape
-        for col in range(n_cols):
-            n_holes_left = np.sum(np.cumsum(~mask_na[:, col]) == 0)
-            if n_holes_left == n_rows:
-                continue
-            X[:n_holes_left, col] = X[n_holes_left, col]
-            mask_na[:n_holes_left, col] = False
+        n_holes_left = np.sum(~np.cumsum(~mask_na, axis=0).any(axis=1))
+        mask_na[:n_holes_left] = False
         return X, mask_na
 
     def _check_convergence(self) -> bool:

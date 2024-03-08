@@ -240,9 +240,6 @@ df_station = df_plot.loc[station]
 dfs_imputed_station = {name: df_plot.loc[station] for name, df_plot in dfs_imputed.items()}
 ```
 
-Let's look at the imputations.
-When the data is missing at random, imputation is easier. Missing block are more challenging.
-
 ```python
 for col in cols_to_impute:
     fig, ax = plt.subplots(figsize=(10, 3))
@@ -261,19 +258,6 @@ for col in cols_to_impute:
     ax.tick_params(axis='both', which='major', labelsize=17)
     plt.show()
 
-```
-
-```python
-dfs_imputed_station
-```
-
-```python
-X = dfs_imputed_station["VAR_max"]
-model = dict_imputers["VAR_max"]._dict_fitting["__all__"][0]
-```
-
-```python
-model.B
 ```
 
 ```python
@@ -370,7 +354,7 @@ comparison = comparator.Comparator(
 )
 ```
 
-```python tags=[]
+```python tags=[] jupyter={"outputs_hidden": true}
 generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=3, groups=('station',), subset=cols_to_impute, ratio_masked=ratio_masked)
 
 comparison = comparator.Comparator(
@@ -401,7 +385,7 @@ plt.show()
 df_plot = df_data[cols_to_impute]
 ```
 
-```python
+```python jupyter={"outputs_hidden": true}
 dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_imputers.items()}
 ```
 
@@ -482,7 +466,7 @@ for i, col in enumerate(cols_to_impute[:-1]):
     for i_imputer, (name_imputer, df_imp) in enumerate(dfs_imputed.items()):
         ax = fig.add_subplot(n_columns, n_imputers, i_plot)
         plot.compare_covariances(df_plot, df_imp, col, cols_to_impute[i+1], ax, color=tab10(i_imputer), label=name_imputer)
-        ax.set_title(f"imputation method: {name_imputer}", fontsize=20)
+        ax.set_title(f"{name_imputer}", fontsize=20)
         i_plot += 1
         ax.legend()
 plt.show()
@@ -499,19 +483,14 @@ dfs_imputed["VAR_max"].groupby("station").min()
 ## Auto-correlation
 
 
-We are now interested in th eauto-correlation function (ACF). As seen before, time series display seaonal patterns.
-[Autocorrelation](https://en.wikipedia.org/wiki/Autocorrelation) is the correlation of a signal with a delayed copy of itself as a function of delay. Informally, it is the similarity between observations of a random variable as a function of the time lag between them.
-
-The idea is the AFC to be similar between the original dataset and the imputed one.
-Fot the TEMP variable, one sees the good reconstruction for all the algorithms.
-On th econtrary, for the PRES variable, all methods overestimates the autocorrelation of the variables, especially the RPCA one.
-Finally, for the DEWP variable, the methods cannot impute to obtain a behavior close to the original: the autocorrelation decreases to linearly.
+We are now interested in the auto-correlation function (ACF). As seen before, time series display seaonal patterns.
+[Autocorrelation](https://en.wikipedia.org/wiki/Autocorrelation) is the correlation of a signal with a delayed copy of itself as a function of delay. It measures the similarity between observations of a random variable as a function of the time lag between them. The objective is to have an ACF to be similar between the original dataset and the imputed one.
 
 ```python
 n_columns = len(df_plot.columns)
 n_imputers = len(dict_imputers)
 
-fig = plt.figure(figsize=(6 * n_columns, 6))
+fig = plt.figure(figsize=(9 * n_columns, 6))
 for i_col, col in enumerate(df_plot):
     ax = fig.add_subplot(1, n_columns, i_col + 1)
     for name_imputer, df_imp in dfs_imputed_station.items():
@@ -521,6 +500,7 @@ for i_col, col in enumerate(df_plot):
     values_orig = df_station[col]
     acf = utils.acf(values_orig)
     plt.plot(acf, color="black", lw=2, ls="--", label="original")
+    ax.set_title(f"{col}", fontsize=20)
     plt.legend()
 
 plt.savefig("figures/acf.png")
