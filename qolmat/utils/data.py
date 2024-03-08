@@ -100,7 +100,19 @@ def get_data(
     url_zenodo = "https://zenodo.org/record/"
     if name_data == "Beijing":
         df = read_csv_local("beijing")
-        df = df.set_index(["station", "date"])
+        df["date"] = pd.to_datetime(df["date"])
+
+        # df["date"] = pd.to_datetime(
+        #     {
+        #         "year": df["year"],
+        #         "month": df["month"],
+        #         "day": df["day"],
+        #         "hour": df["hour"],
+        #     }
+        # )
+        df = df.drop(columns=["year", "month", "day", "hour", "wd"])
+        # df = df.set_index(["station", "date"])
+        df = df.groupby(["station", "date"]).mean()
         return df
     if name_data == "Superconductor":
         df = read_csv_local("conductors")
@@ -173,7 +185,8 @@ def get_data(
         return df
     elif name_data == "Monach_electricity_australia":
         urllink = os.path.join(
-            url_zenodo, "4659727/files/australian_electricity_demand_dataset.zip?download=1"
+            url_zenodo,
+            "4659727/files/australian_electricity_demand_dataset.zip?download=1",
         )
         zipname = "australian_electricity_demand_dataset"
         list_loaded_data = download_data_from_zip(zipname, urllink, datapath=datapath)
@@ -216,7 +229,8 @@ def preprocess_data_beijing(df: pd.DataFrame) -> pd.DataFrame:
     df["station"] = "Beijing"
     df.set_index(["station", "datetime"], inplace=True)
     df.drop(
-        columns=["year", "month", "day", "hour", "No", "cbwd", "Iws", "Is", "Ir"], inplace=True
+        columns=["year", "month", "day", "hour", "No", "cbwd", "Iws", "Is", "Ir"],
+        inplace=True,
     )
     df.sort_index(inplace=True)
     df = df.groupby(

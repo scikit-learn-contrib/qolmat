@@ -35,6 +35,7 @@ class ImputerRegressorPyTorch(ImputerRegressor):
         - if `row` all non complete rows will be removed from the train dataset, and will not be
         used for the inferance,
         - if `column`all non complete columns will be ignored.
+        By default, `row`
     epochs: int
         Number of epochs when fitting the autoencoder, by default 100
     learning_rate: float
@@ -47,7 +48,7 @@ class ImputerRegressorPyTorch(ImputerRegressor):
         self,
         groups: Tuple[str, ...] = (),
         estimator: Optional[nn.Sequential] = None,
-        handler_nan: str = "column",
+        handler_nan: str = "row",
         epochs: int = 100,
         learning_rate: float = 0.001,
         loss_fn: Callable = nn.L1Loss(),

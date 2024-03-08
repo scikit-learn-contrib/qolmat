@@ -29,6 +29,8 @@ def approx_rank(
     int: Approximated rank of M
 
     """
+    if np.all(M == 0):
+        return 1
     if threshold == 1:
         return min(M.shape)
     _, values_singular, _ = np.linalg.svd(M, full_matrices=False)
@@ -80,7 +82,6 @@ def svd_thresholding(X: NDArray, threshold: float) -> NDArray:
             V is the array of the right singular vectors of X
             s is the array of the singular values as a diagonal array
     """
-
     U, s, Vh = np.linalg.svd(X, full_matrices=False)
     s = soft_thresholding(s, threshold)
     return U @ (np.diag(s) @ Vh)
