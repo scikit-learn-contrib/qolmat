@@ -136,12 +136,12 @@ class _HoleGenerator:
             self.subset = columns_with_nans
         elif isinstance(self.subset, str):
             raise SubsetIsAString(self.subset)
-        else:
-            subset_without_nans = [
-                column for column in self.subset if column not in columns_with_nans
-            ]
-            if len(subset_without_nans) > 0:
-                raise NoMissingValue(subset_without_nans)
+        # else:
+        #     subset_without_nans = [
+        #         column for column in self.subset if column not in columns_with_nans
+        #     ]
+        #     if len(subset_without_nans) > 0:
+        #         raise NoMissingValue(subset_without_nans)
 
 
 class UniformHoleGenerator(_HoleGenerator):
@@ -158,6 +158,9 @@ class UniformHoleGenerator(_HoleGenerator):
         Ratio of masked values ​​to add, by default 0.05.
     random_state : Optional[int], optional
         The seed used by the random number generator, by default 42.
+    sample_proportional: bool, optional
+        If True, generates holes in target columns with same equal frequency.
+        If False, reproduces the empirical proportions between the variables.
     """
 
     def __init__(
@@ -166,6 +169,7 @@ class UniformHoleGenerator(_HoleGenerator):
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
         random_state: Union[None, int, np.random.RandomState] = None,
+        sample_proportional: bool = True,
     ):
         super().__init__(
             n_splits=n_splits,
@@ -174,6 +178,7 @@ class UniformHoleGenerator(_HoleGenerator):
             ratio_masked=ratio_masked,
             groups=(),
         )
+        self.sample_proportional = sample_proportional
 
     def generate_mask(self, X: pd.DataFrame) -> pd.DataFrame:
         """
@@ -187,17 +192,20 @@ class UniformHoleGenerator(_HoleGenerator):
 
         self.rng = sku.check_random_state(self.random_state)
         df_mask = pd.DataFrame(False, index=X.index, columns=X.columns)
-        n_masked_col = math.ceil(self.ratio_masked * len(X))
 
-        for column in self.subset:
-            indices = np.where(X[column].notna())[0]
+        for col in self.subset:
+            ratio_masked = self.ratio_masked
+            if self.sample_proportional:
+                ratio_masked *= self.dict_ratios[col] * len(X.columns)
+            n_masked_col = math.ceil(self.ratio_masked * len(X))
+            indices = np.where(X[col].notna())[0]
             indices = resample(
                 indices,
                 replace=False,
                 n_samples=n_masked_col,
                 stratify=None,
             )
-            df_mask[column].iloc[indices] = True
+            df_mask[col].iloc[indices] = True
 
         return df_mask
 
