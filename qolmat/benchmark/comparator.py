@@ -103,11 +103,6 @@ class Comparator:
         df_origin = df[self.selected_columns].copy()
         for df_mask in self.generator_holes.split(df_origin):
             df_corrupted = df_origin.copy()
-            for col in df_corrupted:
-                if pd.api.types.is_numeric_dtype(df_corrupted[col]):
-                    df_corrupted.loc[df_mask[col], col] = np.nan
-                else:
-                    df_corrupted.loc[df_mask[col], col] = "NaN"
             df_corrupted[df_mask] = np.nan
             imputer_opti = hyperparameters.optimize(
                 imputer,

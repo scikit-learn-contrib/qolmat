@@ -87,7 +87,7 @@ class _Imputer(_BaseImputer):
                     hyperparams[name_param] = value
         return hyperparams
 
-    def _check_input(self, X: NDArray) -> pd.DataFrame:
+    def _validate_input(self, X: NDArray) -> pd.DataFrame:
         """
         Checks that the input X can be converted into a DataFrame, and returns the corresponding
         dataframe.
@@ -103,6 +103,7 @@ class _Imputer(_BaseImputer):
             Formatted dataframe, if the input had no column names then the dataframe columns are
             integers
         """
+        self._validate_data(X, force_all_finite="allow-nan", cast_to_ndarray=False)
         if not isinstance(X, (pd.DataFrame)):
             X_np = np.array(X)
             if len(X_np.shape) == 0:
@@ -154,8 +155,8 @@ class _Imputer(_BaseImputer):
         self : Self
             Returns self.
         """
-        self._validate_data(X, force_all_finite="allow-nan")
-        df = self._check_input(X)
+
+        df = self._validate_input(X)
         # df_num = df.select_dtypes(include=np.number)
         # df_cat = df.select_dtypes(include=object)
 
@@ -209,7 +210,7 @@ class _Imputer(_BaseImputer):
             Imputed dataframe.
         """
 
-        df = self._check_input(X)
+        df = self._validate_input(X)
         if tuple(df.columns) != self.columns_:
             raise ValueError(
                 """The number of features is different from the counterpart in fit.
@@ -486,7 +487,7 @@ class ImputerOracle(_Imputer):
         pd.DataFrame
             dataframe imputed with premasked values
         """
-        df = self._check_input(X)
+        df = self._validate_input(X)
 
         if tuple(df.columns) != self.columns_:
             raise ValueError(
@@ -496,7 +497,7 @@ class ImputerOracle(_Imputer):
         if hasattr(self, "df_solution"):
             df_imputed = df.fillna(self.df_solution)
         else:
-            print("OracleImputer not initialized! Returning imputation with zeros")
+            warnings.warn("OracleImputer not initialized! Returning imputation with zeros")
             df_imputed = df.fillna(0)
 
         if isinstance(X, (np.ndarray)):
@@ -1583,7 +1584,7 @@ class ImputerRegressor(_Imputer):
             X, y = self.get_Xy_valid(df, col)
 
             # Selects only non-NaN values for the Test Set
-            is_na = y.isna() | (y == "NaN")
+            is_na = y.isna()
             X = X[~is_na]
             y = y[~is_na]
 
@@ -1635,7 +1636,7 @@ class ImputerRegressor(_Imputer):
             X, y = self.get_Xy_valid(df, col)
 
             # Selects only non-NaN values for the Test Set
-            is_na = y.isna() | (y == "NaN")
+            is_na = y.isna()
             if not np.any(is_na):
                 continue
             X = X.loc[is_na]
