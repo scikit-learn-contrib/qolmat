@@ -55,8 +55,7 @@ def test_rpca_utils_soft_thresholding(X: NDArray, threshold: float):
 @pytest.mark.parametrize("X", [X_complete])
 @pytest.mark.parametrize("threshold", [0.95])
 def test_rpca_utils_svd_thresholding(X: NDArray, threshold: float):
-    result = svd_thresholding(X=X, threshold=threshold)
-    print(result)
+    M_result = svd_thresholding(X=X, threshold=threshold)
     X_expected = np.array(
         [
             [0.928, 6.182, 3.857, 3.857],
@@ -66,7 +65,7 @@ def test_rpca_utils_svd_thresholding(X: NDArray, threshold: float):
             [1.916, 1.098, 4.626, 4.626],
         ]
     )
-    np.testing.assert_allclose(result, X_expected, atol=1e-3)
+    np.testing.assert_allclose(M_result, X_expected, atol=1e-3)
 
 
 @pytest.mark.parametrize("X", [X_incomplete])
@@ -81,6 +80,12 @@ def test_rpca_utils_toeplitz_matrix(T: int, dimension: int):
     result = toeplitz_matrix(T=T, dimension=dimension)
     result_np = result.toarray()
     X_exp = np.array(
-        [[1, 0, -1, 0, 0], [0, 1, 0, -1, 0], [0, 0, 1, 0, -1], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]]
+        [
+            [1, 0, -1, 0, 0],
+            [0, 1, 0, -1, 0],
+            [0, 0, 1, 0, -1],
+            [0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0],
+        ]
     )
     np.testing.assert_allclose(result_np, X_exp)

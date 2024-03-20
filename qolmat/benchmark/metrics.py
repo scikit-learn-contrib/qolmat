@@ -19,7 +19,11 @@ EPS = np.finfo(float).eps
 
 
 def columnwise_metric(
-    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame, metric: Callable, **kwargs
+    df1: pd.DataFrame,
+    df2: pd.DataFrame,
+    df_mask: pd.DataFrame,
+    metric: Callable,
+    **kwargs,
 ) -> pd.Series:
     """For each column, compute a metric score based on the true dataframe
     and the predicted dataframe
@@ -171,7 +175,10 @@ def weighted_mean_absolute_percentage_error(
 
 
 def dist_wasserstein(
-    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame, method: str = "columnwise"
+    df1: pd.DataFrame,
+    df2: pd.DataFrame,
+    df_mask: pd.DataFrame,
+    method: str = "columnwise",
 ) -> pd.Series:
     """Wasserstein distances between columns of 2 dataframes.
     Wasserstein distance can only be computed columnwise
@@ -651,7 +658,10 @@ def sum_energy_distances(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataF
 
 
 def sum_pairwise_distances(
-    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame, metric: str = "cityblock"
+    df1: pd.DataFrame,
+    df2: pd.DataFrame,
+    df_mask: pd.DataFrame,
+    metric: str = "cityblock",
 ) -> float:
     """Sum of pairwise distances based on a predefined metric.
     Metrics are found in this link
@@ -766,50 +776,6 @@ def frechet_distance_pattern(
     return pd.Series(distance, index=["All"])
 
 
-def density_from_rf(
-    df: pd.DataFrame, estimator: BaseEnsemble, df_est: Optional[pd.DataFrame] = None
-):
-    """Estimates the density of the empirical distribution given by df at the sample points given
-    by df_est. The estimation uses an random forest estimator and relies on the average number of
-    samples in the leaf corresponding to each estimation point.
-
-    Disclaimer: this method is experimental and has no known theoretical grounds
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Empirical distribution which density should be estimated
-    estimator : BaseEnsemble
-        Estimator defining the forest upon which is based the density counting.
-    df_est : pd.DataFrame, optional
-        Sample points of the estimation, by default None
-        If None, the density is estimated at the points given by `df`.
-
-    Returns
-    -------
-    pd.Series
-        Series of floats providing the normalized density
-    """
-    if df_est is None:
-        df_est = df.copy()
-    if df_est.index.names == [None]:
-        cols_index = ["index"]
-    else:
-        cols_index = df_est.index.names
-    counts = pd.Series(0, index=df_est.index)
-    df_leafs = pd.DataFrame(estimator.apply(df), index=df.index)
-    df_leafs_est = pd.DataFrame(estimator.apply(df_est), index=df_est.index)
-    for i_tree in range(estimator.n_estimators):
-        leafs = df_leafs[i_tree].rename("id_leaf")
-        leafs_est = df_leafs_est[i_tree].rename("id_leaf")
-        counts_leafs = leafs.value_counts().rename("count")
-        df_merge = pd.merge(leafs_est.reset_index(), counts_leafs.reset_index(), on="id_leaf")
-        df_merge = df_merge.set_index(cols_index)
-        counts += df_merge["count"]
-    counts /= counts.sum()
-    return counts
-
-
 def kl_divergence_1D(df1: pd.Series, df2: pd.Series) -> float:
     """Estimation of the Kullback-Leibler divergence between the two 1D empirical distributions
     given by `df1`and `df2`. The samples are binarized using a uniform spacing with 20 bins from
@@ -896,45 +862,6 @@ def kl_divergence_gaussian(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.Ser
     return div_kl
 
 
-def kl_divergence_forest(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> float:
-    """Kullback-Leibler divergence estimation based on a random forest fitted on the first
-    empirical distribution
-
-    Disclaimer: this method is experimental and has no known theoretical grounds
-
-    Parameters
-    ----------
-    df1 : pd.DataFrame
-        First empirical distribution
-    df2 : pd.DataFrame
-        Second empirical distribution
-    df_mask: pd.DataFrame
-        Mask indicating on what values the divergence should be computed
-
-    Returns
-    -------
-    pd.Series
-        Series of estimated metrics
-    """
-    df1 = df1[df_mask.any(axis=1)]
-    df2 = df2[df_mask.any(axis=1)]
-    # df_1 = StandardScaler().fit_transform(df1[df_mask.any(axis=1)])
-    # df_2 = StandardScaler().fit_transform(df2[df_mask.any(axis=1)])
-    n_estimators = 100
-    # estimator = sklearn.ensemble.RandomForestClassifier(
-    #     n_estimators=n_estimators, max_depth=10
-    # )
-    # X = pd.concat([df1, df2])
-    # y = pd.concat([pd.Series([False] * len(df1)), pd.Series([True] * len(df2))])
-    # estimator.fit(X, y)
-    estimator = sklearn.ensemble.RandomTreesEmbedding(n_estimators=n_estimators, random_state=123)
-    estimator.fit(df1)
-    counts1 = density_from_rf(df1, estimator, df_est=df2)
-    counts2 = density_from_rf(df2, estimator, df_est=df2)
-    div_kl = np.mean(np.log(counts1 / counts2) * counts1 / counts2)
-    return div_kl
-
-
 def kl_divergence(
     df1: pd.DataFrame,
     df2: pd.DataFrame,
@@ -948,7 +875,6 @@ def kl_divergence(
     - columnwise, relying on a uniform binarization and only taking marginals into account
     (https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence),
     - gaussian, relying on a Gaussian approximation,
-    - random_forest, experimental
 
     Parameters
     ----------
@@ -991,14 +917,10 @@ def kl_divergence(
             kl_divergence_gaussian,
             min_n_rows=min_n_rows,
         )
-    elif method == "random_forest":
-        return pattern_based_weighted_mean_metric(
-            df1, df2, df_mask, kl_divergence_forest, min_n_rows=min_n_rows
-        )
     else:
         raise AssertionError(
             f"The parameter of the function wasserstein_distance should be one of"
-            f"the following: [`columnwise`, `gaussian`, `random_forest`], not `{method}`!"
+            f"the following: [`columnwise`, `gaussian`], not `{method}`!"
         )
 
 
@@ -1086,11 +1008,10 @@ def get_metric(name: str) -> Callable:
         "wasserstein_columnwise": dist_wasserstein,
         "KL_columnwise": partial(kl_divergence, method="columnwise"),
         "KL_gaussian": partial(kl_divergence, method="gaussian"),
-        "KL_forest": partial(kl_divergence, method="random_forest"),
         "ks_test": kolmogorov_smirnov_test,
         "correlation_diff": mean_difference_correlation_matrix_numerical_features,
         "energy": sum_energy_distances,
-        "frechet": frechet_distance,
+        "frechet": frechet_distance_pattern,
         "dist_corr_pattern": partial(
             pattern_based_weighted_mean_metric,
             metric=distance_anticorr,

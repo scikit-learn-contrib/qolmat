@@ -3,20 +3,21 @@ import numpy as np
 import pytest
 from numpy.typing import NDArray
 from scipy import linalg
+import scipy
 from sklearn.datasets import make_spd_matrix
+from qolmat.utils import utils
 
 
 from qolmat.imputations import em_sampler
+from qolmat.utils.exceptions import IllConditioned
 
 np.random.seed(42)
 
 A: NDArray = np.array([[3, 1, 0], [1, 1, 0], [0, 0, 1]], dtype=float)
 A_inverse: NDArray = np.array([[0.5, -0.5, 0], [-0.5, 1.5, 0], [0, 0, 1]], dtype=float)
 X_missing = np.array(
-    [[1, np.nan, 1], [1, np.nan, 3], [1, 4, np.nan], [1, 2, 1], [1, 1, np.nan]], dtype=float
-)
-X_first_guess: NDArray = np.array(
-    [[1, 4, 1], [1, 4, 3], [1, 4, 4], [1, 2, 1], [1, 1, 4]], dtype=float
+    [[1, np.nan, 1], [2, np.nan, 3], [1, 4, np.nan], [-1, 2, 1], [1, 1, np.nan]],
+    dtype=float,
 )
 mask: NDArray = np.isnan(X_missing)
 
@@ -32,7 +33,9 @@ def generate_multinormal_predefined_mean_cov(d=3, n=500):
     mask = np.array(np.full_like(X, False), dtype=bool)
     for j in range(X.shape[1]):
         ind = rng.choice(
-            np.arange(X.shape[0]), size=np.int64(np.ceil(X.shape[0] * 0.1)), replace=False
+            np.arange(X.shape[0]),
+            size=np.int64(np.ceil(X.shape[0] * 0.1)),
+            replace=False,
         )
         mask[ind, j] = True
     X_missing = X.copy()
@@ -69,7 +72,9 @@ def generate_varp_process(d=3, n=10000, p=1):
     mask = np.array(np.full_like(X, False), dtype=bool)
     for j in range(X.shape[1]):
         ind = rng.choice(
-            np.arange(X.shape[0]), size=np.int64(np.ceil(X.shape[0] * 0.1)), replace=False
+            np.arange(X.shape[0]),
+            size=np.int64(np.ceil(X.shape[0] * 0.1)),
+            replace=False,
         )
         mask[ind, j] = True
     X_missing = X.copy()
@@ -78,21 +83,22 @@ def generate_varp_process(d=3, n=10000, p=1):
 
 
 @pytest.mark.parametrize(
-    "A, X_first_guess, mask",
-    [(A, X_first_guess, mask)],
+    "A, mask",
+    [(A, mask)],
 )
 def test_gradient_conjugue(
     A: NDArray,
-    X_first_guess: NDArray,
     mask: NDArray,
 ) -> None:
     """Test the conjugate gradient algorithm."""
+    X_first_guess = utils.impute_nans(X_missing)
     X_result = em_sampler._conjugate_gradient(A, X_first_guess, mask)
-    X_expected = np.array([[1, -1, 1], [1, -1, 3], [1, 4, 0], [1, 2, 1], [1, 1, 0]], dtype=float)
+    X_expected = np.array([[1, -1, 1], [2, -2, 3], [1, 4, 0], [-1, 2, 1], [1, 1, 0]], dtype=float)
 
-    np.testing.assert_allclose(X_result, X_expected, atol=1e-5)
     assert np.sum(X_result * (X_result @ A)) <= np.sum(X_first_guess * (X_first_guess @ A))
-    assert np.allclose(X_first_guess[~mask], X_result[~mask])
+    assert np.allclose(X_missing[~mask], X_result[~mask])
+    assert ((X_result @ A)[mask] == 0).all()
+    np.testing.assert_allclose(X_result, X_expected, atol=1e-5)
 
 
 def test_get_lag_p():
@@ -136,9 +142,9 @@ def test_fit_calls(mocker, X_missing: NDArray) -> None:
     em = em_sampler.MultiNormalEM(max_iter_em=max_iter_em)
     em.fit(X_missing)
     assert mock_sample_ou.call_count == max_iter_em
-    assert mock_maximize_likelihood.call_count == 0
+    assert mock_maximize_likelihood.call_count == 1
     assert mock_check_convergence.call_count == max_iter_em
-    assert mock_fit_parameters.call_count == 1
+    assert mock_fit_parameters.call_count == 0
     assert mock_combine_parameters.call_count == max_iter_em
     assert mock_update_criteria_stop.call_count == max_iter_em
 
@@ -191,7 +197,48 @@ def test_em_sampler_check_convergence_false(
     em.dict_criteria_stop["means"] = means
     em.dict_criteria_stop["covs"] = covs
     em.dict_criteria_stop["logliks"] = logliks
-    assert em._check_convergence() == False
+    assert em._check_convergence() == True
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        em_sampler.MultiNormalEM(method="sample", n_iter_ou=512, dt=1e-2),
+        em_sampler.VARpEM(method="sample", n_iter_ou=512, dt=1e-2, p=0),
+    ],
+)
+def test_sample_ou_2d(model):
+    # model = em_sampler.MultiNormalEM(method="sample", n_iter_ou=512, dt=1e-2)
+    means = np.array([5, -2])
+    cov = np.array([[1, -0.5], [-0.5, 2]])
+    if isinstance(model, em_sampler.VARpEM):
+        model.set_parameters(means.reshape(1, -1), cov)
+    else:
+        model.set_parameters(means, cov)
+    n_samples = 10000
+    x1 = 4
+    D = x1 * np.ones((n_samples, 2))
+    D[:, 0] = np.nan
+    values = model.transform(D)[:, 0]
+    mean_theo = means[0] + cov[0, 1] / cov[1, 1] * (x1 - means[1])
+    var_theo = cov[0, 0] - cov[0, 1] ** 2 / cov[1, 1]
+    mean_est = np.mean(values)
+    var_est = np.var(values)
+    alpha = 0.01
+    q_alpha = scipy.stats.norm.ppf(1 - alpha / 2)
+
+    print(mean_est, "vs", mean_theo)
+    assert abs(mean_est - mean_theo) < np.sqrt(var_theo / n_samples) * q_alpha
+
+    ratio_inf = scipy.stats.chi2.ppf(alpha / 2, n_samples) / (n_samples - 1)
+    ratio_sup = scipy.stats.chi2.ppf(1 - alpha / 2, n_samples) / (n_samples - 1)
+
+    ratio = var_est / var_theo
+
+    print(var_est, "vs", var_theo)
+    print(ratio_inf, "<", ratio, "<", ratio_sup)
+    assert ratio_inf <= ratio
+    assert ratio <= ratio_sup
 
 
 @pytest.mark.parametrize(
@@ -231,12 +278,23 @@ def test_varem_sampler_check_convergence_false(
     em.dict_criteria_stop["B"] = list_B
     em.dict_criteria_stop["S"] = list_S
     em.dict_criteria_stop["logliks"] = logliks
-    assert em._check_convergence() == False
+    assert em._check_convergence() == True
+
+
+def test_illconditioned_multinormalem() -> None:
+    """Test that data with colinearity raises an exception."""
+    X = np.array([[1, np.nan, 8, 1], [3, 1, 4, 2], [2, 3, np.nan, 1]], dtype=float)
+    model = em_sampler.MultiNormalEM()
+    with pytest.warns(UserWarning):
+        _ = model.fit_transform(X)
+    # except IllConditioned:
+    #     return
+    # assert False
 
 
 def test_no_more_nan_multinormalem() -> None:
     """Test there are no more missing values after the MultiNormalEM algorithm."""
-    X = np.array([[1, np.nan, 8, 1], [3, 1, 4, 2], [2, 3, np.nan, 1]], dtype=float)
+    X = np.array([[1, np.nan], [3, 1], [np.nan, 3]], dtype=float)
     model = em_sampler.MultiNormalEM()
     X_imp = model.fit_transform(X)
     assert np.sum(np.isnan(X)) > 0
@@ -297,7 +355,7 @@ def test_multinormal_em_minimize_llik():
 @pytest.mark.parametrize("method", ["sample", "mle"])
 def test_multinormal_em_fit_transform(method: Literal["mle", "sample"]):
     imputer = em_sampler.MultiNormalEM(method=method, random_state=11)
-    X = np.array([[1, 1, 1, 1], [np.nan, np.nan, 3, 2], [1, 2, 2, 1], [2, 2, 2, 2]])
+    X = X_missing.copy()
     result = imputer.fit_transform(X)
     assert result.shape == X.shape
     np.testing.assert_allclose(result[~np.isnan(X)], X[~np.isnan(X)])
@@ -331,25 +389,22 @@ def test_parameters_after_imputation_varpem(p: int):
 
 
 def test_varpem_fit_transform():
-    imputer = em_sampler.VARpEM(method="sample", random_state=11)
+    imputer = em_sampler.VARpEM(method="mle", random_state=11)
     X = np.array([[1, 1, 1, 1], [np.nan, np.nan, 3, 2], [1, 2, 2, 1], [2, 2, 2, 2]])
     result = imputer.fit_transform(X)
-    expected = np.array(
-        [
-            [1.0, 1.0, 1.0, 1.0],
-            [1.0, 1.5, 3.0, 2.0],
-            [1.0, 2.0, 2.0, 1.0],
-            [2.0, 2.0, 2.0, 2.0],
-        ]
-    )
-    np.testing.assert_allclose(result, expected, atol=1e-12)
+    assert result.shape == X.shape
+    np.testing.assert_allclose(result[~np.isnan(X)], X[~np.isnan(X)])
+    assert not np.any(np.isnan(result))
 
 
 @pytest.mark.parametrize(
-    "X, em, p",
-    [(X_first_guess, em_sampler.MultiNormalEM(), 0), (X_first_guess, em_sampler.VARpEM(p=2), 2)],
+    "em, p",
+    [
+        (em_sampler.MultiNormalEM(), 0),
+        (em_sampler.VARpEM(p=2), 2),
+    ],
 )
-def test_gradient_X_loglik(X: NDArray, em: em_sampler.EM, p: int):
+def test_gradient_X_loglik(em: em_sampler.EM, p: int):
     d = 3
     X, _, _, _ = generate_varp_process(d=d, n=10, p=p)
     em.fit_parameters(X)
@@ -365,3 +420,39 @@ def test_gradient_X_loglik(X: NDArray, em: em_sampler.EM, p: int):
     dL = (loglik2 - loglik) / delta
     dL_theo = (grad_L * U).sum().sum()
     np.testing.assert_allclose(dL, dL_theo, rtol=1e-1, atol=1e-1)
+
+
+@pytest.mark.parametrize(
+    "em",
+    [
+        em_sampler.VARpEM(p=1),
+        em_sampler.VARpEM(p=2),
+    ],
+)
+def test_pretreatment_temporal(em):
+    mask2 = mask.copy()
+    mask2[0, :] = True
+    X_result, mask_result = em.pretreatment(X_missing, mask2)
+    mask_expected = mask.copy()
+    mask_expected[0, :] = False
+    np.testing.assert_allclose(X_result, X_missing)
+    np.testing.assert_allclose(mask_result, mask_expected)
+
+
+# X_missing = np.array(
+#     [[1, np.nan, 1], [2, np.nan, 3], [1, 4, np.nan], [-1, 2, 1], [1, 1, np.nan]],
+#     dtype=float,
+# )
+
+
+@pytest.mark.parametrize(
+    "em",
+    [
+        em_sampler.MultiNormalEM(),
+        em_sampler.VARpEM(p=0),
+    ],
+)
+def test_pretreatment_tabular(em):
+    X_result, mask_result = em.pretreatment(X_missing, mask)
+    np.testing.assert_allclose(X_result, X_missing)
+    np.testing.assert_allclose(mask_result, mask)

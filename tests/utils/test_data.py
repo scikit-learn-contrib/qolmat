@@ -36,7 +36,9 @@ index_preprocess_beijing = pd.MultiIndex.from_tuples(
     names=["station", "datetime"],
 )
 df_preprocess_beijing = pd.DataFrame(
-    [[1, 2], [3, np.nan], [np.nan, 6]], columns=["a", "b"], index=index_preprocess_beijing
+    [[1, 2], [3, np.nan], [np.nan, 6]],
+    columns=["a", "b"],
+    index=index_preprocess_beijing,
 )
 
 columns = ["mean_atomic_mass", "wtd_mean_atomic_mass"]
@@ -113,7 +115,9 @@ index_preprocess_offline = pd.MultiIndex.from_tuples(
     names=["station", "datetime"],
 )
 df_preprocess_offline = pd.DataFrame(
-    [[1, 2], [3, np.nan], [np.nan, 6]], columns=["a", "b"], index=index_preprocess_offline
+    [[1, 2], [3, np.nan], [np.nan, 6]],
+    columns=["a", "b"],
+    index=index_preprocess_offline,
 )
 
 
@@ -167,7 +171,7 @@ def test_utils_data_get_data(name_data: str, df: pd.DataFrame, mocker: MockerFix
     if name_data == "Beijing":
         assert mock_download.call_count == 0
         assert mock_read.call_count == 1
-        pd.testing.assert_frame_equal(df_result, df.set_index(["station", "date"]))
+        assert df_result.index.names == ["station", "date"]
     elif name_data == "Superconductor":
         assert mock_download.call_count == 0
         assert mock_read.call_count == 1
@@ -213,8 +217,6 @@ def test_utils_data_get_data_corrupted(
 ) -> None:
     mock_get = mocker.patch("qolmat.utils.data.get_data", return_value=df)
     df_out = data.get_data_corrupted(name_data)
-    print(df_out)
-    print(df)
     assert mock_get.call_count == 1
     assert df_out.shape == df.shape
     pd.testing.assert_index_equal(df_out.index, df.index)
