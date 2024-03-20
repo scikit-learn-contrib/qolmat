@@ -7,6 +7,7 @@ from abc import abstractmethod
 
 import numpy as np
 from numpy.typing import NDArray
+from scipy import sparse
 import pandas as pd
 import sklearn as skl
 from sklearn import utils as sku
@@ -14,6 +15,12 @@ from sklearn.base import BaseEstimator
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer, KNNImputer
 from sklearn.impute._base import _BaseImputer
+from sklearn.utils.validation import (
+    _check_feature_names_in,
+    _num_samples,
+    check_array,
+    check_is_fitted,
+)
 from statsmodels.tsa import seasonal as tsa_seasonal
 
 from qolmat.imputations import em_sampler
@@ -103,8 +110,8 @@ class _Imputer(_BaseImputer):
             Formatted dataframe, if the input had no column names then the dataframe columns are
             integers
         """
-        self._validate_data(X, force_all_finite="allow-nan", cast_to_ndarray=False)
-        if not isinstance(X, (pd.DataFrame)):
+        check_array(X, force_all_finite="allow-nan", dtype=None)
+        if not isinstance(X, pd.DataFrame):
             X_np = np.array(X)
             if len(X_np.shape) == 0:
                 raise ValueError
@@ -115,6 +122,7 @@ class _Imputer(_BaseImputer):
         else:
             df = X
         # df = df.astype(float)
+
         return df
 
     def _check_dataframe(self, X: NDArray):
@@ -139,7 +147,7 @@ class _Imputer(_BaseImputer):
         This method indicates that this class allows inputs with categorical data and nans. It
         modifies the behaviour of the functions checking data.
         """
-        return {"X_types": ["2darray", "categorical"], "allow_nan": True}
+        return {"X_types": ["2darray", "categorical", "string"], "allow_nan": True}
 
     def fit(self, X: pd.DataFrame, y=None) -> Self:
         """
@@ -157,16 +165,7 @@ class _Imputer(_BaseImputer):
         """
 
         df = self._validate_input(X)
-        # df_num = df.select_dtypes(include=np.number)
-        # df_cat = df.select_dtypes(include=object)
-
-        # if not df_num.empty:
-        #     self._validate_data(df_num, force_all_finite="allow-nan", dtype=float)
-        # elif df_cat.empty:
-        #     raise ValueError("Provided data contains no numerical or categorical data!")
-
-        # if not df_cat.empty:
-        #     self._validate_data(df_cat, force_all_finite="allow-nan", dtype=object)
+        self.n_features_in_ = len(df.columns)
 
         for column in df:
             if df[column].isnull().all():
@@ -233,10 +232,6 @@ class _Imputer(_BaseImputer):
             else:
                 df_imputed = self._transform_allgroups(df)
 
-        # if df_imputed.isna().any().any():
-        #     raise AssertionError("Result of imputation contains NaN!")
-
-        # df_imputed = df_imputed.astype(float)
         if isinstance(X, (np.ndarray)):
             df_imputed = df_imputed.to_numpy()
 
@@ -1625,7 +1620,6 @@ class ImputerRegressor(_Imputer):
         self._check_dataframe(df)
         assert col == "__all__"
 
-        # df_imputed = df.apply(pd.DataFrame.median, result_type="broadcast", axis=0)
         df_imputed = df.copy()
         cols_with_nans = df.columns[df.isna().any()]
         for col in cols_with_nans:

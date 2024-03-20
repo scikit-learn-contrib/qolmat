@@ -19,12 +19,12 @@ In Qolmat, a few data imputation methods are implemented as well as a way to eva
 
 First, import some useful librairies
 
-```python
+```python tags=[]
 import warnings
 # warnings.filterwarnings('error')
 ```
 
-```python
+```python tags=[]
 %reload_ext autoreload
 %autoreload 2
 
@@ -64,26 +64,26 @@ from qolmat.utils import data, utils, plot
 The dataset `Beijing` is the Beijing Multi-Site Air-Quality Data Set. It consists in hourly air pollutants data from 12 chinese nationally-controlled air-quality monitoring sites and is available at https://archive.ics.uci.edu/ml/machine-learning-databases/00501/.
 This dataset only contains numerical vairables.
 
-```python
+```python tags=[]
 df_data = data.get_data_corrupted("Beijing", ratio_masked=.2, mean_size=120)
 cols_to_impute = ["TEMP", "PRES"]
 ```
 
 The dataset `Artificial` is designed to have a sum of a periodical signal, a white noise and some outliers.
 
-```python
+```python tags=[]
 df_data
 ```
 
 Let's take a look at variables to impute. We only consider a station, Aotizhongxin.
 Time series display seasonalities (roughly 12 months).
 
-```python
+```python tags=[]
 n_stations = len(df_data.groupby("station").size())
 n_cols = len(cols_to_impute)
 ```
 
-```python
+```python tags=[]
 fig = plt.figure(figsize=(20 * n_stations, 6 * n_cols))
 for i_station, (station, df) in enumerate(df_data.groupby("station")):
     df_station = df_data.loc[station]
@@ -112,11 +112,11 @@ All presented methods are group-wise: here each station is imputed independently
 Some methods require hyperparameters. The user can directly specify them, or rather determine them through an optimization step using the `search_params` dictionary. The keys are the imputation method's name and the values are a dictionary specifying the minimum, maximum or list of categories and type of values (Integer, Real, Category or a dictionary indexed by the variable names) to search.
 In pratice, we rely on a cross validation to find the best hyperparams values minimizing an error reconstruction.
 
-```python
+```python tags=[]
 ratio_masked = 0.1
 ```
 
-```python
+```python tags=[]
 dict_config_opti = {}
 
 imputer_mean = imputers.ImputerMean(groups=("station",))
@@ -145,18 +145,18 @@ dict_config_opti["RPCA_opticw"] = {
 
 imputer_normal_sample = imputers.ImputerEM(groups=("station",), model="multinormal", method="sample", max_iter_em=8, n_iter_ou=128, dt=4e-2)
 imputer_var_sample = imputers.ImputerEM(groups=("station",), model="VAR", method="sample", max_iter_em=8, n_iter_ou=128, dt=4e-2, p=1)
-imputer_var_max = imputers.ImputerEM(groups=("station",), model="VAR", method="mle", max_iter_em=8, n_iter_ou=128, dt=4e-2, p=1)
+imputer_var_max = imputers.ImputerEM(groups=("station",), model="VAR", method="mle", max_iter_em=32, n_iter_ou=128, dt=4e-2, p=1)
 
 imputer_knn = imputers.ImputerKNN(groups=("station",), n_neighbors=10)
 imputer_mice = imputers.ImputerMICE(groups=("station",), estimator=LinearRegression(), sample_posterior=False, max_iter=100)
 imputer_regressor = imputers.ImputerRegressor(groups=("station",), estimator=LinearRegression())
 ```
 
-```python
+```python tags=[]
 generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=1, groups=("station",), subset=cols_to_impute, ratio_masked=ratio_masked)
 ```
 
-```python
+```python tags=[]
 dict_imputers = {
     "mean": imputer_mean,
     # "median": imputer_median,
@@ -228,17 +228,22 @@ We now run just one time each algorithm on the initial corrupted dataframe and v
 df_plot = df_data[cols_to_impute]
 ```
 
-```python
+```python tags=[]
 dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_imputers.items()}
 ```
 
-```python
-station = df_plot.index.get_level_values("station")[0]
+```python tags=[]
+dfs_imputed["VAR_max"].groupby("station").min()
+```
+
+```python tags=[]
+# station = df_plot.index.get_level_values("station")[0]
+station = "Huairou"
 df_station = df_plot.loc[station]
 dfs_imputed_station = {name: df_plot.loc[station] for name, df_plot in dfs_imputed.items()}
 ```
 
-```python
+```python tags=[]
 for col in cols_to_impute:
     fig, ax = plt.subplots(figsize=(10, 3))
     values_orig = df_station[col]
@@ -258,7 +263,7 @@ for col in cols_to_impute:
 
 ```
 
-```python
+```python tags=[]
 # plot.plot_imputations(df_station, dfs_imputed_station)
 
 n_columns = len(cols_to_impute)
@@ -352,7 +357,7 @@ comparison = comparator.Comparator(
 )
 ```
 
-```python tags=[] jupyter={"outputs_hidden": true}
+```python jupyter={"outputs_hidden": true} tags=[]
 generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=3, groups=('station',), subset=cols_to_impute, ratio_masked=ratio_masked)
 
 comparison = comparator.Comparator(
@@ -383,7 +388,7 @@ plt.show()
 df_plot = df_data[cols_to_impute]
 ```
 
-```python jupyter={"outputs_hidden": true}
+```python jupyter={"outputs_hidden": true} tags=[]
 dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_imputers.items()}
 ```
 
@@ -468,14 +473,6 @@ for i, col in enumerate(cols_to_impute[:-1]):
         i_plot += 1
         ax.legend()
 plt.show()
-```
-
-```python
-
-```
-
-```python
-dfs_imputed["VAR_max"].groupby("station").min()
 ```
 
 ## Auto-correlation
