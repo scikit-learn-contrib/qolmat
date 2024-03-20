@@ -52,7 +52,6 @@ coverage.xml
 .hypothesis/
 qolmat/.converge
 
-
 # Notebooks
 **.ipynb_checkpoints
 examples/*.ipynb
@@ -66,3 +65,7 @@ examples/local
 
 # Logs
 nohup.txt
+
+#Table
+*.xlsx
+*.csv
