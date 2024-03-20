@@ -334,7 +334,7 @@ def add_station_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def add_datetime_features(df: pd.DataFrame) -> pd.DataFrame:
+def add_datetime_features(df: pd.DataFrame, col_time: str = "datetime") -> pd.DataFrame:
     """
     Create a seasonal feature in the dataset with a cosine function
 
@@ -342,6 +342,8 @@ def add_datetime_features(df: pd.DataFrame) -> pd.DataFrame:
     ----------
     df : pd.DataFrame
         dataframe no missing values
+    col_time: string
+        Column of the index containing the time index
 
     Returns
     -------
@@ -349,12 +351,13 @@ def add_datetime_features(df: pd.DataFrame) -> pd.DataFrame:
         dataframe with missing values
     """
     df = df.copy()
-    time = df.index.get_level_values("datetime").to_series()
+    time = df.index.get_level_values(col_time).to_series()
     days_in_year = time.dt.year.apply(
         lambda x: 366 if ((x % 4 == 0) and (x % 100 != 0)) or (x % 400 == 0) else 365
     )
-    time_cos = np.cos(2 * np.pi * time.dt.dayofyear / days_in_year)
-    df["time_cos"] = np.array(time_cos)
+    ratio = time.dt.dayofyear.values / days_in_year.values
+    df["time_cos"] = np.cos(2 * np.pi * ratio)
+    df["time_sin"] = np.sin(2 * np.pi * ratio)
     return df
 
 

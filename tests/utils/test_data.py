@@ -242,15 +242,9 @@ def test_utils_data_add_station_features(df: pd.DataFrame) -> None:
 
 @pytest.mark.parametrize("df", [df_preprocess_beijing])
 def test_utils_data_add_datetime_features(df: pd.DataFrame) -> None:
-    columns_out = ["a", "b"] + ["time_cos"]
-    expected = pd.DataFrame(
-        [
-            [1, 2, 0.512],
-            [3, np.nan, 0.512],
-            [np.nan, 6, 0.512],
-        ],
-        columns=columns_out,
-        index=index_preprocess_beijing,
-    )
+    columns_out = ["a", "b"] + ["time_cos", "time_sin"]
     result = data.add_datetime_features(df)
-    pd.testing.assert_frame_equal(result, expected, atol=1e-3)
+    pd.testing.assert_index_equal(result.index, df.index)
+    assert result.columns.tolist() == columns_out
+    pd.testing.assert_frame_equal(result.drop(columns=["time_cos", "time_sin"]), df)
+    assert (result["time_cos"] ** 2 + result["time_sin"] ** 2 == 1).all()

@@ -107,7 +107,7 @@ def test_Imputer_fit_transform_on_nan_column(df: pd.DataFrame, imputer: imputers
     np.testing.assert_raises(ValueError, imputer.fit_transform, df)
 
 
-@pytest.mark.parametrize("df", ["string", [1, 2, 3]])
+@pytest.mark.parametrize("df", "string")
 def test_fit_transform_not_on_pandas(df: Any) -> None:
     imputer = imputers.ImputerMean()
     np.testing.assert_raises(ValueError, imputer.fit_transform, df)

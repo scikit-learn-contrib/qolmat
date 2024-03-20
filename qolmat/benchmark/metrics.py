@@ -51,6 +51,7 @@ def columnwise_metric(
         assert df1_col.notna().all()
         assert df2_col.notna().all()
         values[col] = metric(df1_col, df2_col, **kwargs)
+
     return pd.Series(values)
 
 
@@ -70,7 +71,13 @@ def mean_squared_error(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFra
     -------
     pd.Series
     """
-    return columnwise_metric(df1, df2, df_mask, skm.mean_squared_error)
+    cols_numerical = _get_numerical_features(df1)
+    return columnwise_metric(
+        df1[cols_numerical],
+        df2[cols_numerical],
+        df_mask[cols_numerical],
+        skm.mean_squared_error,
+    )
 
 
 def root_mean_squared_error(
@@ -91,7 +98,14 @@ def root_mean_squared_error(
     -------
     pd.Series
     """
-    return columnwise_metric(df1, df2, df_mask, skm.mean_squared_error, squared=False)
+    cols_numerical = _get_numerical_features(df1)
+    return columnwise_metric(
+        df1[cols_numerical],
+        df2[cols_numerical],
+        df_mask[cols_numerical],
+        skm.mean_squared_error,
+        squared=False,
+    )
 
 
 def mean_absolute_error(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.Series:
@@ -110,7 +124,13 @@ def mean_absolute_error(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFr
     -------
     pd.Series
     """
-    return columnwise_metric(df1, df2, df_mask, skm.mean_absolute_error)
+    cols_numerical = _get_numerical_features(df1)
+    return columnwise_metric(
+        df1[cols_numerical],
+        df2[cols_numerical],
+        df_mask[cols_numerical],
+        skm.mean_absolute_error,
+    )
 
 
 def mean_absolute_percentage_error(
@@ -131,7 +151,13 @@ def mean_absolute_percentage_error(
     -------
     pd.Series
     """
-    return columnwise_metric(df1, df2, df_mask, skm.mean_absolute_percentage_error)
+    cols_numerical = _get_numerical_features(df1)
+    return columnwise_metric(
+        df1[cols_numerical],
+        df2[cols_numerical],
+        df_mask[cols_numerical],
+        skm.mean_absolute_percentage_error,
+    )
 
 
 def _weighted_mean_absolute_percentage_error_1D(values1: pd.Series, values2: pd.Series) -> float:

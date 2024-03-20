@@ -7,6 +7,7 @@ from abc import abstractmethod
 
 import numpy as np
 from numpy.typing import NDArray
+from scipy import sparse
 import pandas as pd
 import sklearn as skl
 from sklearn import utils as sku
@@ -14,13 +15,19 @@ from sklearn.base import BaseEstimator
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer, KNNImputer
 from sklearn.impute._base import _BaseImputer
+from sklearn.utils.validation import (
+    _check_feature_names_in,
+    _num_samples,
+    check_array,
+    check_is_fitted,
+)
 from statsmodels.tsa import seasonal as tsa_seasonal
 
 from qolmat.imputations import em_sampler
 from qolmat.imputations.rpca import rpca, rpca_noisy, rpca_pcp
 from qolmat.imputations import softimpute
 from qolmat.utils import utils
-from qolmat.utils.exceptions import NotDataFrame
+from qolmat.utils.exceptions import NotDataFrame, TypeNotHandled
 from qolmat.utils.utils import HyperValue
 
 
@@ -87,7 +94,7 @@ class _Imputer(_BaseImputer):
                     hyperparams[name_param] = value
         return hyperparams
 
-    def _check_input(self, X: NDArray) -> pd.DataFrame:
+    def _validate_input(self, X: NDArray) -> pd.DataFrame:
         """
         Checks that the input X can be converted into a DataFrame, and returns the corresponding
         dataframe.
@@ -103,14 +110,19 @@ class _Imputer(_BaseImputer):
             Formatted dataframe, if the input had no column names then the dataframe columns are
             integers
         """
-        if not isinstance(X, (pd.DataFrame)):
+        check_array(X, force_all_finite="allow-nan", dtype=None)
+        if not isinstance(X, pd.DataFrame):
             X_np = np.array(X)
+            if len(X_np.shape) == 0:
+                raise ValueError
             if len(X_np.shape) == 1:
                 X_np = X_np.reshape(-1, 1)
             df = pd.DataFrame(X_np, columns=[i for i in range(X_np.shape[1])])
+            df = df.infer_objects()
         else:
             df = X
-        df = df.astype(float)
+        # df = df.astype(float)
+
         return df
 
     def _check_dataframe(self, X: NDArray):
@@ -130,6 +142,13 @@ class _Imputer(_BaseImputer):
         if not isinstance(X, (pd.DataFrame)):
             raise NotDataFrame(type(X))
 
+    def _more_tags(self):
+        """
+        This method indicates that this class allows inputs with categorical data and nans. It
+        modifies the behaviour of the functions checking data.
+        """
+        return {"X_types": ["2darray", "categorical", "string"], "allow_nan": True}
+
     def fit(self, X: pd.DataFrame, y=None) -> Self:
         """
         Fit the imputer on X.
@@ -144,8 +163,10 @@ class _Imputer(_BaseImputer):
         self : Self
             Returns self.
         """
-        _ = self._validate_data(X, force_all_finite="allow-nan")
-        df = self._check_input(X)
+
+        df = self._validate_input(X)
+        self.n_features_in_ = len(df.columns)
+
         for column in df:
             if df[column].isnull().all():
                 raise ValueError("Input contains a column full of NaN")
@@ -188,7 +209,7 @@ class _Imputer(_BaseImputer):
             Imputed dataframe.
         """
 
-        df = self._check_input(X)
+        df = self._validate_input(X)
         if tuple(df.columns) != self.columns_:
             raise ValueError(
                 """The number of features is different from the counterpart in fit.
@@ -211,10 +232,6 @@ class _Imputer(_BaseImputer):
             else:
                 df_imputed = self._transform_allgroups(df)
 
-        if df_imputed.isna().any().any():
-            raise AssertionError("Result of imputation contains NaN!")
-
-        df_imputed = df_imputed.astype(float)
         if isinstance(X, (np.ndarray)):
             df_imputed = df_imputed.to_numpy()
 
@@ -256,7 +273,12 @@ class _Imputer(_BaseImputer):
             Dataframe df imputed by the median of each column.
         """
         self._check_dataframe(df)
-        return df.fillna(df.median())
+        cols_with_nan = df.columns[df.isna().any()]
+        for col in cols_with_nan:
+            if pd.api.types.is_numeric_dtype(df[col]):
+                df[col] = df[col].fillna(df[col].median())
+            df[col] = df[col].fillna(df[col].mode()[0])
+        return df
 
     def _fit_allgroups(self, df: pd.DataFrame, col: str = "__all__") -> Self:
         """
@@ -460,7 +482,7 @@ class ImputerOracle(_Imputer):
         pd.DataFrame
             dataframe imputed with premasked values
         """
-        df = self._check_input(X)
+        df = self._validate_input(X)
 
         if tuple(df.columns) != self.columns_:
             raise ValueError(
@@ -470,7 +492,7 @@ class ImputerOracle(_Imputer):
         if hasattr(self, "df_solution"):
             df_imputed = df.fillna(self.df_solution)
         else:
-            print("OracleImputer not initialized! Returning imputation with zeros")
+            warnings.warn("OracleImputer not initialized! Returning imputation with zeros")
             df_imputed = df.fillna(0)
 
         if isinstance(X, (np.ndarray)):
@@ -1455,7 +1477,7 @@ class ImputerRegressor(_Imputer):
         Estimator for imputing a column based on the others
     handler_nan : str
         Can be `fit, `row` or `column`:
-        - if `fit`, the estimator is assumed to be fitted on parcelar data,
+        - if `fit`, the estimator is assumed to be robust to missing values
         - if `row` all non complete rows will be removed from the train dataset, and will not be
         used for the inferance,
         - if `column` all non complete columns will be ignored.
@@ -1504,11 +1526,11 @@ class ImputerRegressor(_Imputer):
 
     def _predict_estimator(self, estimator, X) -> pd.Series:
         pred = estimator.predict(X)
-        return pd.Series(pred, index=X.index, dtype=float)
+        return pd.Series(pred, index=X.index)
 
     def get_Xy_valid(self, df: pd.DataFrame, col: str) -> Tuple[pd.DataFrame, pd.Series]:
         X = df.drop(columns=col, errors="ignore")
-        if self.handler_nan == "fit":
+        if self.handler_nan == "none":
             pass
         elif self.handler_nan == "row":
             X = X.loc[~X.isna().any(axis=1)]
@@ -1518,6 +1540,7 @@ class ImputerRegressor(_Imputer):
             raise ValueError(
                 f"Value '{self.handler_nan}' is not correct for argument `handler_nan'"
             )
+        # X = pd.get_dummies(X, prefix_sep="=")
         y = df.loc[X.index, col]
         return X, y
 
@@ -1557,11 +1580,13 @@ class ImputerRegressor(_Imputer):
 
             # Selects only non-NaN values for the Test Set
             is_na = y.isna()
+            X = X[~is_na]
+            y = y[~is_na]
 
             # Train the model according to an ML or DL method and after predict the imputation
-            if not X[~is_na].empty:
+            if not X.empty:
                 estimator = copy.deepcopy(self.estimator)
-                dict_estimators[col] = self._fit_estimator(estimator, X[~is_na], y[~is_na])
+                dict_estimators[col] = self._fit_estimator(estimator, X, y)
             else:
                 dict_estimators[col] = None
         return dict_estimators
@@ -1595,7 +1620,6 @@ class ImputerRegressor(_Imputer):
         self._check_dataframe(df)
         assert col == "__all__"
 
-        # df_imputed = df.apply(pd.DataFrame.median, result_type="broadcast", axis=0)
         df_imputed = df.copy()
         cols_with_nans = df.columns[df.isna().any()]
         for col in cols_with_nans:
