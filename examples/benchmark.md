@@ -228,6 +228,10 @@ We now run just one time each algorithm on the initial corrupted dataframe and v
 df_plot = df_data[cols_to_impute]
 ```
 
+```python
+df_plot = data.add_datetime_features(df_plot, col_time="date")
+```
+
 ```python tags=[]
 dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_imputers.items()}
 ```
