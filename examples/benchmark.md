@@ -16,6 +16,9 @@ jupyter:
 **This notebook aims to present the Qolmat repo through an example of a multivariate time series.
 In Qolmat, a few data imputation methods are implemented as well as a way to evaluate their performance.**
 
+```python
+
+```
 
 First, import some useful librairies
 

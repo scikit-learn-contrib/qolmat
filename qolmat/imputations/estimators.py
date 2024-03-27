@@ -1,8 +1,9 @@
-from typing import Optional
+import copy
+from typing import List, Optional
 import numpy as np
 import pandas as pd
 from sklearn.compose import make_column_selector as selector
-from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler
+from sklearn.preprocessing import OrdinalEncoder, StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.ensemble import (
     HistGradientBoostingRegressor,
@@ -20,6 +21,9 @@ from sklearn.utils.validation import (
     check_array,
     check_is_fitted,
 )
+
+from category_encoders.one_hot import OneHotEncoder
+
 
 from typing_extensions import Self
 from numpy.typing import NDArray
@@ -127,10 +131,11 @@ class BinTransformer(TransformerMixin, BaseEstimator):
     to the closest existing one.
     """
 
-    def __init__(self):
+    def __init__(self, cols: Optional[List] = None):
         super().__init__()
+        self.cols = cols
 
-    def fit(self, X: NDArray, y: Optional[NDArray] = None):
+    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> Self:
         """
         Fit the BinTransformer to X.
 
@@ -151,7 +156,8 @@ class BinTransformer(TransformerMixin, BaseEstimator):
         X = check_array(X, accept_sparse=False, force_all_finite="allow-nan", ensure_2d=False)
         df = pd.DataFrame(X)
         self.dict_df_bins_ = dict()
-        for col in df:
+        cols = df.columns if self.cols is None else self.cols
+        for col in cols:
             values = df[col]
             values = values.dropna()
             df_bins = pd.DataFrame({"value": np.sort(values.unique())})
@@ -175,14 +181,16 @@ class BinTransformer(TransformerMixin, BaseEstimator):
         """
         X_arr = check_array(X, accept_sparse=False, force_all_finite="allow-nan", ensure_2d=False)
         df = pd.DataFrame(X_arr)
-        print(df)
         list_values_out = []
         for col in df:
             values = df[col]
-            df_bins = self.dict_df_bins_[col]
-            bins_X = np.digitize(values, df_bins["min"]) - 1
-            values_out = df_bins.loc[bins_X, "value"].values
-            values_out = np.where(np.isnan(values), np.nan, values_out)
+            if col in self.dict_df_bins_.keys():
+                df_bins = self.dict_df_bins_[col]
+                bins_X = np.digitize(values, df_bins["min"]) - 1
+                values_out = df_bins.loc[bins_X, "value"].values
+                values_out = np.where(np.isnan(values), np.nan, values_out)
+            else:
+                values_out = values
             list_values_out.append(values_out)
         X_out = np.vstack(list_values_out).T
         X_out = X_out.reshape(X_arr.shape)
@@ -216,6 +224,43 @@ class BinTransformer(TransformerMixin, BaseEstimator):
         return {"X_types": ["2darray"], "allow_nan": True}
 
 
+class WrapperTransformer(TransformerMixin, BaseEstimator):
+    """
+    Wraps a transformer with reversible transformers designed to embed the data.
+    """
+
+    def __init__(self, transformer: TransformerMixin, list_wrappers: List[TransformerMixin]):
+        super().__init__()
+        self.transformer = transformer
+        self.list_wrappers = list_wrappers
+
+    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> Self:
+        X_transformed = copy.deepcopy(X)
+        for wrapper in self.list_wrappers:
+            X_transformed = wrapper.fit_transform(X_transformed)
+        X_transformed = self.transformer.fit(X_transformed)
+        return self
+
+    def fit_transform(self, X: NDArray) -> Self:
+        X_transformed = copy.deepcopy(X)
+        for wrapper in self.list_wrappers:
+            X_transformed = wrapper.fit_transform(X_transformed)
+        # print("Shape after transformation:", X_transformed.shape)
+        X_transformed = self.transformer.fit_transform(X_transformed)
+        for wrapper in self.list_wrappers[::-1]:
+            X_transformed = wrapper.inverse_transform(X_transformed)
+        return X_transformed
+
+    def transform(self, X: NDArray) -> Self:
+        X_transformed = copy.deepcopy(X)
+        for wrapper in self.list_wrappers:
+            X_transformed = wrapper.transform(X_transformed)
+        X_transformed = self.transformer.transform(X_transformed)
+        for wrapper in self.list_wrappers[::-1]:
+            X_transformed = wrapper.inverse_transform(X_transformed)
+        return X_transformed
+
+
 def make_pipeline_mixte_preprocessing(
     scale_numerical: bool = True,
 ) -> BaseEstimator:
@@ -240,7 +285,7 @@ def make_pipeline_mixte_preprocessing(
     transformers.append(
         (
             "cat",
-            OneHotEncoder(handle_unknown="ignore", sparse_output=False),
+            OneHotEncoder(handle_unknown="ignore", use_cat_names=True),
             selector(dtype_exclude=np.number),
         )
     )

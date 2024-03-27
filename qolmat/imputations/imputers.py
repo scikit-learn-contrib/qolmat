@@ -11,6 +11,7 @@ from scipy import sparse
 import pandas as pd
 import sklearn as skl
 from sklearn import utils as sku
+from sklearn.impute import SimpleImputer
 from sklearn.base import BaseEstimator
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer, KNNImputer
@@ -806,6 +807,99 @@ class ImputerMode(_Imputer):
         return df
 
 
+class ImputerSimple(_Imputer):
+    """
+    Impute each column by its mean, its median or its mode (if its categorical).
+
+    Parameters
+    ----------
+    groups: Tuple[str, ...]
+        List of column names to group by, by default []
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> from qolmat.imputations import imputers
+    >>> imputer = imputers.ImputerSimple()
+    >>> df = pd.DataFrame(data=[[1, 1, 1, 1],
+    ...                         [np.nan, np.nan, np.nan, np.nan],
+    ...                         [1, 2, 2, 5],
+    ...                         [2, 2, 2, 2]],
+    ...                         columns=["var1", "var2", "var3", "var4"])
+    >>> imputer.fit_transform(df)
+       var1  var2  var3  var4
+    0   1.0   1.0   1.0   1.0
+    1   1.0   2.0   2.0   2.0
+    2   1.0   2.0   2.0   5.0
+    3   2.0   2.0   2.0   2.0
+    """
+
+    def __init__(self, groups: Tuple[str, ...] = (), strategy="median") -> None:
+        super().__init__(groups=groups, columnwise=True, shrink=True)
+        self.strategy = strategy
+
+    def _fit_element(self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0) -> Any:
+        """
+        Fits the imputer on `df`, at the group and/or column level depending onself.groups and
+        self.columnwise.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe on which the imputer is fitted
+        col : str, optional
+            Column on which the imputer is fitted, by default "__all__"
+        ngroup : int, optional
+            Id of the group on which the method is applied
+
+        Returns
+        -------
+        Any
+            Return fitted KNN model
+
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
+        """
+        if pd.api.types.is_numeric_dtype(df[col]):
+            model = skl.impute.SimpleImputer(strategy=self.strategy)
+        else:
+            model = skl.impute.SimpleImputer(strategy="most_frequent")
+        return model.fit(df[[col]])
+
+    def _transform_element(
+        self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
+    ) -> pd.DataFrame:
+        """
+        Transforms the dataframe `df`, at the group and/or column level depending on self.groups
+        and self.columnwise.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe or column to impute
+        col : str, optional
+            Column transformed by the imputer, by default "__all__"
+        ngroup : int, optional
+            Id of the group on which the method is applied
+
+        Returns
+        -------
+        pd.DataFrame
+            Imputed dataframe.
+
+        Raises
+        ------
+        NotDataFrame
+            Input has to be a pandas.DataFrame.
+        """
+        model = self._dict_fitting[col][ngroup]
+        X_imputed = model.fit_transform(df)
+        return pd.DataFrame(data=X_imputed, columns=df.columns, index=df.index)
+
+
 class ImputerShuffle(_Imputer):
     """
     Impute using random samples from the considered column.
@@ -1362,6 +1456,24 @@ class ImputerKNN(_Imputer):
 
 
 class ImputerMICE(_Imputer):
+    """
+    Wrapper of the class sklearn.impute.IterativeImputer in our framework. This imputer relies
+    on a estimator which is iteratively
+
+    Parameters
+    ----------
+    groups : Tuple[str, ...], optional
+        _description_, by default ()
+    estimator : Optional[BaseEstimator], optional
+        _description_, by default None
+    random_state : Union[None, int, np.random.RandomState], optional
+        _description_, by default None
+    sample_posterior : bool, optional
+        _description_, by default False
+    max_iter : int, optional
+        _description_, by default 100
+    """
+
     def __init__(
         self,
         groups: Tuple[str, ...] = (),
@@ -1370,21 +1482,6 @@ class ImputerMICE(_Imputer):
         sample_posterior=False,
         max_iter=100,
     ) -> None:
-        """_summary_
-
-        Parameters
-        ----------
-        groups : Tuple[str, ...], optional
-            _description_, by default ()
-        estimator : Optional[BaseEstimator], optional
-            _description_, by default None
-        random_state : Union[None, int, np.random.RandomState], optional
-            _description_, by default None
-        sample_posterior : bool, optional
-            _description_, by default False
-        max_iter : int, optional
-            _description_, by default 100
-        """
         super().__init__(
             imputer_params=("sample_posterior", "max_iter"),
             groups=groups,
