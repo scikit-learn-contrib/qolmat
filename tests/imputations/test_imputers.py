@@ -16,6 +16,10 @@ df_incomplete = pd.DataFrame(
     {"col1": [0, np.nan, 2, 3, np.nan], "col2": [-1, np.nan, 0.5, np.nan, 1.5]}
 )
 
+df_mixed = pd.DataFrame(
+    {"col1": [0, np.nan, 2, 3, np.nan], "col2": ["a", np.nan, "b", np.nan, "b"]}
+)
+
 df_timeseries = pd.DataFrame(
     pd.DataFrame(
         {
@@ -92,9 +96,7 @@ def test_hyperparameters_get_hyperparameters_modified(
 @pytest.mark.parametrize(
     "imputer",
     [
-        imputers.ImputerMean(),
-        imputers.ImputerMedian(),
-        imputers.ImputerMode(),
+        imputers.ImputerSimple(),
         imputers.ImputerShuffle(),
         imputers.ImputerLOCF(),
         imputers.ImputerNOCB(),
@@ -109,13 +111,13 @@ def test_Imputer_fit_transform_on_nan_column(df: pd.DataFrame, imputer: imputers
 
 @pytest.mark.parametrize("df", "string")
 def test_fit_transform_not_on_pandas(df: Any) -> None:
-    imputer = imputers.ImputerMean()
+    imputer = imputers.ImputerSimple()
     np.testing.assert_raises(ValueError, imputer.fit_transform, df)
 
 
 @pytest.mark.parametrize("df", [df_groups])
 def test_fit_transform_on_grouped(df: pd.DataFrame) -> None:
-    imputer = imputers.ImputerMean(groups=("col1",))
+    imputer = imputers.ImputerSimple(groups=("col1",))
     result = imputer.fit_transform(df)
     expected = pd.DataFrame(
         {
@@ -136,29 +138,27 @@ def test_ImputerOracle_fit_transform(df: pd.DataFrame, df_oracle: pd.DataFrame) 
     np.testing.assert_allclose(result, expected)
 
 
-@pytest.mark.parametrize("df", [df_incomplete])
-def test_ImputerMean_fit_transform(df: pd.DataFrame) -> None:
-    imputer = imputers.ImputerMean()
+@pytest.mark.parametrize("df", [df_mixed])
+def test_ImputerSimple_mean_fit_transform(df: pd.DataFrame) -> None:
+    imputer = imputers.ImputerSimple(strategy="mean")
     result = imputer.fit_transform(df)
-    expected = pd.DataFrame(
-        {"col1": [0, 5 / 3, 2, 3, 5 / 3], "col2": [-1, 1 / 3, 0.5, 1 / 3, 1.5]}
-    )
+    expected = pd.DataFrame({"col1": [0, 5 / 3, 2, 3, 5 / 3], "col2": ["a", "b", "b", "b", "b"]})
     np.testing.assert_allclose(result, expected)
 
 
-@pytest.mark.parametrize("df", [df_incomplete])
-def test_ImputerMedian_fit_transform(df: pd.DataFrame) -> None:
-    imputer = imputers.ImputerMedian()
+@pytest.mark.parametrize("df", [df_mixed])
+def test_ImputerSimple_median_fit_transform(df: pd.DataFrame) -> None:
+    imputer = imputers.ImputerSimple()
     result = imputer.fit_transform(df)
-    expected = pd.DataFrame({"col1": [0, 2, 2, 3, 2], "col2": [-1, 0.5, 0.5, 0.5, 1.5]})
+    expected = pd.DataFrame({"col1": [0, 2, 2, 3, 2], "col2": ["a", "b", "b", "b", "b"]})
     np.testing.assert_allclose(result, expected)
 
 
-@pytest.mark.parametrize("df", [df_incomplete])
-def test_ImputerMode_fit_transform(df: pd.DataFrame) -> None:
-    imputer = imputers.ImputerMode()
+@pytest.mark.parametrize("df", [df_mixed])
+def test_ImputerSimple_mode_fit_transform(df: pd.DataFrame) -> None:
+    imputer = imputers.ImputerSimple(strategy="most_frequent")
     result = imputer.fit_transform(df)
-    expected = pd.DataFrame({"col1": [0, 0, 2, 3, 0], "col2": [-1, -1, 0.5, -1, 1.5]})
+    expected = pd.DataFrame({"col1": [0, 0, 2, 3, 0], "col2": ["a", "b", "b", "b", "b"]})
     np.testing.assert_allclose(result, expected)
 
 
@@ -277,9 +277,7 @@ dict_values = {
 df_grouped = pd.DataFrame(dict_values, index=index_grouped)
 
 list_imputers = [
-    imputers.ImputerMean(groups=("group",)),
-    imputers.ImputerMedian(groups=("group",)),
-    imputers.ImputerMode(groups=("group",)),
+    imputers.ImputerSimple(groups=("group",)),
     imputers.ImputerShuffle(groups=("group",)),
     imputers.ImputerLOCF(groups=("group",)),
     imputers.ImputerNOCB(groups=("group",)),
@@ -306,9 +304,7 @@ def test_models_fit_transform_grouped(imputer):
     [
         imputers._Imputer(),
         imputers.ImputerOracle(),
-        imputers.ImputerMean(),
-        imputers.ImputerMedian(),
-        imputers.ImputerMode(),
+        imputers.ImputerSimple(),
         imputers.ImputerShuffle(),
         imputers.ImputerLOCF(),
         imputers.ImputerNOCB(),
