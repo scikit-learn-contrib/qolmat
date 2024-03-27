@@ -8,6 +8,7 @@ import sklearn
 from sklearn import metrics as skm
 from sklearn.ensemble import BaseEnsemble
 import dcor
+from torch import Value
 
 from qolmat.utils.exceptions import NotEnoughSamples
 
@@ -23,6 +24,7 @@ def columnwise_metric(
     df2: pd.DataFrame,
     df_mask: pd.DataFrame,
     metric: Callable,
+    type_cols: str = "all",
     **kwargs,
 ) -> pd.Series:
     """For each column, compute a metric score based on the true dataframe
@@ -38,14 +40,27 @@ def columnwise_metric(
         Elements of the dataframes to compute on
     metric : Callable
         metric function
+    type_cols : str
+        Can be either:
+        - `all` to apply the metric to all columns
+        - `numerical` to apply the metric to numerical columns only
+        - `categorical` to apply the metric to categorical columns only
 
     Returns
     -------
     pd.Series
         Series of scores for all columns
     """
+    if type_cols == "all":
+        cols = df1.columns
+    elif type_cols == "numerical":
+        cols = df1.select_dtypes(include=["number"]).columns
+    elif type_cols == "categorical":
+        cols = df1.select_dtypes(exclude=["number"]).columns
+    else:
+        raise ValueError(f"Value {type_cols} is not valid for parameter `type_cols`!")
     values = {}
-    for col in df1.columns:
+    for col in cols:
         df1_col = df1.loc[df_mask[col], col]
         df2_col = df2.loc[df_mask[col], col]
         assert df1_col.notna().all()
@@ -167,9 +182,9 @@ def _weighted_mean_absolute_percentage_error_1D(values1: pd.Series, values2: pd.
     Parameters
     ----------
     values1 : pd.Series
-        true series
+        True values
     values2 : pd.Series
-        predicted series
+        Predicted values
 
     Returns
     -------
@@ -198,6 +213,25 @@ def weighted_mean_absolute_percentage_error(
     pd.Series
     """
     return columnwise_metric(df1, df2, df_mask, _weighted_mean_absolute_percentage_error_1D)
+
+
+def accuracy(values1: pd.Series, values2: pd.Series) -> float:
+    """
+    Matching ratio beetween the two datasets.
+
+    Parameters
+    ----------
+    values1 : pd.Series
+        True values
+    values2 : pd.Series
+        Predicted values
+
+    Returns
+    -------
+    float
+        accuracy
+    """
+    return (values1 == values2).mean()
 
 
 def dist_wasserstein(
@@ -1031,6 +1065,10 @@ def get_metric(name: str) -> Callable:
         "rmse": root_mean_squared_error,
         "mae": mean_absolute_error,
         "wmape": weighted_mean_absolute_percentage_error,
+        "accuracy": partial(
+            pattern_based_weighted_mean_metric,
+            metric=accuracy,
+        ),
         "wasserstein_columnwise": dist_wasserstein,
         "KL_columnwise": partial(kl_divergence, method="columnwise"),
         "KL_gaussian": partial(kl_divergence, method="gaussian"),

@@ -76,7 +76,6 @@ class MixteHGBM(RegressorMixin, BaseEstimator):
         X, y = check_X_y(X, y, accept_sparse=True, force_all_finite="allow-nan")
         self.is_fitted_ = True
         self.n_features_in_ = X.shape[1]
-        self.bintransformer_ = None
         if hasattr(self, "args_model"):
             args_model = self.args_model
         else:
@@ -85,9 +84,6 @@ class MixteHGBM(RegressorMixin, BaseEstimator):
             model = HistGradientBoostingClassifier(**args_model)
         elif pd.api.types.is_numeric_dtype(y):
             model = HistGradientBoostingRegressor(**args_model)
-            if not self.allow_new:
-                self.bintransformer_ = BinTransformer().fit(y)
-
         else:
             raise TypeError("Unknown label type")
 
@@ -111,10 +107,6 @@ class MixteHGBM(RegressorMixin, BaseEstimator):
         X = check_array(X, accept_sparse=True, force_all_finite="allow-nan")
         check_is_fitted(self, "is_fitted_")
         y_pred = self.model_.predict(X)
-        if self.bintransformer_ is not None:
-            # bins_y = np.digitize(y_pred, self.df_bins_["min"]) - 1
-            # y_pred = self.df_bins_.loc[bins_y, "value"].values
-            y_pred = self.bintransformer_.transform(y_pred)
         return y_pred
 
     def _more_tags(self):
@@ -229,35 +221,30 @@ class WrapperTransformer(TransformerMixin, BaseEstimator):
     Wraps a transformer with reversible transformers designed to embed the data.
     """
 
-    def __init__(self, transformer: TransformerMixin, list_wrappers: List[TransformerMixin]):
+    def __init__(self, transformer: TransformerMixin, wrapper: TransformerMixin):
         super().__init__()
         self.transformer = transformer
-        self.list_wrappers = list_wrappers
+        self.wrapper = wrapper
 
     def fit(self, X: NDArray, y: Optional[NDArray] = None) -> Self:
         X_transformed = copy.deepcopy(X)
-        for wrapper in self.list_wrappers:
-            X_transformed = wrapper.fit_transform(X_transformed)
+        X_transformed = self.wrapper.fit_transform(X_transformed)
         X_transformed = self.transformer.fit(X_transformed)
         return self
 
     def fit_transform(self, X: NDArray) -> Self:
         X_transformed = copy.deepcopy(X)
-        for wrapper in self.list_wrappers:
-            X_transformed = wrapper.fit_transform(X_transformed)
+        X_transformed = self.wrapper.fit_transform(X_transformed)
         # print("Shape after transformation:", X_transformed.shape)
         X_transformed = self.transformer.fit_transform(X_transformed)
-        for wrapper in self.list_wrappers[::-1]:
-            X_transformed = wrapper.inverse_transform(X_transformed)
+        X_transformed = self.wrapper.inverse_transform(X_transformed)
         return X_transformed
 
     def transform(self, X: NDArray) -> Self:
         X_transformed = copy.deepcopy(X)
-        for wrapper in self.list_wrappers:
-            X_transformed = wrapper.transform(X_transformed)
+        X_transformed = self.wrapper.transform(X_transformed)
         X_transformed = self.transformer.transform(X_transformed)
-        for wrapper in self.list_wrappers[::-1]:
-            X_transformed = wrapper.inverse_transform(X_transformed)
+        X_transformed = self.wrapper.inverse_transform(X_transformed)
         return X_transformed
 
 
