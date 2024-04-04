@@ -2,10 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from sklearn.compose import make_column_selector as selector
-from sklearn.ensemble import (
-    HistGradientBoostingClassifier,
-    HistGradientBoostingRegressor,
-)
+
 from sklearn.pipeline import Pipeline
 from sklearn.base import BaseEstimator
 from sklearn.metrics import mean_squared_error
@@ -13,7 +10,7 @@ from sklearn.utils.estimator_checks import check_estimator
 from sklearn.utils.validation import check_X_y, check_array
 from sklearn.model_selection import train_test_split
 from sklearn.compose import ColumnTransformer
-from qolmat.imputations.estimators import (
+from qolmat.imputations.preprocessing import (
     BinTransformer,
     MixteHGBM,
     make_pipeline_mixte_preprocessing,
@@ -71,33 +68,39 @@ def bin_transformer():
 
 
 def test_fit_transform(bin_transformer):
-    X = np.array([1, 2, 3, np.nan, 5])
-    transformed_X = bin_transformer.fit_transform(X)
-    assert np.array_equal(transformed_X, np.array([1, 2, 3, np.nan, 5]), equal_nan=True)
+    X = np.array([[1, 2, 3, np.nan, 5]]).T
+    X_transformed = bin_transformer.fit_transform(X)
+    assert np.array_equal(X_transformed, X, equal_nan=True)
 
 
 def test_transform(bin_transformer):
     bin_transformer.dict_df_bins_ = {
         0: pd.DataFrame({"value": [1, 2, 3, 4, 5], "min": [-np.inf, 1.5, 2.5, 3.5, 4.5]})
     }
-    X = np.array([4.2, -1, 3.0, 4.5, 12])
-    transformed_X = bin_transformer.transform(X)
-    assert np.array_equal(transformed_X, np.array([4, 1, 3, 5, 5]))
+    X = np.array([[4.2, -1, 3.0, 4.5, 12]]).T
+    X_transformed = bin_transformer.transform(X)
+    print(X_transformed)
+    print(X)
+    assert np.array_equal(X_transformed, np.array([[4, 1, 3, 5, 5]]).T)
 
 
-def test_fit_transform_with_series(bin_transformer):
-    X = pd.Series([1, 2, 3, np.nan, 5])
-    transformed_X = bin_transformer.fit_transform(X)
-    pd.testing.assert_series_equal(transformed_X, pd.Series([1, 2, 3, np.nan, 5]))
+def test_fit_transform_with_dataframes(bin_transformer):
+    X = pd.DataFrame({"0": [1, 2, 3, np.nan, 5]})
+    X_transformed = bin_transformer.fit_transform(X)
+    print(X_transformed)
+    print(X)
+    pd.testing.assert_frame_equal(X_transformed, X)
 
 
-def test_transform_with_series(bin_transformer):
+def test_transform_with_dataframes(bin_transformer):
     bin_transformer.dict_df_bins_ = {
         0: pd.DataFrame({"value": [1, 2, 3, 4, 5], "min": [0.5, 1.5, 2.5, 3.5, 4.5]})
     }
-    X = pd.Series([1, 2, 3, 4, 5])
-    transformed_X = bin_transformer.transform(X)
-    pd.testing.assert_series_equal(transformed_X, pd.Series([1, 2, 3, 4, 5], dtype=float))
+    X = pd.DataFrame({"0": [1, 2, 3, 4, 5]})
+    X_transformed = bin_transformer.transform(X)
+    print(X_transformed)
+    print(X)
+    pd.testing.assert_frame_equal(X_transformed, X)
 
 
 # Testing make_pipeline_mixte_preprocessing
@@ -114,21 +117,21 @@ def test_preprocessing_pipeline(preprocessing_pipeline):
 
     # Test with numerical features
     X_num = pd.DataFrame([[1, 2], [3, 4], [5, 6]])
-    transformed_X = preprocessing_pipeline.fit_transform(X_num)
-    assert isinstance(transformed_X, pd.DataFrame)
-    assert transformed_X.shape[1] == X_num.shape[1]
+    X_transformed = preprocessing_pipeline.fit_transform(X_num)
+    assert isinstance(X_transformed, pd.DataFrame)
+    assert X_transformed.shape[1] == X_num.shape[1]
 
     # Test with categorical features
     X_cat = pd.DataFrame([["a", "b"], ["c", "d"], ["e", "f"]])
-    transformed_X = preprocessing_pipeline.fit_transform(X_cat)
-    assert isinstance(transformed_X, pd.DataFrame)
-    assert transformed_X.shape[1] > X_cat.shape[1]
+    X_transformed = preprocessing_pipeline.fit_transform(X_cat)
+    assert isinstance(X_transformed, pd.DataFrame)
+    assert X_transformed.shape[1] > X_cat.shape[1]
 
     # Test with mixed features
     X_mixed = pd.DataFrame([[1, "a"], [2, "b"], [3, "c"]])
-    transformed_X = preprocessing_pipeline.fit_transform(X_mixed)
-    assert isinstance(transformed_X, pd.DataFrame)
-    assert transformed_X.shape[1] > X_mixed.shape[1]
+    X_transformed = preprocessing_pipeline.fit_transform(X_mixed)
+    assert isinstance(X_transformed, pd.DataFrame)
+    assert X_transformed.shape[1] > X_mixed.shape[1]
 
 
 # Testing make_robust_MixteHGB
