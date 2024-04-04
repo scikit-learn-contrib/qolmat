@@ -13,6 +13,7 @@ from sklearn.compose import ColumnTransformer
 from qolmat.imputations.preprocessing import (
     BinTransformer,
     MixteHGBM,
+    OneHotEncoderProjector,
     make_pipeline_mixte_preprocessing,
     make_robust_MixteHGB,
 )
@@ -37,11 +38,11 @@ def robust_mixte_hgb_model():
     return make_robust_MixteHGB()
 
 
-def test_estimator(mixte_hgb_model):
+def test_sklearn_MixteHGB(mixte_hgb_model):
     check_estimator(mixte_hgb_model)
 
 
-def test_fit_predict(mixte_hgb_model):
+def test_fit_predict_MixteHGB(mixte_hgb_model):
     # Test fitting and predicting with numeric target
     X_train, X_test, y_train, y_test = train_test_split(
         X_num, y_numeric, test_size=0.2, random_state=42
@@ -59,7 +60,9 @@ def test_fit_predict(mixte_hgb_model):
     assert len(y_pred) == len(X_test)
 
 
-# Testing BinTransformer
+##########################
+# Testing BinTransformer #
+##########################
 
 
 @pytest.fixture
@@ -67,43 +70,69 @@ def bin_transformer():
     return BinTransformer()
 
 
-def test_fit_transform(bin_transformer):
+def test_sklearn_BinTransformer(bin_transformer):
+    check_estimator(bin_transformer)
+
+
+def test_fit_transform_BinTransformer(bin_transformer):
     X = np.array([[1, 2, 3, np.nan, 5]]).T
     X_transformed = bin_transformer.fit_transform(X)
     assert np.array_equal(X_transformed, X, equal_nan=True)
 
 
-def test_transform(bin_transformer):
+def test_transform_BinTransformer(bin_transformer):
     bin_transformer.dict_df_bins_ = {
         0: pd.DataFrame({"value": [1, 2, 3, 4, 5], "min": [-np.inf, 1.5, 2.5, 3.5, 4.5]})
     }
+    bin_transformer.feature_names_in_ = pd.Index([0])
+    bin_transformer.n_features_in_ = 1
     X = np.array([[4.2, -1, 3.0, 4.5, 12]]).T
     X_transformed = bin_transformer.transform(X)
-    print(X_transformed)
-    print(X)
     assert np.array_equal(X_transformed, np.array([[4, 1, 3, 5, 5]]).T)
 
 
-def test_fit_transform_with_dataframes(bin_transformer):
+def test_fit_transform_with_dataframes_BinTransformer(bin_transformer):
     X = pd.DataFrame({"0": [1, 2, 3, np.nan, 5]})
     X_transformed = bin_transformer.fit_transform(X)
-    print(X_transformed)
-    print(X)
     pd.testing.assert_frame_equal(X_transformed, X)
 
 
-def test_transform_with_dataframes(bin_transformer):
+def test_transform_with_dataframes_BinTransformer(bin_transformer):
     bin_transformer.dict_df_bins_ = {
         0: pd.DataFrame({"value": [1, 2, 3, 4, 5], "min": [0.5, 1.5, 2.5, 3.5, 4.5]})
     }
+    bin_transformer.feature_names_in_ = pd.Index(["0"])
+    bin_transformer.n_features_in_ = 1
     X = pd.DataFrame({"0": [1, 2, 3, 4, 5]})
     X_transformed = bin_transformer.transform(X)
-    print(X_transformed)
-    print(X)
     pd.testing.assert_frame_equal(X_transformed, X)
 
 
-# Testing make_pipeline_mixte_preprocessing
+##################################
+# Testing OneHotEncoderProjector #
+##################################
+
+
+@pytest.fixture
+def encoder():
+    return OneHotEncoderProjector()
+
+
+def test_inverse_transform_OneHotEncoderProjector(encoder):
+    df = pd.DataFrame({"C1": ["a", "b", "b"], "C2": ["c", "d", "c"]})
+    df_dum = encoder.fit_transform(df)
+
+    df_back = encoder.inverse_transform(df_dum)
+    pd.testing.assert_frame_equal(df, df_back)
+
+    df_dum_perturbated = df_dum + np.random.uniform(-0.5, 0.5, size=df_dum.shape)
+    df_back = encoder.inverse_transform(df_dum_perturbated)
+    pd.testing.assert_frame_equal(df, df_back)
+
+
+#############################################
+# Testing make_pipeline_mixte_preprocessing #
+#############################################
 
 
 @pytest.fixture

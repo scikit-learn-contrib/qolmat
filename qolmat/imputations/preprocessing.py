@@ -147,6 +147,8 @@ class BinTransformer(TransformerMixin, BaseEstimator):
             Fitted transformer.
         """
         df = utils._validate_input(X)
+        self.feature_names_in_ = df.columns
+        self.n_features_in_ = len(df.columns)
         self.dict_df_bins_: Dict[Hashable, pd.DataFrame] = dict()
         cols = df.columns if self.cols is None else self.cols
         for col in cols:
@@ -174,6 +176,14 @@ class BinTransformer(TransformerMixin, BaseEstimator):
             Transformed input.
         """
         df = utils._validate_input(X)
+        check_is_fitted(self)
+        if (
+            not hasattr(self, "feature_names_in_")
+            or df.columns.to_list() != self.feature_names_in_.to_list()
+        ):
+            raise ValueError(
+                "Feature names in X {df.columns} don't match with expected {feature_names_in_}"
+            )
         df_out = df.copy()
         for col in df:
             values = df[col]
@@ -183,6 +193,8 @@ class BinTransformer(TransformerMixin, BaseEstimator):
                 values_out = df_bins.loc[bins_X, "value"]
                 values_out.index = values.index
                 df_out[col] = values_out.where(values.notna(), np.nan)
+        if isinstance(X, np.ndarray):
+            return df_out.values
         return df_out
 
     def inverse_transform(self, X: NDArray) -> NDArray:
@@ -201,6 +213,13 @@ class BinTransformer(TransformerMixin, BaseEstimator):
         """
         return self.transform(X)
 
+    def _more_tags(self):
+        """
+        This method indicates that this class allows inputs with categorical data and nans. It
+        modifies the behaviour of the functions checking data.
+        """
+        return {"X_types": ["2darray", "categorical", "string"], "allow_nan": True}
+
 
 class OneHotEncoderProjector(OneHotEncoder):
     """
@@ -212,7 +231,7 @@ class OneHotEncoderProjector(OneHotEncoder):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def reverse_dummies(self, X, mapping):
+    def reverse_dummies(self, X: pd.DataFrame, mapping: Dict) -> pd.DataFrame:
         """
         Convert dummy variable into numerical variables
 
