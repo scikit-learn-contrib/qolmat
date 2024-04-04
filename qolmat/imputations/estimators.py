@@ -1,16 +1,15 @@
 import copy
-from typing import List, Optional
+from typing import Any, Dict, Hashable, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 from sklearn.compose import make_column_selector as selector
-from sklearn.preprocessing import OrdinalEncoder, StandardScaler
+from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.ensemble import (
     HistGradientBoostingRegressor,
     HistGradientBoostingClassifier,
 )
 from sklearn.compose import ColumnTransformer
-from sklearn.impute import SimpleImputer
 from sklearn.base import (
     BaseEstimator,
     RegressorMixin,
@@ -27,6 +26,8 @@ from category_encoders.one_hot import OneHotEncoder
 
 from typing_extensions import Self
 from numpy.typing import NDArray
+
+from qolmat.utils import utils
 
 
 class MixteHGBM(RegressorMixin, BaseEstimator):
@@ -145,12 +146,13 @@ class BinTransformer(TransformerMixin, BaseEstimator):
         self : object
             Fitted transformer.
         """
-        X = check_array(X, accept_sparse=False, force_all_finite="allow-nan", ensure_2d=False)
-        df = pd.DataFrame(X)
-        self.dict_df_bins_ = dict()
+        df = utils._validate_input(X)
+        self.dict_df_bins_: Dict[Hashable, pd.DataFrame] = dict()
         cols = df.columns if self.cols is None else self.cols
         for col in cols:
             values = df[col]
+            if not pd.api.types.is_numeric_dtype(values):
+                raise TypeError
             values = values.dropna()
             df_bins = pd.DataFrame({"value": np.sort(values.unique())})
             df_bins["min"] = (df_bins["value"] + df_bins["value"].shift()) / 2
@@ -171,26 +173,17 @@ class BinTransformer(TransformerMixin, BaseEstimator):
         X_out : ndarray of shape (n_samples,)
             Transformed input.
         """
-        X_arr = check_array(X, accept_sparse=False, force_all_finite="allow-nan", ensure_2d=False)
-        df = pd.DataFrame(X_arr)
-        list_values_out = []
+        df = utils._validate_input(X)
+        df_out = df.copy()
         for col in df:
             values = df[col]
             if col in self.dict_df_bins_.keys():
                 df_bins = self.dict_df_bins_[col]
                 bins_X = np.digitize(values, df_bins["min"]) - 1
-                values_out = df_bins.loc[bins_X, "value"].values
-                values_out = np.where(np.isnan(values), np.nan, values_out)
-            else:
-                values_out = values
-            list_values_out.append(values_out)
-        X_out = np.vstack(list_values_out).T
-        X_out = X_out.reshape(X_arr.shape)
-        if isinstance(X, pd.DataFrame):
-            X_out = pd.DataFrame(X_out, index=X.index, columns=X.columns)
-        elif isinstance(X, pd.Series):
-            X_out = pd.Series(X_out, index=X.index)
-        return X_out
+                values_out = df_bins.loc[bins_X, "value"]
+                values_out.index = values.index
+                df_out[col] = values_out.where(values.notna(), np.nan)
+        return df_out
 
     def inverse_transform(self, X: NDArray) -> NDArray:
         """
@@ -208,12 +201,49 @@ class BinTransformer(TransformerMixin, BaseEstimator):
         """
         return self.transform(X)
 
-    def _more_tags(self):
+
+class OneHotEncoderProjector(OneHotEncoder):
+    """
+    Inherits from the class OneHotEncoder imported from category_encoders. The decoding
+    function accepts non boolean values (as it is the case for the sklearn OneHotEncoder). In
+    this case the decoded value corresponds to the largest dummy value.
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def reverse_dummies(self, X, mapping):
         """
-        This method indicates that this class allows inputs with categorical data and nans. It
-        modifies the behaviour of the functions checking data.
+        Convert dummy variable into numerical variables
+
+        Parameters
+        ----------
+        X : DataFrame
+        mapping: list-like
+              Contains mappings of column to be transformed to it's new columns and value
+              represented
+
+        Returns
+        -------
+        numerical: DataFrame
+
         """
-        return {"X_types": ["2darray"], "allow_nan": True}
+        out_cols = X.columns.tolist()
+        mapped_columns = []
+        for switch in mapping:
+            col = switch.get("col")
+            mod = switch.get("mapping")
+            insert_at = out_cols.index(mod.columns[0])
+            X.insert(insert_at, col, 0)
+            positive_indexes = mod.index[mod.index > 0]
+            max_code = X[mod.columns].max(axis=1)
+            for existing_col, val in zip(mod.columns, positive_indexes):
+                X.loc[X[existing_col] == max_code, col] = val
+                mapped_columns.append(existing_col)
+            X = X.drop(mod.columns, axis=1)
+            out_cols = X.columns.tolist()
+
+        return X
 
 
 class WrapperTransformer(TransformerMixin, BaseEstimator):
@@ -235,7 +265,6 @@ class WrapperTransformer(TransformerMixin, BaseEstimator):
     def fit_transform(self, X: NDArray) -> Self:
         X_transformed = copy.deepcopy(X)
         X_transformed = self.wrapper.fit_transform(X_transformed)
-        # print("Shape after transformation:", X_transformed.shape)
         X_transformed = self.transformer.fit_transform(X_transformed)
         X_transformed = self.wrapper.inverse_transform(X_transformed)
         return X_transformed
@@ -265,17 +294,11 @@ def make_pipeline_mixte_preprocessing(
     preprocessor : Pipeline
         Preprocessing pipeline
     """
+    transformers: List[Tuple] = []
     if scale_numerical:
-        transformers = [("num", StandardScaler(), selector(dtype_include=np.number))]
-    else:
-        transformers = []
-    transformers.append(
-        (
-            "cat",
-            OneHotEncoder(handle_unknown="ignore", use_cat_names=True),
-            selector(dtype_exclude=np.number),
-        )
-    )
+        transformers += [("num", StandardScaler(), selector(dtype_include=np.number))]
+    ohe = OneHotEncoder(handle_unknown="ignore", use_cat_names=True)
+    transformers += [("cat", ohe, selector(dtype_exclude=np.number))]
     preprocessor = ColumnTransformer(transformers=transformers).set_output(transform="pandas")
     return preprocessor
 

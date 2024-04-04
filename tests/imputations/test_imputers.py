@@ -122,10 +122,10 @@ def test_fit_transform_on_grouped(df: pd.DataFrame) -> None:
     expected = pd.DataFrame(
         {
             "col1": [1, 1, 0, 1],
-            "col2": [1, 2, 0, 3],
+            "col2": [1.0, 2.0, 0.0, 3.0],
         }
     )
-    np.testing.assert_allclose(result, expected)
+    pd.testing.assert_frame_equal(result, expected)
 
 
 @pytest.mark.parametrize("df", [df_incomplete])
@@ -143,23 +143,23 @@ def test_ImputerSimple_mean_fit_transform(df: pd.DataFrame) -> None:
     imputer = imputers.ImputerSimple(strategy="mean")
     result = imputer.fit_transform(df)
     expected = pd.DataFrame({"col1": [0, 5 / 3, 2, 3, 5 / 3], "col2": ["a", "b", "b", "b", "b"]})
-    np.testing.assert_allclose(result, expected)
+    pd.testing.assert_frame_equal(result, expected)
 
 
 @pytest.mark.parametrize("df", [df_mixed])
 def test_ImputerSimple_median_fit_transform(df: pd.DataFrame) -> None:
     imputer = imputers.ImputerSimple()
     result = imputer.fit_transform(df)
-    expected = pd.DataFrame({"col1": [0, 2, 2, 3, 2], "col2": ["a", "b", "b", "b", "b"]})
-    np.testing.assert_allclose(result, expected)
+    expected = pd.DataFrame({"col1": [0.0, 2.0, 2.0, 3.0, 2.0], "col2": ["a", "b", "b", "b", "b"]})
+    pd.testing.assert_frame_equal(result, expected)
 
 
 @pytest.mark.parametrize("df", [df_mixed])
 def test_ImputerSimple_mode_fit_transform(df: pd.DataFrame) -> None:
     imputer = imputers.ImputerSimple(strategy="most_frequent")
     result = imputer.fit_transform(df)
-    expected = pd.DataFrame({"col1": [0, 0, 2, 3, 0], "col2": ["a", "b", "b", "b", "b"]})
-    np.testing.assert_allclose(result, expected)
+    expected = pd.DataFrame({"col1": [0.0, 0.0, 2.0, 3.0, 0.0], "col2": ["a", "b", "b", "b", "b"]})
+    pd.testing.assert_frame_equal(result, expected)
 
 
 @pytest.mark.parametrize("df", [pd.DataFrame({"col1": [1, 1, np.nan]})])

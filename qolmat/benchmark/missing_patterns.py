@@ -136,12 +136,6 @@ class _HoleGenerator:
             self.subset = columns_with_nans
         elif isinstance(self.subset, str):
             raise SubsetIsAString(self.subset)
-        # else:
-        #     subset_without_nans = [
-        #         column for column in self.subset if column not in columns_with_nans
-        #     ]
-        #     if len(subset_without_nans) > 0:
-        #         raise NoMissingValue(subset_without_nans)
 
 
 class UniformHoleGenerator(_HoleGenerator):

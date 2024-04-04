@@ -95,37 +95,6 @@ class _Imputer(_BaseImputer):
                     hyperparams[name_param] = value
         return hyperparams
 
-    def _validate_input(self, X: NDArray) -> pd.DataFrame:
-        """
-        Checks that the input X can be converted into a DataFrame, and returns the corresponding
-        dataframe.
-
-        Parameters
-        ----------
-        X : NDArray
-            Array-like to process
-
-        Returns
-        -------
-        pd.DataFrame
-            Formatted dataframe, if the input had no column names then the dataframe columns are
-            integers
-        """
-        check_array(X, force_all_finite="allow-nan", dtype=None)
-        if not isinstance(X, pd.DataFrame):
-            X_np = np.array(X)
-            if len(X_np.shape) == 0:
-                raise ValueError
-            if len(X_np.shape) == 1:
-                X_np = X_np.reshape(-1, 1)
-            df = pd.DataFrame(X_np, columns=[i for i in range(X_np.shape[1])])
-            df = df.infer_objects()
-        else:
-            df = X
-        # df = df.astype(float)
-
-        return df
-
     def _check_dataframe(self, X: NDArray):
         """
         Checks that the input X is a dataframe, otherwise raises an error.
@@ -165,7 +134,7 @@ class _Imputer(_BaseImputer):
             Returns self.
         """
 
-        df = self._validate_input(X)
+        df = utils._validate_input(X)
         self.n_features_in_ = len(df.columns)
 
         for column in df:
@@ -210,7 +179,7 @@ class _Imputer(_BaseImputer):
             Imputed dataframe.
         """
 
-        df = self._validate_input(X)
+        df = utils._validate_input(X)
         if tuple(df.columns) != self.columns_:
             raise ValueError(
                 """The number of features is different from the counterpart in fit.
@@ -483,7 +452,7 @@ class ImputerOracle(_Imputer):
         pd.DataFrame
             dataframe imputed with premasked values
         """
-        df = self._validate_input(X)
+        df = utils._validate_input(X)
 
         if tuple(df.columns) != self.columns_:
             raise ValueError(
@@ -530,7 +499,7 @@ class ImputerSimple(_Imputer):
     """
 
     def __init__(self, groups: Tuple[str, ...] = (), strategy="median") -> None:
-        super().__init__(groups=groups, columnwise=True, shrink=True)
+        super().__init__(groups=groups, columnwise=True, shrink=False)
         self.strategy = strategy
 
     def _fit_element(self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0) -> Any:

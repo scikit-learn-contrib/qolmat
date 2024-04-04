@@ -4,11 +4,8 @@ from typing import Callable, Dict, List, Optional
 import numpy as np
 import pandas as pd
 import scipy
-import sklearn
 from sklearn import metrics as skm
-from sklearn.ensemble import BaseEnsemble
 import dcor
-from torch import Value
 
 from qolmat.utils.exceptions import NotEnoughSamples
 
@@ -1066,7 +1063,7 @@ def get_metric(name: str) -> Callable:
         "mae": mean_absolute_error,
         "wmape": weighted_mean_absolute_percentage_error,
         "accuracy": partial(
-            pattern_based_weighted_mean_metric,
+            columnwise_metric,
             metric=accuracy,
         ),
         "wasserstein_columnwise": dist_wasserstein,

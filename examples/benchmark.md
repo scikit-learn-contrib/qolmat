@@ -271,8 +271,6 @@ for col in cols_to_impute:
 ```
 
 ```python tags=[]
-# plot.plot_imputations(df_station, dfs_imputed_station)
-
 n_columns = len(cols_to_impute)
 n_imputers = len(dict_imputers)
 
