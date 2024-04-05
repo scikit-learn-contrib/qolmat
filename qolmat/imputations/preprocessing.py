@@ -281,14 +281,14 @@ class WrapperTransformer(TransformerMixin, BaseEstimator):
         X_transformed = self.transformer.fit(X_transformed)
         return self
 
-    def fit_transform(self, X: NDArray) -> Self:
+    def fit_transform(self, X: NDArray) -> NDArray:
         X_transformed = copy.deepcopy(X)
         X_transformed = self.wrapper.fit_transform(X_transformed)
         X_transformed = self.transformer.fit_transform(X_transformed)
         X_transformed = self.wrapper.inverse_transform(X_transformed)
         return X_transformed
 
-    def transform(self, X: NDArray) -> Self:
+    def transform(self, X: NDArray) -> NDArray:
         X_transformed = copy.deepcopy(X)
         X_transformed = self.wrapper.transform(X_transformed)
         X_transformed = self.transformer.transform(X_transformed)
