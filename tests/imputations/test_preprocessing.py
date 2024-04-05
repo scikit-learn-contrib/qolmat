@@ -4,7 +4,7 @@ import pytest
 from sklearn.compose import make_column_selector as selector
 
 from sklearn.pipeline import Pipeline
-from sklearn.base import BaseEstimator
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.metrics import mean_squared_error
 from sklearn.utils.estimator_checks import check_estimator
 from sklearn.utils.validation import check_X_y, check_array
@@ -14,6 +14,7 @@ from qolmat.imputations.preprocessing import (
     BinTransformer,
     MixteHGBM,
     OneHotEncoderProjector,
+    WrapperTransformer,
     make_pipeline_mixte_preprocessing,
     make_robust_MixteHGB,
 )
@@ -128,6 +129,56 @@ def test_inverse_transform_OneHotEncoderProjector(encoder):
     df_dum_perturbated = df_dum + np.random.uniform(-0.5, 0.5, size=df_dum.shape)
     df_back = encoder.inverse_transform(df_dum_perturbated)
     pd.testing.assert_frame_equal(df, df_back)
+
+
+##############################
+# Testing WrapperTransformer #
+##############################
+
+
+class DummyTransformer(TransformerMixin, BaseEstimator):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        return X
+
+    def fit_transform(self, X, y=None):
+        return self.fit(X, y).transform(X)
+
+    def inverse_transform(self, X, y=None):
+        return X
+
+
+@pytest.fixture
+def wrapper_transformer():
+    transformer = DummyTransformer()
+    wrapper = DummyTransformer()
+    return WrapperTransformer(transformer, wrapper)
+
+
+def test_fit_WrapperTransformer(wrapper_transformer):
+    X = np.array([[1, 2], [3, 4]])
+    result = wrapper_transformer.fit(X)
+    assert result == wrapper_transformer
+
+
+def test_fit_transform_WrapperTransformer(wrapper_transformer):
+    X = np.array([[1, 2], [3, 4]])
+    result = wrapper_transformer.fit_transform(X)
+    assert np.array_equal(result, X)
+
+
+def test_transform_WrapperTransformer(wrapper_transformer):
+    X = np.array([[1, 2], [3, 4]])
+    result = wrapper_transformer.transform(X)
+    assert np.array_equal(result, X)
+
+
+def test_fit_transform_with_dataframes_WrapperTransformer(wrapper_transformer):
+    df = pd.DataFrame({"C1": ["a", "b", "b"], "C2": ["c", "d", "c"]})
+    result = wrapper_transformer.fit_transform(df)
+    pd.testing.assert_frame_equal(result, df)
 
 
 #############################################
