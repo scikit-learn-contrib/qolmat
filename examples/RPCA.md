@@ -199,7 +199,7 @@ plt.show()
 
 ```python
 %%time
-# rpca_noisy = RPCANoisy(period=10, tau=1, lam=0.4, rank=2, list_periods=[10], list_etas=[0.01], norm="L2")
+# rpca_noisy = RpcaNoisy(period=10, tau=1, lam=0.4, rank=2, list_periods=[10], list_etas=[0.01], norm="L2")
 rpca_noisy = RpcaNoisy(tau=1, lam=0.4, rank=2, norm="L2")
 M, A = rpca_noisy.decompose(D, Omega)
 # imputed = X

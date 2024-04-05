@@ -145,12 +145,13 @@ class Comparator:
             dict_config_opti_imputer = self.dict_config_opti.get(name, {})
 
             try:
+                print(f"Testing model: {name}...", end="")
                 dict_errors[name] = self.evaluate_errors_sample(
                     imputer, df, dict_config_opti_imputer, self.metric_optim
                 )
-                print(f"Tested model: {type(imputer).__name__}")
+                print("done.")
             except Exception as excp:
-                print("Error while testing ", type(imputer).__name__)
+                print(f"Error while testing {name} of type {type(imputer).__name__}!")
                 raise excp
 
         df_errors = pd.DataFrame(dict_errors)

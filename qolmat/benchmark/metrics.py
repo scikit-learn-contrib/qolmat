@@ -4,9 +4,7 @@ from typing import Callable, Dict, List, Optional
 import numpy as np
 import pandas as pd
 import scipy
-import sklearn
 from sklearn import metrics as skm
-from sklearn.ensemble import BaseEnsemble
 import dcor
 
 from qolmat.utils.exceptions import NotEnoughSamples
@@ -23,6 +21,7 @@ def columnwise_metric(
     df2: pd.DataFrame,
     df_mask: pd.DataFrame,
     metric: Callable,
+    type_cols: str = "all",
     **kwargs,
 ) -> pd.Series:
     """For each column, compute a metric score based on the true dataframe
@@ -38,19 +37,33 @@ def columnwise_metric(
         Elements of the dataframes to compute on
     metric : Callable
         metric function
+    type_cols : str
+        Can be either:
+        - `all` to apply the metric to all columns
+        - `numerical` to apply the metric to numerical columns only
+        - `categorical` to apply the metric to categorical columns only
 
     Returns
     -------
     pd.Series
         Series of scores for all columns
     """
+    if type_cols == "all":
+        cols = df1.columns
+    elif type_cols == "numerical":
+        cols = df1.select_dtypes(include=["number"]).columns
+    elif type_cols == "categorical":
+        cols = df1.select_dtypes(exclude=["number"]).columns
+    else:
+        raise ValueError(f"Value {type_cols} is not valid for parameter `type_cols`!")
     values = {}
-    for col in df1.columns:
+    for col in cols:
         df1_col = df1.loc[df_mask[col], col]
         df2_col = df2.loc[df_mask[col], col]
         assert df1_col.notna().all()
         assert df2_col.notna().all()
         values[col] = metric(df1_col, df2_col, **kwargs)
+
     return pd.Series(values)
 
 
@@ -70,7 +83,13 @@ def mean_squared_error(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFra
     -------
     pd.Series
     """
-    return columnwise_metric(df1, df2, df_mask, skm.mean_squared_error)
+    cols_numerical = _get_numerical_features(df1)
+    return columnwise_metric(
+        df1[cols_numerical],
+        df2[cols_numerical],
+        df_mask[cols_numerical],
+        skm.mean_squared_error,
+    )
 
 
 def root_mean_squared_error(
@@ -91,7 +110,14 @@ def root_mean_squared_error(
     -------
     pd.Series
     """
-    return columnwise_metric(df1, df2, df_mask, skm.mean_squared_error, squared=False)
+    cols_numerical = _get_numerical_features(df1)
+    return columnwise_metric(
+        df1[cols_numerical],
+        df2[cols_numerical],
+        df_mask[cols_numerical],
+        skm.mean_squared_error,
+        squared=False,
+    )
 
 
 def mean_absolute_error(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.Series:
@@ -110,7 +136,13 @@ def mean_absolute_error(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFr
     -------
     pd.Series
     """
-    return columnwise_metric(df1, df2, df_mask, skm.mean_absolute_error)
+    cols_numerical = _get_numerical_features(df1)
+    return columnwise_metric(
+        df1[cols_numerical],
+        df2[cols_numerical],
+        df_mask[cols_numerical],
+        skm.mean_absolute_error,
+    )
 
 
 def mean_absolute_percentage_error(
@@ -131,7 +163,13 @@ def mean_absolute_percentage_error(
     -------
     pd.Series
     """
-    return columnwise_metric(df1, df2, df_mask, skm.mean_absolute_percentage_error)
+    cols_numerical = _get_numerical_features(df1)
+    return columnwise_metric(
+        df1[cols_numerical],
+        df2[cols_numerical],
+        df_mask[cols_numerical],
+        skm.mean_absolute_percentage_error,
+    )
 
 
 def _weighted_mean_absolute_percentage_error_1D(values1: pd.Series, values2: pd.Series) -> float:
@@ -141,9 +179,9 @@ def _weighted_mean_absolute_percentage_error_1D(values1: pd.Series, values2: pd.
     Parameters
     ----------
     values1 : pd.Series
-        true series
+        True values
     values2 : pd.Series
-        predicted series
+        Predicted values
 
     Returns
     -------
@@ -172,6 +210,25 @@ def weighted_mean_absolute_percentage_error(
     pd.Series
     """
     return columnwise_metric(df1, df2, df_mask, _weighted_mean_absolute_percentage_error_1D)
+
+
+def accuracy(values1: pd.Series, values2: pd.Series) -> float:
+    """
+    Matching ratio beetween the two datasets.
+
+    Parameters
+    ----------
+    values1 : pd.Series
+        True values
+    values2 : pd.Series
+        Predicted values
+
+    Returns
+    -------
+    float
+        accuracy
+    """
+    return (values1 == values2).mean()
 
 
 def dist_wasserstein(
@@ -894,8 +951,8 @@ def kl_divergence(
     pd.Series
         Kullback-Leibler divergence
 
-    Raise
-    -----
+    Raises
+    ------
     AssertionError
         If the empirical distributions do not have enough samples to estimate a KL divergence.
         Consider using a larger dataset of lowering the parameter `min_n_rows`.
@@ -1005,6 +1062,10 @@ def get_metric(name: str) -> Callable:
         "rmse": root_mean_squared_error,
         "mae": mean_absolute_error,
         "wmape": weighted_mean_absolute_percentage_error,
+        "accuracy": partial(
+            columnwise_metric,
+            metric=accuracy,
+        ),
         "wasserstein_columnwise": dist_wasserstein,
         "KL_columnwise": partial(kl_divergence, method="columnwise"),
         "KL_gaussian": partial(kl_divergence, method="gaussian"),

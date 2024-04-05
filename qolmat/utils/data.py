@@ -15,20 +15,21 @@ CURRENT_DIR = os.path.abspath(os.path.dirname(__file__))
 ROOT_DIR = os.path.join(CURRENT_DIR, "..")
 
 
-def read_csv_local(data_file_name: str) -> pd.DataFrame:
+def read_csv_local(data_file_name: str, **kwargs) -> pd.DataFrame:
     """Load csv files
 
     Parameters
     ----------
     data_file_name : str
         Filename. Has to be "beijing" or "conductors"
+    kwargs : dict
 
     Returns
     -------
     df : pd.DataFrame
         dataframe
     """
-    df = pd.read_csv(os.path.join(ROOT_DIR, "data", f"{data_file_name}.csv"))
+    df = pd.read_csv(os.path.join(ROOT_DIR, "data", f"{data_file_name}.csv"), **kwargs)
     return df
 
 
@@ -114,8 +115,25 @@ def get_data(
         # df = df.set_index(["station", "date"])
         df = df.groupby(["station", "date"]).mean()
         return df
-    if name_data == "Superconductor":
+    elif name_data == "Superconductor":
         df = read_csv_local("conductors")
+        return df
+    elif name_data == "Titanic":
+        df = read_csv_local("titanic", sep=";")
+        df = df.dropna(how="all")
+        df = df.drop(
+            columns=[
+                "pclass",
+                "name",
+                "home.dest",
+                "cabin",
+                "ticket",
+                "boat",
+                "body",
+            ]
+        )
+        df["age"] = pd.to_numeric(df["age"], errors="coerce")
+        df["fare"] = pd.to_numeric(df["fare"].str.replace(",", ""), errors="coerce")
         return df
     elif name_data == "Artificial":
         city = "Wonderland"
@@ -334,7 +352,7 @@ def add_station_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def add_datetime_features(df: pd.DataFrame) -> pd.DataFrame:
+def add_datetime_features(df: pd.DataFrame, col_time: str = "datetime") -> pd.DataFrame:
     """
     Create a seasonal feature in the dataset with a cosine function
 
@@ -342,6 +360,8 @@ def add_datetime_features(df: pd.DataFrame) -> pd.DataFrame:
     ----------
     df : pd.DataFrame
         dataframe no missing values
+    col_time: string
+        Column of the index containing the time index
 
     Returns
     -------
@@ -349,12 +369,13 @@ def add_datetime_features(df: pd.DataFrame) -> pd.DataFrame:
         dataframe with missing values
     """
     df = df.copy()
-    time = df.index.get_level_values("datetime").to_series()
+    time = df.index.get_level_values(col_time).to_series()
     days_in_year = time.dt.year.apply(
         lambda x: 366 if ((x % 4 == 0) and (x % 100 != 0)) or (x % 400 == 0) else 365
     )
-    time_cos = np.cos(2 * np.pi * time.dt.dayofyear / days_in_year)
-    df["time_cos"] = np.array(time_cos)
+    ratio = time.dt.dayofyear.values / days_in_year.values
+    df["time_cos"] = np.cos(2 * np.pi * ratio)
+    df["time_sin"] = np.sin(2 * np.pi * ratio)
     return df
 
 

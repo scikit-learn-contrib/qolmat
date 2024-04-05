@@ -30,6 +30,7 @@ PROJECT_URLS = {
 PYTHON_REQUIRES = ">=3.8"
 PACKAGES = find_packages()
 INSTALL_REQUIRES = [
+    "category_encoders",
     "dcor>=0.6",
     "hyperopt",
     "numpy>=1.19",
