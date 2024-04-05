@@ -163,7 +163,7 @@ class UniformHoleGenerator(_HoleGenerator):
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
         random_state: Union[None, int, np.random.RandomState] = None,
-        sample_proportional: bool = True,
+        sample_proportional: bool = False,
     ):
         super().__init__(
             n_splits=n_splits,

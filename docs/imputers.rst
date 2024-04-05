@@ -3,16 +3,16 @@ Imputers
 
 All imputers can be found in the ``qolmat.imputations`` folder.
 
-1. mean/median/shuffle
-----------------------
-Imputes the missing values using the mean/median along each column or with a random value in each column. See the :class:`~qolmat.imputations.imputers.ImputerMean`, :class:`~qolmat.imputations.imputers.ImputerMedian` and :class:`~qolmat.imputations.imputers.ImputerShuffle` classes.
+1. Simple (mean/median/shuffle)
+-------------------------------
+Imputes the missing values using the mean/median along each column or with a random value in each column. See the :class:`~qolmat.imputations.imputers.ImputerSimple` and :class:`~qolmat.imputations.imputers.ImputerShuffle` classes.
 
 2. LOCF
 -------
 Imputes the missing values using the last observation carried forward. See the :class:`~qolmat.imputations.imputers.ImputerLOCF` class.
 
-3. interpolation (on residuals)
--------------------------------
+3. Time interpolation and TSA decomposition
+-------------------------------------------
 Imputes missing using some interpolation strategies supported by `pd.Series.interpolate <https://pandas.pydata.org/docs/reference/api/pandas.Series.interpolate.html>`_. It is done column by column. See the :class:`~qolmat.imputations.imputers.ImputerInterpolation` class. When data are temporal with clear seasonal decomposition, we can interpolate on the residuals instead of directly interpolate the raw data. Series are de-seasonalised based on `statsmodels.tsa.seasonal.seasonal_decompose <https://www.statsmodels.org/stable/generated/statsmodels.tsa.seasonal.seasonal_decompose.html>`_, residuals are imputed via linear interpolation, then residuals are re-seasonalised. It is also done column by column. See the :class:`~qolmat.imputations.imputers.ImputerResiduals` class.
 
 
@@ -28,7 +28,7 @@ Two cases are considered.
 
 **RPCA via Principal Component Pursuit (PCP)** [1, 12]
 
-The class :class:`RPCAPCP` implements a matrix decomposition :math:`\mathbf{D} = \mathbf{M} + \mathbf{A}` where :math:`\mathbf{M}` has low-rank and :math:`\mathbf{A}` is sparse. It relies on the following optimisation problem
+The class :class:`RpcaPcp` implements a matrix decomposition :math:`\mathbf{D} = \mathbf{M} + \mathbf{A}` where :math:`\mathbf{M}` has low-rank and :math:`\mathbf{A}` is sparse. It relies on the following optimisation problem
 
 .. math::
    \text{min}_{\mathbf{M} \in \mathbb{R}^{m \times n}} \quad \Vert \mathbf{M} \Vert_* + \lambda \Vert P_\Omega(\mathbf{D-M}) \Vert_1
@@ -38,7 +38,7 @@ See the :class:`~qolmat.imputations.imputers.ImputerRpcaPcp` class for implement
 
 **Noisy RPCA** [2, 3, 4]
 
-The class :class:`RPCANoisy` implements an recommanded improved version, which relies on a decomposition :math:`\mathbf{D} = \mathbf{M} + \mathbf{A} + \mathbf{E}`. The additionnal term encodes a Gaussian noise and makes the numerical convergence more reliable. This class also implements a time-consistency penalization for time series, parametrized by the :math:`\eta_k`and :math:`H_k`. By defining :math:`\Vert \mathbf{MH_k} \Vert_p` is either :math:`\Vert \mathbf{MH_k} \Vert_1` or  :math:`\Vert \mathbf{MH_k} \Vert_F^2`, the optimisation problem is the following
+The class :class:`RpcaNoisy` implements an recommanded improved version, which relies on a decomposition :math:`\mathbf{D} = \mathbf{M} + \mathbf{A} + \mathbf{E}`. The additionnal term encodes a Gaussian noise and makes the numerical convergence more reliable. This class also implements a time-consistency penalization for time series, parametrized by the :math:`\eta_k`and :math:`H_k`. By defining :math:`\Vert \mathbf{MH_k} \Vert_p` is either :math:`\Vert \mathbf{MH_k} \Vert_1` or  :math:`\Vert \mathbf{MH_k} \Vert_F^2`, the optimisation problem is the following
 
 .. math::
    \text{min}_{\mathbf{M, A} \in \mathbb{R}^{m \times n}} \quad \frac 1 2 \Vert P_{\Omega} (\mathbf{D}-\mathbf{M}-\mathbf{A}) \Vert_F^2 + \tau \Vert \mathbf{M} \Vert_* + \lambda \Vert \mathbf{A} \Vert_1 + \sum_{k=1}^K \eta_k \Vert \mathbf{M H_k} \Vert_p
@@ -91,6 +91,7 @@ We estimate the distribution parameter :math:`\theta` by likelihood maximization
 Once the parameter :math:`\theta^*` has been estimated the final data imputation can be done in two different ways, depending on the value of the argument `method`:
 
 * `mle`: Returns the maximum likelihood estimator
+
 .. math::
     X^* = \mathrm{argmax}_X L(X, \theta^*)
 
@@ -115,8 +116,8 @@ In training phase, we use the self-supervised learning method of [9] to train in
 
 In the case of time-series data, we also propose :class:`~qolmat.imputations.diffusions.ddpms.TsDDPM` (built on top of :class:`~qolmat.imputations.diffusions.ddpms.TabDDPM`) to capture time-based relationships between data points in a dataset. In fact, the dataset is pre-processed by using sliding window method to obtain a set of data partitions. The noise prediction of the model :math:`\epsilon_\theta` takes into account not only the observed data at the current time step but also data from previous time steps. These time-based relationships are encoded by using a transformer-based architecture [9].
 
-References
-----------
+References (Imputers)
+---------------------
 
 [1] Candès, Emmanuel J., et al. `Robust principal component analysis? <https://arxiv.org/abs/2001.05484>`_ Journal of the ACM (JACM) 58.3 (2011): 1-37.
 

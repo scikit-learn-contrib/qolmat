@@ -951,8 +951,8 @@ def kl_divergence(
     pd.Series
         Kullback-Leibler divergence
 
-    Raise
-    -----
+    Raises
+    ------
     AssertionError
         If the empirical distributions do not have enough samples to estimate a KL divergence.
         Consider using a larger dataset of lowering the parameter `min_n_rows`.

@@ -122,9 +122,9 @@ ratio_masked = 0.1
 ```python tags=[]
 dict_config_opti = {}
 
-imputer_mean = imputers.ImputerMean(groups=("station",))
-imputer_median = imputers.ImputerMedian(groups=("station",))
-imputer_mode = imputers.ImputerMode(groups=("station",))
+imputer_mean = imputers.ImputerSimple(groups=("station",), strategy="mean")
+imputer_median = imputers.ImputerSimple(groups=("station",), strategy="median")
+imputer_mode = imputers.ImputerSimple(groups=("station",), strategy="most_frequent")
 imputer_locf = imputers.ImputerLOCF(groups=("station",))
 imputer_nocb = imputers.ImputerNOCB(groups=("station",))
 imputer_interpol = imputers.ImputerInterpolation(groups=("station",), method="linear")

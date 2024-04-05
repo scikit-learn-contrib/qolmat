@@ -15,20 +15,21 @@ CURRENT_DIR = os.path.abspath(os.path.dirname(__file__))
 ROOT_DIR = os.path.join(CURRENT_DIR, "..")
 
 
-def read_csv_local(data_file_name: str) -> pd.DataFrame:
+def read_csv_local(data_file_name: str, **kwargs) -> pd.DataFrame:
     """Load csv files
 
     Parameters
     ----------
     data_file_name : str
         Filename. Has to be "beijing" or "conductors"
+    kwargs : dict
 
     Returns
     -------
     df : pd.DataFrame
         dataframe
     """
-    df = pd.read_csv(os.path.join(ROOT_DIR, "data", f"{data_file_name}.csv"))
+    df = pd.read_csv(os.path.join(ROOT_DIR, "data", f"{data_file_name}.csv"), **kwargs)
     return df
 
 
@@ -114,8 +115,25 @@ def get_data(
         # df = df.set_index(["station", "date"])
         df = df.groupby(["station", "date"]).mean()
         return df
-    if name_data == "Superconductor":
+    elif name_data == "Superconductor":
         df = read_csv_local("conductors")
+        return df
+    elif name_data == "Titanic":
+        df = read_csv_local("titanic", sep=";")
+        df = df.dropna(how="all")
+        df = df.drop(
+            columns=[
+                "pclass",
+                "name",
+                "home.dest",
+                "cabin",
+                "ticket",
+                "boat",
+                "body",
+            ]
+        )
+        df["age"] = pd.to_numeric(df["age"], errors="coerce")
+        df["fare"] = pd.to_numeric(df["fare"].str.replace(",", ""), errors="coerce")
         return df
     elif name_data == "Artificial":
         city = "Wonderland"

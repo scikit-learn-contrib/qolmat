@@ -36,8 +36,8 @@ class MixteHGBM(RegressorMixin, BaseEstimator):
     HistGradientBoostingClassifier for string target data and
     HistGradientBoostingRegressor for numeric target data.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     allow_new : bool, default=True
         Whether to allow new categories in numerical target data. If false the predictions are
         mapped to the closest existing value.
@@ -51,8 +51,8 @@ class MixteHGBM(RegressorMixin, BaseEstimator):
         """
         Sets the arguments of the underlying model.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         **kwargs : dict
             Additional keyword arguments to be passed to the underlying models.
         """
@@ -62,15 +62,15 @@ class MixteHGBM(RegressorMixin, BaseEstimator):
         """
         Fit the model according to the given training data.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         X : {array-like, sparse matrix}, shape (n_samples, n_features)
             Training vectors.
         y : array-like, shape (n_samples,)
             Target values.
 
-        Returns:
-        --------
+        Returns
+        -------
         self : object
             Returns self.
         """
@@ -95,13 +95,13 @@ class MixteHGBM(RegressorMixin, BaseEstimator):
         """
         Predict using the fitted model.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         X : {array-like, sparse matrix}, shape (n_samples, n_features)
             Samples.
 
-        Returns:
-        --------
+        Returns
+        -------
         y_pred : array-like, shape (n_samples,)
             Predicted target values.
         """
@@ -302,14 +302,13 @@ def make_pipeline_mixte_preprocessing(
     """
     Create a preprocessing pipeline managing mixed type data by one hot encoding categorical data.
 
-
-    Parameters:
-    -----------
+    Parameters
+    ----------
     scale_numerical : bool, default=True
         Whether to scale numerical features.
 
-    Returns:
-    --------
+    Returns
+    -------
     preprocessor : Pipeline
         Preprocessing pipeline
     """
@@ -331,15 +330,15 @@ def make_robust_MixteHGB(scale_numerical: bool = True, allow_new: bool = True) -
     DataFrames, so that this pipeline is not required anymore.
 
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     scale_numerical : bool, default=True
         Whether to scale numerical features.
     allow_new : bool, default=True
         Whether to allow new categories.
 
-    Returns:
-    --------
+    Returns
+    -------
     robust_MixteHGB : object
         A robust pipeline for MixteHGBM.
     """
