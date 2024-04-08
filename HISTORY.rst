@@ -2,7 +2,7 @@
 History
 =======
 
-0.1.4 (2024-04-**)
+0.1.4 (2024-04-08)
 ------------------
 
 * ImputerMean, ImputerMedian and ImputerMode have been merged into ImputerSimple
