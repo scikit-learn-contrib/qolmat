@@ -10,6 +10,7 @@ History
 * Tutorial plot_tuto_categorical showcasing mixed type imputation
 * Titanic dataset added
 * accuracy metric implemented
+* metrics.py rationalized, and split with algebra.py
 
 0.1.3 (2024-03-07)
 ------------------

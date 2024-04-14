@@ -244,8 +244,8 @@ dfs_imputed["VAR_max"].groupby("station").min()
 ```
 
 ```python tags=[]
-# station = df_plot.index.get_level_values("station")[0]
-station = "Huairou"
+station = df_plot.index.get_level_values("station")[0]
+# station = "Huairou"
 df_station = df_plot.loc[station]
 dfs_imputed_station = {name: df_plot.loc[station] for name, df_plot in dfs_imputed.items()}
 ```
@@ -362,7 +362,7 @@ comparison = comparator.Comparator(
 )
 ```
 
-```python jupyter={"outputs_hidden": true} tags=[]
+```python tags=[]
 generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=3, groups=('station',), subset=cols_to_impute, ratio_masked=ratio_masked)
 
 comparison = comparator.Comparator(
@@ -393,7 +393,7 @@ plt.show()
 df_plot = df_data[cols_to_impute]
 ```
 
-```python jupyter={"outputs_hidden": true} tags=[]
+```python tags=[]
 dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_imputers.items()}
 ```
 

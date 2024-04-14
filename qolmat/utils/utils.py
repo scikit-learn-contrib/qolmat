@@ -250,16 +250,11 @@ def create_lag_matrices(X: NDArray, p: int) -> Tuple[NDArray, NDArray]:
     return Z, Y
 
 
-def nancov(X: NDArray) -> NDArray:
-    _, n_cols = X.shape
-    cov = np.nan * np.zeros((n_cols, n_cols))
-    mask = np.isnan(X)
-    for i in range(n_cols):
-        Di = X[:, i] - np.nanmean(X[:, i])
-        for j in range(n_cols):
-            select = (~mask[:, i]) & (~mask[:, j])
-            Di = X[select, i] - np.mean(X[select, i])
-            Dj = X[select, j] - np.mean(X[select, j])
-            cov[i, j] = np.nanmean(Di * Dj)
-    cov = impute_nans(cov, method="zeros")
-    return cov
+def nan_mean_cov(X: NDArray) -> Tuple[NDArray, NDArray]:
+    _, n_variables = X.shape
+    means = np.nanmean(X, axis=0)
+    cov = np.ma.cov(np.ma.masked_invalid(X), rowvar=False).data
+    print(cov.shape)
+    print(X.shape)
+    cov = cov.reshape(n_variables, n_variables)
+    return means, cov

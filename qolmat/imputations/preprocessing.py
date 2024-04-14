@@ -35,17 +35,10 @@ class MixteHGBM(RegressorMixin, BaseEstimator):
     A custom scikit-learn estimator implementing a mixed model using
     HistGradientBoostingClassifier for string target data and
     HistGradientBoostingRegressor for numeric target data.
-
-    Parameters
-    ----------
-    allow_new : bool, default=True
-        Whether to allow new categories in numerical target data. If false the predictions are
-        mapped to the closest existing value.
     """
 
-    def __init__(self, allow_new=True):
+    def __init__(self):
         super().__init__()
-        self.allow_new = allow_new
 
     def set_model_parameters(self, **args_model):
         """
@@ -150,11 +143,12 @@ class BinTransformer(TransformerMixin, BaseEstimator):
         self.feature_names_in_ = df.columns
         self.n_features_in_ = len(df.columns)
         self.dict_df_bins_: Dict[Hashable, pd.DataFrame] = dict()
-        cols = df.columns if self.cols is None else self.cols
+        if self.cols is None:
+            cols = df.select_dtypes(include="number").columns
+        else:
+            cols = self.cols
         for col in cols:
             values = df[col]
-            if not pd.api.types.is_numeric_dtype(values):
-                raise TypeError
             values = values.dropna()
             df_bins = pd.DataFrame({"value": np.sort(values.unique())})
             df_bins["min"] = (df_bins["value"] + df_bins["value"].shift()) / 2
@@ -297,15 +291,17 @@ class WrapperTransformer(TransformerMixin, BaseEstimator):
 
 
 def make_pipeline_mixte_preprocessing(
-    scale_numerical: bool = True,
-) -> BaseEstimator:
+    scale_numerical: bool = False, avoid_new: bool = False
+) -> Pipeline:
     """
     Create a preprocessing pipeline managing mixed type data by one hot encoding categorical data.
 
     Parameters
     ----------
-    scale_numerical : bool, default=True
+    scale_numerical : bool, default=False
         Whether to scale numerical features.
+    avoid_new : bool, default=False
+        Whether to forbid new numerical values.
 
     Returns
     -------
@@ -315,13 +311,17 @@ def make_pipeline_mixte_preprocessing(
     transformers: List[Tuple] = []
     if scale_numerical:
         transformers += [("num", StandardScaler(), selector(dtype_include=np.number))]
+
     ohe = OneHotEncoder(handle_unknown="ignore", use_cat_names=True)
     transformers += [("cat", ohe, selector(dtype_exclude=np.number))]
-    preprocessor = ColumnTransformer(transformers=transformers).set_output(transform="pandas")
+    col_transformer = ColumnTransformer(transformers=transformers).set_output(transform="pandas")
+    preprocessor = Pipeline(steps=[("col_transformer", col_transformer)])
+    if avoid_new:
+        preprocessor.steps.append(("bins", BinTransformer()))
     return preprocessor
 
 
-def make_robust_MixteHGB(scale_numerical: bool = True, allow_new: bool = True) -> Pipeline:
+def make_robust_MixteHGB(scale_numerical: bool = False, avoid_new: bool = False) -> Pipeline:
     """
     Create a robust pipeline for MixteHGBM by one hot encoding categorical features.
     This estimator is intended for use in ImputerRegressor to deal with mixed type data.
@@ -332,10 +332,10 @@ def make_robust_MixteHGB(scale_numerical: bool = True, allow_new: bool = True) -
 
     Parameters
     ----------
-    scale_numerical : bool, default=True
+    scale_numerical : bool, default=False
         Whether to scale numerical features.
-    allow_new : bool, default=True
-        Whether to allow new categories.
+    avoid_new : bool, default=False
+        Whether to forbid new numerical values.
 
     Returns
     -------
@@ -343,12 +343,12 @@ def make_robust_MixteHGB(scale_numerical: bool = True, allow_new: bool = True) -
         A robust pipeline for MixteHGBM.
     """
     preprocessor = make_pipeline_mixte_preprocessing(
-        scale_numerical=scale_numerical,
+        scale_numerical=scale_numerical, avoid_new=avoid_new
     )
     robust_MixteHGB = Pipeline(
         steps=[
             ("preprocessor", preprocessor),
-            ("estimator", MixteHGBM(allow_new=allow_new)),
+            ("estimator", MixteHGBM()),
         ]
     )
 
