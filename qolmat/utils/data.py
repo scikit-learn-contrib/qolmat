@@ -3,7 +3,7 @@ import sys
 import zipfile
 from datetime import datetime
 from math import pi
-from typing import List
+from typing import List, Tuple, Union
 from urllib import request
 
 import numpy as np
@@ -36,6 +36,20 @@ def read_csv_local(data_file_name: str, **kwargs) -> pd.DataFrame:
 def download_data_from_zip(
     zipname: str, urllink: str, datapath: str = "data/"
 ) -> List[pd.DataFrame]:
+    """
+    Downloads and extracts ZIP files from a URL, then loads DataFrames from CSV files.
+
+    Args:
+        zipname (str): Name of the ZIP file to download, without the '.zip' extension.
+        urllink (str): Base URL where the ZIP file is hosted.
+        datapath (str, optional): Path to the directory where the ZIP will be \
+            downloaded and extracted. Defaults to 'data/'.
+
+    Returns:
+        List[pd.DataFrame]: A list of DataFrames loaded from the CSV \
+            files within the extracted directory.
+    """
+
     path_zip = os.path.join(datapath, zipname)
     path_zip_ext = path_zip + ".zip"
     url = os.path.join(urllink, zipname) + ".zip"
@@ -50,6 +64,21 @@ def download_data_from_zip(
 
 
 def get_dataframes_in_folder(path: str, extension: str) -> List[pd.DataFrame]:
+    """
+    Loads all dataframes from files with a specified extension within a directory,\
+        including subdirectories.
+    Special handling for '.tsf' files which are converted and immediately returned.
+
+    Args:
+        path (str): Path to the directory to search for files.
+        extension (str): File extension to filter files by, e.g., '.csv'.
+
+    Returns:
+        List[pd.DataFrame]: A list of pandas DataFrames loaded from the files \
+            matching the extension.
+                            If a '.tsf' file is found, its converted DataFrame \
+                                is returned immediately.
+    """
     list_df = []
     for folder, _, files in os.walk(path):
         for file in files:
@@ -61,7 +90,29 @@ def get_dataframes_in_folder(path: str, extension: str) -> List[pd.DataFrame]:
     return list_df
 
 
-def generate_artificial_ts(n_samples, periods, amp_anomalies, ratio_anomalies, amp_noise):
+def generate_artificial_ts(
+    n_samples: int,
+    periods: List[int],
+    amp_anomalies: float,
+    ratio_anomalies: float,
+    amp_noise: float,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Generates an time series data, anomalies, and noise based on given parameters.
+
+    Args:
+        n_samples (int): Number of samples in the time series.
+        periods (List[int]): List of periods that are added to the time series.
+        amp_anomalies (float): Amplitude multiplier for anomalies.
+        ratio_anomalies (float): Ratio of total samples that will be anomalies.
+        amp_noise (float): Standard deviation of Gaussian noise.
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray, np.ndarray]:
+            - Time series data with sine waves (X).
+            - Anomaly data with specified amplitudes at random positions (A).
+            - Gaussian noise added to the time series (E).
+    """
     mesh = np.arange(n_samples)
     X = np.ones(n_samples)
     for p in periods:
@@ -102,17 +153,7 @@ def get_data(
     if name_data == "Beijing":
         df = read_csv_local("beijing")
         df["date"] = pd.to_datetime(df["date"])
-
-        # df["date"] = pd.to_datetime(
-        #     {
-        #         "year": df["year"],
-        #         "month": df["month"],
-        #         "day": df["day"],
-        #         "hour": df["hour"],
-        #     }
-        # )
         df = df.drop(columns=["year", "month", "day", "hour", "wd"])
-        # df = df.set_index(["station", "date"])
         df = df.groupby(["station", "date"]).mean()
         return df
     elif name_data == "Superconductor":
@@ -272,22 +313,16 @@ def add_holes(df: pd.DataFrame, ratio_masked: float, mean_size: int) -> pd.DataF
 
     ratio_masked : float
         Targeted global proportion of nans added in the returned dataset
-
-    groups: list of strings
-        List of the column names used as groups
-
     Returns
     -------
     pd.DataFrame
         dataframe with missing values
     """
-    try:
-        groups = df.index.names.difference(["datetime", "date", "index"])
+    groups = df.index.names.difference(["datetime", "date", "index"])
+    if groups != []:
         generator = missing_patterns.GeometricHoleGenerator(
             1, ratio_masked=ratio_masked, subset=df.columns, groups=groups
         )
-    except ValueError:
-        print("No group")
     else:
         generator = missing_patterns.GeometricHoleGenerator(
             1, ratio_masked=ratio_masked, subset=df.columns
@@ -388,42 +423,27 @@ def convert_tsf_to_dataframe(
     col_types = []
     all_data = {}
     line_count = 0
-    # frequency = None
-    # forecast_horizon = None
-    # contain_missing_values = None
-    # contain_equal_length = None
     found_data_tag = False
     found_data_section = False
     started_reading_data_section = False
 
     with open(full_file_path_and_name, "r", encoding="cp1252") as file:
         for line in file:
-            # Strip white space from start/end of line
             line = line.strip()
 
             if line:
-                if line.startswith("@"):  # Read meta-data
+                if line.startswith("@"):
                     if not line.startswith("@data"):
                         line_content = line.split(" ")
                         if line.startswith("@attribute"):
-                            if len(line_content) != 3:  # Attributes have both name and type
+                            if len(line_content) != 3:
                                 raise Exception("Invalid meta-data specification.")
 
                             col_names.append(line_content[1])
                             col_types.append(line_content[2])
                         else:
-                            if len(line_content) != 2:  # Other meta-data have only values
+                            if len(line_content) != 2:
                                 raise Exception("Invalid meta-data specification.")
-
-                            # if line.startswith("@frequency"):
-                            #     frequency = line_content[1]
-                            # elif line.startswith("@horizon"):
-                            #     forecast_horizon = int(line_content[1])
-                            # elif line.startswith("@missing"):
-                            #     contain_missing_values = bool(strtobool(line_content[1]))
-                            # elif line.startswith("@equallength"):
-                            #     contain_equal_length = bool(strtobool(line_content[1]))
-
                     else:
                         if len(col_names) == 0:
                             raise Exception("Attribute section must come before data.")
