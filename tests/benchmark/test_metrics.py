@@ -124,16 +124,16 @@ def test_wasserstein_distance(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.
 @pytest.mark.parametrize("df2", [df_imputed])
 @pytest.mark.parametrize("df_mask", [df_mask])
 def test_kl_divergence(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> None:
-    result = metrics.kl_divergence_pattern(df1, df1, df_mask, method="columnwise")
+    result = metrics.kl_divergence(df1, df1, df_mask, method="columnwise")
     expected = pd.Series([0.0, 0.0], index=["col1", "col2"])
     pd.testing.assert_series_equal(result, expected, atol=1e-3)
 
-    result = metrics.kl_divergence_pattern(df1, df2, df_mask, method="columnwise")
+    result = metrics.kl_divergence(df1, df2, df_mask, method="columnwise")
     expected = pd.Series([18.945, 36.637], index=["col1", "col2"])
     pd.testing.assert_series_equal(result, expected, atol=1e-3)
 
     df_nonan = df1.notna()
-    result = metrics.kl_divergence_pattern(df1, df2, df_nonan, method="gaussian", min_n_rows=2)
+    result = metrics.kl_divergence(df1, df2, df_nonan, method="gaussian", min_n_rows=2)
     expected = pd.Series([1.029], index=["All"])
     pd.testing.assert_series_equal(result, expected, atol=1e-3)
 
@@ -154,11 +154,11 @@ def test_kl_divergence_gaussian(
 
 @pytest.mark.parametrize("df1", [df_incomplete])
 @pytest.mark.parametrize("df2", [df_imputed])
-def test_frechet_distance(df1: pd.DataFrame, df2: pd.DataFrame) -> None:
-    result = metrics.frechet_distance(df1, df1)
+def test_frechet_distance_base(df1: pd.DataFrame, df2: pd.DataFrame) -> None:
+    result = metrics.frechet_distance_base(df1, df1)
     np.testing.assert_allclose(result, 0, atol=1e-3)
 
-    result = metrics.frechet_distance(df1, df2)
+    result = metrics.frechet_distance_base(df1, df2)
     np.testing.assert_allclose(result, 0.134, atol=1e-3)
 
 
@@ -320,7 +320,7 @@ def test_exception_raise_different_shapes(
     with pytest.raises(Exception):
         metrics.mean_difference_correlation_matrix_numerical_features(df1, df2, df_mask)
     with pytest.raises(Exception):
-        metrics.frechet_distance(df1, df2)
+        metrics.frechet_distance_base(df1, df2)
 
 
 @pytest.mark.parametrize("df1", [df_incomplete_cat])

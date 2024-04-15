@@ -59,9 +59,9 @@ def columnwise_metric(
     if type_cols == "all":
         cols = df1.columns
     elif type_cols == "numerical":
-        cols = _get_numerical_features(df1)
+        cols = utils._get_numerical_features(df1)
     elif type_cols == "categorical":
-        cols = _get_categorical_features(df1)
+        cols = utils._get_categorical_features(df1)
     else:
         raise ValueError(f"Value {type_cols} is not valid for parameter `type_cols`!")
     values = {}
@@ -282,56 +282,6 @@ def dist_wasserstein(
         )
 
 
-def _get_numerical_features(df1: pd.DataFrame) -> List[str]:
-    """Get numerical features from dataframe
-
-    Parameters
-    ----------
-    df1 : pd.DataFrame
-
-    Returns
-    -------
-    List[str]
-        List of numerical features
-
-    Raises
-    ------
-    Exception
-        No numerical feature is found
-    """
-    cols_numerical = df1.select_dtypes(include=np.number).columns.tolist()
-    if len(cols_numerical) == 0:
-        raise Exception("No numerical feature is found.")
-    else:
-        return cols_numerical
-
-
-def _get_categorical_features(df1: pd.DataFrame) -> List[str]:
-    """Get categorical features from dataframe
-
-    Parameters
-    ----------
-    df1 : pd.DataFrame
-
-    Returns
-    -------
-    List[str]
-        List of categorical features
-
-    Raises
-    ------
-    Exception
-        No categorical feature is found
-    """
-
-    cols_numerical = df1.select_dtypes(include=np.number).columns.tolist()
-    cols_categorical = [col for col in df1.columns.to_list() if col not in cols_numerical]
-    if len(cols_categorical) == 0:
-        raise Exception("No categorical feature is found.")
-    else:
-        return cols_categorical
-
-
 def kolmogorov_smirnov_test_1D(df1: pd.Series, df2: pd.Series) -> float:
     """Compute KS test statistic of the two-sample Kolmogorov-Smirnov test for goodness of fit.
     See more in https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.ks_2samp.html.
@@ -418,7 +368,7 @@ def total_variance_distance(
     pd.Series
         Total variance distance
     """
-    cols_categorical = _get_categorical_features(df1)
+    cols_categorical = utils._get_categorical_features(df1)
     return columnwise_metric(
         df1[cols_categorical],
         df2[cols_categorical],
@@ -491,7 +441,7 @@ def mean_difference_correlation_matrix_numerical_features(
 
     _check_same_number_columns(df1, df2)
 
-    cols_numerical = _get_numerical_features(df1)
+    cols_numerical = utils._get_numerical_features(df1)
     df_corr1 = _get_correlation_pearson_matrix(df1[cols_numerical], use_p_value=use_p_value)
     df_corr2 = _get_correlation_pearson_matrix(df2[cols_numerical], use_p_value=use_p_value)
 
@@ -560,7 +510,7 @@ def mean_difference_correlation_matrix_categorical_features(
 
     _check_same_number_columns(df1, df2)
 
-    cols_categorical = _get_categorical_features(df1)
+    cols_categorical = utils._get_categorical_features(df1)
     df_corr1 = _get_correlation_chi2_matrix(df1[cols_categorical], use_p_value=use_p_value)
     df_corr2 = _get_correlation_chi2_matrix(df2[cols_categorical], use_p_value=use_p_value)
 
@@ -635,8 +585,8 @@ def mean_diff_corr_matrix_categorical_vs_numerical_features(
 
     _check_same_number_columns(df1, df2)
 
-    cols_categorical = _get_categorical_features(df1)
-    cols_numerical = _get_numerical_features(df1)
+    cols_categorical = utils._get_categorical_features(df1)
+    cols_numerical = utils._get_numerical_features(df1)
     df_corr1 = _get_correlation_f_oneway_matrix(
         df1, cols_categorical, cols_numerical, use_p_value=use_p_value
     )
@@ -763,10 +713,10 @@ def sum_pairwise_distances(
 ###########################
 
 
-def frechet_distance(
+def frechet_distance_base(
     df1: pd.DataFrame,
     df2: pd.DataFrame,
-) -> float:
+) -> pd.Series:
     """Compute the Fréchet distance between two dataframes df1 and df2
     Frechet_distance = || mu_1 - mu_2 ||_2^2 + Tr(Sigma_1 + Sigma_2 - 2(Sigma_1 . Sigma_2)^(1/2))
     It is normalized, df1 and df2 are first scaled by a factor (std(df1) + std(df2)) / 2
@@ -783,8 +733,8 @@ def frechet_distance(
 
     Returns
     -------
-    float
-        frechet distance
+    pd.Series
+        Frechet distance in a Series object
     """
 
     if df1.shape != df2.shape:
@@ -798,16 +748,23 @@ def frechet_distance(
     means1, cov1 = utils.nan_mean_cov(df1.values)
     means2, cov2 = utils.nan_mean_cov(df2.values)
 
-    return algebra.frechet_distance_exact(means1, cov1, means2, cov2)
+    distance = algebra.frechet_distance_exact(means1, cov1, means2, cov2)
+    return pd.Series(distance, index=["All"])
 
 
-def frechet_distance_pattern(
+def frechet_distance(
     df1: pd.DataFrame,
     df2: pd.DataFrame,
     df_mask: pd.DataFrame,
+    method: str = "single",
     min_n_rows: int = 10,
 ) -> pd.Series:
-    """Frechet distance computed using a pattern decomposition
+    """
+    Frechet distance computed using a pattern decomposition. Several variant are implemented:
+    - the `single` method relies on a single estimation of the means and covariance matrix. It is
+    relevent for MCAR data.
+    - the `pattern`method relies on the aggregation of the estimated distance between each
+    pattern. It is relevent for MAR data.
 
     Parameters
     ----------
@@ -817,6 +774,9 @@ def frechet_distance_pattern(
         Second empirical ditribution
     df_mask : pd.DataFrame
         Mask indicating on which values the distance has to computed on
+    method: str
+        Method used to compute the distance on multivariate datasets with missing values.
+        Possible values are `robust` and `pattern`.
     min_n_rows: int
         Minimum number of rows for a KL estimation
 
@@ -826,6 +786,8 @@ def frechet_distance_pattern(
         Series of computed metrics
     """
 
+    if method == "single":
+        return frechet_distance_base(df1, df2)
     return pattern_based_weighted_mean_metric(
         df1,
         df2,
@@ -890,7 +852,7 @@ def kl_divergence_gaussian(df1: pd.DataFrame, df2: pd.DataFrame) -> float:
     return div_kl
 
 
-def kl_divergence_pattern(
+def kl_divergence(
     df1: pd.DataFrame,
     df2: pd.DataFrame,
     df_mask: pd.DataFrame,
@@ -913,7 +875,8 @@ def kl_divergence_pattern(
     df_mask: pd.DataFrame
         Mask indicating on what values the divergence should be computed
     method: str
-        Method used
+        Method used to compute the divergence on multivariate datasets with missing values.
+        Possible values are `columnwise` and `gaussian`.
     min_n_rows: int
         Minimum number of rows for a KL estimation
 
@@ -1073,12 +1036,13 @@ def get_metric(name: str) -> Callable:
         "wmape": weighted_mean_absolute_percentage_error,
         "accuracy": accuracy,
         "wasserstein_columnwise": dist_wasserstein,
-        "KL_columnwise": partial(kl_divergence_pattern, method="columnwise"),
-        "KL_gaussian": partial(kl_divergence_pattern, method="gaussian"),
-        "ks_test": kolmogorov_smirnov_test,
+        "KL_columnwise": partial(kl_divergence, method="columnwise"),
+        "KL_gaussian": partial(kl_divergence, method="gaussian"),
+        "KS_test": kolmogorov_smirnov_test,
         "correlation_diff": mean_difference_correlation_matrix_numerical_features,
         "energy": sum_energy_distances,
-        "frechet": frechet_distance_pattern,
+        "frechet_single": partial(frechet_distance, method="single"),
+        "frechet_pattern": partial(frechet_distance, method="pattern"),
         "dist_corr_pattern": distance_anticorr_pattern,
     }
     return dict_metrics[name]
