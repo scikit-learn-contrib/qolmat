@@ -198,6 +198,8 @@ def test_preprocessing_pipeline(preprocessing_pipeline):
     # Test with numerical features
     X_num = pd.DataFrame([[1, 2], [3, 4], [5, 6]])
     X_transformed = preprocessing_pipeline.fit_transform(X_num)
+    print(X_num.shape)
+    print(X_transformed.shape)
     assert isinstance(X_transformed, pd.DataFrame)
     assert X_transformed.shape[1] == X_num.shape[1]
 
@@ -221,8 +223,12 @@ def test_make_robust_MixteHGB(robust_mixte_hgb_model):
     # Ensure the pipeline is constructed correctly
     assert isinstance(robust_mixte_hgb_model, Pipeline)
 
-    # Ensure the preprocessor in the pipeline is of type ColumnTransformer
-    assert isinstance(robust_mixte_hgb_model.named_steps["preprocessor"], ColumnTransformer)
+    dict_steps = robust_mixte_hgb_model.named_steps
+    assert len(dict_steps) == 2
+    # Ensure the preprocessor in the pipeline is of type Pipeline
+    assert isinstance(dict_steps["preprocessor"], Pipeline)
+    # Ensure the estimator in the pipeline is of type MixteHGBM
+    assert isinstance(dict_steps["estimator"], MixteHGBM)
 
     # Test fitting and predicting with numeric target
     X_train, X_test, y_train, y_test = train_test_split(
