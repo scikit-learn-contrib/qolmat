@@ -383,20 +383,12 @@ df_mask_gauss = pd.DataFrame(np.full_like(df_gauss1, True))
 
 def test_pattern_mae_comparison(mocker) -> None:
 
-    # def mock_metric(values1: pd.Series, values2: pd.Series) -> float:
-    #     call_count += 1
-    #     return 0
-
     mock_metric = mocker.patch("qolmat.benchmark.metrics.accuracy_1D", return_value=0)
-    # def fun_mean_mae(df_gauss1, df_gauss2, df_mask_gauss) -> float:
-    #     return metrics.mean_squared_error(df_gauss1, df_gauss2, df_mask_gauss).mean()
 
-    print(df_mask)
     df_nonan = df_incomplete.notna()
-    result = metrics.pattern_based_weighted_mean_metric(
+    metrics.pattern_based_weighted_mean_metric(
         df_incomplete, df_imputed, df_nonan, metric=mock_metric, min_n_rows=1
     )
-    print(result)
     assert mock_metric.call_count == 2
 
 

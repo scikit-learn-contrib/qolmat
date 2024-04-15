@@ -198,6 +198,8 @@ def test_preprocessing_pipeline(preprocessing_pipeline):
     # Test with numerical features
     X_num = pd.DataFrame([[1, 2], [3, 4], [5, 6]])
     X_transformed = preprocessing_pipeline.fit_transform(X_num)
+    print(X_num.shape)
+    print(X_transformed.shape)
     assert isinstance(X_transformed, pd.DataFrame)
     assert X_transformed.shape[1] == X_num.shape[1]
 

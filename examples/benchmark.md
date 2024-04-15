@@ -16,9 +16,6 @@ jupyter:
 **This notebook aims to present the Qolmat repo through an example of a multivariate time series.
 In Qolmat, a few data imputation methods are implemented as well as a way to evaluate their performance.**
 
-```python
-
-```
 
 First, import some useful librairies
 
@@ -36,26 +33,18 @@ from IPython.display import Image
 import pandas as pd
 from datetime import datetime
 import numpy as np
-import scipy
 import hyperopt as ho
-from hyperopt.pyll.base import Apply as hoApply
 np.random.seed(1234)
-import pprint
 from matplotlib import pyplot as plt
-import matplotlib.image as mpimg
 import matplotlib.ticker as plticker
 
 tab10 = plt.get_cmap("tab10")
 plt.rcParams.update({'font.size': 18})
 
-from typing import Optional
 
 from sklearn.linear_model import LinearRegression
-from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor, HistGradientBoostingRegressor
 
-
-import sys
-from qolmat.benchmark import comparator, missing_patterns, hyperparameters
+from qolmat.benchmark import comparator, missing_patterns
 from qolmat.imputations import imputers
 from qolmat.utils import data, utils, plot
 
@@ -237,10 +226,6 @@ df_plot = data.add_datetime_features(df_plot, col_time="date")
 
 ```python tags=[]
 dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_imputers.items()}
-```
-
-```python tags=[]
-dfs_imputed["VAR_max"].groupby("station").min()
 ```
 
 ```python tags=[]

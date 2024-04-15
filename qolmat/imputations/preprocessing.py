@@ -314,10 +314,13 @@ def make_pipeline_mixte_preprocessing(
 
     ohe = OneHotEncoder(handle_unknown="ignore", use_cat_names=True)
     transformers += [("cat", ohe, selector(dtype_exclude=np.number))]
-    col_transformer = ColumnTransformer(transformers=transformers).set_output(transform="pandas")
+    col_transformer = ColumnTransformer(transformers=transformers, remainder="passthrough")
+    col_transformer = col_transformer.set_output(transform="pandas")
     preprocessor = Pipeline(steps=[("col_transformer", col_transformer)])
+
     if avoid_new:
         preprocessor.steps.append(("bins", BinTransformer()))
+    print(preprocessor)
     return preprocessor
 
 

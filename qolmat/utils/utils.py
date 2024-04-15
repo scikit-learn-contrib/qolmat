@@ -288,7 +288,7 @@ def get_shape_original(M: NDArray, shape: tuple) -> NDArray:
 
 
 def create_lag_matrices(X: NDArray, p: int) -> Tuple[NDArray, NDArray]:
-    n_rows, n_cols = X.shape
+    n_rows, _ = X.shape
     n_rows_new = n_rows - p
     list_X_lag = [np.ones((n_rows_new, 1))]
     for lag in range(p):
@@ -304,7 +304,5 @@ def nan_mean_cov(X: NDArray) -> Tuple[NDArray, NDArray]:
     _, n_variables = X.shape
     means = np.nanmean(X, axis=0)
     cov = np.ma.cov(np.ma.masked_invalid(X), rowvar=False).data
-    print(cov.shape)
-    print(X.shape)
     cov = cov.reshape(n_variables, n_variables)
     return means, cov

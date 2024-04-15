@@ -368,12 +368,12 @@ def total_variance_distance(
     pd.Series
         Total variance distance
     """
-    cols_categorical = utils._get_categorical_features(df1)
     return columnwise_metric(
-        df1[cols_categorical],
-        df2[cols_categorical],
-        df_mask[cols_categorical],
+        df1,
+        df2,
+        df_mask,
         _total_variance_distance_1D,
+        type_cols="categorical",
     )
 
 
@@ -792,7 +792,7 @@ def frechet_distance(
         df1,
         df2,
         df_mask,
-        frechet_distance,
+        frechet_distance_base,
         min_n_rows=min_n_rows,
         type_cols="numerical",
     )
@@ -1003,10 +1003,12 @@ def pattern_based_weighted_mean_metric(
         cols = df1.select_dtypes(exclude=["number"]).columns
     else:
         raise ValueError(f"Value {type_cols} is not valid for parameter `type_cols`!")
+
     if np.any(df_mask & df1.isna()):
         raise ValueError("The argument df1 has missing values on the mask!")
     if np.any(df_mask & df2.isna()):
         raise ValueError("The argument df2 has missing values on the mask!")
+
     rows_mask = df_mask.any(axis=1)
     scores = []
     weights = []
@@ -1041,7 +1043,7 @@ def get_metric(name: str) -> Callable:
         "KS_test": kolmogorov_smirnov_test,
         "correlation_diff": mean_difference_correlation_matrix_numerical_features,
         "energy": sum_energy_distances,
-        "frechet_single": partial(frechet_distance, method="single"),
+        "frechet": partial(frechet_distance, method="single"),
         "frechet_pattern": partial(frechet_distance, method="pattern"),
         "dist_corr_pattern": distance_anticorr_pattern,
     }
