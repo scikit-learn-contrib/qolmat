@@ -28,6 +28,32 @@ class RpcaNoisy(RPCA):
     Chen, Yuxin, et al. "Bridging convex and nonconvex optimization in robust PCA: Noise, outliers
     and missing data."
     The Annals of Statistics 49.5 (2021): 2948-2971.
+
+    Parameters
+    ----------
+    random_state : int, optional
+        The seed of the pseudo random number generator to use, for reproductibility.
+    rank: Optional[int]
+        Upper bound of the rank to be estimated
+    mu: Optional[float]
+        initial stiffness parameter for the constraint M = L Q
+    tau: Optional[float]
+        penalizing parameter for the nuclear norm
+    lam: Optional[float]
+        penalizing parameter for the sparse matrix
+    list_periods: Optional[List[int]]
+        list of periods, linked to the Toeplitz matrices
+    list_etas: Optional[List[float]]
+        list of penalizing parameters for the corresponding period in list_periods
+    max_iterations: Optional[int]
+        stopping criteria, maximum number of iterations. By default, the value is set to 10_000
+    tolerance: Optional[float]
+        stoppign critera, minimum difference between 2 consecutive iterations. By default,
+        the value is set to 1e-6
+    norm: Optional[str]
+        error norm, can be "L1" or "L2". By default, the value is set to "L2"
+    verbose: Optional[bool]
+        verbosity level, if False the warnings are silenced
     """
 
     def __init__(
@@ -44,33 +70,6 @@ class RpcaNoisy(RPCA):
         norm: str = "L2",
         verbose: bool = True,
     ) -> None:
-        """
-        Parameters
-        ----------
-        random_state : int, optional
-            The seed of the pseudo random number generator to use, for reproductibility.
-        rank: Optional[int]
-            Upper bound of the rank to be estimated
-        mu: Optional[float]
-            initial stiffness parameter for the constraint M = L Q
-        tau: Optional[float]
-            penalizing parameter for the nuclear norm
-        lam: Optional[float]
-            penalizing parameter for the sparse matrix
-        list_periods: Optional[List[int]]
-            list of periods, linked to the Toeplitz matrices
-        list_etas: Optional[List[float]]
-            list of penalizing parameters for the corresponding period in list_periods
-        max_iterations: Optional[int]
-            stopping criteria, maximum number of iterations. By default, the value is set to 10_000
-        tolerance: Optional[float]
-            stoppign critera, minimum difference between 2 consecutive iterations. By default,
-            the value is set to 1e-6
-        norm: Optional[str]
-            error norm, can be "L1" or "L2". By default, the value is set to "L2"
-        verbose: Optional[bool]
-            verbosity level, if False the warnings are silenced
-        """
         super().__init__(max_iterations=max_iterations, tolerance=tolerance, verbose=verbose)
         self.rng = sku.check_random_state(random_state)
         self.rank = rank
@@ -265,7 +264,6 @@ class RpcaNoisy(RPCA):
         ValueError
             If the periods provided in the argument in `list_periods` are not
             smaller than the number of rows in the matrix.
-
         """
 
         rho = 1.1

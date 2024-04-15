@@ -2,6 +2,7 @@
 # # Evaluation metrics #
 # ######################
 
+from math import exp
 import numpy as np
 from numpy import random as npr
 import pandas as pd
@@ -100,6 +101,18 @@ def test_weighted_mean_absolute_percentage_error(
 @pytest.mark.parametrize("df1", [df_incomplete])
 @pytest.mark.parametrize("df2", [df_imputed])
 @pytest.mark.parametrize("df_mask", [df_mask])
+def test_accuracy(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> None:
+    result = metrics.accuracy(df1, df1, df_mask)
+    expected = pd.Series([1.0, 1.0], index=["col1", "col2"])
+    pd.testing.assert_series_equal(result, expected)
+    result = metrics.accuracy(df1, df2, df_mask)
+    expected = pd.Series([0.5, 0.0], index=["col1", "col2"])
+    pd.testing.assert_series_equal(result, expected, atol=1e-3)
+
+
+@pytest.mark.parametrize("df1", [df_incomplete])
+@pytest.mark.parametrize("df2", [df_imputed])
+@pytest.mark.parametrize("df_mask", [df_mask])
 def test_wasserstein_distance(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> None:
     dist = metrics.dist_wasserstein(df1, df1, df_mask, method="columnwise")
     assert dist.equals(pd.Series([0.0, 0.0], index=["col1", "col2"]))
@@ -110,15 +123,19 @@ def test_wasserstein_distance(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.
 @pytest.mark.parametrize("df1", [df_incomplete])
 @pytest.mark.parametrize("df2", [df_imputed])
 @pytest.mark.parametrize("df_mask", [df_mask])
-def test_kl_divergence_columnwise(
-    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
-) -> None:
+def test_kl_divergence(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> None:
     result = metrics.kl_divergence(df1, df1, df_mask, method="columnwise")
     expected = pd.Series([0.0, 0.0], index=["col1", "col2"])
-    np.testing.assert_allclose(result, expected, atol=1e-3)
+    pd.testing.assert_series_equal(result, expected, atol=1e-3)
+
     result = metrics.kl_divergence(df1, df2, df_mask, method="columnwise")
     expected = pd.Series([18.945, 36.637], index=["col1", "col2"])
-    np.testing.assert_allclose(result, expected, atol=1e-3)
+    pd.testing.assert_series_equal(result, expected, atol=1e-3)
+
+    df_nonan = df1.notna()
+    result = metrics.kl_divergence(df1, df2, df_nonan, method="gaussian", min_n_rows=2)
+    expected = pd.Series([1.029], index=["All"])
+    pd.testing.assert_series_equal(result, expected, atol=1e-3)
 
 
 @pytest.mark.parametrize("df1", [df_incomplete])
@@ -127,22 +144,22 @@ def test_kl_divergence_columnwise(
 def test_kl_divergence_gaussian(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
 ) -> None:
-    result = metrics.kl_divergence_gaussian(df1, df1, df_mask)
-    np.testing.assert_allclose(result, 0, atol=1e-3)
+    result = metrics.kl_divergence_gaussian(df1, df1)
+    np.testing.assert_almost_equal(result, 0, decimal=3)
 
-    result = metrics.kl_divergence_gaussian(df1, df2, df_mask)
-    np.testing.assert_allclose(result, 1.371, atol=1e-3)
+    result = metrics.kl_divergence_gaussian(df1, df2)
+    expected = 0.669308
+    np.testing.assert_almost_equal(result, expected, decimal=3)
 
 
 @pytest.mark.parametrize("df1", [df_incomplete])
 @pytest.mark.parametrize("df2", [df_imputed])
-@pytest.mark.parametrize("df_mask", [df_mask])
-def test_frechet_distance(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> None:
-    result = metrics.frechet_distance(df1, df1, df_mask)
+def test_frechet_distance_base(df1: pd.DataFrame, df2: pd.DataFrame) -> None:
+    result = metrics.frechet_distance_base(df1, df1)
     np.testing.assert_allclose(result, 0, atol=1e-3)
 
-    result = metrics.frechet_distance(df1, df2, df_mask)
-    np.testing.assert_allclose(result, 0.253, atol=1e-3)
+    result = metrics.frechet_distance_base(df1, df2)
+    np.testing.assert_allclose(result, 0.134, atol=1e-3)
 
 
 @pytest.mark.parametrize("df1", [df_incomplete])
@@ -303,7 +320,7 @@ def test_exception_raise_different_shapes(
     with pytest.raises(Exception):
         metrics.mean_difference_correlation_matrix_numerical_features(df1, df2, df_mask)
     with pytest.raises(Exception):
-        metrics.frechet_distance(df1, df2, df_mask)
+        metrics.frechet_distance_base(df1, df2)
 
 
 @pytest.mark.parametrize("df1", [df_incomplete_cat])
@@ -347,41 +364,35 @@ def test_value_error_get_correlation_f_oneway_matrix(
 @pytest.mark.parametrize("df1", [df_incomplete])
 @pytest.mark.parametrize("df2", [df_imputed])
 @pytest.mark.parametrize("df_mask", [df_mask])
-def test_distance_anticorr(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> None:
-    result = metrics.distance_anticorr(df1, df2, df_mask)
-    np.testing.assert_allclose(result, 1.1e-4, rtol=1e-2)
-
-
-@pytest.mark.parametrize("df1", [df_incomplete])
-@pytest.mark.parametrize("df2", [df_imputed])
-@pytest.mark.parametrize("df_mask", [df_mask])
 def test_pattern_based_weighted_mean_metric(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
 ) -> None:
     with pytest.raises(NotEnoughSamples):
-        metrics.pattern_based_weighted_mean_metric(
-            df1, df2, df_mask, metric=metrics.distance_anticorr, min_n_rows=5
-        )
+        metrics.distance_anticorr_pattern(df1, df2, df_mask, min_n_rows=5)
 
-    expected = pd.Series([1.1e-4], index=["All"])
-    result = metrics.pattern_based_weighted_mean_metric(
-        df1, df2, df_mask, metric=metrics.distance_anticorr, min_n_rows=1
-    )
+    expected = pd.Series([1 / 6], index=["All"])
+    result = metrics.distance_anticorr_pattern(df1, df2, df_mask, min_n_rows=1)
     np.testing.assert_allclose(result, expected, rtol=1e-2)
 
 
 rng = npr.default_rng(123)
 df_gauss1 = pd.DataFrame(rng.multivariate_normal([0, 0], [[1, 0.2], [0.2, 2]], size=100))
 df_gauss2 = pd.DataFrame(rng.multivariate_normal([0, 1], [[1, 0.2], [0.2, 2]], size=100))
-df_mask = pd.DataFrame(np.full_like(df_gauss1, True))
+df_mask_gauss = pd.DataFrame(np.full_like(df_gauss1, True))
 
 
-def test_pattern_mae_comparison() -> None:
-    def fun_mean_mae(df_gauss1, df_gauss2, df_mask) -> float:
-        return metrics.mean_squared_error(df_gauss1, df_gauss2, df_mask).mean()
+def test_pattern_mae_comparison(mocker) -> None:
 
-    result1 = fun_mean_mae(df_gauss1, df_gauss2, df_mask)
-    result2 = metrics.pattern_based_weighted_mean_metric(
-        df_gauss1, df_gauss2, df_mask, metric=fun_mean_mae, min_n_rows=1
+    mock_metric = mocker.patch("qolmat.benchmark.metrics.accuracy_1D", return_value=0)
+
+    df_nonan = df_incomplete.notna()
+    metrics.pattern_based_weighted_mean_metric(
+        df_incomplete, df_imputed, df_nonan, metric=mock_metric, min_n_rows=1
     )
-    np.testing.assert_allclose(result1, result2, rtol=1e-2)
+    assert mock_metric.call_count == 2
+
+
+def test_get_metric():
+    expected = metrics.accuracy(df_incomplete, df_imputed, df_mask)
+    result = metrics.get_metric("accuracy")(df_incomplete, df_imputed, df_mask)
+    pd.testing.assert_series_equal(expected, result)

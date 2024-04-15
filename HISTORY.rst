@@ -2,6 +2,16 @@
 History
 =======
 
+0.1.4 (2024-04-15)
+------------------
+
+* ImputerMean, ImputerMedian and ImputerMode have been merged into ImputerSimple
+* File preprocessing.py added with classes new MixteHGBM, BinTransformer, OneHotEncoderProjector and WrapperTransformer providing tools to manage mixed types data
+* Tutorial plot_tuto_categorical showcasing mixed type imputation
+* Titanic dataset added
+* accuracy metric implemented
+* metrics.py rationalized, and split with algebra.py
+
 0.1.3 (2024-03-07)
 ------------------
 
