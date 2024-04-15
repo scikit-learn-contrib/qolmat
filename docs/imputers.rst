@@ -3,24 +3,28 @@ Imputers
 
 All imputers can be found in the ``qolmat.imputations`` folder.
 
-1. Simple (mean/median/shuffle)
--------------------------------
-Imputes the missing values using the mean/median along each column or with a random value in each column. See the :class:`~qolmat.imputations.imputers.ImputerSimple` and :class:`~qolmat.imputations.imputers.ImputerShuffle` classes.
+1. Simple (mean/median/mode)
+----------------------------
+Imputes the missing values using a basic simple statistics: the mode (most frequent value) for the categorical columns, and the mean,median or mode (depending on the user parameter) for the numerical columns. See :class:`~qolmat.imputations.imputers.ImputerSimple`.
 
-2. LOCF
+2. Shuffle
+----------
+Imputes the missing values using a random value sampled in the same column. See :class:`~qolmat.imputations.imputers.ImputerShuffle`.
+
+3. LOCF
 -------
-Imputes the missing values using the last observation carried forward. See the :class:`~qolmat.imputations.imputers.ImputerLOCF` class.
+Imputes the missing values using the last observation carried forward. See :class:`~qolmat.imputations.imputers.ImputerLOCF`.
 
-3. Time interpolation and TSA decomposition
+4. Time interpolation and TSA decomposition
 -------------------------------------------
-Imputes missing using some interpolation strategies supported by `pd.Series.interpolate <https://pandas.pydata.org/docs/reference/api/pandas.Series.interpolate.html>`_. It is done column by column. See the :class:`~qolmat.imputations.imputers.ImputerInterpolation` class. When data are temporal with clear seasonal decomposition, we can interpolate on the residuals instead of directly interpolate the raw data. Series are de-seasonalised based on `statsmodels.tsa.seasonal.seasonal_decompose <https://www.statsmodels.org/stable/generated/statsmodels.tsa.seasonal.seasonal_decompose.html>`_, residuals are imputed via linear interpolation, then residuals are re-seasonalised. It is also done column by column. See the :class:`~qolmat.imputations.imputers.ImputerResiduals` class.
+Imputes missing using some interpolation strategies supported by `pd.Series.interpolate <https://pandas.pydata.org/docs/reference/api/pandas.Series.interpolate.html>`_. It is done column by column. See the :class:`~qolmat.imputations.imputers.ImputerInterpolation` class. When data are temporal with clear seasonal decomposition, we can interpolate on the residuals instead of directly interpolate the raw data. Series are de-seasonalised based on `statsmodels.tsa.seasonal.seasonal_decompose <https://www.statsmodels.org/stable/generated/statsmodels.tsa.seasonal.seasonal_decompose.html>`_, residuals are imputed via linear interpolation, then residuals are re-seasonalised. It is also done column by column. See :class:`~qolmat.imputations.imputers.ImputerResiduals`.
 
 
-4. MICE
+5. MICE
 -------
 Multiple Imputation by Chained Equation: multiple imputations based on ICE. It uses `IterativeImputer <https://scikit-learn.org/stable/modules/generated/sklearn.impute.IterativeImputer.html#sklearn.impute.IterativeImputer>`_. See the :class:`~qolmat.imputations.imputers.ImputerMICE` class.
 
-5. RPCA
+6. RPCA
 -------
 Robust Principal Component Analysis (RPCA) is a modification of the statistical procedure of PCA which allows to work with a data matrix :math:`\mathbf{D} \in \mathbb{R}^{n \times d}` containing missing values and grossly corrupted observations. We consider here the imputation task alone, but these methods can also tackle anomaly correction.
 
@@ -46,7 +50,7 @@ The class :class:`RpcaNoisy` implements an recommanded improved version, which r
 with :math:`\mathbf{E} = \mathbf{D} - \mathbf{M} - \mathbf{A}`.
 See the :class:`~qolmat.imputations.imputers.ImputerRpcaNoisy` class for implementation details.
 
-6. SoftImpute
+7. SoftImpute
 -------------
 SoftImpute is an iterative method for matrix completion that uses nuclear-norm regularization [11]. It is a faster alternative to RPCA, although it is much less robust due to the quadratic penalization. Given a matrix :math:`\mathbf{D} \in \mathbb{R}^{n \times d}` with observed entries indexed by the set :math:`\Omega`, this algorithm solves the following problem:
 
@@ -56,11 +60,11 @@ SoftImpute is an iterative method for matrix completion that uses nuclear-norm r
 The imputed values are then given by the matrix :math:`M=LQ` on the unobserved data.
 See the :class:`~qolmat.imputations.imputers.ImputerSoftImpute` class for implementation details.
 
-7. KNN
+8. KNN
 ------
 K-nearest neighbors, based on `KNNImputer <https://scikit-learn.org/stable/modules/generated/sklearn.impute.KNNImputer.html>`_. See the :class:`~qolmat.imputations.imputers.ImputerKNN` class.
 
-8. EM sampler
+9. EM sampler
 -------------
 Imputes missing values via EM algorithm [5], and more precisely via MCEM algorithm [6]. See the :class:`~qolmat.imputations.imputers.ImputerEM` class.
 Suppose the data :math:`\mathbf{X}` has a density :math:`p_\theta` parametrized by some parameter :math:`\theta`. The EM algorithm allows to draw samples from this distribution by alternating between the expectation and maximization steps.
@@ -104,7 +108,7 @@ Two parametric distributions are implemented:
 * :class:`~qolmat.imputations.em_sampler.VARpEM`: [7]: :math:`\mathbf{X} \in \mathbb{R}^{n \times d} \sim VAR_p(\nu, B_1, ..., B_p)` is generated by a VAR(p) process such that :math:`X_t = \nu + B_1 X_{t-1} + ... + B_p X_{t-p} + u_t` where :math:`\nu \in \mathbb{R}^d` is a vector of intercept terms, the :math:`B_i  \in \mathbb{R}^{d \times d}` are the lags coefficient matrices and :math:`u_t` is white noise nonsingular covariance matrix :math:`\Sigma_u \mathbb{R}^{d \times d}`, so that :math:`\theta = (\nu, B_1, ..., B_p, \Sigma_u)`.
 
 
-9. TabDDPM
+10. TabDDPM
 -----------
 
 :class:`~qolmat.imputations.diffusions.ddpms.TabDDPM` is a deep learning imputer based on Denoising Diffusion Probabilistic Models (DDPMs) [8] for handling multivariate tabular data. Our implementation mainly follows the works of [8, 9]. Diffusion models focus on modeling the process of data transitions from noisy and incomplete observations to the underlying true data. They include two main processes:

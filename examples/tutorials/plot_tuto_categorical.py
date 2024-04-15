@@ -57,7 +57,7 @@ imputer_wrap_rpca = preprocessing.WrapperTransformer(imputer_rpca, wrapper)
 # - manage categorical features though one hot encoding
 # - manage missing features (native to the HistGradientBoosting)
 
-pipestimator = preprocessing.make_robust_MixteHGB(allow_new=False)
+pipestimator = preprocessing.make_robust_MixteHGB(avoid_new=True)
 imputer_hgb = ImputerRegressor(estimator=pipestimator, handler_nan="none")
 imputer_wrap_hgb = preprocessing.WrapperTransformer(imputer_hgb, bt)
 
