@@ -138,15 +138,14 @@ df_sncf.set_index("station", inplace=True)
 
 df_titanic = pd.DataFrame(
     {
-        "pclass": [1, 2, 3],
-        "name": ["Name1", "Name2", "Name3"],
-        "home.dest": ["Home1", "Home2", "Home3"],
-        "cabin": ["C1", None, "C3"],
-        "ticket": ["T1", "T2", "T3"],
-        "boat": ["B1", None, "B3"],
-        "body": [None, 200, None],
-        "age": ["22", "unknown", "33"],
-        "fare": ["210.5", "15.5", "7.25"],
+        "Survived": [0, 1, 1],
+        "Sex": ["Male", "Female", "Male"],
+        "Age": ["22", "unknown", "33"],
+        "SibSp": [0, 0, 2],
+        "Parch": [2, 2, 1],
+        "Fare": ["210.5", "15.5", "7.25"],
+        "Embarked": ["Cherbourg", "Liverpool", "Liverpool"],
+        "Pclass": [1, 2, 3],
     }
 )
 
@@ -174,7 +173,7 @@ zipname = "PRSA2017_Data_20130301-20170228"
 def test_read_csv_local(mock_read_csv):
     result_df = data.read_csv_local("beijing")
     pd.testing.assert_frame_equal(result_df, df_beijing)
-    mock_read_csv.assert_called()
+    mock_read_csv.assert_called_once()
 
 
 @patch("os.makedirs")
@@ -183,7 +182,11 @@ def test_read_csv_local(mock_read_csv):
 @patch("zipfile.ZipFile")
 @patch("qolmat.utils.data.get_dataframes_in_folder")
 def test_download_data_from_zip_all_cases(
-    mock_get_dataframes_in_folder, mock_zipfile, mock_urlretrieve, mock_exists, mock_makedirs
+    mock_get_dataframes_in_folder,
+    mock_zipfile,
+    mock_urlretrieve,
+    mock_exists,
+    mock_makedirs,
 ):
     mock_exists.side_effect = [False, False, False, True]
     mock_zipfile.return_value.__enter__.return_value = MagicMock()
@@ -324,8 +327,8 @@ def test_data_get_data(name_data: str, df: pd.DataFrame, mocker: MockerFixture) 
         assert mock_download.call_count == 1
         pd.testing.assert_frame_equal(df_result, df_monach_elec_preprocess)
     elif name_data == "Titanic":
-        assert mock_read.call_count == 1
-        assert np.shape(df_result) == (3, 2)
+        assert mock_read_dl.call_count == 1
+        assert np.shape(df_result) == (3, 7)
     elif name_data == "SNCF":
         print("=" * 100)
         print(df_result)
