@@ -320,7 +320,6 @@ def make_pipeline_mixte_preprocessing(
 
     if avoid_new:
         preprocessor.steps.append(("bins", BinTransformer()))
-    print(preprocessor)
     return preprocessor
 
 
