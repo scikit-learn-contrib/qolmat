@@ -224,7 +224,7 @@ def test_get_dataframes_in_folder(mock_convert_tsf, mock_read_csv, mock_walk):
     mock_walk.return_value = [("/fakepath", ("subfolder",), ("file.csv",))]
     result_csv = data.get_dataframes_in_folder("/fakepath", ".csv")
     assert len(result_csv) == 1
-    mock_read_csv.assert_called_once_with(os.path.join("fakepath", "file.csv"))
+    mock_read_csv.assert_called_once_with(os.path.join("/fakepath", "file.csv"))
     pd.testing.assert_frame_equal(result_csv[0], df_conductor)
 
     mock_read_csv.reset_mock()
@@ -232,7 +232,7 @@ def test_get_dataframes_in_folder(mock_convert_tsf, mock_read_csv, mock_walk):
     mock_walk.return_value = [("/fakepath", ("subfolder",), ("file.tsf",))]
     result_tsf = data.get_dataframes_in_folder("/fakepath", ".tsf")
     assert len(result_tsf) == 1
-    mock_convert_tsf.assert_called_once_with(os.path.join("fakepath", "file.tsf"))
+    mock_convert_tsf.assert_called_once_with(os.path.join("/fakepath", "file.tsf"))
     pd.testing.assert_frame_equal(result_tsf[0], df_beijing)
     mock_read_csv.assert_called()
 
