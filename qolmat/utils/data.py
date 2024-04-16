@@ -54,12 +54,18 @@ def download_data_from_zip(
     List[pd.DataFrame]
         A list of DataFrames loaded from the CSV files within the extracted directory.
     """
-
+    print()
+    print("download_data_from_zip")
+    print(datapath)
+    print(zipname)
     path_zip = os.path.join(datapath, zipname)
+    print(path_zip)
     path_zip_ext = path_zip + ".zip"
     url = os.path.join(urllink, zipname) + ".zip"
     os.makedirs(datapath, exist_ok=True)
     if not os.path.exists(path_zip_ext) and not os.path.exists(path_zip):
+        print(url)
+        print(path_zip_ext)
         request.urlretrieve(url, path_zip_ext)
     if not os.path.exists(path_zip):
         with zipfile.ZipFile(path_zip_ext, "r") as zip_ref:
@@ -176,22 +182,9 @@ def get_data(
         df = read_csv_local("conductors")
         return df
     elif name_data == "Titanic":
-        # df = read_csv_local("titanic", sep=";")
         path = "https://gist.githubusercontent.com/fyyying/4aa5b471860321d7b47fd881898162b7/raw/"
         "6907bb3a38bfbb6fccf3a8b1edfb90e39714d14f/titanic_dataset.csv"
         df = pd.read_csv(path)
-        # df = df.dropna(how="all")
-        # df = df.drop(
-        #     columns=[
-        #         "pclass",
-        #         "name",
-        #         "home.dest",
-        #         "cabin",
-        #         "ticket",
-        #         "boat",
-        #         "body",
-        #     ]
-        # )
         df = df[["Survived", "Sex", "Age", "SibSp", "Parch", "Fare", "Embarked"]]
         df["Age"] = pd.to_numeric(df["Age"], errors="coerce")
         df["Fare"] = pd.to_numeric(df["Fare"], errors="coerce")
