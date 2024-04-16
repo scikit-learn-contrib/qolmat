@@ -59,7 +59,7 @@ examples/*.ipynb
 examples/figures/*
 examples/data/*
 examples/local
-
+data/data_local/*
 
 # VSCode
 .vscode
