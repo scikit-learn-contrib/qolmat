@@ -52,7 +52,7 @@ class Comparator:
         df_origin: pd.DataFrame,
         df_imputed: pd.DataFrame,
         df_mask: pd.DataFrame,
-    ) -> pd.Series:
+    ) -> pd.DataFrame:
         """Functions evaluating the reconstruction's quality
 
         Parameters
@@ -64,15 +64,15 @@ class Comparator:
 
         Returns
         -------
-        dictionary
-            dictionay of results obtained via different metrics
+        pd.DataFrame
+            DataFrame of results obtained via different metrics
         """
         dict_errors = {}
         for name_metric in self.metrics:
             fun_metric = metrics.get_metric(name_metric)
             dict_errors[name_metric] = fun_metric(df_origin, df_imputed, df_mask)
-        errors = pd.concat(dict_errors.values(), keys=dict_errors.keys())
-        return errors
+        df_errors = pd.concat(dict_errors.values(), keys=dict_errors.keys())
+        return df_errors
 
     def evaluate_errors_sample(
         self,
@@ -96,8 +96,8 @@ class Comparator:
 
         Returns
         -------
-        pd.DataFrame
-            DataFrame with the errors for each metric (in column) and at each fold (in index)
+        pd.Series
+            Series with the errors for each metric and each variable
         """
         list_errors = []
         df_origin = df[self.selected_columns].copy()
@@ -115,8 +115,12 @@ class Comparator:
             )
             df_imputed = imputer_opti.fit_transform(df_corrupted)
             subset = self.generator_holes.subset
-            errors = self.get_errors(df_origin[subset], df_imputed[subset], df_mask[subset])
-            list_errors.append(errors)
+            if subset is None:
+                raise ValueError(
+                    "HoleGenerator `subset` should be overwritten in split but it is none!"
+                )
+            df_errors = self.get_errors(df_origin[subset], df_imputed[subset], df_mask[subset])
+            list_errors.append(df_errors)
         df_errors = pd.DataFrame(list_errors)
         errors_mean = df_errors.mean(axis=0)
 
@@ -136,7 +140,8 @@ class Comparator:
         Returns
         -------
         pd.DataFrame
-            dataframe with imputation
+            Dataframe with the metrics results, imputers are in columns and indices represent
+            metrics and variables.
         """
 
         dict_errors = {}
