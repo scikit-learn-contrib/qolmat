@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List
 
 import numpy as np
 import pandas as pd
@@ -1030,7 +1030,9 @@ def pattern_based_weighted_mean_metric(
     return pd.Series(sum([s * w for s, w in zip(scores, weights)]), index=["All"])
 
 
-def get_metric(name: str) -> Callable:
+def get_metric(
+    name: str,
+) -> Callable[[pd.DataFrame, pd.DataFrame, pd.DataFrame], pd.Series]:
     dict_metrics: Dict[str, Callable] = {
         "mse": mean_squared_error,
         "rmse": root_mean_squared_error,

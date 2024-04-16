@@ -29,17 +29,19 @@ def test_get_errors(mock_get_metric):
     df_origin = pd.DataFrame({"A": [1, np.nan, 3], "B": [np.nan, 5, 6]})
     df_imputed = pd.DataFrame({"A": [1, 2, 4], "B": [4, 5, 7]})
     df_mask = pd.DataFrame({"A": [False, False, True], "B": [False, False, True]})
-    mock_get_metric.side_effect = (
-        lambda name_metric, df_origin=None, df_imputed=None, df_mask=None: (
-            lambda x, y, z: pd.Series([1.0, 1.0], index=["A", "B"])
-        )
+
+    mock_get_metric.return_value = lambda df_origin, df_imputed, df_mask: pd.Series(
+        [1.0, 1.0], index=["A", "B"]
     )
     errors = comparator.get_errors(df_origin, df_imputed, df_mask)
     pd.testing.assert_series_equal(errors, expected_get_errors)
 
 
 @patch("qolmat.benchmark.hyperparameters.optimize", return_value=imputer_mock)
-@patch("qolmat.benchmark.comparator.Comparator.get_errors", return_value=expected_get_errors)
+@patch(
+    "qolmat.benchmark.comparator.Comparator.get_errors",
+    return_value=expected_get_errors,
+)
 def test_evaluate_errors_sample(mock_get_errors, mock_optimize):
     errors_mean = comparator.evaluate_errors_sample(
         imputer_mock, pd.DataFrame({"A": [1, 2, 3], "B": [4, 5, np.nan]})

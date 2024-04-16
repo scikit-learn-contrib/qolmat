@@ -39,15 +39,20 @@ def download_data_from_zip(
     """
     Downloads and extracts ZIP files from a URL, then loads DataFrames from CSV files.
 
-    Args:
-        zipname (str): Name of the ZIP file to download, without the '.zip' extension.
-        urllink (str): Base URL where the ZIP file is hosted.
-        datapath (str, optional): Path to the directory where the ZIP will be \
-            downloaded and extracted. Defaults to 'data/'.
+    Parameters
+    ----------
+    zipname : str
+        Name of the ZIP file to download, without the '.zip' extension.
+    urllink : str
+        Base URL where the ZIP file is hosted.
+    datapath : str, optional
+        Path to the directory where the ZIP will be downloaded and extracted.
+        Defaults to 'data/'.
 
-    Returns:
-        List[pd.DataFrame]: A list of DataFrames loaded from the CSV \
-            files within the extracted directory.
+    Returns
+    -------
+    List[pd.DataFrame]
+        A list of DataFrames loaded from the CSV files within the extracted directory.
     """
 
     path_zip = os.path.join(datapath, zipname)
@@ -65,19 +70,21 @@ def download_data_from_zip(
 
 def get_dataframes_in_folder(path: str, extension: str) -> List[pd.DataFrame]:
     """
-    Loads all dataframes from files with a specified extension within a directory,\
-        including subdirectories.
-    Special handling for '.tsf' files which are converted and immediately returned.
+    Loads all dataframes from files with a specified extension within a directory, including
+    subdirectories. Special handling for '.tsf' files which are converted and immediately returned.
 
-    Args:
-        path (str): Path to the directory to search for files.
-        extension (str): File extension to filter files by, e.g., '.csv'.
+    Parameters
+    ----------
+    path : str
+        Path to the directory to search for files.
+    extension : str
+        File extension to filter files by, e.g., '.csv'.
 
-    Returns:
-        List[pd.DataFrame]: A list of pandas DataFrames loaded from the files \
-            matching the extension.
-                            If a '.tsf' file is found, its converted DataFrame \
-                                is returned immediately.
+    Returns
+    -------
+    List[pd.DataFrame]
+        A list of pandas DataFrames loaded from the files matching the extension.
+        If a '.tsf' file is found, its converted DataFrame is returned immediately.
     """
     list_df = []
     for folder, _, files in os.walk(path):
@@ -98,21 +105,29 @@ def generate_artificial_ts(
     amp_noise: float,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Generates an time series data, anomalies, and noise based on given parameters.
+    Generates time series data, anomalies, and noise based on given parameters.
 
-    Args:
-        n_samples (int): Number of samples in the time series.
-        periods (List[int]): List of periods that are added to the time series.
-        amp_anomalies (float): Amplitude multiplier for anomalies.
-        ratio_anomalies (float): Ratio of total samples that will be anomalies.
-        amp_noise (float): Standard deviation of Gaussian noise.
+    Parameters
+    ----------
+    n_samples : int
+        Number of samples in the time series.
+    periods : List[int]
+        List of periods that are added to the time series.
+    amp_anomalies : float
+        Amplitude multiplier for anomalies.
+    ratio_anomalies : float
+        Ratio of total samples that will be anomalies.
+    amp_noise : float
+        Standard deviation of Gaussian noise.
 
-    Returns:
-        Tuple[np.ndarray, np.ndarray, np.ndarray]:
-            - Time series data with sine waves (X).
-            - Anomaly data with specified amplitudes at random positions (A).
-            - Gaussian noise added to the time series (E).
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray, np.ndarray]
+        Time series data with sine waves (X).
+        Anomaly data with specified amplitudes at random positions (A).
+        Gaussian noise added to the time series (E).
     """
+
     mesh = np.arange(n_samples)
     X = np.ones(n_samples)
     for p in periods:
@@ -134,7 +149,8 @@ def get_data(
     datapath: str = "data/",
     n_groups_max: int = sys.maxsize,
 ) -> pd.DataFrame:
-    """Download or generate data
+    """
+    Download or generate data
 
     Parameters
     ----------
