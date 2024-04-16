@@ -197,10 +197,12 @@ def test_download_data_from_zip_all_cases(
     result_dfs = data.download_data_from_zip("zipname", "http://example.com/")
 
     assert result_dfs == expected_dfs
-    mock_urlretrieve.assert_called_once_with("http://example.com/zipname.zip", "data/zipname.zip")
-    mock_zipfile.assert_called_once_with("data/zipname.zip", "r")
+    mock_urlretrieve.assert_called_once_with(
+        "http://example.com/zipname.zip", os.path.join("data", "zipname.zip")
+    )
+    mock_zipfile.assert_called_once_with(os.path.join("data", "zipname.zip"), "r")
     mock_makedirs.assert_called_once_with("data/", exist_ok=True)
-    mock_get_dataframes_in_folder.assert_called_once_with("data/zipname", ".csv")
+    mock_get_dataframes_in_folder.assert_called_once_with(os.path.join("data", "zipname"), ".csv")
 
     mock_urlretrieve.reset_mock()
     mock_zipfile.reset_mock()
@@ -212,7 +214,7 @@ def test_download_data_from_zip_all_cases(
     mock_urlretrieve.assert_not_called()
     mock_zipfile.assert_not_called()
     mock_makedirs.assert_called_once_with("data/", exist_ok=True)
-    mock_get_dataframes_in_folder.assert_called_with("data/zipname", ".csv")
+    mock_get_dataframes_in_folder.assert_called_with(os.path.join("data", "zipname"), ".csv")
 
 
 @patch("os.walk")
@@ -222,7 +224,7 @@ def test_get_dataframes_in_folder(mock_convert_tsf, mock_read_csv, mock_walk):
     mock_walk.return_value = [("/fakepath", ("subfolder",), ("file.csv",))]
     result_csv = data.get_dataframes_in_folder("/fakepath", ".csv")
     assert len(result_csv) == 1
-    mock_read_csv.assert_called_once_with("/fakepath/file.csv")
+    mock_read_csv.assert_called_once_with(os.path.join("fakepath", "file.csv"))
     pd.testing.assert_frame_equal(result_csv[0], df_conductor)
 
     mock_read_csv.reset_mock()
@@ -230,7 +232,7 @@ def test_get_dataframes_in_folder(mock_convert_tsf, mock_read_csv, mock_walk):
     mock_walk.return_value = [("/fakepath", ("subfolder",), ("file.tsf",))]
     result_tsf = data.get_dataframes_in_folder("/fakepath", ".tsf")
     assert len(result_tsf) == 1
-    mock_convert_tsf.assert_called_once_with("/fakepath/file.tsf")
+    mock_convert_tsf.assert_called_once_with(os.path.join("fakepath", "file.tsf"))
     pd.testing.assert_frame_equal(result_tsf[0], df_beijing)
     mock_read_csv.assert_called()
 
@@ -330,8 +332,6 @@ def test_data_get_data(name_data: str, df: pd.DataFrame, mocker: MockerFixture) 
         assert mock_read_dl.call_count == 1
         assert np.shape(df_result) == (3, 7)
     elif name_data == "SNCF":
-        print("=" * 100)
-        print(df_result)
         assert not df_result.empty
         assert df_result.index.name == "station"
         assert df_result["val_in"].sum() == df["val_in"].sum()
