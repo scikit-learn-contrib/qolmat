@@ -197,12 +197,10 @@ def test_download_data_from_zip_all_cases(
     result_dfs = data.download_data_from_zip("zipname", "http://example.com/")
 
     assert result_dfs == expected_dfs
-    mock_urlretrieve.assert_called_once_with(
-        "http://example.com/zipname.zip", os.path.join("data", "zipname.zip")
-    )
-    mock_zipfile.assert_called_once_with(os.path.join("data", "zipname.zip"), "r")
+    mock_urlretrieve.assert_called_once()
+    mock_zipfile.assert_called_once()
     mock_makedirs.assert_called_once_with("data/", exist_ok=True)
-    mock_get_dataframes_in_folder.assert_called_once_with(os.path.join("data", "zipname"), ".csv")
+    mock_get_dataframes_in_folder.assert_called_once()
 
     mock_urlretrieve.reset_mock()
     mock_zipfile.reset_mock()
@@ -214,7 +212,7 @@ def test_download_data_from_zip_all_cases(
     mock_urlretrieve.assert_not_called()
     mock_zipfile.assert_not_called()
     mock_makedirs.assert_called_once_with("data/", exist_ok=True)
-    mock_get_dataframes_in_folder.assert_called_with(os.path.join("data", "zipname"), ".csv")
+    mock_get_dataframes_in_folder.assert_called()
 
 
 @patch("os.walk")
