@@ -466,14 +466,14 @@ class EM(BaseEstimator, TransformerMixin):
         IllConditioned
             Data matrix is ill-conditioned due to colinear columns.
         """
-        n_rows, n_cols = X.shape
+        n_samples, n_cols = X.shape
         # if n_rows == 1 the function np.cov returns a float
-        if n_rows == 1:
-            min_sv = 0
-        else:
-            cov = np.cov(X, bias=True, rowvar=False).reshape(n_cols, -1)
-            _, sv, _ = spl.svd(cov)
-            min_sv = min(np.sqrt(sv))
+        if n_samples == 1:
+            raise ValueError("EM cannot be fitted when n_samples = 1!")
+
+        cov = np.cov(X, bias=True, rowvar=False).reshape(n_cols, -1)
+        _, sv, _ = spl.svd(cov)
+        min_sv = min(np.sqrt(sv))
         if min_sv < self.min_std:
             warnings.warn(
                 f"The covariance matrix is ill-conditioned, indicating high-colinearity: the "
@@ -481,7 +481,6 @@ class EM(BaseEstimator, TransformerMixin):
                 f"min_std ({min_sv} < {self.min_std}). Consider removing columns of decreasing "
                 f"the threshold."
             )
-            # raise IllConditioned(min_sv, self.min_std)
 
 
 class MultiNormalEM(EM):
@@ -683,8 +682,7 @@ class MultiNormalEM(EM):
         X : NDArray
             Data matrix with missingness
         """
-        self.means = np.nanmean(X, axis=0)
-        self.cov = utils.nancov(X)
+        self.means, self.cov = utils.nan_mean_cov(X)
         self.cov_inv = np.linalg.pinv(self.cov)
 
     def set_parameters(self, means: NDArray, cov: NDArray):

@@ -1,4 +1,4 @@
-from typing import Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 import warnings
 
 import numpy as np
@@ -10,6 +10,56 @@ from sklearn.base import check_array
 from qolmat.utils.exceptions import NotDimension2, SignalTooShort
 
 HyperValue = Union[int, float, str]
+
+
+def _get_numerical_features(df1: pd.DataFrame) -> List[str]:
+    """Get numerical features from dataframe
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+
+    Returns
+    -------
+    List[str]
+        List of numerical features
+
+    Raises
+    ------
+    Exception
+        No numerical feature is found
+    """
+    cols_numerical = df1.select_dtypes(include=np.number).columns.tolist()
+    if len(cols_numerical) == 0:
+        raise Exception("No numerical feature is found.")
+    else:
+        return cols_numerical
+
+
+def _get_categorical_features(df1: pd.DataFrame) -> List[str]:
+    """Get categorical features from dataframe
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+
+    Returns
+    -------
+    List[str]
+        List of categorical features
+
+    Raises
+    ------
+    Exception
+        No categorical feature is found
+    """
+
+    cols_numerical = df1.select_dtypes(include=np.number).columns.tolist()
+    cols_categorical = [col for col in df1.columns.to_list() if col not in cols_numerical]
+    if len(cols_categorical) == 0:
+        raise Exception("No categorical feature is found.")
+    else:
+        return cols_categorical
 
 
 def _validate_input(X: NDArray) -> pd.DataFrame:
@@ -238,7 +288,7 @@ def get_shape_original(M: NDArray, shape: tuple) -> NDArray:
 
 
 def create_lag_matrices(X: NDArray, p: int) -> Tuple[NDArray, NDArray]:
-    n_rows, n_cols = X.shape
+    n_rows, _ = X.shape
     n_rows_new = n_rows - p
     list_X_lag = [np.ones((n_rows_new, 1))]
     for lag in range(p):
@@ -250,16 +300,9 @@ def create_lag_matrices(X: NDArray, p: int) -> Tuple[NDArray, NDArray]:
     return Z, Y
 
 
-def nancov(X: NDArray) -> NDArray:
-    _, n_cols = X.shape
-    cov = np.nan * np.zeros((n_cols, n_cols))
-    mask = np.isnan(X)
-    for i in range(n_cols):
-        Di = X[:, i] - np.nanmean(X[:, i])
-        for j in range(n_cols):
-            select = (~mask[:, i]) & (~mask[:, j])
-            Di = X[select, i] - np.mean(X[select, i])
-            Dj = X[select, j] - np.mean(X[select, j])
-            cov[i, j] = np.nanmean(Di * Dj)
-    cov = impute_nans(cov, method="zeros")
-    return cov
+def nan_mean_cov(X: NDArray) -> Tuple[NDArray, NDArray]:
+    _, n_variables = X.shape
+    means = np.nanmean(X, axis=0)
+    cov = np.ma.cov(np.ma.masked_invalid(X), rowvar=False).data
+    cov = cov.reshape(n_variables, n_variables)
+    return means, cov
