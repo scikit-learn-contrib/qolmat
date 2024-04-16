@@ -54,18 +54,11 @@ def download_data_from_zip(
     List[pd.DataFrame]
         A list of DataFrames loaded from the CSV files within the extracted directory.
     """
-    print()
-    print("download_data_from_zip")
-    print(datapath)
-    print(zipname)
     path_zip = os.path.join(datapath, zipname)
-    print(path_zip)
     path_zip_ext = path_zip + ".zip"
     url = os.path.join(urllink, zipname) + ".zip"
     os.makedirs(datapath, exist_ok=True)
     if not os.path.exists(path_zip_ext) and not os.path.exists(path_zip):
-        print(url)
-        print(path_zip_ext)
         request.urlretrieve(url, path_zip_ext)
     if not os.path.exists(path_zip):
         with zipfile.ZipFile(path_zip_ext, "r") as zip_ref:
