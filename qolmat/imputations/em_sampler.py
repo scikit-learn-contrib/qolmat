@@ -71,7 +71,7 @@ def _conjugate_gradient(A: NDArray, X: NDArray, mask: NDArray) -> NDArray:
     return X_final
 
 
-def min_diff_Linf(list_params: List[NDArray], n_steps: int, order: int = 1) -> float:
+def max_diff_Linf(list_params: List[NDArray], n_steps: int, order: int = 1) -> float:
     """Computes the maximal L infinity norm between the `n_steps` last elements spaced by order.
     Used to compute the stop criterion.
 
@@ -762,8 +762,8 @@ class MultiNormalEM(EM):
         if n_iter < 3:
             return False
 
-        min_diff_means1 = min_diff_Linf(list_covs, n_steps=1)
-        min_diff_covs1 = min_diff_Linf(list_means, n_steps=1)
+        min_diff_means1 = max_diff_Linf(list_means, n_steps=1)
+        min_diff_covs1 = max_diff_Linf(list_covs, n_steps=1)
         min_diff_reached = min_diff_means1 < self.tolerance and min_diff_covs1 < self.tolerance
 
         if min_diff_reached:
@@ -772,16 +772,16 @@ class MultiNormalEM(EM):
         if n_iter < 7:
             return False
 
-        min_diff_means5 = min_diff_Linf(list_covs, n_steps=5)
-        min_diff_covs5 = min_diff_Linf(list_means, n_steps=5)
+        min_diff_means5 = max_diff_Linf(list_means, n_steps=5)
+        min_diff_covs5 = max_diff_Linf(list_covs, n_steps=5)
 
         min_diff_stable = (
             min_diff_means5 < self.stagnation_threshold
             and min_diff_covs5 < self.stagnation_threshold
         )
 
-        min_diff_loglik5_ord1 = min_diff_Linf(list_logliks, n_steps=5)
-        min_diff_loglik5_ord2 = min_diff_Linf(list_logliks, n_steps=5, order=2)
+        min_diff_loglik5_ord1 = max_diff_Linf(list_logliks, n_steps=5)
+        min_diff_loglik5_ord2 = max_diff_Linf(list_logliks, n_steps=5, order=2)
         max_loglik = (min_diff_loglik5_ord1 < self.stagnation_loglik) or (
             min_diff_loglik5_ord2 < self.stagnation_loglik
         )
@@ -1105,8 +1105,8 @@ class VARpEM(EM):
         if n_iter < 3:
             return False
 
-        min_diff_B1 = min_diff_Linf(list_B, n_steps=1)
-        min_diff_S1 = min_diff_Linf(list_S, n_steps=1)
+        min_diff_B1 = max_diff_Linf(list_B, n_steps=1)
+        min_diff_S1 = max_diff_Linf(list_S, n_steps=1)
         min_diff_reached = min_diff_B1 < self.tolerance and min_diff_S1 < self.tolerance
 
         if min_diff_reached:
@@ -1115,14 +1115,14 @@ class VARpEM(EM):
         if n_iter < 7:
             return False
 
-        min_diff_B5 = min_diff_Linf(list_B, n_steps=5)
-        min_diff_S5 = min_diff_Linf(list_S, n_steps=5)
+        min_diff_B5 = max_diff_Linf(list_B, n_steps=5)
+        min_diff_S5 = max_diff_Linf(list_S, n_steps=5)
         min_diff_stable = (
             min_diff_B5 < self.stagnation_threshold and min_diff_S5 < self.stagnation_threshold
         )
 
-        max_loglik5_ord1 = min_diff_Linf(list_logliks, n_steps=5, order=1)
-        max_loglik5_ord2 = min_diff_Linf(list_logliks, n_steps=5, order=2)
+        max_loglik5_ord1 = max_diff_Linf(list_logliks, n_steps=5, order=1)
+        max_loglik5_ord2 = max_diff_Linf(list_logliks, n_steps=5, order=2)
         max_loglik = (max_loglik5_ord1 < self.stagnation_loglik) or (
             max_loglik5_ord2 < self.stagnation_loglik
         )
