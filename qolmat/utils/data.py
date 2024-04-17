@@ -324,7 +324,7 @@ def add_holes(df: pd.DataFrame, ratio_masked: float, mean_size: int) -> pd.DataF
     pd.DataFrame
         dataframe with missing values
     """
-    groups = df.index.names.difference(["datetime", "date", "index"])
+    groups = df.index.names.difference(["datetime", "date", "index", None])
     if groups != []:
         generator = missing_patterns.GeometricHoleGenerator(
             1, ratio_masked=ratio_masked, subset=df.columns, groups=groups
