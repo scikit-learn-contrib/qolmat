@@ -21,7 +21,7 @@ from sklearn.pipeline import Pipeline
 # ---------------------------------------------------------------
 # We get the data and focus on the explanatory variables
 df = data.get_data("Titanic")
-df = df.drop(columns=["survived"])
+df = df.drop(columns=["Survived"])
 
 # %%
 # 2. Mixed type imputation methods
