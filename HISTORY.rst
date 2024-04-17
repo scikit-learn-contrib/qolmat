@@ -2,6 +2,12 @@
 History
 =======
 
+0.1.5 (2024-04-17)
+------------------
+
+* CICD now relies on Node.js 20
+* New tests for comparator.py and data.py
+
 0.1.4 (2024-04-15)
 ------------------
 
