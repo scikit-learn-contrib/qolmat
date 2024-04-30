@@ -9,7 +9,7 @@ from qolmat.imputations.imputers import ImputerEM
 @pytest.fixture
 def mcar_df() -> pd.DataFrame:
     rng = np.random.default_rng(42)
-    matrix = rng.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]], size=100)
+    matrix = rng.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]], size=200)
     matrix.ravel()[rng.choice(matrix.size, size=20, replace=False)] = np.nan
     return pd.DataFrame(data=matrix)
 
@@ -17,17 +17,22 @@ def mcar_df() -> pd.DataFrame:
 @pytest.fixture
 def mar_hm_df() -> pd.DataFrame:
     rng = np.random.default_rng(42)
-    matrix = rng.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]], size=100)
-    matrix[np.argwhere(matrix[:, 0] > 1.96), 1] = np.nan
+    matrix = rng.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]], size=200)
+    matrix[np.argwhere(matrix[:, 0] >= 1.96), 1] = np.nan
     return pd.DataFrame(data=matrix)
 
 
 @pytest.fixture
 def mcar_hc_df() -> pd.DataFrame:
     rng = np.random.default_rng(42)
-    matrix = rng.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]], size=100)
-    matrix[np.argwhere(abs(matrix[:, 0]) >= 1.95), 1] = np.nan
+    matrix = rng.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]], size=200)
+    matrix[np.argwhere(abs(matrix[:, 0]) >= 1.96), 1] = np.nan
     return pd.DataFrame(data=matrix)
+
+
+def test_mcar__init__():
+    with pytest.raises(ValueError):
+        _ = MCARTest(method="hello")
 
 
 @pytest.mark.parametrize(

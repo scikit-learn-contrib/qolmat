@@ -3,9 +3,9 @@
 Tutorial for testing the MCAR case
 ============================================
 
-In this tutorial, we show how to use the mcar test classe and it methods
+In this tutorial, we show how to use the mcar test class and its methods.
 
-Keep in my mind that, at this moment, the mcar tests are only handle tabular data.
+Keep in my mind that, at this moment, the mcar tests only handle tabular data.
 """
 # %%
 # First import some libraries
@@ -33,6 +33,13 @@ from qolmat.audit.holes_characterization import MCARTest
 # missing patterns and won't be efficient to detect the heterogeneity of covariance between missing
 # patterns.
 #
+# The null hypothesis, H0, is : "The data are MCAR". Against,
+# The alternative hypothesis : " The data are not MCAR, the means of the observed variables can
+# vary across the patterns"
+#
+# We choose to use the classic threshold, equal to 5%. If the test pval is below this threshold,
+# we reject the null hypothesis.
+#
 # This notebook shows how the Little's test performs and its limitations.
 
 np.random.seed(11)
@@ -43,7 +50,7 @@ mcartest = MCARTest(method="little")
 # Case 1 : Normal iid feature with MCAR holes
 # ===========================================
 
-matrix = np.random.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]], size=100)
+matrix = np.random.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]], size=200)
 matrix.ravel()[np.random.choice(matrix.size, size=20, replace=False)] = np.nan
 matrix_masked = matrix[np.argwhere(np.isnan(matrix))]
 df_1 = pd.DataFrame(matrix)
@@ -53,7 +60,7 @@ plt_2 = plt.scatter(matrix_masked[:, 0], matrix_masked[:, 1])
 
 plt.legend(
     (plt_1, plt_2),
-    ("observed_values", "masked_vlues"),
+    ("observed_values", "masked_values"),
     scatterpoints=1,
     loc="lower left",
     ncol=1,
@@ -78,9 +85,9 @@ mcartest.test(df_1)
 # ==========================================
 np.random.seed(11)
 
-matrix = np.random.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]], size=100)
+matrix = np.random.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]], size=200)
 threshold = random.uniform(0, 1)
-matrix[np.argwhere(matrix[:, 0] > 1.96), 1] = np.nan
+matrix[np.argwhere(matrix[:, 0] >= 1.96), 1] = np.nan
 matrix_masked = matrix[np.argwhere(np.isnan(matrix))]
 df_2 = pd.DataFrame(matrix)
 
@@ -118,8 +125,8 @@ mcartest.test(df_2)
 
 np.random.seed(11)
 
-matrix = np.random.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]], size=100)
-matrix[np.argwhere(abs(matrix[:, 0]) >= 1.95), 1] = np.nan
+matrix = np.random.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]], size=200)
+matrix[np.argwhere(abs(matrix[:, 0]) >= 1.96), 1] = np.nan
 matrix_masked = matrix[np.argwhere(np.isnan(matrix))]
 df_3 = pd.DataFrame(matrix)
 
