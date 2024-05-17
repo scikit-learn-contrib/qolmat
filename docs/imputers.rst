@@ -38,7 +38,7 @@ See the :class:`~qolmat.imputations.imputers.ImputerRpcaPcp` class for implement
 
 **Noisy RPCA** [2, 3, 4]
 
-The class :class:`RPCANoisy` implements an recommanded improved version, which relies on a decomposition :math:`\mathbf{D} = \mathbf{M} + \mathbf{A} + \mathbf{E}`. The additionnal term encodes a Gaussian noise and makes the numerical convergence more reliable. This class also implements a time-consistency penalization for time series, parametrized by the :math:`\eta_k`and :math:`H_k`. By defining :math:`\Vert \mathbf{MH_k} \Vert_p` is either :math:`\Vert \mathbf{MH_k} \Vert_1` or  :math:`\Vert \mathbf{MH_k} \Vert_F^2`, the optimisation problem is the following
+The class :class:`RpcaNoisy` implements an recommanded improved version, which relies on a decomposition :math:`\mathbf{D} = \mathbf{M} + \mathbf{A} + \mathbf{E}`. The additionnal term encodes a Gaussian noise and makes the numerical convergence more reliable. This class also implements a time-consistency penalization for time series, parametrized by the :math:`\eta_k`and :math:`H_k`. By defining :math:`\Vert \mathbf{MH_k} \Vert_p` is either :math:`\Vert \mathbf{MH_k} \Vert_1` or  :math:`\Vert \mathbf{MH_k} \Vert_F^2`, the optimisation problem is the following
 
 .. math::
    \text{min}_{\mathbf{M, A} \in \mathbb{R}^{m \times n}} \quad \frac 1 2 \Vert P_{\Omega} (\mathbf{D}-\mathbf{M}-\mathbf{A}) \Vert_F^2 + \tau \Vert \mathbf{M} \Vert_* + \lambda \Vert \mathbf{A} \Vert_1 + \sum_{k=1}^K \eta_k \Vert \mathbf{M H_k} \Vert_p

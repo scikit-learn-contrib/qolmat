@@ -3,14 +3,6 @@
 .. toctree::
    :maxdepth: 2
    :hidden:
-   :caption: AUDIT
-
-   audit
-   examples/tutorials/plot_tuto_mcar_test
-
-.. toctree::
-   :maxdepth: 2
-   :hidden:
    :caption: MODEL SELECTION FOR IMPUTATION
 
    explanation
@@ -32,3 +24,11 @@
    :caption: API
 
    api
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+   :caption: ANALYSIS
+
+   analysis
+   examples/tutorials/plot_tuto_mcar_test

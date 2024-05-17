@@ -83,7 +83,7 @@ RPCA engine
     :template: class.rst
 
     imputations.rpca.rpca_pcp.RPCAPCP
-    imputations.rpca.rpca_noisy.RPCANoisy
+    imputations.rpca.rpca_noisy.RpcaNoisy
 
 
 EM engine
