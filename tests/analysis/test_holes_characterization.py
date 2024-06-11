@@ -42,7 +42,7 @@ def mar_hc_df() -> pd.DataFrame:
     quantile_95 = norm.ppf(0.975)
     df = pd.DataFrame(matrix, columns=["Column_1", "Column_2"])
     df_nan = df.copy()
-    df_nan.loc[abs(df_nan["Column_1"]) > quantile_95, "Column_2"] = np.nan
+    df_nan.loc[df_nan["Column_1"].abs() > quantile_95, "Column_2"] = np.nan
 
     df_mask = df_nan.isna()
     return df.mask(df_mask)

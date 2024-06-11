@@ -8,7 +8,7 @@ from scipy.stats import chi2
 from qolmat.imputations.imputers import ImputerEM
 
 
-class MCARTest(ABC):
+class McarTest(ABC):
     """
     Astract class for MCAR tests.
     """
@@ -18,11 +18,11 @@ class MCARTest(ABC):
         pass
 
 
-class LittleTest(MCARTest):
+class LittleTest(McarTest):
     """
-    This class implements the Little's test. The Little's test is designed to detect the
-    heterogeneity accross the missing patterns. The null hypothesis is "The missing data mechanism
-    is MCAR". Be aware that this test won't detect the heterogeneity of covariance.
+    This class implements the Little's test, which is designed to detect the heterogeneity accross
+    the missing patterns. The null hypothesis is "The missing data mechanism is MCAR". The
+    shortcoming of this test is that it won't detect the heterogeneity of covariance.
 
     References
     ----------
@@ -67,15 +67,16 @@ class LittleTest(MCARTest):
             The p-value of the test.
         """
         imputer = self.imputer or ImputerEM(random_state=self.random_state)
-        fitted_imputer = imputer._fit_element(df)
+        imputer = imputer._fit_element(df)
 
         d0 = 0
         n_rows, n_cols = df.shape
         degree_f = -n_cols
-        ml_means = fitted_imputer.means
-        ml_cov = n_rows / (n_rows - 1) * fitted_imputer.cov
+        ml_means = imputer.means
+        ml_cov = n_rows / (n_rows - 1) * imputer.cov
 
         # Iterate over the patterns
+
         df_nan = df.notna()
         for tup_pattern, df_nan_pattern in df_nan.groupby(df_nan.columns.tolist()):
             n_rows_pattern, _ = df_nan_pattern.shape
@@ -89,4 +90,4 @@ class LittleTest(MCARTest):
             d0 += n_rows_pattern * np.dot(np.dot(diff_means, inv_sigma_pattern), diff_means.T)
             degree_f += tup_pattern.count(True)
 
-        return 1 - chi2.cdf(d0, degree_f)
+        return 1 - float(chi2.cdf(d0, degree_f))

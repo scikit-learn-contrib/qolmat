@@ -31,4 +31,4 @@
    :caption: ANALYSIS
 
    analysis
-   examples/tutorials/plot_tuto_mcar_test
+   examples/tutorials/plot_tuto_mcar

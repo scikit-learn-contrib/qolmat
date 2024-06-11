@@ -5,6 +5,7 @@ Tutorial for testing the MCAR case
 
 In this tutorial, we show how to test the MCAR case using the Little's test.
 """
+
 # %%
 # First import some libraries
 from matplotlib import pyplot as plt
