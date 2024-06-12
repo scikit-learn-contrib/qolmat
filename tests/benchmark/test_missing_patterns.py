@@ -32,8 +32,8 @@ list_generators = {
 @pytest.mark.parametrize(
     "df, generator",
     [
-        (df_incomplet, list_generators["geo"]),
         (df_incomplet, list_generators["unif"]),
+        (df_incomplet, list_generators["geo"]),
         (df_incomplet, list_generators["multi"]),
         (df_incomplet_group, list_generators["group"]),
     ],
@@ -46,6 +46,27 @@ def test_SamplerHoleGenerator_split(df: pd.DataFrame, generator: mp._HoleGenerat
     expected_col2_holes = 10
     np.testing.assert_allclose(col1_holes, expected_col1_holes, atol=1)
     np.testing.assert_allclose(col2_holes, expected_col2_holes, atol=1)
+
+
+@pytest.mark.parametrize(
+    "df, generator",
+    [
+        (df_incomplet, list_generators["unif"]),
+        (df_incomplet, list_generators["geo"]),
+        (df_incomplet, list_generators["multi"]),
+        (df_incomplet_group, list_generators["group"]),
+    ],
+)
+def test_SamplerHoleGenerator_reproducible(df: pd.DataFrame, generator: mp._HoleGenerator) -> None:
+    generator.random_state = 42
+    mask1 = generator.split(df)[0]
+    generator.random_state = 43
+    mask2 = generator.split(df)[0]
+    generator.random_state = 42
+    mask3 = generator.split(df)[0]
+
+    np.testing.assert_array_equal(mask1, mask3)
+    assert (mask1 != mask2).any().any()
 
 
 @pytest.mark.parametrize(

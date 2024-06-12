@@ -185,17 +185,16 @@ class UniformHoleGenerator(_HoleGenerator):
             Initial dataframe with a missing pattern to be imitated.
         """
 
-        self.rng = sku.check_random_state(self.random_state)
+        self.random_state = sku.check_random_state(self.random_state)
         df_mask = pd.DataFrame(False, index=X.index, columns=X.columns)
         n_masked_col = math.ceil(self.ratio_masked * len(X))
 
         for column in self.subset:
             indices = np.where(X[column].notna())[0]
-            indices = resample(
+            indices = self.random_state.choice(
                 indices,
                 replace=False,
-                n_samples=n_masked_col,
-                stratify=None,
+                size=n_masked_col,
             )
             df_mask[column].iloc[indices] = True
 
@@ -699,7 +698,7 @@ class GroupedHoleGenerator(_HoleGenerator):
         list_masks = []
 
         for _ in range(self.n_splits):
-            shuffled_group_sizes = group_sizes.sample(frac=1)
+            shuffled_group_sizes = group_sizes.sample(frac=1, random_state=self.random_state)
 
             ratio_masks = shuffled_group_sizes.cumsum() / len(X)
             ratio_masks = ratio_masks.reset_index(name="ratio")
