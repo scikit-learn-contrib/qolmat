@@ -22,6 +22,8 @@ from sklearn.pipeline import Pipeline
 # We get the data and focus on the explanatory variables
 df = data.get_data("Titanic")
 df = df.drop(columns=["Survived"])
+print("Dataset shape:", df.shape)
+df.head()
 
 # %%
 # 2. Mixed type imputation methods
@@ -61,7 +63,7 @@ pipestimator = preprocessing.make_robust_MixteHGB(avoid_new=True)
 imputer_hgb = ImputerRegressor(estimator=pipestimator, handler_nan="none")
 imputer_wrap_hgb = preprocessing.WrapperTransformer(imputer_hgb, bt)
 
-#  %%
+# %%
 # 3. Mixed type model selection
 # ---------------------------------------------------------------
 # Let us now compare these three aproaches by measuring their ability to impute uniformly
