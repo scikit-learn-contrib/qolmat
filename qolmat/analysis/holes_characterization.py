@@ -66,12 +66,8 @@ class LittleTest(McarTest):
         float
             The p-value of the test.
         """
-        print("test")
-        print(self.random_state.randint(100))
         imputer = self.imputer or ImputerEM(random_state=self.random_state)
         imputer = imputer._fit_element(df)
-        print(df[df.notna()].mean().mean())
-        print("means:", imputer.means)
 
         d0 = 0
         n_rows, n_cols = df.shape
