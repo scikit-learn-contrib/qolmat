@@ -306,6 +306,32 @@ For the example, we use a simple MLP model with 3 layers of neurons.
 Then we train the model without taking a group on the stations
 
 ```python
+import numpy as np
+from qolmat.imputations.imputers_pytorch import ImputerDiffusion
+from qolmat.imputations.diffusions.ddpms import TabDDPM
+
+X = np.array([[1, 1, 1, 1], [np.nan, np.nan, 3, 2], [1, 2, 2, 1], [2, 2, 2, 2]])
+imputer = ImputerDiffusion(model=TabDDPM(random_state=11), epochs=50, batch_size=1)
+
+imputer.fit_transform(X)
+```
+
+```python
+import numpy as np
+from qolmat.imputations.imputers_pytorch import ImputerDiffusion
+from qolmat.imputations.diffusions.ddpms import TabDDPM
+
+X = np.array([[1, 1, 1, 1], [np.nan, np.nan, 3, 2], [1, 2, 2, 1], [2, 2, 2, 2]])
+imputer = ImputerDiffusion(model=TabDDPM(random_state=11), epochs=50, batch_size=1)
+
+imputer.fit_transform(X)
+```
+
+```python
+1.33573675, 1.40472937
+```
+
+```python
 fig = plt.figure(figsize=(10 * n_stations, 3 * n_cols))
 for i_station, (station, df) in enumerate(df_data.groupby("station")):
     df_station = df_data.loc[station]

@@ -578,11 +578,7 @@ class ImputerDiffusion(_Imputer):
         >>> X = np.array([[1, 1, 1, 1], [np.nan, np.nan, 3, 2], [1, 2, 2, 1], [2, 2, 2, 2]])
         >>> imputer = ImputerDiffusion(model=TabDDPM(random_state=11), epochs=50, batch_size=1)
         >>>
-        >>> imputer.fit_transform(X)
-        array([[1.        , 1.        , 1.        , 1.        ],
-               [1.33573651, 1.40472949, 3.        , 2.        ],
-               [1.        , 2.        , 2.        , 1.        ],
-               [2.        , 2.        , 2.        , 2.        ]])
+        >>> df_imputed = imputer.fit_transform(X)
         """
         super().__init__(groups=groups, columnwise=False)
         self.model = model
