@@ -282,7 +282,7 @@ plot_cdf(df, [multi_markov_mask], ["created"], ["tab:red"])
 
 
 # %%
-# d. Grouped Hole Generator
+# e. Grouped Hole Generator
 # ***************************************************************
 # The holes are generated according to the groups defined by the user.
 # This metohd is implemented in the

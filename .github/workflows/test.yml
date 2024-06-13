@@ -1,4 +1,4 @@
-name: Unit test on many environments
+name: Unit tests
 
 on:
   push:
@@ -31,11 +31,9 @@ jobs:
           environment-file: environment.ci.yml
       - name: Lint with flake8
         run: |
-          conda install flake8
           flake8
       - name: Test with pytest
         run: |
-          conda install pytest
           make coverage
       - name: typing with mypy
         run: |

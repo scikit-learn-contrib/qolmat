@@ -1,74 +1,78 @@
-# import numpy as np
-# import pandas as pd
-# import pytest
+import pytest
+import numpy as np
+import pandas as pd
 
-# from qolmat.benchmark import comparator
-# from qolmat.imputations.imputers import ImputerMedian, ImputerRPCA
-# from qolmat.benchmark.missing_patterns import EmpiricalHoleGenerator
-# import hyperopt as ho
+from unittest.mock import patch, MagicMock
+from qolmat.benchmark.comparator import Comparator
 
-# df_origin = pd.DataFrame({"col1": [0, np.nan, 2, 4, np.nan], "col2": [-1, np.nan, 0.5, 1, 1.5]})
-# df_imputed = pd.DataFrame({"col1": [0, 1, 2, 3.5, 4], "col2": [-1.5, 0, 1.5, 2, 1.5]})
-# df_mask = pd.DataFrame(
-#     {"col1": [False, False, True, True, False], "col2": [True, False, True, True, False]}
-# )
+generator_holes_mock = MagicMock()
+generator_holes_mock.split.return_value = [
+    pd.DataFrame({"A": [False, False, True], "B": [True, False, False]})
+]
 
-# cols_to_impute = ["col1", "col2"]
-# generator_holes = EmpiricalHoleGenerator(n_splits=1, ratio_masked=0.5)
-# dict_imputers = {"rpca": ImputerRPCA(max_iterations=100, tau=2)}
-# dict_config_opti = {"rpca": {"lam": ho.hp.uniform("lam", low=0.1, high=1)}}
+comparator = Comparator(
+    dict_models={},
+    selected_columns=["A", "B"],
+    generator_holes=generator_holes_mock,
+    metrics=["mae", "mse"],
+)
 
-# comparison_rpca = comparator.Comparator(
-#     dict_models=dict_imputers,
-#     selected_columns=cols_to_impute,
-#     generator_holes=generator_holes,
-#     dict_config_opti=dict_config_opti,
-# )
-
-# comparison_bug = comparator.Comparator(
-#     dict_models=dict_imputers,
-#     selected_columns=["bug"],
-#     generator_holes=generator_holes,
-#     dict_config_opti=dict_config_opti,
-# )
-
-# dict_comparison = {"rpca": comparison_rpca, "bug": comparison_bug}
-# index_tuples_expected = pd.MultiIndex.from_product(
-#     [["mae", "wmape", "KL_columnwise"], ["col1", "col2"]]
-# )
-# # data_expected = [3.0, 0.5, 0.75, 0.5, 37.88948, 39.68123]
-# data_expected = [4.467175, 7.467187, 1.116794, 7.467187, 37.491336, 36.977574]
-# result_expected = pd.Series(data_expected, index=index_tuples_expected)
+imputer_mock = MagicMock()
+expected_get_errors = pd.Series(
+    [1.0, 1.0, 1.0, 1.0],
+    index=pd.MultiIndex.from_tuples([("mae", "A"), ("mae", "B"), ("mse", "A"), ("mse", "B")]),
+)
 
 
-# @pytest.mark.parametrize("df1", [df_origin])
-# @pytest.mark.parametrize("df2", [df_imputed])
-# @pytest.mark.parametrize("df_mask", [df_mask])
-# def test_comparator_get_errors(
-#     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
-# ) -> None:
-#     result = comparison_rpca.get_errors(df_origin=df1, df_imputed=df2, df_mask=df_mask)
-#     assert isinstance(result, pd.Series)
-#     pd.testing.assert_index_equal(result.index, index_tuples_expected)
-#     assert result.notna().all()
+@patch("qolmat.benchmark.metrics.get_metric")
+def test_get_errors(mock_get_metric):
+    df_origin = pd.DataFrame({"A": [1, np.nan, 3], "B": [np.nan, 5, 6]})
+    df_imputed = pd.DataFrame({"A": [1, 2, 4], "B": [4, 5, 7]})
+    df_mask = pd.DataFrame({"A": [False, False, True], "B": [False, False, True]})
+
+    mock_get_metric.return_value = lambda df_origin, df_imputed, df_mask: pd.Series(
+        [1.0, 1.0], index=["A", "B"]
+    )
+    errors = comparator.get_errors(df_origin, df_imputed, df_mask)
+    pd.testing.assert_series_equal(errors, expected_get_errors)
 
 
-# @pytest.mark.parametrize("df", [df_origin])
-# def test_comparator_evaluate_errors_sample(df: pd.DataFrame) -> None:
-#     result = comparison_rpca.evaluate_errors_sample(dict_imputers["rpca"], df)
-#     assert isinstance(result, pd.Series)
-#     pd.testing.assert_index_equal(result.index, index_tuples_expected)
-#     assert result.notna().all()
+@patch("qolmat.benchmark.hyperparameters.optimize", return_value=imputer_mock)
+@patch(
+    "qolmat.benchmark.comparator.Comparator.get_errors",
+    return_value=expected_get_errors,
+)
+def test_evaluate_errors_sample(mock_get_errors, mock_optimize):
+    errors_mean = comparator.evaluate_errors_sample(
+        imputer_mock, pd.DataFrame({"A": [1, 2, 3], "B": [4, 5, np.nan]})
+    )
+    expected_errors_mean = expected_get_errors
+    pd.testing.assert_series_equal(errors_mean, expected_errors_mean)
+    mock_optimize.assert_called_once()
+    mock_get_errors.assert_called()
 
 
-# @pytest.mark.parametrize("df", [df_origin])
-# @pytest.mark.parametrize("imputer", ["rpca", "bug"])
-# def test_comparator_compare(df: pd.DataFrame, imputer: str) -> None:
-#     comparison = dict_comparison[imputer]
-#     if imputer == "bug":
-#         np.testing.assert_raises(Exception, comparison.compare, df)
-#     else:
-#         result = comparison.compare(df)
-#         assert isinstance(result, pd.DataFrame)
-#         pd.testing.assert_index_equal(result.index, index_tuples_expected)
-#         assert result.notna().all().all()
+@patch(
+    "qolmat.benchmark.comparator.Comparator.evaluate_errors_sample",
+    return_value=expected_get_errors,
+)
+def test_compare(mock_evaluate_errors_sample):
+    df_test = pd.DataFrame({"A": [1, 2, 3], "B": [4, 5, 6]})
+
+    imputer1 = MagicMock(name="Imputer1")
+    imputer2 = MagicMock(name="Imputer2")
+    comparator.dict_imputers = {"imputer1": imputer1, "imputer2": imputer2}
+
+    errors_imputer1 = pd.Series([0.1, 0.2], index=["mae", "mse"])
+    errors_imputer2 = pd.Series([0.3, 0.4], index=["mae", "mse"])
+    mock_evaluate_errors_sample.side_effect = [errors_imputer1, errors_imputer2]
+
+    df_errors = comparator.compare(df_test)
+    assert mock_evaluate_errors_sample.call_count == 2
+
+    mock_evaluate_errors_sample.assert_any_call(imputer1, df_test, {}, "mse")
+    mock_evaluate_errors_sample.assert_any_call(imputer2, df_test, {}, "mse")
+    expected_df_errors = pd.DataFrame(
+        {"imputer1": [0.1, 0.2], "imputer2": [0.3, 0.4]}, index=["mae", "mse"]
+    )
+    pd.testing.assert_frame_equal(df_errors, expected_df_errors)

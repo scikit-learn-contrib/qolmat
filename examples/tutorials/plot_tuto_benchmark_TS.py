@@ -61,7 +61,7 @@ plt.tight_layout()
 plt.show()
 
 # %%
-# 2. Imputation methods
+# 2. Time series imputation methods
 # ---------------------------------------------------------------
 # All presented methods are group-wise: here each station is imputed independently.
 # For example ImputerMean computes the mean of each variable in each station and uses
@@ -78,7 +78,7 @@ plt.show()
 
 ratio_masked = 0.1
 
-imputer_median = imputers.ImputerMedian(groups=("station",))
+imputer_median = imputers.ImputerSimple(groups=("station",), strategy="median")
 imputer_interpol = imputers.ImputerInterpolation(groups=("station",), method="linear")
 imputer_residuals = imputers.ImputerResiduals(
     groups=("station",),

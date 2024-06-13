@@ -2,10 +2,55 @@
 History
 =======
 
-0.1.1 (2023-??-??)
+0.1.7 (2024-06-13)
+------------------
+* Little's test implemented in a new hole_characterization module
+* Documentation now includes an analysis section with a tutorial
+* Hole generators now provide reproducible outputs
+
+0.1.5 (2024-04-17)
+------------------
+
+* CICD now relies on Node.js 20
+* New tests for comparator.py and data.py
+
+0.1.4 (2024-04-15)
+------------------
+
+* ImputerMean, ImputerMedian and ImputerMode have been merged into ImputerSimple
+* File preprocessing.py added with classes new MixteHGBM, BinTransformer, OneHotEncoderProjector and WrapperTransformer providing tools to manage mixed types data
+* Tutorial plot_tuto_categorical showcasing mixed type imputation
+* Titanic dataset added
+* accuracy metric implemented
+* metrics.py rationalized, and split with algebra.py
+
+0.1.3 (2024-03-07)
+------------------
+
+* RPCA algorithms now start with a normalizing scaler
+* The EM algorithms now include a gradient projection step to be more robust to colinearity
+* The EM algorithm based on the Gaussian model is now initialized using a robust estimation of the covariance matrix
+* A bug in the EM algorithm has been patched: the normalizing matrix gamma was creating a sampling biais
+* Speed up of the EM algorithm likelihood maximization, using the conjugate gradient method
+* The ImputeRegressor class now handles the nans by `row` by default
+* The metric `frechet` was not correctly called and has been patched
+* The EM algorithm with VAR(p) now fills initial holes in order to avoid exponential explosions
+
+0.1.2 (2024-02-28)
+------------------
+
+* RPCA Noisy now has separate fit and transform methods, allowing to impute efficiently new data without retraining
+* The class ImputerRPCA has been splitted between a class ImputerRpcaNoisy, which can fit then transform, and a class ImputerRpcaPcp which can only fit_transform
+* The class SoftImpute has been recoded to better fit the architecture, and is more tested
+* The class RPCANoisy now relies on sparse matrices for H, speeding it up for large instances
+
+0.1.1 (2023-11-03)
 -------------------
 
 * Hotfix reference to tensorflow in the documentation, when it should be pytorch
+* Metrics KL forest has been removed from package
+* EM imputer made more robust to colinearity, and transform bug patched
+* CICD made faster with mamba and a quick test setting
 
 0.1.0 (2023-10-11)
 -------------------

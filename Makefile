@@ -1,5 +1,5 @@
 coverage:
-	pytest --cov-branch --cov=qolmat --cov-report=xml
+	pytest --cov-branch --cov=qolmat --cov-report=xml tests
 
 doctest:
 	pytest --doctest-modules --pyargs qolmat
