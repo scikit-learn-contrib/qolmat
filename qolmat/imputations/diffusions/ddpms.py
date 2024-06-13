@@ -114,7 +114,7 @@ class TabDDPM:
 
         self.normalizer_x = preprocessing.StandardScaler()
         self.random_state = sku.check_random_state(random_state)
-        seed_torch = self.random_state.randint(sys.maxsize)
+        seed_torch = self.random_state.randint(2**31 - 1)
         torch.manual_seed(seed_torch)
 
     def _q_sample(self, x: torch.Tensor, t: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
