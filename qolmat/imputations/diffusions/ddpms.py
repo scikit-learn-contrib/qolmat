@@ -1,16 +1,17 @@
-from typing import Dict, List, Callable, Tuple
+from typing import Dict, List, Callable, Tuple, Union
 from typing_extensions import Self
-import math
+import sys
 import numpy as np
 import pandas as pd
 import time
 from datetime import timedelta
 from tqdm import tqdm
-import gc
 
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn import preprocessing
+from sklearn import utils as sku
+
 
 from qolmat.imputations.diffusions.base import AutoEncoder, ResidualBlock, ResidualBlockTS
 from qolmat.imputations.diffusions.utils import get_num_params
@@ -39,6 +40,7 @@ class TabDDPM:
         p_dropout: float = 0.0,
         num_sampling: int = 1,
         is_clip: bool = True,
+        random_state: Union[None, int, np.random.RandomState] = None,
     ):
         """Diffusion model for tabular data based on
         Denoising Diffusion Probabilistic Models (DDPM) of
@@ -68,6 +70,9 @@ class TabDDPM:
             Dropout probability, by default 0.0
         num_sampling : int, optional
             Number of samples generated for each cell, by default 1
+        random_state : int, RandomState instance or None, default=None
+            Controls the randomness.
+            Pass an int for reproducible output across multiple function calls.
         """
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
@@ -108,6 +113,9 @@ class TabDDPM:
         self.is_clip = is_clip
 
         self.normalizer_x = preprocessing.StandardScaler()
+        self.random_state = sku.check_random_state(random_state)
+        seed_torch = self.random_state.randint(2**31 - 1)
+        torch.manual_seed(seed_torch)
 
     def _q_sample(self, x: torch.Tensor, t: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """Section 3.2, algorithm 1 formula implementation. Forward process, defined by `q`.
@@ -345,7 +353,6 @@ class TabDDPM:
         round: int = 10,
         cols_imputed: Tuple[str, ...] = (),
     ) -> Self:
-
         """Fit data
 
         Parameters
@@ -537,6 +544,7 @@ class TsDDPM(TabDDPM):
         p_dropout: float = 0.0,
         num_sampling: int = 1,
         is_rolling: bool = False,
+        random_state: Union[None, int, np.random.RandomState] = None,
     ):
         """Diffusion model for time-series data based on the works of
         Ho et al., 2020 (https://arxiv.org/abs/2006.11239),
@@ -575,6 +583,9 @@ class TsDDPM(TabDDPM):
             Number of samples generated for each cell, by default 1
         is_rolling : bool, optional
             Use pandas.DataFrame.rolling for preprocessing data, by default False
+        random_state : int, RandomState instance or None, default=None
+            Controls the randomness.
+            Pass an int for reproducible output across multiple function calls.
         """
         super().__init__(
             num_noise_steps,
@@ -586,6 +597,7 @@ class TsDDPM(TabDDPM):
             num_blocks,
             p_dropout,
             num_sampling,
+            random_state=random_state,
         )
 
         self.dim_feedforward = dim_feedforward

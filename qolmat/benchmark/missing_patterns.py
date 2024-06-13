@@ -63,8 +63,9 @@ class _HoleGenerator:
         Names of the columns for which holes must be created, by default None
     ratio_masked : Optional[float]
         Ratio of values ​​to mask, by default 0.05.
-    random_state : Optional[int]
-        The seed used by the random number generator, by default 42.
+    random_state : int, RandomState instance or None, default=None
+        Controls the randomness.
+        Pass an int for reproducible output across multiple function calls.
     groups: Tuple[str, ...]
         Column names used to group the data
     """
@@ -150,8 +151,9 @@ class UniformHoleGenerator(_HoleGenerator):
         Names of the columns for which holes must be created, by default None
     ratio_masked : Optional[float], optional
         Ratio of masked values ​​to add, by default 0.05.
-    random_state : Optional[int], optional
-        The seed used by the random number generator, by default 42.
+    random_state : int, RandomState instance or None, default=None
+        Controls the randomness.
+        Pass an int for reproducible output across multiple function calls.
     sample_proportional: bool, optional
         If True, generates holes in target columns with same equal frequency.
         If False, reproduces the empirical proportions between the variables.
@@ -215,8 +217,9 @@ class _SamplerHoleGenerator(_HoleGenerator):
         Names of the columns for which holes must be created, by default None
     ratio_masked : Optional[float], optional
         Ratio of masked values ​​to add, by default 0.05.
-    random_state : Optional[int], optional
-        The seed used by the random number generator, by default 42.
+    random_state : int, RandomState instance or None, default=None
+        Controls the randomness.
+        Pass an int for reproducible output across multiple function calls.
     groups: Tuple[str, ...]
         Column names used to group the data
     """
@@ -321,8 +324,9 @@ class GeometricHoleGenerator(_SamplerHoleGenerator):
         Names of the columns for which holes must be created, by default None
     ratio_masked : Optional[float], optional
         Ratio of masked values ​​to add, by default 0.05.
-    random_state : Union[None, int, np.random.RandomState], optional
-        The seed used by the random number generator, by default 42.
+    random_state : int, RandomState instance or None, default=None
+        Controls the randomness.
+        Pass an int for reproducible output across multiple function calls.
     groups: Tuple[str, ...]
         Column names used to group the data
     """
@@ -390,8 +394,9 @@ class EmpiricalHoleGenerator(_SamplerHoleGenerator):
         Names of the columns for which holes must be created, by default None
     ratio_masked : Optional[float], optional
         Ratio of masked values ​​to add, by default 0.05.
-    random_state : Optional[int], optional
-        The seed used by the random number generator, by default 42.
+    random_state : int, RandomState instance or None, default=None
+        Controls the randomness.
+        Pass an int for reproducible output across multiple function calls.
     groups: Tuple[str, ...]
         Column names used to group the data
     """
@@ -485,8 +490,9 @@ class MultiMarkovHoleGenerator(_HoleGenerator):
         Names of the columns for which holes must be created, by default None
     ratio_masked : Optional[float], optional
         Ratio of masked values to add, by default 0.05
-    random_state : Optional[int], optional
-        The seed used by the random number generator, by default 42.
+    random_state : int, RandomState instance or None, default=None
+        Controls the randomness.
+        Pass an int for reproducible output across multiple function calls.
     groups: Tuple[str, ...]
         Column names used to group the data
     """
@@ -634,8 +640,9 @@ class GroupedHoleGenerator(_HoleGenerator):
         Names of the columns for which holes must be created, by default None
     ratio_masked : Optional[float], optional
         Ratio of masked to add, by default 0.05
-    random_state : Optional[int], optional
-        The seed used by the random number generator, by default 42.
+    random_state : int, RandomState instance or None, default=None
+        Controls the randomness.
+        Pass an int for reproducible output across multiple function calls.
     groups : Tuple[str, ...]
         Names of the columns forming the groups, by default []
     """

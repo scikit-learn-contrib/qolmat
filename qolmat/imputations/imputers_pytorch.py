@@ -568,6 +568,17 @@ class ImputerDiffusion(_Imputer):
         freq_str : str
             Frequency string of DateOffset of Pandas.
             It is for processing time-series data, used in diffusion models e.g., TsDDPM.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from qolmat.imputations.imputers_pytorch import ImputerDiffusion
+        >>> from qolmat.imputations.diffusions.ddpms import TabDDPM
+        >>>
+        >>> X = np.array([[1, 1, 1, 1], [np.nan, np.nan, 3, 2], [1, 2, 2, 1], [2, 2, 2, 2]])
+        >>> imputer = ImputerDiffusion(model=TabDDPM(random_state=11), epochs=50, batch_size=1)
+        >>>
+        >>> df_imputed = imputer.fit_transform(X)
         """
         super().__init__(groups=groups, columnwise=False)
         self.model = model
