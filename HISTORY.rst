@@ -2,6 +2,12 @@
 History
 =======
 
+0.1.7 (2024-06-13)
+------------------
+* Little's test implemented in a new hole_characterization module
+* Documentation now includes an analysis section with a tutorial
+* Hole generators now provide reproducible outputs
+
 0.1.5 (2024-04-17)
 ------------------
 
