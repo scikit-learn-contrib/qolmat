@@ -34,8 +34,9 @@ class LittleTest(McarTest):
     imputer : Optional[ImputerEM]
         Imputer based on the EM algorithm. The 'model' attribute must be equal to 'multinormal'.
         If None, the default ImputerEM is taken.
-    random_state : Union[None, int, np.random.RandomState], optional
-        Controls the randomness of the fit_transform, by default None
+    random_state : int, RandomState instance or None, default=None
+        Controls the randomness.
+        Pass an int for reproducible output across multiple function calls.
     """
 
     def __init__(
