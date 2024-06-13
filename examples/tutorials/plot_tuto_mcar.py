@@ -72,7 +72,7 @@ plt.legend(
 )
 plt.xlabel("Column 1")
 plt.ylabel("Column 2")
-plt.title("Case 1: MCAR missingness mechanism")
+plt.title("Case 1: MCAR data")
 plt.grid()
 plt.show()
 
@@ -80,8 +80,8 @@ plt.show()
 result = test_mcar.test(df_nan)
 print(f"Test p-value: {result:.2%}")
 # %%
-# The p-value is quite high, therefore we don't reject H0.
-# We can then suppose that our missingness mechanism is MCAR.
+# The p-value is larger than 0.05, therefore we don't reject the HO MCAR assumption. In this case
+# this is a true negative.
 
 # %%
 # Case 2: MAR holes with mean bias (True positive)
@@ -104,7 +104,7 @@ plt.legend(
 )
 plt.xlabel("Column 1")
 plt.ylabel("Column 2")
-plt.title("Case 2: MAR missingness mechanism")
+plt.title("Case 2: MAR data with mean bias")
 plt.grid()
 plt.show()
 
@@ -113,8 +113,8 @@ plt.show()
 result = test_mcar.test(df_nan)
 print(f"Test p-value: {result:.2%}")
 # %%
-# The p-value is lower than the classic threshold (5%).
-# H0 is then rejected and we can suppose that our missingness mechanism is MAR.
+# The p-value is smaller than 0.05, therefore we reject the HO MCAR assumption. In this case
+# this is a true positive.
 
 # %%
 # Case 3: MAR holes with any mean bias (False negative)
@@ -143,7 +143,7 @@ plt.legend(
 )
 plt.xlabel("Column 1")
 plt.ylabel("Column 2")
-plt.title("Case 3: MAR missingness mechanism undetected by the Little's test")
+plt.title("Case 3: MAR data without any mean bias")
 plt.grid()
 plt.show()
 
@@ -152,8 +152,8 @@ plt.show()
 result = test_mcar.test(df_nan)
 print(f"Test p-value: {result:.2%}")
 # %%
-# The p-value is higher than the classic threshold (5%).
-# H0 is not rejected whereas the missingness mechanism is clearly MAR.
+# The p-value is larger than 0.05, therefore we don't reject the HO MCAR assumption. In this case
+# this is a false negative since the missingness mechanism is MAR.
 
 # %%
 # Limitations
