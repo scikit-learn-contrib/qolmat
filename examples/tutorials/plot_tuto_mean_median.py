@@ -5,9 +5,8 @@ Comparison of basic imputers
 
 In this tutorial, we show how to use the Qolmat comparator
 (:class:`~qolmat.benchmark.comparator`) to choose
-the best imputation between imputation by the mean
-(:class:`~qolmat.imputations.imputers.ImputerMean`) or the median
-(:class:`~qolmat.imputations.imputers.ImputerMedian`).
+the best imputation between imputation by the mean or the median
+(:class:`~qolmat.imputations.imputers.ImputerSimple`).
 The dataset used is the the numerical `superconduct` dataset and
 contains information on 21263 superconductors.
 We generate holes uniformly at random via
@@ -71,8 +70,8 @@ plt.show()
 # a way to generate holes (additional missing values on which the
 # imputers will be evaluated) and a list of metrics.
 
-imputer_mean = imputers.ImputerMean()
-imputer_median = imputers.ImputerMedian()
+imputer_mean = imputers.ImputerSimple(strategy="mean")
+imputer_median = imputers.ImputerSimple(strategy="median")
 dict_imputers = {"mean": imputer_mean, "median": imputer_median}
 
 metrics = ["mae", "wmape", "KL_columnwise"]

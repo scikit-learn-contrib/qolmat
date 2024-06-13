@@ -59,7 +59,7 @@ print(df_data.isna().sum())
 #
 # * ``x_valid``: a validation set.
 #
-# * ``metrics_valid``: a list validation metrics (see all metrics :doc:`imputers`). Its default
+# * ``metrics_valid``: a list validation metrics (see all [metrics](imputers.html). Its default
 #   value ``metrics_valid=(metrics.mean_absolute_error, metrics.dist_wasserstein,)``
 #
 # * ``print_valid``: a boolean to display/hide a training progress (including epoch_loss,

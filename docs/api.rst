@@ -4,8 +4,8 @@ Qolmat API
 
 .. currentmodule:: qolmat
 
-Imputers
-=========
+Imputers API
+============
 
 .. autosummary::
     :toctree: generated/
@@ -15,10 +15,8 @@ Imputers
     imputations.imputers.ImputerKNN
     imputations.imputers.ImputerInterpolation
     imputations.imputers.ImputerLOCF
-    imputations.imputers.ImputerMedian
-    imputations.imputers.ImputerMean
+    imputations.imputers.ImputerSimple
     imputations.imputers.ImputerMICE
-    imputations.imputers.ImputerMode
     imputations.imputers.ImputerNOCB
     imputations.imputers.ImputerOracle
     imputations.imputers.ImputerRegressor
@@ -28,8 +26,8 @@ Imputers
     imputations.imputers.ImputerSoftImpute
     imputations.imputers.ImputerShuffle
 
-Comparator
-===========
+Comparator API
+==============
 
 .. autosummary::
     :toctree: generated/
@@ -37,8 +35,8 @@ Comparator
 
     benchmark.comparator.Comparator
 
-Missing Patterns
-================
+Missing Patterns API
+====================
 
 .. autosummary::
     :toctree: generated/
@@ -51,8 +49,8 @@ Missing Patterns
     benchmark.missing_patterns.GroupedHoleGenerator
 
 
-Metrics
-=======
+Metrics API
+===========
 
 .. autosummary::
     :toctree: generated/
@@ -63,6 +61,7 @@ Metrics
     benchmark.metrics.mean_absolute_error
     benchmark.metrics.mean_absolute_percentage_error
     benchmark.metrics.weighted_mean_absolute_percentage_error
+    benchmark.metrics.accuracy
     benchmark.metrics.dist_wasserstein
     benchmark.metrics.kl_divergence
     benchmark.metrics.kolmogorov_smirnov_test
@@ -75,19 +74,19 @@ Metrics
     benchmark.metrics.pattern_based_weighted_mean_metric
 
 
-RPCA engine
-================
+RPCA engine API
+===============
 
 .. autosummary::
     :toctree: generated/
     :template: class.rst
 
-    imputations.rpca.rpca_pcp.RPCAPCP
+    imputations.rpca.rpca_pcp.RpcaPcp
     imputations.rpca.rpca_noisy.RpcaNoisy
 
 
-EM engine
-================
+Expectation-Maximization engine API
+===================================
 
 .. autosummary::
     :toctree: generated/
@@ -96,8 +95,8 @@ EM engine
     imputations.em_sampler.MultiNormalEM
     imputations.em_sampler.VARpEM
 
-Diffusion engine
-================
+Diffusion Model engine API
+==========================
 
 .. autosummary::
     :toctree: generated/
@@ -107,9 +106,27 @@ Diffusion engine
     imputations.diffusions.ddpms.TabDDPM
     imputations.diffusions.ddpms.TsDDPM
 
+Preprocessing API
+=================
 
-Utils
-================
+.. autosummary::
+    :toctree: generated/
+    :template: class.rst
+    
+    imputations.preprocessing.MixteHGBM
+    imputations.preprocessing.BinTransformer
+    imputations.preprocessing.OneHotEncoderProjector
+    imputations.preprocessing.WrapperTransformer
+
+.. autosummary::
+    :toctree: generated/
+    :template: function.rst
+    
+    imputations.preprocessing.make_pipeline_mixte_preprocessing
+    imputations.preprocessing.make_robust_MixteHGB
+
+Utils API
+=========
 
 .. autosummary::
     :toctree: generated/

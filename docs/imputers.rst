@@ -3,24 +3,28 @@ Imputers
 
 All imputers can be found in the ``qolmat.imputations`` folder.
 
-1. mean/median/shuffle
-----------------------
-Imputes the missing values using the mean/median along each column or with a random value in each column. See the :class:`~qolmat.imputations.imputers.ImputerMean`, :class:`~qolmat.imputations.imputers.ImputerMedian` and :class:`~qolmat.imputations.imputers.ImputerShuffle` classes.
+1. Simple (mean/median/mode)
+----------------------------
+Imputes the missing values using a basic simple statistics: the mode (most frequent value) for the categorical columns, and the mean,median or mode (depending on the user parameter) for the numerical columns. See :class:`~qolmat.imputations.imputers.ImputerSimple`.
 
-2. LOCF
+2. Shuffle
+----------
+Imputes the missing values using a random value sampled in the same column. See :class:`~qolmat.imputations.imputers.ImputerShuffle`.
+
+3. LOCF
 -------
-Imputes the missing values using the last observation carried forward. See the :class:`~qolmat.imputations.imputers.ImputerLOCF` class.
+Imputes the missing values using the last observation carried forward. See :class:`~qolmat.imputations.imputers.ImputerLOCF`.
 
-3. interpolation (on residuals)
--------------------------------
-Imputes missing using some interpolation strategies supported by `pd.Series.interpolate <https://pandas.pydata.org/docs/reference/api/pandas.Series.interpolate.html>`_. It is done column by column. See the :class:`~qolmat.imputations.imputers.ImputerInterpolation` class. When data are temporal with clear seasonal decomposition, we can interpolate on the residuals instead of directly interpolate the raw data. Series are de-seasonalised based on `statsmodels.tsa.seasonal.seasonal_decompose <https://www.statsmodels.org/stable/generated/statsmodels.tsa.seasonal.seasonal_decompose.html>`_, residuals are imputed via linear interpolation, then residuals are re-seasonalised. It is also done column by column. See the :class:`~qolmat.imputations.imputers.ImputerResiduals` class.
+4. Time interpolation and TSA decomposition
+-------------------------------------------
+Imputes missing using some interpolation strategies supported by `pd.Series.interpolate <https://pandas.pydata.org/docs/reference/api/pandas.Series.interpolate.html>`_. It is done column by column. See the :class:`~qolmat.imputations.imputers.ImputerInterpolation` class. When data are temporal with clear seasonal decomposition, we can interpolate on the residuals instead of directly interpolate the raw data. Series are de-seasonalised based on `statsmodels.tsa.seasonal.seasonal_decompose <https://www.statsmodels.org/stable/generated/statsmodels.tsa.seasonal.seasonal_decompose.html>`_, residuals are imputed via linear interpolation, then residuals are re-seasonalised. It is also done column by column. See :class:`~qolmat.imputations.imputers.ImputerResiduals`.
 
 
-4. MICE
+5. MICE
 -------
 Multiple Imputation by Chained Equation: multiple imputations based on ICE. It uses `IterativeImputer <https://scikit-learn.org/stable/modules/generated/sklearn.impute.IterativeImputer.html#sklearn.impute.IterativeImputer>`_. See the :class:`~qolmat.imputations.imputers.ImputerMICE` class.
 
-5. RPCA
+6. RPCA
 -------
 Robust Principal Component Analysis (RPCA) is a modification of the statistical procedure of PCA which allows to work with a data matrix :math:`\mathbf{D} \in \mathbb{R}^{n \times d}` containing missing values and grossly corrupted observations. We consider here the imputation task alone, but these methods can also tackle anomaly correction.
 
@@ -28,7 +32,7 @@ Two cases are considered.
 
 **RPCA via Principal Component Pursuit (PCP)** [1, 12]
 
-The class :class:`RPCAPCP` implements a matrix decomposition :math:`\mathbf{D} = \mathbf{M} + \mathbf{A}` where :math:`\mathbf{M}` has low-rank and :math:`\mathbf{A}` is sparse. It relies on the following optimisation problem
+The class :class:`RpcaPcp` implements a matrix decomposition :math:`\mathbf{D} = \mathbf{M} + \mathbf{A}` where :math:`\mathbf{M}` has low-rank and :math:`\mathbf{A}` is sparse. It relies on the following optimisation problem
 
 .. math::
    \text{min}_{\mathbf{M} \in \mathbb{R}^{m \times n}} \quad \Vert \mathbf{M} \Vert_* + \lambda \Vert P_\Omega(\mathbf{D-M}) \Vert_1
@@ -46,7 +50,7 @@ The class :class:`RpcaNoisy` implements an recommanded improved version, which r
 with :math:`\mathbf{E} = \mathbf{D} - \mathbf{M} - \mathbf{A}`.
 See the :class:`~qolmat.imputations.imputers.ImputerRpcaNoisy` class for implementation details.
 
-6. SoftImpute
+7. SoftImpute
 -------------
 SoftImpute is an iterative method for matrix completion that uses nuclear-norm regularization [11]. It is a faster alternative to RPCA, although it is much less robust due to the quadratic penalization. Given a matrix :math:`\mathbf{D} \in \mathbb{R}^{n \times d}` with observed entries indexed by the set :math:`\Omega`, this algorithm solves the following problem:
 
@@ -56,11 +60,11 @@ SoftImpute is an iterative method for matrix completion that uses nuclear-norm r
 The imputed values are then given by the matrix :math:`M=LQ` on the unobserved data.
 See the :class:`~qolmat.imputations.imputers.ImputerSoftImpute` class for implementation details.
 
-7. KNN
+8. KNN
 ------
 K-nearest neighbors, based on `KNNImputer <https://scikit-learn.org/stable/modules/generated/sklearn.impute.KNNImputer.html>`_. See the :class:`~qolmat.imputations.imputers.ImputerKNN` class.
 
-8. EM sampler
+9. EM sampler
 -------------
 Imputes missing values via EM algorithm [5], and more precisely via MCEM algorithm [6]. See the :class:`~qolmat.imputations.imputers.ImputerEM` class.
 Suppose the data :math:`\mathbf{X}` has a density :math:`p_\theta` parametrized by some parameter :math:`\theta`. The EM algorithm allows to draw samples from this distribution by alternating between the expectation and maximization steps.
@@ -91,6 +95,7 @@ We estimate the distribution parameter :math:`\theta` by likelihood maximization
 Once the parameter :math:`\theta^*` has been estimated the final data imputation can be done in two different ways, depending on the value of the argument `method`:
 
 * `mle`: Returns the maximum likelihood estimator
+
 .. math::
     X^* = \mathrm{argmax}_X L(X, \theta^*)
 
@@ -103,7 +108,7 @@ Two parametric distributions are implemented:
 * :class:`~qolmat.imputations.em_sampler.VARpEM`: [7]: :math:`\mathbf{X} \in \mathbb{R}^{n \times d} \sim VAR_p(\nu, B_1, ..., B_p)` is generated by a VAR(p) process such that :math:`X_t = \nu + B_1 X_{t-1} + ... + B_p X_{t-p} + u_t` where :math:`\nu \in \mathbb{R}^d` is a vector of intercept terms, the :math:`B_i  \in \mathbb{R}^{d \times d}` are the lags coefficient matrices and :math:`u_t` is white noise nonsingular covariance matrix :math:`\Sigma_u \mathbb{R}^{d \times d}`, so that :math:`\theta = (\nu, B_1, ..., B_p, \Sigma_u)`.
 
 
-9. TabDDPM
+10. TabDDPM
 -----------
 
 :class:`~qolmat.imputations.diffusions.ddpms.TabDDPM` is a deep learning imputer based on Denoising Diffusion Probabilistic Models (DDPMs) [8] for handling multivariate tabular data. Our implementation mainly follows the works of [8, 9]. Diffusion models focus on modeling the process of data transitions from noisy and incomplete observations to the underlying true data. They include two main processes:
@@ -115,8 +120,8 @@ In training phase, we use the self-supervised learning method of [9] to train in
 
 In the case of time-series data, we also propose :class:`~qolmat.imputations.diffusions.ddpms.TsDDPM` (built on top of :class:`~qolmat.imputations.diffusions.ddpms.TabDDPM`) to capture time-based relationships between data points in a dataset. In fact, the dataset is pre-processed by using sliding window method to obtain a set of data partitions. The noise prediction of the model :math:`\epsilon_\theta` takes into account not only the observed data at the current time step but also data from previous time steps. These time-based relationships are encoded by using a transformer-based architecture [9].
 
-References
-----------
+References (Imputers)
+---------------------
 
 [1] Candès, Emmanuel J., et al. `Robust principal component analysis? <https://arxiv.org/abs/2001.05484>`_ Journal of the ACM (JACM) 58.3 (2011): 1-37.
 

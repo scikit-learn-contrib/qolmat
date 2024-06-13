@@ -232,6 +232,8 @@ Selected Topics in Signal Processing 10.4 (2016): 740-756.
 [6] García, S., Luengo, J., & Herrera, F. "Data preprocessing in data mining". 2015.
 (`pdf <https://www.academia.edu/download/60477900/Garcia__Luengo__Herrera-Data_Preprocessing_in_Data_Mining_-_Springer_International_Publishing_201520190903-77973-th1o73.pdf>`__)
 
+[7] Botterman, HL., Roussel, J., Morzadec, T., Jabbari, A., Brunel, N. "Robust PCA for Anomaly Detection and Data Imputation in Seasonal Time Series" (2022) in International Conference on Machine Learning, Optimization, and Data Science. Cham: Springer Nature Switzerland, (`pdf <https://link.springer.com/chapter/10.1007/978-3-031-25891-6_21>`__)
+
 📝 License
 ==========
 

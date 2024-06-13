@@ -65,3 +65,8 @@ class IllConditioned(Exception):
             f"singular value of the data matrix is smaller than the threshold min_std ({min_sv} < "
             f"{min_std}). Consider removing columns of decreasing the threshold."
         )
+
+
+class TypeNotHandled(Exception):
+    def __init__(self, col: str, type_col: str):
+        super().__init__(f"The column `{col}` is of type `{type_col}`, which is not handled!")

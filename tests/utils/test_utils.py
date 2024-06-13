@@ -18,7 +18,13 @@ def test_utils_utils_display_progress_bar(iteration: int, total: int, capsys) ->
     captured_output = StringIO()
     sys.stdout = captured_output
     utils.progress_bar(
-        iteration, total, prefix="Progress", suffix="Complete", decimals=1, length=2, fill="█"
+        iteration,
+        total,
+        prefix="Progress",
+        suffix="Complete",
+        decimals=1,
+        length=2,
+        fill="█",
     )
     captured_output.seek(0)
     output = captured_output.read().strip()
@@ -28,7 +34,7 @@ def test_utils_utils_display_progress_bar(iteration: int, total: int, capsys) ->
     assert output == output_expected
 
 
-@pytest.mark.parametrize("values, lag_max", [(pd.Series([1, 2, 3, 4, 5]), 3)])
+@pytest.mark.parametrize("values, lag_max", [(pd.Series([1.0, 2.0, 3.0, 4.0, 5.0]), 3)])
 def test_utils_utils_acf(values, lag_max):
     result = utils.acf(values, lag_max)
     result_expected = pd.Series([1.0, 1.0, 1.0])
@@ -84,7 +90,8 @@ X_exp_interp = np.array(
 
 @pytest.mark.parametrize("X", [X_incomplete])
 @pytest.mark.parametrize(
-    "method, X_expected", [("mean", X_exp_mean), ("median", X_exp_median), ("zeros", X_exp_zeros)]
+    "method, X_expected",
+    [("mean", X_exp_mean), ("median", X_exp_median), ("zeros", X_exp_zeros)],
 )
 def test_utils_utils_impute_nans(X: NDArray, method: str, X_expected: NDArray):
     result = utils.impute_nans(M=X, method=method)
