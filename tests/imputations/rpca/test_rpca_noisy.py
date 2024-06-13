@@ -160,7 +160,6 @@ def test_rpca_noisy_decompose_rpca(synthetic_temporal_data):
     tau = 1
     lam = 0.1
     rank = 10
-    # rpca = RpcaNoisy(period=period, tau=tau, lam=lam, norm="L2")
     D = utils.prepare_data(signal, period)
     Omega = ~np.isnan(D)
     D = utils.linear_interpolation(D)
