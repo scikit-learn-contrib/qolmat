@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 from scipy.stats import norm
 
-from qolmat.audit.pklm import PKLMtest
+from qolmat.analysis.pklm import PKLMtest
 from qolmat.benchmark.missing_patterns import UniformHoleGenerator
 
 # ### DataFrame definition
