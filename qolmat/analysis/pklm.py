@@ -1,6 +1,8 @@
 # Non industrial implementation of the PKLM test
 import random
+from joblib import Parallel, delayed
 from typing import Tuple
+
 
 
 import pandas as pd
@@ -49,11 +51,6 @@ def draw_A_B(df: pd.DataFrame) -> Tuple[list, list]:
     return df_A.columns.tolist(), [col_B]
 
 
-def check_B(df: pd.DataFrame, M: pd.DataFrame, col_features: list, col_name: str) -> bool:
-    M_proj = build_M_proj(df[col_features], M)
-    return pd.unique(M_proj[col_name]).shape[0] > 1
-
-
 def create_binary_classif_df(
     df: pd.DataFrame,
     M: pd.DataFrame,
@@ -74,32 +71,42 @@ def get_oob_probabilities(df: pd.DataFrame, nb_trees_per_proj: int):
         min_samples_split=10,
         bootstrap=True,
         oob_score=True,
-        random_state=42,
+        random_state=42
     )
     clf.fit(X, y)
 
     return clf.oob_decision_function_
 
 
-def U_hat(oob_probabilities, labels):
+def U_hat(oob_probabilities: np.ndarray, labels: pd.Series):
+    oob_probabilities = np.clip(oob_probabilities, 1e-9, 1-1e-9)
+    unique_labels = labels.unique()
+    label_matrix = (labels.values[:, None] == unique_labels).astype(int)
+    p = np.sum(oob_probabilities * label_matrix, axis=0) / label_matrix.sum(axis=0)
+    p_a = np.sum(oob_probabilities * (1 - label_matrix), axis=0) / (1 - label_matrix).sum(axis=0)
+    return np.mean(np.log(p / (1 - p)) - np.log(p_a / (1 - p_a)))
 
-    def trunc_proba(p: float) -> float:
-        return min(max(p, 1e-9), 1-1e-9)
 
-    v_trunc_proba = np.vectorize(trunc_proba)
-    oob_probabilities = v_trunc_proba(oob_probabilities)
+def process_perm(M_perm, df, cols_feature, col_target, oob_probs):
+    indexes = df[cols_feature].dropna().index
+    return U_hat(oob_probs, M_perm.loc[indexes, col_target[0]].reset_index(drop=True))
 
-    U = 0
 
-    for ind in range(len(labels.unique())):
-        elements = labels[labels == ind].index
-        p = oob_probabilities[elements, ind]
-        
-        elements_a = labels[labels != ind].index
-        p_a = oob_probabilities[elements_a, ind]
-        U += np.mean(np.log(p/(1 - p))) - np.mean(np.log(p_a/(1 - p_a)))
 
-    return U
+def process_all(df, M, list_perm_M, nb_trees_per_proj):
+    cols_feature, col_target = draw_A_B(df)
+    df_for_classification = create_binary_classif_df(df, M, cols_feature, col_target)
+    oob_probabilities = get_oob_probabilities(df_for_classification, nb_trees_per_proj)
+    u_hat = U_hat(oob_probabilities, df_for_classification.target)
+    results = Parallel(n_jobs=-1, prefer="threads")(delayed(process_perm)(
+        M_perm,
+        df,
+        cols_feature,
+        col_target,
+        oob_probabilities
+    ) for M_perm in list_perm_M)
+    return u_hat, results
+
 
 
 def PKLMtest(
@@ -110,28 +117,24 @@ def PKLMtest(
 ) -> float:
     M = 1 * df.isnull()
     list_perm_M = [M.sample(frac=1, axis=0).reset_index(drop=True) for _ in range(nb_permutations)]
-    dict_res_sigma = {i: 0.0 for i in range(nb_permutations)}
-    dict_count_sigma = {i: 0.0 for i in range(nb_permutations)}
+    list_U_sigma = [0 for _ in range(nb_permutations)]
     U = 0.0
-    for _ in range(nb_projections):
-        cols_feature, col_target = draw_A_B(df)
-        df_for_classification = create_binary_classif_df(df, M, cols_feature, col_target)
-        oob_probabilities = get_oob_probabilities(df_for_classification, nb_trees_per_proj)
-        res = U_hat(oob_probabilities, df_for_classification.target)
-        U += res
-        for idx, M_perm in enumerate(list_perm_M):
-            if check_B(df, M_perm, cols_feature, col_target[0]):
-                indexes = df[cols_feature].dropna().index
-                dict_res_sigma[idx] += U_hat(oob_probabilities, M_perm.loc[indexes, col_target[0]].reset_index(drop=True))
-                dict_count_sigma[idx] += 1
-            else:
-                print("aie")
+    parallel_results = Parallel(n_jobs=-1, prefer="threads")(delayed(process_all)(
+        df,
+        M,
+        list_perm_M,
+        nb_trees_per_proj
+    ) for _ in range(nb_projections))
+
+    for U_projection, results in parallel_results:
+        U += U_projection
+        list_U_sigma = [x + y for x, y in zip(list_U_sigma, results)]
 
     U = U / nb_projections
-    dict_res_sigma = {k: v / dict_count_sigma[k] for k, v in dict_res_sigma.items()}
+    list_U_sigma = [x / nb_permutations for x in list_U_sigma]
 
     p_value = 1
-    for _, u_sigma in dict_res_sigma.items():
+    for u_sigma in list_U_sigma:
         if u_sigma >= U:
             p_value += 1
     return p_value / (nb_permutations + 1)
