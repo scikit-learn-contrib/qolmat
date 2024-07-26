@@ -1,7 +1,8 @@
 # Non industrial implementation of the PKLM test
+import time
 import random
 from joblib import Parallel, delayed
-from typing import Tuple
+from typing import Tuple, Optional
 
 
 
@@ -9,7 +10,7 @@ import pandas as pd
 import numpy as np
 
 
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
 
 
 ### Draw projections ###
@@ -78,6 +79,14 @@ def get_oob_probabilities(df: pd.DataFrame, nb_trees_per_proj: int):
     return clf.oob_decision_function_
 
 
+def get_scores(df: pd.DataFrame):
+    X, y = df.loc[:, df.columns != "target"], df["target"]
+    clf = HistGradientBoostingClassifier()
+    clf.fit(X, y)
+
+    return clf.predict_proba(X)
+
+
 def U_hat(oob_probabilities: np.ndarray, labels: pd.Series):
     oob_probabilities = np.clip(oob_probabilities, 1e-9, 1-1e-9)
     unique_labels = labels.unique()
@@ -96,9 +105,11 @@ def process_perm(M_perm, df, cols_feature, col_target, oob_probs):
 def process_all(df, M, list_perm_M, nb_trees_per_proj):
     cols_feature, col_target = draw_A_B(df)
     df_for_classification = create_binary_classif_df(df, M, cols_feature, col_target)
+    # Here to switch the classifier
     oob_probabilities = get_oob_probabilities(df_for_classification, nb_trees_per_proj)
+    # oob_probabilities = get_scores(df_for_classification)
     u_hat = U_hat(oob_probabilities, df_for_classification.target)
-    results = Parallel(n_jobs=-1, prefer="threads")(delayed(process_perm)(
+    results = Parallel(n_jobs=-1)(delayed(process_perm)(
         M_perm,
         df,
         cols_feature,
@@ -113,13 +124,13 @@ def PKLMtest(
     df: pd.DataFrame,
     nb_projections: int = 100,
     nb_permutations: int = 30,
-    nb_trees_per_proj: int = 200
+    nb_trees_per_proj: int = 200,
 ) -> float:
     M = 1 * df.isnull()
     list_perm_M = [M.sample(frac=1, axis=0).reset_index(drop=True) for _ in range(nb_permutations)]
     list_U_sigma = [0 for _ in range(nb_permutations)]
     U = 0.0
-    parallel_results = Parallel(n_jobs=-1, prefer="threads")(delayed(process_all)(
+    parallel_results = Parallel(n_jobs=-1)(delayed(process_all)(
         df,
         M,
         list_perm_M,
@@ -138,3 +149,11 @@ def PKLMtest(
         if u_sigma >= U:
             p_value += 1
     return p_value / (nb_permutations + 1)
+
+
+if __name__ == "__main__":
+    df = pd.read_csv("qolmat/analysis/df2.csv")
+    start_time = time.time()
+    p_v = PKLMtest(df)
+    print(p_v)
+    print("--- %s seconds ---" % (time.time() - start_time))
