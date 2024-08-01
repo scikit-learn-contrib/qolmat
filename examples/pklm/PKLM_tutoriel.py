@@ -1,17 +1,18 @@
 #!/usr/bin/env python
 # coding: utf-8
+# %%
 
-# In[1]:
+# %%
 import pandas as pd
 import numpy as np
 from scipy.stats import norm
 
-from qolmat.analysis.pklm import PKLMtest
+from qolmat.analysis.pklm_pandas import PKLMtest
 from qolmat.benchmark.missing_patterns import UniformHoleGenerator
 
 # ### DataFrame definition
 
-# In[5]:
+# %%
 
 
 nb_rows = 40
@@ -31,7 +32,7 @@ df.values.flat[indices_valeurs_manquantes] = np.nan
 # __Remarque__ : On remarque que parfois le calcul du U_hat n'est pas possible pour une
 # certaine projection.
 
-# In[5]:
+# %%
 
 
 PKLMtest(df, 10, 10)
@@ -41,7 +42,7 @@ PKLMtest(df, 10, 10)
 
 # ### The MCAR real case
 
-# In[2]:
+# %%
 
 
 np.random.seed(42)
@@ -57,7 +58,7 @@ df_observed = df.mask(df_mask).dropna()
 df_hidden = df.mask(df_unmasked).dropna(subset="Column_2")
 
 
-# In[4]:
+# %%
 
 
 PKLMtest(df.mask(df_mask), 10, 10)
@@ -67,7 +68,7 @@ PKLMtest(df.mask(df_mask), 10, 10)
 
 # ### The MAR case  : Heterogeneity in means
 
-# In[11]:
+# %%
 
 
 np.random.seed(42)
@@ -86,7 +87,7 @@ df_observed = df.mask(df_mask).dropna()
 df_hidden = df.mask(df_unmasked).dropna(subset="Column_2")
 
 
-# In[12]:
+# %%
 
 
 PKLMtest(df.mask(df_mask), 20, 20)
@@ -96,7 +97,7 @@ PKLMtest(df.mask(df_mask), 20, 20)
 
 # ### The MAR case  : Heterogeneity in covariance
 
-# In[13]:
+# %%
 
 
 np.random.seed(42)
@@ -115,7 +116,7 @@ df_observed = df.mask(df_mask).dropna()
 df_hidden = df.mask(df_unmasked).dropna(subset="Column_2")
 
 
-# In[14]:
+# %%
 
 
 PKLMtest(df.mask(df_mask), 20, 20)
