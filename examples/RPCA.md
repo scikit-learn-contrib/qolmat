@@ -34,6 +34,10 @@ from qolmat.imputations.rpca import rpca_utils
 from qolmat.utils.data import generate_artificial_ts
 ```
 
+```python
+from qolmat.imputations.imputers import ImputerRpcaNoisy, ImputerRpcaPcp
+```
+
 **Generate synthetic data**
 
 ```python tags=[]
@@ -46,14 +50,31 @@ amp_noise = 0.1
 X_true, A_true, E_true = generate_artificial_ts(n_samples, periods, amp_anomalies, ratio_anomalies, amp_noise)
 
 signal = X_true + A_true + E_true
+signal = 10 + signal * 40
 
 # Adding missing data
 signal[120:180] = np.nan
 signal[:20] = np.nan
+for i in range(10):
+    signal[i::365] = np.nan
 # signal[80:220] = np.nan
 # mask = np.random.choice(len(signal), round(len(signal) / 20))
 # signal[mask] = np.nan
 
+```
+
+```python
+import pandas as pd
+df = pd.DataFrame({"signal": signal})
+irn = ImputerRpcaPcp(period=100)
+df_imp = irn.fit_transform(df)
+```
+
+```python
+plt.plot(df_imp["signal"])
+plt.plot(df["signal"])
+
+plt.xlim(0, 200)
 ```
 
 ```python tags=[]
