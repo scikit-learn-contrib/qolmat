@@ -1,0 +1,82 @@
+[tool.poetry]
+name = "qolmat"
+version = "0.1.8"
+description = "A Python library for optimal data imputation."
+authors = [
+    "Julien ROUSSEL <julien.roussel@capgemini.com>",
+    "Anh Khoa NGO HO <anh-khoa.ngo-ho@capgemini.com>",
+    "Hong-Lan BOTTERMAN <hong-lan.botterman@capgemini.com>",
+    "Guillaume SAËS <guillaume.saes@capgemini.com>",
+]
+license = "BSD-3-Clause"
+readme = "README.rst"
+homepage = "https://github.com/Quantmetry/qolmat"
+repository = "https://github.com/Quantmetry/qolmat"
+documentation = "https://qolmat.readthedocs.io/en/latest/"
+keywords = ["imputation"]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved",
+    "Topic :: Software Development",
+    "Topic :: Scientific/Engineering",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+]
+
+[tool.poetry.dependencies]
+python = ">=3.8.1,<3.12"
+bump2version = "1.0.1"
+dcor = "0.6"
+ipykernel = "6.21.0"
+jupyter = "1.0.0"
+jupyterlab = "1.2.6"
+jupytext = "1.14.4"
+hyperopt = "0.2.7"
+numpy = "1.24.4"
+packaging = "23.1"
+pandas = "2.0.1"
+scipy = "1.10.1"
+scikit-learn = "1.3.2"
+sphinx-markdown-tables = { version = "*", optional = true }
+statsmodels = "0.14.0"
+typed-ast = { version = "*", optional = true }
+torch = { version = "2.0.1", optional = true }
+twine = "3.7.1"
+wheel = "0.37.1"
+
+[tool.poetry.dev-dependencies]
+flake8 = "6.0.0"
+matplotlib = "3.6.2"
+mypy = "1.1.1"
+pre-commit = "2.21.0"
+
+[tool.poetry.group.test.dependencies]
+pytest = "7.2.0"
+pytest-cov = "4.0.0"
+pytest-mock = "3.10.0"
+
+[tool.poetry.group.docs.dependencies]
+numpydoc = "1.1.0"
+sphinx = "4.3.2"
+sphinx-gallery = "0.10.1"
+sphinx_rtd_theme = "1.0.0"
+typing_extensions = "4.0.1"
+
+[tool.poetry.extras]
+tests = ["typed-ast"]
+docs = ["sphinx-markdown-tables"]
+pytorch = ["torch"]
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/Quantmetry/qolmat"
+"Source Code" = "https://github.com/Quantmetry/qolmat"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
