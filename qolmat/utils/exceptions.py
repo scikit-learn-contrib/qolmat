@@ -37,7 +37,7 @@ class NotDimension2(Exception):
 
 class NotDataFrame(Exception):
     def __init__(self, X_type: Type[Any]):
-        super().__init__(f"Input musr be a dataframe, not a {X_type}")
+        super().__init__(f"Input must be a dataframe, not a {X_type}")
 
 
 class NotEnoughSamples(Exception):
@@ -70,3 +70,11 @@ class IllConditioned(Exception):
 class TypeNotHandled(Exception):
     def __init__(self, col: str, type_col: str):
         super().__init__(f"The column `{col}` is of type `{type_col}`, which is not handled!")
+
+
+class TooManyMissingPatterns(Exception):
+    def __init__(self):
+        super().__init__(
+            "The input dataframe or matrix contains too many missing patterns."
+            "The number of distinct missing patterns must be less than the number of rows."
+        )
