@@ -3,6 +3,7 @@ from typing import Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
 from scipy.stats import chi2
 
 from qolmat.utils.exceptions import TooManyMissingPatterns
@@ -109,8 +110,9 @@ class PKLMTest(McarTest):
         Number of trees per projection.
     exact_p_value : bool
         If True, compute exact p-value.
-    random_state : Union[None, int, np.random.RandomState, np.random.Generator]
-        Seed or random state for reproducibility.
+    random_state : int, RandomState instance or None, default=None
+        Controls the randomness.
+        Pass an int for reproducible output across multiple function calls.
     """
 
     def __init__(
@@ -133,9 +135,8 @@ class PKLMTest(McarTest):
             ) else random_state
         )
 
-
     @staticmethod
-    def check_nb_patterns(df: np.ndarray):
+    def _check_nb_patterns(df: np.ndarray) -> None:
         """
         This method examines a NumPy array to identify distinct patterns of missing values (NaNs).
         If the number of unique patterns exceeds the number of rows in the array, it raises a
@@ -155,9 +156,8 @@ class PKLMTest(McarTest):
         if nb_patterns > n_rows:
             raise TooManyMissingPatterns()
 
-
     @staticmethod
-    def draw_features_and_target(df: np.ndarray) -> Tuple[np.ndarray, int]:
+    def _draw_features_and_target_indexes(df: np.ndarray) -> Tuple[np.ndarray, int]:
         """
         Randomly selects features and a target from the dataframe.
 
@@ -178,7 +178,7 @@ class PKLMTest(McarTest):
         return features_idx, target_idx
 
     @staticmethod
-    def check_draw(df: np.ndarray, features_idx, target_idx) -> np.bool_:
+    def check_draw(df: np.ndarray, features_idx: np.ndarray, target_idx: int) -> np.bool_:
         """
         Checks if the drawn features and target are valid.
         # TODO : Need to develop.
@@ -218,10 +218,68 @@ class PKLMTest(McarTest):
         """
         is_checked = False
         while not is_checked:
-            features_idx, target_idx = self.draw_features_and_target(df)
+            features_idx, target_idx = self._draw_features_and_target_indexes(df)
             is_checked = self.check_draw(df, features_idx, target_idx)
         return features_idx, target_idx
 
+    @staticmethod
+    def _build_dataset(
+        df: np.ndarray,
+        features_idx: np.ndarray,
+        target_idx: int
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        X = df[~np.isnan(df[:, features_idx]).any(axis=1)][:, features_idx]
+        y = np.where(np.isnan(df[~np.isnan(df[:, features_idx]).any(axis=1)][:, target_idx]), 1, 0)
+        return X, y
+
+    @staticmethod
+    def _build_label(
+        df: np.ndarray,
+        perm: np.ndarray,
+        features_idx: np.ndarray,
+        target_idx: int
+    ) -> np.ndarray:
+        return perm[~np.isnan(df[:, features_idx]).any(axis=1), target_idx]
+
+
+    def _get_oob_probabilities(self, X: np.ndarray, y: np.ndarray) -> np.ndarray:
+        clf = RandomForestClassifier(
+            n_estimators=self.nb_trees_per_proj,
+            #max_features=None,
+            min_samples_split=10,
+            bootstrap=True,
+            oob_score=True,
+        )
+        clf.fit(X, y)
+        return clf.oob_decision_function_
+
+    @staticmethod
+    def _U_hat(oob_probabilities: np.ndarray, labels: np.ndarray) -> float:
+        oob_probabilities = np.clip(oob_probabilities, 1e-9, 1-1e-9)
+
+        unique_labels = np.unique(labels)
+        label_matrix = (labels[:, None] == unique_labels).astype(int)
+        p_true = oob_probabilities * label_matrix
+        p_false = oob_probabilities * (1 - label_matrix)
+
+        p0_0 = p_true[:, 0][np.where(p_true[:, 0] != 0.)]
+        p0_1 = p_false[:, 0][np.where(p_false[:, 0] != 0.)]
+        p1_1 = p_true[:, 1][np.where(p_true[:, 1] != 0.)]
+        p1_0 = p_false[:, 1][np.where(p_false[:, 1] != 0.)]
+
+        if unique_labels.shape[0] == 1:
+            if unique_labels[0] == 0:
+                n0 = labels.shape[0]
+                return np.log(p0_0 / (1 - p0_0)).sum() / n0 - np.log(p1_0 / (1 - p1_0)).sum() / n0
+            else:
+                n1 = labels.shape[0]
+                return np.log(p1_1 / (1 - p1_1)).sum() / n1 - np.log(p0_1 / (1 - p0_1)).sum() / n1
+
+        n0, n1 = label_matrix.sum(axis=0)
+        u_0 = np.log(p0_0 / (1 - p0_0)).sum() / n0 - np.log(p0_1 / (1 - p0_1)).sum() / n1
+        u_1 = np.log(p1_1 / (1 - p1_1)).sum() / n1 - np.log(p1_0 / (1 - p1_0)).sum() / n0
+
+        return u_0 + u_1
 
     def test(self, df: np.ndarray):
-        self.check_nb_patterns(df)
+        self._check_nb_patterns(df)

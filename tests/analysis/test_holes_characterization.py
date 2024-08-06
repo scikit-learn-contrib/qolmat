@@ -79,10 +79,23 @@ def np_matrix_with_nan_mcar() -> np.ndarray:
     return matrix
 
 
-def test_draw_features_and_target(np_matrix_with_nan_mcar):
+@pytest.fixture
+def missingness_matrix_mcar(np_matrix_with_nan_mcar):
+    return np.isnan(np_matrix_with_nan_mcar).astype(int)
+
+
+@pytest.fixture
+def missingness_matrix_mcar_perm(missingness_matrix_mcar):
+    rng = np.random.default_rng(42)
+    return rng.permutation(missingness_matrix_mcar)
+
+
+def test__draw_features_and_target_indexes(np_matrix_with_nan_mcar):
     mcar_test_pklm = PKLMTest()
     _, p = np_matrix_with_nan_mcar.shape
-    features_idx, target_idx = mcar_test_pklm.draw_features_and_target(np_matrix_with_nan_mcar)
+    features_idx, target_idx = mcar_test_pklm._draw_features_and_target_indexes(np_matrix_with_nan_mcar)
+    assert isinstance(target_idx, np.integer)
+    assert isinstance(features_idx, np.ndarray)
     assert target_idx not in features_idx
     assert 0 <= target_idx <= (p-1)
     for feature_index in features_idx:
@@ -97,7 +110,48 @@ def test_draw_features_and_target(np_matrix_with_nan_mcar):
 )
 def test_check_draw(request, dataframe_fixture, features_idx, target_idx, expected):
     dataframe = request.getfixturevalue(dataframe_fixture)
-    print(dataframe)
     mcar_test_pklm = PKLMTest()
     result = mcar_test_pklm.check_draw(dataframe, features_idx, target_idx)
     assert result == expected
+
+
+@pytest.mark.parametrize("dataframe_fixture, features_idx, target_idx",
+    [
+        ("np_matrix_with_nan_mcar", np.array([1, 0]), 2),
+    ]
+)
+def test__build_dataset(request, dataframe_fixture, features_idx, target_idx):
+    dataframe = request.getfixturevalue(dataframe_fixture)
+    mcar_test_pklm = PKLMTest()
+    X, y = mcar_test_pklm._build_dataset(dataframe, features_idx, target_idx)
+    assert X.shape[0] == len(y)
+    assert not np.any(np.isnan(X))
+    assert not np.any(np.isnan(y))
+    assert np.all(np.unique(y) == [0, 1])
+    assert X.shape[1] == len(features_idx)
+    assert len(y.shape) == 1
+
+
+@pytest.mark.parametrize("dataframe_fixture, permutation_fixture, features_idx, target_idx",
+    [
+        ("np_matrix_with_nan_mcar", "missingness_matrix_mcar_perm", np.array([1, 0]), 2),
+    ]
+)
+def test__build_label(
+    request,
+    dataframe_fixture,
+    permutation_fixture,
+    features_idx,
+    target_idx
+):
+    dataframe = request.getfixturevalue(dataframe_fixture)
+    m_perm = request.getfixturevalue(permutation_fixture)
+    mcar_test_pklm = PKLMTest()
+    label = mcar_test_pklm._build_label(dataframe, m_perm, features_idx, target_idx)
+    assert not np.any(np.isnan(label))
+    assert len(label.shape) == 1
+    assert np.isin(label, [0, 1]).all()
+
+
+def test__U_hat():
+    assert False
