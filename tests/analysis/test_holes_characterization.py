@@ -90,8 +90,13 @@ def missingness_matrix_mcar_perm(missingness_matrix_mcar):
     return rng.permutation(missingness_matrix_mcar)
 
 
+@pytest.fixture
+def oob_probabilities() -> np.ndarray:
+    return np.matrix([[0.5, 0.5], [0, 1], [1, 0], [1, 0]]).A
+
+
 def test__draw_features_and_target_indexes(np_matrix_with_nan_mcar):
-    mcar_test_pklm = PKLMTest()
+    mcar_test_pklm = PKLMTest(42)
     _, p = np_matrix_with_nan_mcar.shape
     features_idx, target_idx = mcar_test_pklm._draw_features_and_target_indexes(np_matrix_with_nan_mcar)
     assert isinstance(target_idx, np.integer)
@@ -108,10 +113,10 @@ def test__draw_features_and_target_indexes(np_matrix_with_nan_mcar):
         ("np_matrix_with_nan_mcar", np.array([1, 0, 2]), 3, False)
     ]
 )
-def test_check_draw(request, dataframe_fixture, features_idx, target_idx, expected):
+def test__check_draw(request, dataframe_fixture, features_idx, target_idx, expected):
     dataframe = request.getfixturevalue(dataframe_fixture)
     mcar_test_pklm = PKLMTest()
-    result = mcar_test_pklm.check_draw(dataframe, features_idx, target_idx)
+    result = mcar_test_pklm._check_draw(dataframe, features_idx, target_idx)
     assert result == expected
 
 
@@ -153,5 +158,27 @@ def test__build_label(
     assert np.isin(label, [0, 1]).all()
 
 
-def test__U_hat():
-    assert False
+@pytest.mark.parametrize(
+        "oob_fixture, label",
+        [
+            ("oob_probabilities", np.array([1, 1, 1, 1])),
+            ("oob_probabilities", np.array([0, 0, 0, 0])),
+        ]
+)
+def test__U_hat_unique_label(request, oob_fixture, label):
+    oob_prob = request.getfixturevalue(oob_fixture)
+    mcar_test_pklm = PKLMTest()
+    mcar_test_pklm._U_hat(oob_prob, label)
+
+
+@pytest.mark.parametrize(
+        "oob_fixture, label, expected",
+        [
+            ("oob_probabilities", np.array([1, 0, 0, 0]), 2/3*(np.log(1 - 1e-9) - np.log(1e-9))),
+        ]
+)
+def test__U_hat_computation(request, oob_fixture, label, expected):
+    oob_prob = request.getfixturevalue(oob_fixture)
+    mcar_test_pklm = PKLMTest()
+    u_hat = mcar_test_pklm._U_hat(oob_prob, label)
+    assert round(u_hat, 2) == round(expected, 2)
