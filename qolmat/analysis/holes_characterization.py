@@ -146,6 +146,10 @@ class PKLMTest(McarTest):
         self.nb_trees_per_proj = nb_trees_per_proj
         self.exact_p_value = exact_p_value
 
+        if self.exact_p_value:
+            self.process_permutation = self._parallel_process_permutation_exact
+        self.process_permutation = self._parallel_process_permutation
+
     @staticmethod
     def _check_nb_patterns(df: np.ndarray) -> None:
         """
@@ -373,6 +377,19 @@ class PKLMTest(McarTest):
         y = self._build_label(df, M_perm, features_idx, target_idx)
         return self._U_hat(oob_probabilities, y)
 
+    def _parallel_process_permutation_exact(
+            self,
+            df: np.ndarray,
+            M_perm: np.ndarray,
+            features_idx: np.ndarray,
+            target_idx: int,
+            oob_probabilites_unused: np.ndarray
+        ) -> float:
+        X, _ = self._build_dataset(df, features_idx, target_idx)
+        y = self._build_label(df, M_perm, features_idx, target_idx)
+        oob_probabilities = self._get_oob_probabilities(X, y)
+        return self._U_hat(oob_probabilities, y)
+
     def _parallel_process_projection(
             self,
             df: np.ndarray,
@@ -383,7 +400,7 @@ class PKLMTest(McarTest):
         X, y = self._build_dataset(df, features_idx, target_idx)
         oob_probabilities = self._get_oob_probabilities(X, y)
         u_hat = self._U_hat(oob_probabilities, y)
-        result_u_permutations = Parallel(n_jobs=-1)(delayed(self._parallel_process_permutation)(
+        result_u_permutations = Parallel(n_jobs=-1)(delayed(self.process_permutation)(
             df,
             M_perm,
             features_idx,
