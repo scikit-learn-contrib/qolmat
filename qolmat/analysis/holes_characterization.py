@@ -5,6 +5,7 @@ from joblib import Parallel, delayed
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.preprocessing import OneHotEncoder
 from sklearn import utils as sku
 from scipy.stats import chi2
 
@@ -138,6 +139,7 @@ class PKLMTest(McarTest):
         nb_permutation: int = 30,
         nb_trees_per_proj: int = 200,
         exact_p_value: bool = False,
+        encoder: Union[None, OneHotEncoder] = None,
         random_state: Union[None, int, np.random.RandomState] = None,
     ):
         super().__init__(random_state=random_state)
@@ -145,6 +147,7 @@ class PKLMTest(McarTest):
         self.nb_permutation = nb_permutation
         self.nb_trees_per_proj = nb_trees_per_proj
         self.exact_p_value = exact_p_value
+        self.encoder = encoder
 
         if self.exact_p_value:
             self.process_permutation = self._parallel_process_permutation_exact
@@ -173,6 +176,29 @@ class PKLMTest(McarTest):
         nb_patterns = len(patterns)
         if nb_patterns > n_rows:
             raise TooManyMissingPatterns()
+
+    def _check_df_type(df):
+        """
+        Si le type est un np.ndarray -> Go, si c'est un pd.DataFrame aller vers une autre fonction.
+        """
+        pass
+
+    def _check_pd_df_dtypes(df):
+        """
+        Si tous les types sont quantitatifs -> conversion en numpy et GO.
+        Sinon vérifier que les types sont acceptés (object, bool).
+        Pour le moment, on ne supporte pas : les dates, les categories
+
+        Cette fonction sert juste à lever une erreur si besoin.
+        """
+        pass
+
+    def _encode_dataframe(df):
+        """
+        Si les types sont bien acceptés, faire un OneHot sur les catégories acceptées et return
+        un np.ndarray.
+        """
+        pass
 
     def _draw_features_and_target_indexes(self, df: np.ndarray) -> Tuple[np.ndarray, int]:
         """
