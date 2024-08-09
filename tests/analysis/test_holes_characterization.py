@@ -6,7 +6,7 @@ from scipy.stats import norm
 from qolmat.analysis.holes_characterization import LittleTest, PKLMTest
 from qolmat.benchmark.missing_patterns import UniformHoleGenerator
 from qolmat.imputations.imputers import ImputerEM
-
+from qolmat.utils.exceptions import TypeNotHandled
 
 ### Tests for the LittleTest class
 
@@ -69,6 +69,27 @@ def test_attribute_error():
 
 
 @pytest.fixture
+def multitypes_dataframe() -> pd.DataFrame:
+    return pd.DataFrame({
+        'int_col': [1, 2, 3],
+        'float_col': [1.1, 2.2, 3.3],
+        'str_col': ['a', 'b', 'c'],
+        'bool_col': [True, False, True],
+        'datetime_col': pd.to_datetime(['2021-01-01', '2021-01-02', '2021-01-03'])
+    })
+
+
+@pytest.fixture
+def supported_multitypes_dataframe() -> pd.DataFrame:
+    return pd.DataFrame({
+        'int_col': [1, 2, 3],
+        'float_col': [1.1, 2.2, 3.3],
+        'str_col': ['a', 'b', 'c'],
+        'bool_col': [True, False, True]
+    })
+
+
+@pytest.fixture
 def np_matrix_with_nan_mcar() -> np.ndarray:
     rng = np.random.default_rng(42)
     n_rows, n_cols = 10, 4
@@ -95,8 +116,27 @@ def oob_probabilities() -> np.ndarray:
     return np.matrix([[0.5, 0.5], [0, 1], [1, 0], [1, 0]]).A
 
 
+def test__check_pd_df_dtypes_raise_error(multitypes_dataframe):
+    with pytest.raises(TypeNotHandled):
+        mcar_test_pklm = PKLMTest(random_state=42)
+        mcar_test_pklm._check_pd_df_dtypes(multitypes_dataframe)
+
+
+def test__check_pd_df_dtypes(supported_multitypes_dataframe):
+    mcar_test_pklm = PKLMTest(random_state=42)
+    mcar_test_pklm._check_pd_df_dtypes(supported_multitypes_dataframe)
+
+
+def test__encode_dataframe(supported_multitypes_dataframe):
+    mcar_test_pklm = PKLMTest(random_state=42)
+    np_dataframe = mcar_test_pklm._encode_dataframe(supported_multitypes_dataframe)
+    n_rows, n_cols = np_dataframe.shape
+    assert n_rows == 3
+    assert n_cols == 7
+
+
 def test__draw_features_and_target_indexes(np_matrix_with_nan_mcar):
-    mcar_test_pklm = PKLMTest(42)
+    mcar_test_pklm = PKLMTest(random_state=42)
     _, p = np_matrix_with_nan_mcar.shape
     features_idx, target_idx = mcar_test_pklm._draw_features_and_target_indexes(np_matrix_with_nan_mcar)
     assert isinstance(target_idx, np.integer)

@@ -9,7 +9,7 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn import utils as sku
 from scipy.stats import chi2
 
-from qolmat.utils.exceptions import TooManyMissingPatterns
+from qolmat.utils.exceptions import TooManyMissingPatterns, TypeNotHandled
 from qolmat.imputations.imputers import ImputerEM
 
 
@@ -128,6 +128,8 @@ class PKLMTest(McarTest):
         Number of trees per projection.
     exact_p_value : bool
         If True, compute exact p-value.
+    encoder : OneHotEncoder or None, default=None
+        Encoder to convert non numeric pandas dataframe values to numeric values.
     random_state : int, RandomState instance or None, default=None
         Controls the randomness.
         Pass an int for reproducible output across multiple function calls.
@@ -139,7 +141,7 @@ class PKLMTest(McarTest):
         nb_permutation: int = 30,
         nb_trees_per_proj: int = 200,
         exact_p_value: bool = False,
-        encoder: Union[None, OneHotEncoder] = None,
+        encoder: Union[None, OneHotEncoder] = None, # We could define more encoders.
         random_state: Union[None, int, np.random.RandomState] = None,
     ):
         super().__init__(random_state=random_state)
@@ -177,28 +179,85 @@ class PKLMTest(McarTest):
         if nb_patterns > n_rows:
             raise TooManyMissingPatterns()
 
-    def _check_df_type(df):
+    @staticmethod
+    def _check_pd_df_dtypes(df: pd.DataFrame):
         """
-        Si le type est un np.ndarray -> Go, si c'est un pd.DataFrame aller vers une autre fonction.
-        """
-        pass
+        Validates that the columns of the DataFrame have allowed data types.
 
-    def _check_pd_df_dtypes(df):
-        """
-        Si tous les types sont quantitatifs -> conversion en numpy et GO.
-        Sinon vérifier que les types sont acceptés (object, bool).
-        Pour le moment, on ne supporte pas : les dates, les categories
+        Parameters:
+        -----------
+        df : pd.DataFrame
+            DataFrame whose columns' data types are to be checked.
 
-        Cette fonction sert juste à lever une erreur si besoin.
+        Raises:
+        -------
+        TypeNotHandled
+            If any column has a data type that is not numeric, string, or boolean.
         """
-        pass
+        allowed_types = [
+            pd.api.types.is_numeric_dtype, 
+            pd.api.types.is_string_dtype, 
+            pd.api.types.is_bool_dtype
+        ]
+        def is_allowed_type(dtype):
+            return any(check(dtype) for check in allowed_types)
 
-    def _encode_dataframe(df):
+        invalid_columns = [(col, dtype) for col, dtype in df.dtypes.items() if not is_allowed_type(dtype)]
+        if invalid_columns:
+            for column_name, dtype in invalid_columns:
+                raise TypeNotHandled(col=column_name, type_col=dtype)
+
+    def _encode_dataframe(self, df: pd.DataFrame) -> np.ndarray:
         """
-        Si les types sont bien acceptés, faire un OneHot sur les catégories acceptées et return
-        un np.ndarray.
+        Encodes the DataFrame by converting numeric columns to a numpy array 
+        and applying one-hot encoding to non-numeric columns.
+
+        Parameters:
+        -----------
+        df : pd.DataFrame
+            The DataFrame to be encoded.
+
+        Returns:
+        -------
+        np.ndarray
+            The encoded DataFrame as a numpy ndarray, with numeric data concatenated 
+            with one-hot encoded categorical and boolean data.
         """
-        pass
+        df_numerics = df.select_dtypes(include=['number']).to_numpy()
+
+        if not self.encoder:
+            self.encoder = OneHotEncoder()
+
+        df_non_numerics = self.encoder.fit_transform(
+            df.select_dtypes(include=['object', 'bool'])
+        ).toarray()
+
+        return np.concatenate((df_numerics, df_non_numerics), axis=1)
+
+    def _pklm_preprocessing(self, df: Union[pd.DataFrame, np.ndarray]) -> np.ndarray:
+        """
+        Preprocesses the input DataFrame or ndarray for further processing.
+
+        Parameters:
+        -----------
+        df : Union[pd.DataFrame, np.ndarray]
+            The input data to be preprocessed. Can be a pandas DataFrame or a numpy ndarray.
+
+        Returns:
+        -------
+        np.ndarray
+            The preprocessed data as a numpy ndarray.
+
+        Raises:
+        -------
+        TypeNotHandled
+            If the DataFrame contains columns with data types that are not numeric, string, or boolean.
+        """
+        if isinstance(df, np.ndarray):
+            return df
+        
+        self._check_pd_df_dtypes(df)
+        return self._encode_dataframe(df)
 
     def _draw_features_and_target_indexes(self, df: np.ndarray) -> Tuple[np.ndarray, int]:
         """
@@ -435,7 +494,7 @@ class PKLMTest(McarTest):
         ) for M_perm in list_permutations)
         return u_hat, result_u_permutations
 
-    def test(self, df: np.ndarray) -> float:
+    def test(self, df: Union[pd.DataFrame, np.ndarray]) -> float:
         """
         Apply the PKLM test over a real dataset.
 
@@ -450,6 +509,7 @@ class PKLMTest(McarTest):
         float
             The p-value of the test.
         """
+        df = self._pklm_preprocessing(df)
         self._check_nb_patterns(df)
 
         M = np.isnan(df).astype(int)
