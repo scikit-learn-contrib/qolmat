@@ -187,21 +187,81 @@ print(f"The p-value of the PKLM test is: {pklm_result:.2%}")
 # test. We present this test in more detail in the next section.
 
 # %%
-# 2. The PKLM test.
+# 2. The PKLM test
 # ------------------------------------------------------------------
-
-# Il faut parler :
-# - temps de calcul
-# - Les paramètres qui l'affectent le plus
-# - L'application sur données mixtes
+#
+# The PKLM test is very powerful for several reasons. Firstly, it covers the concerns that Little's
+# test may have (covariance heterogeneity). Secondly, it is currently the only MCAR test applicable
+# to mixed data. Finally, it proposes a concept of partial p-value which enables us to carry out a
+# variable-by-variable diagnosis to identify the potential causes of a MAR mechanism.
+#
+# There is a parameter in the paper called size.res.set. The authors of the paper recommend setting
+# this parameter to 2. We have chosen to follow this advice and not leave the possibility of
+# increasing this parameter. The results are satisfactory and the code is simpler.
+#
+# It does have one disadvantage, however: its calculation time.
+#
 
 # %%
-# 2.1 Hyperparmaters
+
+"""
+Calculation time
+================
+
++------------+------------+----------------------+
+| **n_rows** | **n_cols** | **Calculation_time**  |
++============+============+======================+
+| 200        | 2          | 2"12                 |
++------------+------------+----------------------+
+| 500        | 2          | 2"24                 |
++------------+------------+----------------------+
+| 500        | 4          | 2"18                 |
++------------+------------+----------------------+
+| 1000       | 4          | 2"48                 |
++------------+------------+----------------------+
+| 1000       | 6          | 2"42                 |
++------------+------------+----------------------+
+| 10000      | 6          | 20"54                |
++------------+------------+----------------------+
+| 10000      | 10         | 14"48                |
++------------+------------+----------------------+
+| 100000     | 10         | 4'51"                |
++------------+------------+----------------------+
+| 100000     | 15         | 3'06"                |
++------------+------------+----------------------+
+"""
+
+# %%
+# 2.1 Parameters and Hyperparmaters
 # ================================================
 #
-# As we have seen, Little's test only applies to quantitative data. In real life, however, it is
-# common to have to deal with mixed data. Here's an example of how to use the PKLM test on a dataset
-# with mixed data types.
+# To use the PKLM test properly, it may be necessary to understand the use of hyper-parameters.
+#
+# * ``nb_projections``: Number of projections on which the test statistic is calculated. This
+#   parameter has the greatest influence on test calculation time. Its defaut value
+#   ``nb_projections=100``.
+#   Est-ce qu'on donne des ordres de grandeurs utiles ? J'avais un peu fait ce travail.
+#
+# * ``nb_permutation`` : Number of permutations of the projected targets. The higher is better. This
+#   parameter has little impact on calculation time.
+#   Its default value ``nb_permutation=30``.
+#
+# * ``nb_trees_per_proj`` : The number of subtrees in each random forest fitted. In order to
+#   estimate the Kullback-Leibler divergence, we need to obtain probabilities of belonging to
+#   certain missing patterns. Random Forests are used to estimate these probabilities. This
+#   hyperparameter has a significant impact on test calculation time. Its default
+#   value is ``nb_trees_per_proj=200``
+#
+# * ``compute_partial_p_values``: Boolean that indicates if you want to compute the partial
+#   p-values. Those partial p-values could help the user to identify the variables responsible for
+#   the MAR missing-data mechanism. Please see the section 2.3 for examples. Its default value is
+#   ``compute_partial_p_values=False``.
+#
+# * ``encoder``: Scikit-Learn encoder to encode non-numerical values.
+#   Its default value ``encoder=sklearn.preprocessing.OneHotEncoder()``
+#
+# * ``random_state``: Controls the randomness. Pass an int for reproducible output across
+#   multiple function calls. Its default value ``random_state=None``
 
 # %%
 # 2.2 Application on mixed data types
@@ -303,14 +363,13 @@ for col_index, partial_p_v in enumerate(partial_p_values):
     print(f"The partial p-value for the column index {col_index + 1} is: {partial_p_v:.2%}")
 
 # %%
-# As a reminder, This “partial” p-value corresponds to the effect of removing the patterns induced
-# by variable k. As a result, by removing the missing patterns induced by variable 2, the p-v rises
-# above the significance threshold set beforehand.  Thus in this sense, the test detects that the
+# As a result, by removing the missing patterns induced by variable 2, the p-value rises
+# above the significance threshold set beforehand. Thus in this sense, the test detects that the
 # main culprit of the MAR mechanism lies in the second variable.
 
 
 # %%
-# Calculation time
+# Calculation time -> TO BE DELETED
 # | **n_rows** | **n_cols** | **Calculation_time** |
 # |------------|------------|----------------------|
 # | 200        | 2          | 2"12                 |

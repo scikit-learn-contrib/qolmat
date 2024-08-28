@@ -116,6 +116,10 @@ class PKLMTest(McarTest):
 
     This test is applicable to mixed data (quantitative and categoricals) types.
 
+
+    If you're familiar with the paper, this implementation of the PKLM test was made for the
+    parameter size.resp.set=2 only.
+
     References
     ----------
     Spohn, M. L., Näf, J., Michel, L., & Meinshausen, N. (2021). PKLM: A flexible MCAR test using
