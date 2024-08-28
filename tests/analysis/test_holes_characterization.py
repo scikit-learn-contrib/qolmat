@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from scipy.stats import norm
+from sympy import li
 
 from qolmat.analysis.holes_characterization import LittleTest, PKLMTest
 from qolmat.benchmark.missing_patterns import UniformHoleGenerator
@@ -222,3 +223,25 @@ def test__U_hat_computation(request, oob_fixture, label, expected):
     mcar_test_pklm = PKLMTest()
     u_hat = mcar_test_pklm._U_hat(oob_prob, label)
     assert round(u_hat, 2) == round(expected, 2)
+
+@pytest.mark.parametrize(
+        "list_proj, n_cols",
+        [
+            (
+                [
+                    (np.array([3, 1]), 0),
+                    (np.array([0]), 1),
+                    (np.array([3]), 0),
+                    (np.array([1, 2]), 3),
+                    (np.array([3, 0]), 2),
+                    (np.array([0, 1]), 2)
+                ],
+                4
+            )
+        ]
+)
+def test__build_B(list_proj, n_cols):
+    mcar_test_pklm = PKLMTest()
+    B = mcar_test_pklm._build_B(list_proj, n_cols)
+    column_sums = np.sum(B, axis=0)
+    assert np.all(column_sums == 3)
