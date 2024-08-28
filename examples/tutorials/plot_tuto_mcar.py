@@ -3,7 +3,7 @@
 Tutorial for Testing the MCAR Case
 ============================================
 
-In this tutorial, we show how to test the MCAR case using the Little's test.
+In this tutorial, we show how to test the MCAR case using the Little and the PKLM tests.
 """
 
 # %%
@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import norm
 
-from qolmat.analysis.holes_characterization import LittleTest
+from qolmat.analysis.holes_characterization import LittleTest, PKLMTest
 from qolmat.benchmark.missing_patterns import UniformHoleGenerator
 
 plt.rcParams.update({"font.size": 12})
@@ -31,22 +31,32 @@ df = pd.DataFrame(data=data, columns=["Column 1", "Column 2"])
 q975 = norm.ppf(0.975)
 
 # %%
+# 1. Testing the MCAR case with the Little's test and the PKLM test.
+# ------------------------------------------------------------------
+#
 # The Little's test
-# ---------------------------------------------------------------
+# =================
+#
 # First, we need to introduce the concept of a missing pattern. A missing pattern, also called a
 # pattern, is the structure of observed and missing values in a dataset. For example, in a
 # dataset with two columns, the possible patterns are: (0, 0), (1, 0), (0, 1), (1, 1). The value 1
 # (0) indicates that the column value is missing (observed).
 #
 # The null hypothesis, H0, is: "The means of observations within each pattern are similar.".
+
+# %%
+# The PKLM test
+# =============
+# The test compares distributions of different missing patterns.
 #
+# The null hypothesis, H0, is: "Distributions within each pattern are similar.".
 # We choose to use the classic threshold of 5%. If the test p-value is below this threshold,
 # we reject the null hypothesis.
-#
-# This notebook shows how the Little's test performs on a simplistic case and its limitations. We
-# instanciate a test object with a random state for reproducibility.
+# This notebook shows how the Little and PKLM tests perform on a simplistic case and their
+# limitations. We instanciate a test object with a random state for reproducibility.
 
-test_mcar = LittleTest(random_state=rng)
+little_test_mcar = LittleTest(random_state=rng)
+pklm_test_mcar = PKLMTest(random_state=rng)
 
 # %%
 # Case 1: MCAR holes (True negative)
@@ -77,11 +87,13 @@ plt.grid()
 plt.show()
 
 # %%
-result = test_mcar.test(df_nan)
-print(f"Test p-value: {result:.2%}")
+little_result = little_test_mcar.test(df_nan)
+pklm_result = pklm_test_mcar.test(df_nan)
+print(f"The p-value of the Little's test is: {little_result:.2%}")
+print(f"The p-value of the PKLM test is: {pklm_result:.2%}")
 # %%
-# The p-value is larger than 0.05, therefore we don't reject the HO MCAR assumption. In this case
-# this is a true negative.
+# The two p-values are larger than 0.05, therefore we don't reject the H0 MCAR assumption.
+# In this case this is a true negative.
 
 # %%
 # Case 2: MAR holes with mean bias (True positive)
@@ -110,11 +122,13 @@ plt.show()
 
 # %%
 
-result = test_mcar.test(df_nan)
-print(f"Test p-value: {result:.2%}")
+little_result = little_test_mcar.test(df_nan)
+pklm_result = pklm_test_mcar.test(df_nan)
+print(f"The p-value of the Little's test is: {little_result:.2%}")
+print(f"The p-value of the PKLM test is: {pklm_result:.2%}")
 # %%
-# The p-value is smaller than 0.05, therefore we reject the HO MCAR assumption. In this case
-# this is a true positive.
+# The two p-values are smaller than 0.05, therefore we reject the H0 MCAR assumption.
+# In this case this is a true positive.
 
 # %%
 # Case 3: MAR holes with any mean bias (False negative)
@@ -149,17 +163,162 @@ plt.show()
 
 # %%
 
-result = test_mcar.test(df_nan)
-print(f"Test p-value: {result:.2%}")
+little_result = little_test_mcar.test(df_nan)
+pklm_result = pklm_test_mcar.test(df_nan)
+print(f"The p-value of the Little's test is: {little_result:.2%}")
+print(f"The p-value of the PKLM test is: {pklm_result:.2%}")
 # %%
-# The p-value is larger than 0.05, therefore we don't reject the HO MCAR assumption. In this case
-# this is a false negative since the missingness mechanism is MAR.
+# The Little's p-value is larger than 0.05, therefore, using this test we don't reject the H0 MCAR
+# assumption. In this case this is a false negative since the missingness mechanism is MAR.
+#
+# However the PKLM test p-value is smaller than 0.05 therefore we don't reject the H0 MCAR
+# assumption. In this case this is a true negative.
 
 # %%
-# Limitations
-# -----------
+# Limitations and conclusion
+# ==========================
 # In this tutoriel, we can see that Little's test fails to detect covariance heterogeneity between
 # patterns.
 #
 # We also note that the Little's test does not handle categorical data or temporally
 # correlated data.
+# 
+# This is why we have implemented the PKLM test, which makes up for the shortcomings of the Little
+# test. We present this test in more detail in the next section.
+
+# %%
+# 2. The PKLM test.
+# ------------------------------------------------------------------
+
+# Il faut parler :
+# - temps de calcul
+# - Les paramètres qui l'affectent le plus
+# - L'application sur données mixtes
+
+# %%
+# 2.1 Hyperparmaters
+# ================================================
+#
+# As we have seen, Little's test only applies to quantitative data. In real life, however, it is
+# common to have to deal with mixed data. Here's an example of how to use the PKLM test on a dataset
+# with mixed data types.
+
+# %%
+# 2.2 Application on mixed data types
+# ================================================
+#
+# As we have seen, Little's test only applies to quantitative data. In real life, however, it is
+# common to have to deal with mixed data. Here's an example of how to use the PKLM test on a dataset
+# with mixed data types.
+
+# %%
+n_rows = 100
+
+col1 = rng.rand(n_rows) * 100
+col2 = rng.randint(1, 100, n_rows)
+col3 = rng.choice([True, False], n_rows)
+modalities = ['A', 'B', 'C', 'D']
+col4 = rng.choice(modalities, n_rows)
+
+df = pd.DataFrame({
+    'Numeric1': col1,
+    'Numeric2': col2,
+    'Boolean': col3,
+    'Object': col4
+})
+
+hole_gen = UniformHoleGenerator(
+    n_splits=1,
+    ratio_masked=0.2,
+    subset=['Numeric1', 'Numeric2', 'Boolean', 'Object'],
+    random_state=rng
+)
+df_mask = hole_gen.generate_mask(df)
+df_nan = df.where(~df_mask, np.nan)
+df_nan.dtypes
+
+# %%
+pklm_result = pklm_test_mcar.test(df_nan)
+print(f"The p-value of the PKLM test is: {pklm_result:.2%}")
+
+# %%
+# To perform the PKLM test over mixed data types, non numerical features need to be encoded. The
+# default encoder in the :class:`~qolmat.analysis.holes_characterization.PKLMTest` class is the
+# default OneHotEncoder from scikit-learn. If you wish to use an encoder adapted to your data, you
+# can perform this encoding step beforehand, and then use the PKLM test.
+# Currently, we do not support the following types :
+#
+# - datetimes
+#
+# - timedeltas
+#
+# - Pandas datetimetz
+
+# %%
+# 2.3 Partial p-values
+# ================================================
+#
+# In addition, the PKLM test can be used to calculate partial p-values. We denote as many partial
+# p-values as there are columns in the input dataframe. This “partial” p-value corresponds to the
+# effect of removing the patterns induced by variable k.
+#
+# Let's take a look at an example of how to use this feature
+
+# %%
+data = rng.multivariate_normal(
+    mean=[0, 0, 0, 0],
+    cov=[[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]],
+    size=400
+)
+df = pd.DataFrame(data=data, columns=["Column 1", "Column 2", "Column 3", "Column 4"])
+
+df_mask = pd.DataFrame(
+    {
+        "Column 1": False,
+        "Column 2": df["Column 1"] > q975,
+        "Column 3": False,
+        "Column 4": False,
+    },
+    index=df.index
+)
+df_nan = df.where(~df_mask, np.nan)
+
+# %%
+# The missing-data mechanism is clearly MAR. Intuitively, if we remove the second column from the
+# matrix, the missing-data mechanism is MCAR. Let's see how the PKLM test can help us identify the
+# variable responsible for the MAR mechanism.
+
+# %%
+pklm_test = PKLMTest(random_state=rng, compute_partial_p_values=True)
+p_value, partial_p_values = pklm_test.test(df_nan)
+print(f"The p-value of the PKLM test is: {p_value:.2%}")
+
+# %%
+# The test result confirms that we can reject the null hypothesis and therefore assume that the
+# missing-data mechanism is MAR.
+# Let's now take a look at what partial p-values can tell us.
+
+# %%
+for col_index, partial_p_v in enumerate(partial_p_values):
+    print(f"The partial p-value for the column index {col_index + 1} is: {partial_p_v:.2%}")
+
+# %%
+# As a reminder, This “partial” p-value corresponds to the effect of removing the patterns induced
+# by variable k. As a result, by removing the missing patterns induced by variable 2, the p-v rises
+# above the significance threshold set beforehand.  Thus in this sense, the test detects that the
+# main culprit of the MAR mechanism lies in the second variable.
+
+
+# %%
+# Calculation time
+# | **n_rows** | **n_cols** | **Calculation_time** |
+# |------------|------------|----------------------|
+# | 200        | 2          | 2"12                 |
+# | 500        | 2          | 2"24                 |
+# | 500        | 4          | 2"18                 |
+# | 1000       | 4          | 2"48                 |
+# | 1000       | 6          | 2"42                 |
+# | 10000      | 6          | 20"54                |
+# | 10000      | 10         | 14"48                |
+# | 100000     | 10         | 4'51"                |
+# | 100000     | 15         | 3'06"                |
