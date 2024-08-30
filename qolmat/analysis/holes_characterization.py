@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from itertools import combinations
 from typing import List, Optional, Tuple, Union
 
 from category_encoders.one_hot import OneHotEncoder
@@ -147,6 +148,7 @@ class PKLMTest(McarTest):
     def __init__(
         self,
         nb_projections: int = 100,
+        nb_projections_threshold: int = 200,
         nb_permutation: int = 30,
         nb_trees_per_proj: int = 200,
         compute_partial_p_values: bool = False,
@@ -156,6 +158,7 @@ class PKLMTest(McarTest):
     ):
         super().__init__(random_state=random_state)
         self.nb_projections = nb_projections
+        self.nb_projections_threshold = nb_projections_threshold
         self.nb_permutation = nb_permutation
         self.nb_trees_per_proj = nb_trees_per_proj
         self.compute_partial_p_values = compute_partial_p_values
@@ -223,7 +226,24 @@ class PKLMTest(McarTest):
         )
         return self._encode_dataframe(X)
 
-    def _draw_features_and_target_indexes(self, X: np.ndarray) -> Tuple[np.ndarray, int]:
+    @staticmethod
+    def _get_max_draw(p: int) -> int:
+        """
+        Calculates the number of possible projections.
+
+        Parameters:
+        -----------
+        p : int
+            The number of columns of the input matrix.
+
+        Returns:
+        --------
+        int
+            The number of possible projections.
+        """
+        return p*(2**(p-1) - 1)
+
+    def _draw_features_and_target_indexes(self, X: np.ndarray) -> Tuple[List[int], int]:
         """
         Randomly selects features and a target from the dataframe.
 
@@ -241,10 +261,10 @@ class PKLMTest(McarTest):
         nb_features = self.rng.randint(1, p)
         features_idx = self.rng.choice(range(p), size=nb_features, replace=False)
         target_idx = self.rng.choice(np.setdiff1d(np.arange(p), features_idx))
-        return features_idx, target_idx
+        return features_idx.tolist(), target_idx
 
     @staticmethod
-    def _check_draw(X: np.ndarray, features_idx: np.ndarray, target_idx: int) -> np.bool_:
+    def _check_draw(X: np.ndarray, features_idx: List[int], target_idx: int) -> np.bool_:
         """
         Checks if the drawn features and target are valid.
         # TODO : Need to develop ?
@@ -268,7 +288,36 @@ class PKLMTest(McarTest):
         is_distinct_values = (~np.isnan(target_values)).any()
         return is_nan and is_distinct_values
 
-    def _draw_projection(self, X: np.ndarray) -> Tuple[np.ndarray, int]:
+    def _generate_label_feature_combinations(self, X: np.ndarray) -> List[Tuple[int, List[int]]]:
+        """
+        Generates all valid combinations of features and labels for projection.
+
+        Parameters:
+        -----------
+        X : np.ndarray
+            The input data array.
+
+        Returns:
+        --------
+        List[Tuple[int, List[int]]]
+            A list of tuples where each tuple contains a label and a list of selected features that
+            can be used for projection.
+        """
+        _, p = X.shape
+        indices = list(range(p))
+        result = []
+
+        for label in indices:
+            feature_candidates = [i for i in indices if i != label]
+
+            for r in range(1, len(feature_candidates) + 1):
+                for feature_set in combinations(feature_candidates, r):
+                    if self._check_draw(X, list(feature_set), label):
+                        result.append((list(feature_set), label))
+
+        return result
+
+    def _draw_projection(self, X: np.ndarray) -> Tuple[List[int], int]:
         """
         Draws a valid projection of features and a target.
 
@@ -552,9 +601,14 @@ class PKLMTest(McarTest):
             the partial p-values.
         """
         X = self._pklm_preprocessing(X)
+        _, n_cols = X.shape
+
+        if self._get_max_draw(n_cols) <= self.nb_projections_threshold:
+            list_proj = self._generate_label_feature_combinations(X)
+        else:
+            list_proj = [self._draw_projection(X) for _ in range(self.nb_projections)]
 
         M = np.isnan(X).astype(int)
-        list_proj = [self._draw_projection(X) for _ in range(self.nb_projections)]
         list_perm = [self.rng.permutation(M) for _ in range(self.nb_permutation)]
         U = 0.0
         list_U_sigma = [0.0 for _ in range(self.nb_permutation)]
@@ -584,7 +638,6 @@ class PKLMTest(McarTest):
         if not self.compute_partial_p_values:
             return p_value
         else:
-            _, n_cols = X.shape
             B = self._build_B(list_proj, n_cols)
             U = np.array([item[0] for item in parallel_results])
             U_sigma = np.array([item[1] for item in parallel_results])

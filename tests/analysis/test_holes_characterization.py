@@ -117,7 +117,7 @@ def test__draw_features_and_target_indexes(np_matrix_with_nan_mcar):
     _, p = np_matrix_with_nan_mcar.shape
     features_idx, target_idx = mcar_test_pklm._draw_features_and_target_indexes(np_matrix_with_nan_mcar)
     assert isinstance(target_idx, np.integer)
-    assert isinstance(features_idx, np.ndarray)
+    assert isinstance(features_idx, list)
     assert target_idx not in features_idx
     assert 0 <= target_idx <= (p-1)
     for feature_index in features_idx:
@@ -135,6 +135,25 @@ def test__check_draw(request, dataframe_fixture, features_idx, target_idx, expec
     mcar_test_pklm = PKLMTest()
     result = mcar_test_pklm._check_draw(dataframe, features_idx, target_idx)
     assert result == expected
+
+
+@pytest.mark.parametrize("matrix_fixture", [("np_matrix_with_nan_mcar")])
+def test__generate_label_feature_combinations(request, matrix_fixture):
+    X = request.getfixturevalue(matrix_fixture)
+    _, n_cols = X.shape
+    mcar_test_pklm = PKLMTest()
+    result = mcar_test_pklm._generate_label_feature_combinations(X)
+    # Check that number of projections is smaller than possible
+    assert len(result) <= mcar_test_pklm._get_max_draw(n_cols)
+    # Check there are no duplicates
+    assert len(set([x for x in result if result.count(x) > 1])) == 0
+    for features, label in result:
+        assert isinstance(label, int)
+        assert isinstance(features, list)
+        assert label not in features
+        for feature_index in features:
+            assert 0 <= feature_index <= (n_cols-1)
+
 
 
 @pytest.mark.parametrize("dataframe_fixture, features_idx, target_idx",
