@@ -70,11 +70,3 @@ class IllConditioned(Exception):
 class TypeNotHandled(Exception):
     def __init__(self, col: str, type_col: str):
         super().__init__(f"The column `{col}` is of type `{type_col}`, which is not handled!")
-
-
-class TooManyMissingPatterns(Exception):
-    def __init__(self):
-        super().__init__(
-            "The input dataframe or matrix contains too many missing patterns."
-            "The number of distinct missing patterns must be less than the number of rows."
-        )

@@ -1,16 +1,16 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple, Union
 
+from category_encoders.one_hot import OneHotEncoder
 from joblib import Parallel, delayed
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.preprocessing import OneHotEncoder
 from sklearn import utils as sku
 from scipy.stats import chi2
 
-from qolmat.utils.exceptions import TooManyMissingPatterns, TypeNotHandled
 from qolmat.imputations.imputers import ImputerEM
+from qolmat.utils.input_check import check_pd_df_dtypes
 
 
 class McarTest(ABC):
@@ -151,7 +151,7 @@ class PKLMTest(McarTest):
         nb_trees_per_proj: int = 200,
         compute_partial_p_values: bool = False,
         exact_p_value: bool = False,
-        encoder: Union[None, OneHotEncoder] = None,  # We could define more encoders.
+        encoder: Union[None, OneHotEncoder] = None,
         random_state: Union[None, int, np.random.RandomState] = None,
     ):
         super().__init__(random_state=random_state)
@@ -165,63 +165,6 @@ class PKLMTest(McarTest):
         if self.exact_p_value:
             self.process_permutation = self._parallel_process_permutation_exact
         self.process_permutation = self._parallel_process_permutation
-
-    @staticmethod
-    def _check_nb_patterns(df: np.ndarray) -> None:
-        """
-        This method examines a NumPy array to identify distinct patterns of missing values (NaNs).
-        If the number of unique patterns exceeds the number of rows in the array, it raises a
-        `TooManyMissingPatterns` exception.
-        This condition comes from the PKLM paper, please see the reference if needed.
-
-        Parameters:
-        -----------
-        df : np.ndarray
-            2D array with NaNs as missing values.
-
-        Raises:
-        -------
-            TooManyMissingPatterns: If unique missing patterns exceed the number of rows.
-        """
-        n_rows, _ = df.shape
-        indicator_matrix = ~np.isnan(df)
-        patterns = set(map(tuple, indicator_matrix))
-        nb_patterns = len(patterns)
-        if nb_patterns > n_rows:
-            raise TooManyMissingPatterns()
-
-    @staticmethod
-    def _check_pd_df_dtypes(df: pd.DataFrame):
-        """
-        Validates that the columns of the DataFrame have allowed data types.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            DataFrame whose columns' data types are to be checked.
-
-        Raises:
-        -------
-        TypeNotHandled
-            If any column has a data type that is not numeric, string, or boolean.
-        """
-        allowed_types = [
-            pd.api.types.is_numeric_dtype,
-            pd.api.types.is_string_dtype,
-            pd.api.types.is_bool_dtype,
-        ]
-
-        def is_allowed_type(dtype):
-            return any(check(dtype) for check in allowed_types)
-
-        invalid_columns = [
-            (col, dtype)
-            for col, dtype in df.dtypes.items()
-            if not is_allowed_type(dtype)
-        ]
-        if invalid_columns:
-            for column_name, dtype in invalid_columns:
-                raise TypeNotHandled(col=column_name, type_col=dtype)
 
     def _encode_dataframe(self, df: pd.DataFrame) -> np.ndarray:
         """
@@ -239,24 +182,22 @@ class PKLMTest(McarTest):
             The encoded DataFrame as a numpy ndarray, with numeric data concatenated
             with one-hot encoded categorical and boolean data.
         """
-        df_numerics = df.select_dtypes(include=["number"]).to_numpy()
-
         if not self.encoder:
-            self.encoder = OneHotEncoder()
+            self.encoder = OneHotEncoder(
+                cols=df.select_dtypes(include=["object", "bool"]).columns,
+                return_df=False,
+                handle_missing='return_nan'
+            )
 
-        df_non_numerics = self.encoder.fit_transform(
-            df.select_dtypes(include=["object", "bool"])
-        ).toarray()
+        return self.encoder.fit_transform(df)
 
-        return np.concatenate((df_numerics, df_non_numerics), axis=1)
-
-    def _pklm_preprocessing(self, df: Union[pd.DataFrame, np.ndarray]) -> np.ndarray:
+    def _pklm_preprocessing(self, X: Union[pd.DataFrame, np.ndarray]) -> np.ndarray:
         """
         Preprocesses the input DataFrame or ndarray for further processing.
 
         Parameters:
         -----------
-        df : Union[pd.DataFrame, np.ndarray]
+        X : Union[pd.DataFrame, np.ndarray]
             The input data to be preprocessed. Can be a pandas DataFrame or a numpy ndarray.
 
         Returns:
@@ -269,19 +210,26 @@ class PKLMTest(McarTest):
         TypeNotHandled
             If the DataFrame contains columns with data types that are not numeric, string, or boolean.
         """
-        if isinstance(df, np.ndarray):
-            return df
+        if isinstance(X, np.ndarray):
+            return X
 
-        self._check_pd_df_dtypes(df)
-        return self._encode_dataframe(df)
+        check_pd_df_dtypes(
+            X,
+            [
+                pd.api.types.is_numeric_dtype,
+                pd.api.types.is_string_dtype,
+                pd.api.types.is_bool_dtype
+            ]
+        )
+        return self._encode_dataframe(X)
 
-    def _draw_features_and_target_indexes(self, df: np.ndarray) -> Tuple[np.ndarray, int]:
+    def _draw_features_and_target_indexes(self, X: np.ndarray) -> Tuple[np.ndarray, int]:
         """
         Randomly selects features and a target from the dataframe.
 
         Parameters:
         -----------
-        df : np.ndarray
+        X : np.ndarray
             The input dataframe.
 
         Returns:
@@ -289,21 +237,21 @@ class PKLMTest(McarTest):
         Tuple[np.ndarray, int]
             Indices of selected features and the target.
         """
-        _, p = df.shape
+        _, p = X.shape
         nb_features = self.rng.randint(1, p)
         features_idx = self.rng.choice(range(p), size=nb_features, replace=False)
         target_idx = self.rng.choice(np.setdiff1d(np.arange(p), features_idx))
         return features_idx, target_idx
 
     @staticmethod
-    def _check_draw(df: np.ndarray, features_idx: np.ndarray, target_idx: int) -> np.bool_:
+    def _check_draw(X: np.ndarray, features_idx: np.ndarray, target_idx: int) -> np.bool_:
         """
         Checks if the drawn features and target are valid.
         # TODO : Need to develop ?
 
         Parameters:
         -----------
-        df : np.ndarray
+        X : np.ndarray
             The input dataframe.
         features_idx : np.ndarray
             Indices of the selected features.
@@ -315,18 +263,18 @@ class PKLMTest(McarTest):
         bool
             True if the draw is valid, False otherwise.
         """
-        target_values = df[~np.isnan(df[:, features_idx]).any(axis=1)][:, target_idx]
+        target_values = X[~np.isnan(X[:, features_idx]).any(axis=1)][:, target_idx]
         is_nan = np.isnan(target_values).any()
         is_distinct_values = (~np.isnan(target_values)).any()
         return is_nan and is_distinct_values
 
-    def _draw_projection(self, df: np.ndarray) -> Tuple[np.ndarray, int]:
+    def _draw_projection(self, X: np.ndarray) -> Tuple[np.ndarray, int]:
         """
         Draws a valid projection of features and a target.
 
         Parameters:
         -----------
-        df : np.ndarray
+        X : np.ndarray
             The input dataframe.
 
         Returns:
@@ -336,13 +284,13 @@ class PKLMTest(McarTest):
         """
         is_checked = False
         while not is_checked:
-            features_idx, target_idx = self._draw_features_and_target_indexes(df)
-            is_checked = self._check_draw(df, features_idx, target_idx)
+            features_idx, target_idx = self._draw_features_and_target_indexes(X)
+            is_checked = self._check_draw(X, features_idx, target_idx)
         return features_idx, target_idx
 
     @staticmethod
     def _build_dataset(
-        df: np.ndarray,
+        X: np.ndarray,
         features_idx: np.ndarray,
         target_idx: int
     ) -> Tuple[np.ndarray, np.ndarray]:
@@ -352,7 +300,7 @@ class PKLMTest(McarTest):
 
         Parameters:
         -----------
-        df: np.ndarray
+        X: np.ndarray
             Input data array.
         features_idx: np.ndarray
             Indices of the feature columns.
@@ -365,17 +313,17 @@ class PKLMTest(McarTest):
             - X (np.ndarray): Array of selected features.
             - y (np.ndarray): Binary array indicating presence of NaN (1) in the target column.
         """
-        X = df[~np.isnan(df[:, features_idx]).any(axis=1)][:, features_idx]
+        X_features = X[~np.isnan(X[:, features_idx]).any(axis=1)][:, features_idx]
         y = np.where(
-            np.isnan(df[~np.isnan(df[:, features_idx]).any(axis=1)][:, target_idx]),
+            np.isnan(X[~np.isnan(X[:, features_idx]).any(axis=1)][:, target_idx]),
             1,
             0,
         )
-        return X, y
+        return X_features, y
 
     @staticmethod
     def _build_label(
-        df: np.ndarray,
+        X: np.ndarray,
         perm: np.ndarray,
         features_idx: np.ndarray,
         target_idx: int
@@ -386,7 +334,7 @@ class PKLMTest(McarTest):
 
         Parameters:
         -----------
-        df: np.ndarray
+        X: np.ndarray
             Input data array.
         perm: np.ndarray
             Permutation array from which labels are selected.
@@ -399,7 +347,7 @@ class PKLMTest(McarTest):
         --------
             np.ndarray: Binary array indicating presence of NaN (1) in the target column.
         """
-        return perm[~np.isnan(df[:, features_idx]).any(axis=1), target_idx]
+        return perm[~np.isnan(X[:, features_idx]).any(axis=1), target_idx]
 
     def _get_oob_probabilities(self, X: np.ndarray, y: np.ndarray) -> np.ndarray:
         """
@@ -482,45 +430,46 @@ class PKLMTest(McarTest):
 
     def _parallel_process_permutation(
         self,
-        df: np.ndarray,
+        X: np.ndarray,
         M_perm: np.ndarray,
         features_idx: np.ndarray,
         target_idx: int,
         oob_probabilities: np.ndarray,
     ) -> float:
-        y = self._build_label(df, M_perm, features_idx, target_idx)
+        y = self._build_label(X, M_perm, features_idx, target_idx)
         return self._U_hat(oob_probabilities, y)
 
     def _parallel_process_permutation_exact(
         self,
-        df: np.ndarray,
+        X: np.ndarray,
         M_perm: np.ndarray,
         features_idx: np.ndarray,
         target_idx: int,
         oob_probabilites_unused: np.ndarray,
     ) -> float:
-        X, _ = self._build_dataset(df, features_idx, target_idx)
-        y = self._build_label(df, M_perm, features_idx, target_idx)
-        oob_probabilities = self._get_oob_probabilities(X, y)
+        X_features, _ = self._build_dataset(X, features_idx, target_idx)
+        y = self._build_label(X, M_perm, features_idx, target_idx)
+        oob_probabilities = self._get_oob_probabilities(X_features, y)
         return self._U_hat(oob_probabilities, y)
 
     def _parallel_process_projection(
         self,
-        df: np.ndarray,
+        X: np.ndarray,
         list_permutations: List[np.ndarray],
         features_idx: np.ndarray,
         target_idx: int,
     ) -> Tuple[float, List[float]]:
-        X, y = self._build_dataset(df, features_idx, target_idx)
-        oob_probabilities = self._get_oob_probabilities(X, y)
+        X_features, y = self._build_dataset(X, features_idx, target_idx)
+        oob_probabilities = self._get_oob_probabilities(X_features, y)
         u_hat = self._U_hat(oob_probabilities, y)
         result_u_permutations = Parallel(n_jobs=-1)(
             delayed(self.process_permutation)(
-                df, M_perm, features_idx, target_idx, oob_probabilities
+                X, M_perm, features_idx, target_idx, oob_probabilities
             )
             for M_perm in list_permutations
         )
         return u_hat, result_u_permutations
+
 
     @staticmethod
     def _build_B(list_proj: List, n_cols: int) -> np.ndarray:
@@ -585,13 +534,13 @@ class PKLMTest(McarTest):
 
         return p_v_k / (self.nb_permutation + 1)
 
-    def test(self, df: Union[pd.DataFrame, np.ndarray]) -> Union[float, Tuple[float, List[float]]]:
+    def test(self, X: Union[pd.DataFrame, np.ndarray]) -> Union[float, Tuple[float, List[float]]]:
         """
         Apply the PKLM test over a real dataset.
 
         Parameters
         ----------
-        df : np.ndarray
+        X : np.ndarray
             The input dataset with missing values.
 
         Returns
@@ -602,18 +551,17 @@ class PKLMTest(McarTest):
             If compute_partial_p_values=True. Returns the p-value of the test and the list of all
             the partial p-values.
         """
-        df = self._pklm_preprocessing(df)
-        self._check_nb_patterns(df)
+        X = self._pklm_preprocessing(X)
 
-        M = np.isnan(df).astype(int)
-        list_proj = [self._draw_projection(df) for _ in range(self.nb_projections)]
+        M = np.isnan(X).astype(int)
+        list_proj = [self._draw_projection(X) for _ in range(self.nb_projections)]
         list_perm = [self.rng.permutation(M) for _ in range(self.nb_permutation)]
         U = 0.0
         list_U_sigma = [0.0 for _ in range(self.nb_permutation)]
 
         parallel_results = Parallel(n_jobs=-1)(
             delayed(self._parallel_process_projection)(
-                df, list_perm, features_idx, target_idx
+                X, list_perm, features_idx, target_idx
             )
             for features_idx, target_idx in list_proj
         )
@@ -636,7 +584,7 @@ class PKLMTest(McarTest):
         if not self.compute_partial_p_values:
             return p_value
         else:
-            _, n_cols = df.shape
+            _, n_cols = X.shape
             B = self._build_B(list_proj, n_cols)
             U = np.array([item[0] for item in parallel_results])
             U_sigma = np.array([item[1] for item in parallel_results])

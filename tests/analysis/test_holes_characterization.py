@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 import pytest
 from scipy.stats import norm
-from sympy import li
 
 from qolmat.analysis.holes_characterization import LittleTest, PKLMTest
 from qolmat.benchmark.missing_patterns import UniformHoleGenerator
@@ -70,17 +69,6 @@ def test_attribute_error():
 
 
 @pytest.fixture
-def multitypes_dataframe() -> pd.DataFrame:
-    return pd.DataFrame({
-        'int_col': [1, 2, 3],
-        'float_col': [1.1, 2.2, 3.3],
-        'str_col': ['a', 'b', 'c'],
-        'bool_col': [True, False, True],
-        'datetime_col': pd.to_datetime(['2021-01-01', '2021-01-02', '2021-01-03'])
-    })
-
-
-@pytest.fixture
 def supported_multitypes_dataframe() -> pd.DataFrame:
     return pd.DataFrame({
         'int_col': [1, 2, 3],
@@ -115,18 +103,6 @@ def missingness_matrix_mcar_perm(missingness_matrix_mcar):
 @pytest.fixture
 def oob_probabilities() -> np.ndarray:
     return np.matrix([[0.5, 0.5], [0, 1], [1, 0], [1, 0]]).A
-
-
-def test__check_pd_df_dtypes_raise_error(multitypes_dataframe):
-    with pytest.raises(TypeNotHandled):
-        mcar_test_pklm = PKLMTest(random_state=42)
-        mcar_test_pklm._check_pd_df_dtypes(multitypes_dataframe)
-
-
-def test__check_pd_df_dtypes(supported_multitypes_dataframe):
-    mcar_test_pklm = PKLMTest(random_state=42)
-    mcar_test_pklm._check_pd_df_dtypes(supported_multitypes_dataframe)
-
 
 def test__encode_dataframe(supported_multitypes_dataframe):
     mcar_test_pklm = PKLMTest(random_state=42)
