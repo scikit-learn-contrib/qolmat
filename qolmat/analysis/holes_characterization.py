@@ -185,6 +185,9 @@ class PKLMTest(McarTest):
             The encoded DataFrame as a numpy ndarray, with numeric data concatenated
             with one-hot encoded categorical and boolean data.
         """
+        if not df.select_dtypes(include=["object", "bool"]).columns.to_list():
+            return df.to_numpy()
+
         if not self.encoder:
             self.encoder = OneHotEncoder(
                 cols=df.select_dtypes(include=["object", "bool"]).columns,
