@@ -214,7 +214,8 @@ class PKLMTest(McarTest):
         Raises:
         -------
         TypeNotHandled
-            If the DataFrame contains columns with data types that are not numeric, string, or boolean.
+            If the DataFrame contains columns with data types that are not numeric, string, or
+            boolean.
         """
         if isinstance(X, np.ndarray):
             return X
