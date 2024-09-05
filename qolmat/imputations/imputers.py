@@ -12,6 +12,7 @@ import sklearn as skl
 from numpy.typing import NDArray
 from sklearn import utils as sku
 from sklearn.base import BaseEstimator
+from sklearn.experimental import enable_iterative_imputer  # noqa
 from sklearn.impute import IterativeImputer, KNNImputer
 from sklearn.impute._base import _BaseImputer
 from statsmodels.tsa import seasonal as tsa_seasonal
