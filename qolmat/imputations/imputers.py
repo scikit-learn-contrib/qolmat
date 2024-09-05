@@ -1698,15 +1698,10 @@ class ImputerRpcaPcp(_Imputer):
         D_scale = (D - means) / stds
         M, A = model.decompose(D_scale, Omega)
         M = M * stds + means
-        A = A * stds + means
 
         M_final = utils.get_shape_original(M, X.shape)
-        A_final = utils.get_shape_original(A, X.shape)
-        X_imputed = M_final + A_final
 
-        df_imputed = pd.DataFrame(
-            X_imputed, index=df.index, columns=df.columns
-        )
+        df_imputed = pd.DataFrame(M_final, index=df.index, columns=df.columns)
         df_imputed = df.where(~df.isna(), df_imputed)
 
         return df_imputed
@@ -1899,7 +1894,6 @@ class ImputerRpcaNoisy(_Imputer):
         D_scale = (D - means) / stds
         M, A = model.decompose_on_basis(D_scale, Omega, Q)
         M = M * stds + means
-        A = A * stds + means
 
         M_final = utils.get_shape_original(M, X.shape)
 
