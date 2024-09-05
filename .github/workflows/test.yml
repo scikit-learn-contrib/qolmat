@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-linux:
+  check:
     if: github.event.pull_request.draft == false
     runs-on: ${{matrix.os}}
     strategy:
