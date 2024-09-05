@@ -53,6 +53,7 @@ twine = "3.7.1"
 wheel = "0.37.1"
 category-encoders = "^2.6.3"
 ipykernel = "^6.29.5"
+torch = "^2.4.0"
 
 [tool.poetry.dev-dependencies]
 matplotlib = "3.6.2"
@@ -78,7 +79,6 @@ sphinx_rtd_theme = "1.0.0"
 [tool.poetry.extras]
 tests = ["typed-ast"]
 docs = ["sphinx-markdown-tables"]
-pytorch = ["torch"]
 
 [tool.poetry.urls]
 "Bug Tracker" = "https://github.com/Quantmetry/qolmat"
