@@ -1,8 +1,8 @@
-import pytest
+from unittest.mock import MagicMock, patch
+
 import numpy as np
 import pandas as pd
 
-from unittest.mock import patch, MagicMock
 from qolmat.benchmark.comparator import Comparator
 
 generator_holes_mock = MagicMock()
@@ -20,7 +20,9 @@ comparator = Comparator(
 imputer_mock = MagicMock()
 expected_get_errors = pd.Series(
     [1.0, 1.0, 1.0, 1.0],
-    index=pd.MultiIndex.from_tuples([("mae", "A"), ("mae", "B"), ("mse", "A"), ("mse", "B")]),
+    index=pd.MultiIndex.from_tuples(
+        [("mae", "A"), ("mae", "B"), ("mse", "A"), ("mse", "B")]
+    ),
 )
 
 
@@ -28,10 +30,14 @@ expected_get_errors = pd.Series(
 def test_get_errors(mock_get_metric):
     df_origin = pd.DataFrame({"A": [1, np.nan, 3], "B": [np.nan, 5, 6]})
     df_imputed = pd.DataFrame({"A": [1, 2, 4], "B": [4, 5, 7]})
-    df_mask = pd.DataFrame({"A": [False, False, True], "B": [False, False, True]})
+    df_mask = pd.DataFrame(
+        {"A": [False, False, True], "B": [False, False, True]}
+    )
 
-    mock_get_metric.return_value = lambda df_origin, df_imputed, df_mask: pd.Series(
-        [1.0, 1.0], index=["A", "B"]
+    mock_get_metric.return_value = (
+        lambda df_origin, df_imputed, df_mask: pd.Series(
+            [1.0, 1.0], index=["A", "B"]
+        )
     )
     errors = comparator.get_errors(df_origin, df_imputed, df_mask)
     pd.testing.assert_series_equal(errors, expected_get_errors)
@@ -65,7 +71,10 @@ def test_compare(mock_evaluate_errors_sample):
 
     errors_imputer1 = pd.Series([0.1, 0.2], index=["mae", "mse"])
     errors_imputer2 = pd.Series([0.3, 0.4], index=["mae", "mse"])
-    mock_evaluate_errors_sample.side_effect = [errors_imputer1, errors_imputer2]
+    mock_evaluate_errors_sample.side_effect = [
+        errors_imputer1,
+        errors_imputer2,
+    ]
 
     df_errors = comparator.compare(df_test)
     assert mock_evaluate_errors_sample.call_count == 2

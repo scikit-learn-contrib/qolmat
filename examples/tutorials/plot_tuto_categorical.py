@@ -1,5 +1,4 @@
-"""
-==============================
+"""==============================
 Benchmark for categorical data
 ==============================
 
@@ -8,13 +7,12 @@ We benchmark these methods on the Titanic Data Set.
 It comprehends passengers features as well as if they survived the accident.
 """
 
-from qolmat.imputations import preprocessing, imputers
-from qolmat.imputations.imputers import ImputerRegressor
-from qolmat.benchmark import missing_patterns
-from qolmat.benchmark import comparator
-from qolmat.utils import data
-
 from sklearn.pipeline import Pipeline
+
+from qolmat.benchmark import comparator, missing_patterns
+from qolmat.imputations import imputers, preprocessing
+from qolmat.imputations.imputers import ImputerRegressor
+from qolmat.utils import data
 
 # %%
 # 1. Titanic dataset

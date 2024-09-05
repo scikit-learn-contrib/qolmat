@@ -11,7 +11,9 @@ from qolmat.imputations.imputers import ImputerEM
 @pytest.fixture
 def mcar_df() -> pd.DataFrame:
     rng = np.random.default_rng(42)
-    matrix = rng.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]], size=200)
+    matrix = rng.multivariate_normal(
+        mean=[0, 0], cov=[[1, 0], [0, 1]], size=200
+    )
     df = pd.DataFrame(data=matrix, columns=["Column_1", "Column_2"])
     hole_gen = UniformHoleGenerator(
         n_splits=1, random_state=42, subset=["Column_2"], ratio_masked=0.2
@@ -23,7 +25,9 @@ def mcar_df() -> pd.DataFrame:
 @pytest.fixture
 def mar_hm_df() -> pd.DataFrame:
     rng = np.random.default_rng(42)
-    matrix = rng.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]], size=200)
+    matrix = rng.multivariate_normal(
+        mean=[0, 0], cov=[[1, 0], [0, 1]], size=200
+    )
 
     quantile_95 = norm.ppf(0.975)
     df = pd.DataFrame(matrix, columns=["Column_1", "Column_2"])
@@ -37,7 +41,9 @@ def mar_hm_df() -> pd.DataFrame:
 @pytest.fixture
 def mar_hc_df() -> pd.DataFrame:
     rng = np.random.default_rng(42)
-    matrix = rng.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]], size=200)
+    matrix = rng.multivariate_normal(
+        mean=[0, 0], cov=[[1, 0], [0, 1]], size=200
+    )
 
     quantile_95 = norm.ppf(0.975)
     df = pd.DataFrame(matrix, columns=["Column_1", "Column_2"])
@@ -49,7 +55,8 @@ def mar_hc_df() -> pd.DataFrame:
 
 
 @pytest.mark.parametrize(
-    "df_input, expected", [("mcar_df", True), ("mar_hm_df", False), ("mar_hc_df", True)]
+    "df_input, expected",
+    [("mcar_df", True), ("mar_hm_df", False), ("mar_hc_df", True)],
 )
 def test_little_mcar_test(df_input: pd.DataFrame, expected: bool, request):
     mcar_test_little = LittleTest(random_state=42)

@@ -1,5 +1,4 @@
-"""
-============================================
+"""============================================
 Tutorial for hole generation in tabular data
 ============================================
 
@@ -17,13 +16,10 @@ air-quality monitoring sites.
 """
 from typing import List
 
-from io import BytesIO
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import requests
-import zipfile
 
 from qolmat.benchmark import missing_patterns
 from qolmat.utils import data
@@ -90,6 +86,7 @@ def visualise_missing_values(df_init: pd.DataFrame, df_mask: pd.DataFrame):
         initial dataframe
     df_mask : pd.DataFrame
         masked dataframe
+
     """
     df_tot = df_init.copy()
     df_tot[df_init.notna()] = 0
@@ -117,6 +114,7 @@ def get_holes_sizes_column_wise(data: np.ndarray) -> List[List[int]]:
     -------
     List[List[int]]
         List of hole size for each column.
+
     """
     hole_sizes = []
     for col in range(data.shape[1]):
@@ -153,6 +151,7 @@ def plot_cdf(
         list of labels
     colors : List[str]
         list of colors
+
     """
     _, axs = plt.subplots(1, df.shape[1], sharey=True, figsize=(15, 3))
 

@@ -1,5 +1,4 @@
-"""
-=========================
+"""=========================
 Benchmark for time series
 =========================
 
@@ -14,18 +13,18 @@ air-quality monitoring sites.
 # First import some libraries
 
 import numpy as np
-import pandas as pd
 
 np.random.seed(1234)
-from matplotlib import pyplot as plt
 import matplotlib.ticker as plticker
+from matplotlib import pyplot as plt
 
 tab10 = plt.get_cmap("tab10")
+
+from sklearn.linear_model import LinearRegression
 
 from qolmat.benchmark import comparator, missing_patterns
 from qolmat.imputations import imputers
 from qolmat.utils import data, plot
-from sklearn.linear_model import LinearRegression
 
 # %%
 # 1. Data

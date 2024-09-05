@@ -3,8 +3,7 @@ name: Unit tests
 on:
   push:
     branches:
-      -dev
-      -main
+      - "**"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
@@ -22,24 +21,23 @@ jobs:
         shell: bash -l {0}
 
     steps:
-      - name: Git clone
+      - name: Checkout
         uses: actions/checkout@v3
-      - name: Set up venv for ci
-        uses: conda-incubator/setup-miniconda@v2
+      - name: Python
+        uses: actions/setup-python@v4
         with:
-          python-version: ${{matrix.python-version}}
-          environment-file: environment.ci.yml
-      - name: Lint with flake8
-        run: |
-          flake8
-      - name: Test with pytest
-        run: |
-          make coverage
-      - name: typing with mypy
-        run: |
-          mypy qolmat
-          echo you should uncomment mypy qolmat and delete this line
-      - name: Upload coverage reports to Codecov
+          python-version: ${{ matrix.python-version }}
+      - name: Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.8.3
+      - name: Lock
+        run: poetry lock --no-update
+      - name: Install
+        run: poetry install
+      - name: Checkers
+        run: make checkers
+      - name: Codecov
         uses: codecov/codecov-action@v3
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

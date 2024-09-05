@@ -1,5 +1,4 @@
-"""
-============================================
+"""============================================
 Tutorial for Testing the MCAR Case
 ============================================
 
@@ -8,10 +7,9 @@ In this tutorial, we show how to test the MCAR case using the Little's test.
 
 # %%
 # First import some libraries
-from matplotlib import pyplot as plt
-
 import numpy as np
 import pandas as pd
+from matplotlib import pyplot as plt
 from scipy.stats import norm
 
 from qolmat.analysis.holes_characterization import LittleTest

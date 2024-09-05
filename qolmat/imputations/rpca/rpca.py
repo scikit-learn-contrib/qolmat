@@ -1,18 +1,15 @@
+"""Script for the root class of RPCA."""
+
 from __future__ import annotations
 
-from typing import Union, Tuple
-from typing_extensions import Self
+from typing import Union
 
 import numpy as np
-from numpy.typing import NDArray
 from sklearn.base import BaseEstimator, TransformerMixin
-
-from qolmat.utils import utils
 
 
 class RPCA(BaseEstimator, TransformerMixin):
-    """
-    This class is the root class of the RPCA methods.
+    """Root class of the RPCA methods.
 
     Parameters
     ----------
@@ -24,6 +21,7 @@ class RPCA(BaseEstimator, TransformerMixin):
         Tolerance for stopping criteria, by default 1e-6
     verbose: bool
         default `False`
+
     """
 
     def __init__(

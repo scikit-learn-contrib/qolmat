@@ -1,23 +1,24 @@
-from typing import List, Optional, Tuple, Union
-import warnings
+"""Utils for qolmat package."""
+
+from typing import List, Tuple, Union
 
 import numpy as np
 import pandas as pd
-
 from numpy.typing import NDArray
 from sklearn.base import check_array
 
-from qolmat.utils.exceptions import NotDimension2, SignalTooShort
+from qolmat.utils.exceptions import NotDimension2
 
 HyperValue = Union[int, float, str]
 
 
 def _get_numerical_features(df1: pd.DataFrame) -> List[str]:
-    """Get numerical features from dataframe
+    """Get numerical features from dataframe.
 
     Parameters
     ----------
     df1 : pd.DataFrame
+        Input dataframe.
 
     Returns
     -------
@@ -28,6 +29,7 @@ def _get_numerical_features(df1: pd.DataFrame) -> List[str]:
     ------
     Exception
         No numerical feature is found
+
     """
     cols_numerical = df1.select_dtypes(include=np.number).columns.tolist()
     if len(cols_numerical) == 0:
@@ -37,11 +39,12 @@ def _get_numerical_features(df1: pd.DataFrame) -> List[str]:
 
 
 def _get_categorical_features(df1: pd.DataFrame) -> List[str]:
-    """Get categorical features from dataframe
+    """Get categorical features from dataframe.
 
     Parameters
     ----------
     df1 : pd.DataFrame
+        Input dataframe.
 
     Returns
     -------
@@ -52,10 +55,12 @@ def _get_categorical_features(df1: pd.DataFrame) -> List[str]:
     ------
     Exception
         No categorical feature is found
-    """
 
+    """
     cols_numerical = df1.select_dtypes(include=np.number).columns.tolist()
-    cols_categorical = [col for col in df1.columns.to_list() if col not in cols_numerical]
+    cols_categorical = [
+        col for col in df1.columns.to_list() if col not in cols_numerical
+    ]
     if len(cols_categorical) == 0:
         raise Exception("No categorical feature is found.")
     else:
@@ -63,9 +68,10 @@ def _get_categorical_features(df1: pd.DataFrame) -> List[str]:
 
 
 def _validate_input(X: NDArray) -> pd.DataFrame:
-    """
-    Checks that the input X can be converted into a DataFrame, and returns the corresponding
-    dataframe.
+    """Calidate the input array.
+
+    Checks that the input X can be converted into a DataFrame,
+    and returns the corresponding dataframe.
 
     Parameters
     ----------
@@ -75,8 +81,9 @@ def _validate_input(X: NDArray) -> pd.DataFrame:
     Returns
     -------
     pd.DataFrame
-        Formatted dataframe, if the input had no column names then the dataframe columns are
-        integers
+        Formatted dataframe, if the input had no column names
+        then the dataframe columns are integers
+
     """
     check_array(X, force_all_finite="allow-nan", dtype=None)
     if not isinstance(X, pd.DataFrame):
@@ -85,7 +92,7 @@ def _validate_input(X: NDArray) -> pd.DataFrame:
             raise ValueError
         if len(X_np.shape) == 1:
             X_np = X_np.reshape(-1, 1)
-        df = pd.DataFrame(X_np, columns=[i for i in range(X_np.shape[1])])
+        df = pd.DataFrame(X_np, columns=list(range(X_np.shape[1])))
         df = df.infer_objects()
     else:
         df = X
@@ -103,7 +110,7 @@ def progress_bar(
     length: int = 100,
     fill: str = "█",
 ):
-    """Call in a loop to create terminal progress bar
+    """Call in a loop to create terminal progress bar.
 
     Parameters
     ----------
@@ -121,8 +128,11 @@ def progress_bar(
         character length of bar, by default 100
     fill : str
         bar fill character, by default "█"
+
     """
-    percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
+    percent = ("{0:." + str(decimals) + "f}").format(
+        100 * (iteration / float(total))
+    )
     filled_length = int(length * iteration // total)
     bar = fill * filled_length + "-" * (length - filled_length)
     print(f"\r{prefix} |{bar}| {percent}% {suffix}", end="\r")
@@ -131,7 +141,7 @@ def progress_bar(
 
 
 def acf(values: pd.Series, lag_max: int = 30) -> pd.Series:
-    """Correlation series of dataseries
+    """Correlation series of dataseries.
 
     Parameters
     ----------
@@ -144,6 +154,7 @@ def acf(values: pd.Series, lag_max: int = 30) -> pd.Series:
     -------
     pd.Series
         correlation series of value
+
     """
     acf = pd.Series(0, index=range(lag_max))
     for lag in range(lag_max):
@@ -152,8 +163,7 @@ def acf(values: pd.Series, lag_max: int = 30) -> pd.Series:
 
 
 def impute_nans(M: NDArray, method: str = "zeros") -> NDArray:
-    """
-    Impute the M's nan with the specified method
+    """Impute the M's nan with the specified method.
 
     Parameters
     ----------
@@ -166,6 +176,7 @@ def impute_nans(M: NDArray, method: str = "zeros") -> NDArray:
     -------
     NDArray
         Imputed Array
+
     Raises
     ------
         ValueError
@@ -180,9 +191,13 @@ def impute_nans(M: NDArray, method: str = "zeros") -> NDArray:
         isna = np.isnan(values)
         nna = np.sum(isna)
         if method == "mean":
-            value_imputation = np.nanmean(M) if nna == n_rows else np.nanmean(values)
+            value_imputation = (
+                np.nanmean(M) if nna == n_rows else np.nanmean(values)
+            )
         elif method == "median":
-            value_imputation = np.nanmedian(M) if nna == n_rows else np.nanmedian(values)
+            value_imputation = (
+                np.nanmedian(M) if nna == n_rows else np.nanmedian(values)
+            )
         elif method == "zeros":
             value_imputation = 0
         else:
@@ -193,8 +208,7 @@ def impute_nans(M: NDArray, method: str = "zeros") -> NDArray:
 
 
 def linear_interpolation(X: NDArray) -> NDArray:
-    """
-    Impute missing data with a linear interpolation, column-wise
+    """Impute missing data with a linear interpolation, column-wise.
 
     Parameters
     ----------
@@ -205,6 +219,7 @@ def linear_interpolation(X: NDArray) -> NDArray:
     -------
     X_interpolated : NDArray
         imputed array, by linear interpolation
+
     """
     n_rows, n_cols = X.shape
     indices = np.arange(n_rows)
@@ -224,12 +239,12 @@ def linear_interpolation(X: NDArray) -> NDArray:
 
 
 def fold_signal(X: NDArray, period: int) -> NDArray:
-    """
-    Reshape a time series into a 2D-array
+    """Reshape a time series into a 2D-array.
 
     Parameters
     ----------
     X : NDArray
+        Input array to be reshaped.
     period : int
         Period used to fold the signal of the 2D-array
 
@@ -242,6 +257,7 @@ def fold_signal(X: NDArray, period: int) -> NDArray:
     ------
     ValueError
         if X is not a 1D array
+
     """
     if len(X.shape) != 2:
         raise NotDimension2(X.shape)
@@ -257,8 +273,20 @@ def fold_signal(X: NDArray, period: int) -> NDArray:
 
 
 def prepare_data(X: NDArray, period: int = 1) -> NDArray:
-    """
-    Transform signal to 2D-array in case of 1D-array.
+    """Reshape a time series into a 2D-array.
+
+    Parameters
+    ----------
+    X : NDArray
+        Input array to be reshaped.
+    period : int, optional
+        Period used to fold the signal. Defaults to 1.
+
+    Returns
+    -------
+    NDArray
+        Reshaped array.
+
     """
     if len(X.shape) == 1:
         X = X.reshape(-1, 1)
@@ -267,27 +295,43 @@ def prepare_data(X: NDArray, period: int = 1) -> NDArray:
     return X_fold
 
 
-def get_shape_original(M: NDArray, shape: tuple) -> NDArray:
+def get_shape_original(M: NDArray, shape: Tuple[int, int]) -> NDArray:
     """Shapes an output matrix from the RPCA algorithm into the original shape.
 
     Parameters
     ----------
     M : NDArray
         Matrix to reshape
-    X : NDArray
-        Matrix of the desired shape
+    shape : Tuple[int, int]
+        Desired shape
 
     Returns
     -------
     NDArray
         Reshaped matrix
+
     """
-    size = np.prod(shape)
+    size: int = int(np.prod(shape))
     M_flat = M.flatten()[:size]
     return M_flat.reshape(shape)
 
 
 def create_lag_matrices(X: NDArray, p: int) -> Tuple[NDArray, NDArray]:
+    """Create lag matrices for the VAR(p).
+
+    Parameters
+    ----------
+    X : NDArray
+        Input matrix
+    p : int
+        Number of lags
+
+    Returns
+    -------
+    Tuple[NDArray, NDArray]
+        Z and Y
+
+    """
     n_rows, _ = X.shape
     n_rows_new = n_rows - p
     list_X_lag = [np.ones((n_rows_new, 1))]
@@ -301,6 +345,19 @@ def create_lag_matrices(X: NDArray, p: int) -> Tuple[NDArray, NDArray]:
 
 
 def nan_mean_cov(X: NDArray) -> Tuple[NDArray, NDArray]:
+    """Compute mean and covariance matrix.
+
+    Parameters
+    ----------
+    X : NDArray
+        Input matrix
+
+    Returns
+    -------
+    Tuple[NDArray, NDArray]
+        Means and covariance matrix
+
+    """
     _, n_variables = X.shape
     means = np.nanmean(X, axis=0)
     cov = np.ma.cov(np.ma.masked_invalid(X), rowvar=False).data

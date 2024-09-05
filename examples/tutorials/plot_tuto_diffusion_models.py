@@ -1,5 +1,4 @@
-"""
-===============================================
+"""===============================================
 Tutorial for imputers based on diffusion models
 ===============================================
 
@@ -7,15 +6,14 @@ In this tutorial, we show how to use :class:`~qolmat.imputations.diffusions.ddpm
 and :class:`~qolmat.imputations.diffusions.ddpms.TsDDPM` classes.
 """
 
-import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 
-from qolmat.utils import data
 from qolmat.benchmark import comparator, missing_patterns
-
-from qolmat.imputations.imputers_pytorch import ImputerDiffusion
 from qolmat.imputations.diffusions.ddpms import TabDDPM, TsDDPM
+from qolmat.imputations.imputers_pytorch import ImputerDiffusion
+from qolmat.utils import data
 
 # %%
 # 1. Time-series data

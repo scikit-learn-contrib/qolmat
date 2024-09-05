@@ -5,26 +5,33 @@ import pandas as pd
 import pytest
 from sklearn.ensemble import ExtraTreesRegressor
 from sklearn.linear_model import LinearRegression
-from sklearn.utils.estimator_checks import check_estimator, parametrize_with_checks
-from qolmat.benchmark.hyperparameters import HyperValue
+from sklearn.utils.estimator_checks import (
+    parametrize_with_checks,
+)
 
+from qolmat.benchmark.hyperparameters import HyperValue
 from qolmat.imputations import imputers
 
-df_complete = pd.DataFrame({"col1": [0, 1, 2, 3, 4], "col2": [-1, 0, 0.5, 1, 1.5]})
+df_complete = pd.DataFrame(
+    {"col1": [0, 1, 2, 3, 4], "col2": [-1, 0, 0.5, 1, 1.5]}
+)
 
 df_incomplete = pd.DataFrame(
     {"col1": [0, np.nan, 2, 3, np.nan], "col2": [-1, np.nan, 0.5, np.nan, 1.5]}
 )
 
 df_mixed = pd.DataFrame(
-    {"col1": [0, np.nan, 2, 3, np.nan], "col2": ["a", np.nan, "b", np.nan, "b"]}
+    {
+        "col1": [0, np.nan, 2, 3, np.nan],
+        "col2": ["a", np.nan, "b", np.nan, "b"],
+    }
 )
 
 df_timeseries = pd.DataFrame(
     pd.DataFrame(
         {
-            "col1": [i for i in range(20)],
-            "col2": [0, np.nan, 2, np.nan, 2] + [i for i in range(5, 20)],
+            "col1": list(range(20)),
+            "col2": [0, np.nan, 2, np.nan, 2] + list(range(5, 20)),
         },
         index=pd.date_range("2023-04-17", periods=20, freq="D"),
     )
@@ -80,14 +87,18 @@ expected2 = {
 }
 
 
-@pytest.mark.parametrize("col, expected", [("col1", expected1), ("col2", expected2)])
+@pytest.mark.parametrize(
+    "col, expected", [("col1", expected1), ("col2", expected2)]
+)
 def test_hyperparameters_get_hyperparameters_modified(
     col: str, expected: Dict[str, HyperValue]
 ) -> None:
     imputer = imputers.ImputerRpcaNoisy()
     for key, val in hyperparams_global.items():
         setattr(imputer, key, val)
-    imputer.imputer_params = tuple(set(imputer.imputer_params) | set(hyperparams_global.keys()))
+    imputer.imputer_params = tuple(
+        set(imputer.imputer_params) | set(hyperparams_global.keys())
+    )
     hyperparams = imputer.get_hyperparams(col)
 
     assert hyperparams == expected
@@ -105,7 +116,9 @@ def test_hyperparameters_get_hyperparameters_modified(
 @pytest.mark.parametrize(
     "df", [pd.DataFrame({"col1": [np.nan, np.nan, np.nan], "col2": [1, 2, 3]})]
 )
-def test_Imputer_fit_transform_on_nan_column(df: pd.DataFrame, imputer: imputers._Imputer) -> None:
+def test_Imputer_fit_transform_on_nan_column(
+    df: pd.DataFrame, imputer: imputers._Imputer
+) -> None:
     np.testing.assert_raises(ValueError, imputer.fit_transform, df)
 
 
@@ -130,7 +143,9 @@ def test_fit_transform_on_grouped(df: pd.DataFrame) -> None:
 
 @pytest.mark.parametrize("df", [df_incomplete])
 @pytest.mark.parametrize("df_oracle", [df_complete])
-def test_ImputerOracle_fit_transform(df: pd.DataFrame, df_oracle: pd.DataFrame) -> None:
+def test_ImputerOracle_fit_transform(
+    df: pd.DataFrame, df_oracle: pd.DataFrame
+) -> None:
     imputer = imputers.ImputerOracle()
     imputer.set_solution(df_oracle)
     result = imputer.fit_transform(df)
@@ -142,7 +157,9 @@ def test_ImputerOracle_fit_transform(df: pd.DataFrame, df_oracle: pd.DataFrame) 
 def test_ImputerSimple_mean_fit_transform(df: pd.DataFrame) -> None:
     imputer = imputers.ImputerSimple(strategy="mean")
     result = imputer.fit_transform(df)
-    expected = pd.DataFrame({"col1": [0, 5 / 3, 2, 3, 5 / 3], "col2": ["a", "b", "b", "b", "b"]})
+    expected = pd.DataFrame(
+        {"col1": [0, 5 / 3, 2, 3, 5 / 3], "col2": ["a", "b", "b", "b", "b"]}
+    )
     pd.testing.assert_frame_equal(result, expected)
 
 
@@ -150,7 +167,9 @@ def test_ImputerSimple_mean_fit_transform(df: pd.DataFrame) -> None:
 def test_ImputerSimple_median_fit_transform(df: pd.DataFrame) -> None:
     imputer = imputers.ImputerSimple()
     result = imputer.fit_transform(df)
-    expected = pd.DataFrame({"col1": [0.0, 2.0, 2.0, 3.0, 2.0], "col2": ["a", "b", "b", "b", "b"]})
+    expected = pd.DataFrame(
+        {"col1": [0.0, 2.0, 2.0, 3.0, 2.0], "col2": ["a", "b", "b", "b", "b"]}
+    )
     pd.testing.assert_frame_equal(result, expected)
 
 
@@ -158,7 +177,9 @@ def test_ImputerSimple_median_fit_transform(df: pd.DataFrame) -> None:
 def test_ImputerSimple_mode_fit_transform(df: pd.DataFrame) -> None:
     imputer = imputers.ImputerSimple(strategy="most_frequent")
     result = imputer.fit_transform(df)
-    expected = pd.DataFrame({"col1": [0.0, 0.0, 2.0, 3.0, 0.0], "col2": ["a", "b", "b", "b", "b"]})
+    expected = pd.DataFrame(
+        {"col1": [0.0, 0.0, 2.0, 3.0, 0.0], "col2": ["a", "b", "b", "b", "b"]}
+    )
     pd.testing.assert_frame_equal(result, expected)
 
 
@@ -174,7 +195,9 @@ def test_ImputerShuffle_fit_transform1(df: pd.DataFrame) -> None:
 def test_ImputerShuffle_fit_transform2(df: pd.DataFrame) -> None:
     imputer = imputers.ImputerShuffle(random_state=42)
     result = imputer.fit_transform(df)
-    expected = pd.DataFrame({"col1": [0, 3, 2, 3, 0], "col2": [-1, 1.5, 0.5, 1.5, 1.5]})
+    expected = pd.DataFrame(
+        {"col1": [0, 3, 2, 3, 0], "col2": [-1, 1.5, 0.5, 1.5, 1.5]}
+    )
     np.testing.assert_allclose(result, expected)
 
 
@@ -182,7 +205,9 @@ def test_ImputerShuffle_fit_transform2(df: pd.DataFrame) -> None:
 def test_ImputerLOCF_fit_transform(df: pd.DataFrame) -> None:
     imputer = imputers.ImputerLOCF()
     result = imputer.fit_transform(df)
-    expected = pd.DataFrame({"col1": [0, 0, 2, 3, 3], "col2": [-1, -1, 0.5, 0.5, 1.5]})
+    expected = pd.DataFrame(
+        {"col1": [0, 0, 2, 3, 3], "col2": [-1, -1, 0.5, 0.5, 1.5]}
+    )
     np.testing.assert_allclose(result, expected)
 
 
@@ -190,7 +215,9 @@ def test_ImputerLOCF_fit_transform(df: pd.DataFrame) -> None:
 def test_ImputerNOCB_fit_transform(df: pd.DataFrame) -> None:
     imputer = imputers.ImputerNOCB()
     result = imputer.fit_transform(df)
-    expected = pd.DataFrame({"col1": [0, 2, 2, 3, 3], "col2": [-1, 0.5, 0.5, 1.5, 1.5]})
+    expected = pd.DataFrame(
+        {"col1": [0, 2, 2, 3, 3], "col2": [-1, 0.5, 0.5, 1.5, 1.5]}
+    )
     np.testing.assert_allclose(result, expected)
 
 
@@ -198,7 +225,9 @@ def test_ImputerNOCB_fit_transform(df: pd.DataFrame) -> None:
 def test_ImputerInterpolation_fit_transform(df: pd.DataFrame) -> None:
     imputer = imputers.ImputerInterpolation()
     result = imputer.fit_transform(df)
-    expected = pd.DataFrame({"col1": [0, 1, 2, 3, 3], "col2": [-1, -0.25, 0.5, 1, 1.5]})
+    expected = pd.DataFrame(
+        {"col1": [0, 1, 2, 3, 3], "col2": [-1, -0.25, 0.5, 1, 1.5]}
+    )
     np.testing.assert_allclose(result, expected)
 
 
@@ -208,8 +237,8 @@ def test_ImputerResiduals_fit_transform(df: pd.DataFrame) -> None:
     result = imputer.fit_transform(df)
     expected = pd.DataFrame(
         {
-            "col1": [i for i in range(20)],
-            "col2": [0, 0.953, 2, 2.061, 2] + [i for i in range(5, 20)],
+            "col1": list(range(20)),
+            "col2": [0, 0.953, 2, 2.061, 2] + list(range(5, 20)),
         },
         index=pd.date_range("2023-04-17", periods=20, freq="D"),
     )
@@ -262,14 +291,18 @@ def test_ImputerRegressor_fit_transform(df: pd.DataFrame) -> None:
 
 @pytest.mark.parametrize("df", [df_timeseries])
 def test_ImputerRpcaNoisy_fit_transform(df: pd.DataFrame) -> None:
-    imputer = imputers.ImputerRpcaNoisy(columnwise=False, max_iterations=100, tau=1, lam=0.3)
+    imputer = imputers.ImputerRpcaNoisy(
+        columnwise=False, max_iterations=100, tau=1, lam=0.3
+    )
     df_omega = df.notna()
     df_result = imputer.fit_transform(df)
     np.testing.assert_allclose(df_result[df_omega], df[df_omega])
     assert df_result.notna().all().all()
 
 
-index_grouped = pd.MultiIndex.from_product([["a", "b"], range(4)], names=["group", "date"])
+index_grouped = pd.MultiIndex.from_product(
+    [["a", "b"], range(4)], names=["group", "date"]
+)
 dict_values = {
     "col1": [0, np.nan, 0, np.nan, 1, 1, 1, 1],
     "col2": [1, 1, 1, 1, 2, 2, 2, 2],
@@ -319,6 +352,8 @@ def test_models_fit_transform_grouped(imputer):
         imputers.ImputerEM(),
     ]
 )
-def test_sklearn_compatible_estimator(estimator: imputers._Imputer, check: Any) -> None:
+def test_sklearn_compatible_estimator(
+    estimator: imputers._Imputer, check: Any
+) -> None:
     """Check compatibility with sklearn, using sklearn estimator checks API."""
     check(estimator)
