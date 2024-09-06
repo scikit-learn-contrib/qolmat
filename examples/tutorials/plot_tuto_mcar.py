@@ -53,7 +53,7 @@ q975 = norm.ppf(0.975)
 # We choose to use the classic threshold of 5%. If the test p-value is below this threshold,
 # we reject the null hypothesis.
 # This notebook shows how the Little and PKLM tests perform on a simplistic case and their
-# limitations. We instanciate a test object with a random state for reproducibility.
+# limitations. We instantiate a test object with a random state for reproducibility.
 
 little_test_mcar = LittleTest(random_state=rng)
 pklm_test_mcar = PKLMTest(random_state=rng)
