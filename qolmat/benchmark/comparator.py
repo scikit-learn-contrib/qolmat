@@ -1,3 +1,5 @@
+"""Script for comparator."""
+
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -8,23 +10,28 @@ from qolmat.benchmark.missing_patterns import _HoleGenerator
 
 
 class Comparator:
-    """
-    This class implements a comparator for evaluating different imputation methods.
+    """Comparator class.
+
+    This class implements a comparator for evaluating different
+    imputation methods.
 
     Parameters
     ----------
     dict_models: Dict[str, any]
         dictionary of imputation methods
     selected_columns: List[str]Œ
-        list of column's names selected (all with at least one null value will be imputed)
+        list of column's names selected (all with at least one null value will
+        be imputed)
     columnwise_evaluation : Optional[bool], optional
-        whether the metric should be calculated column-wise or not, by default False
-    dict_config_opti: Optional[Dict[str, Dict[str, Union[str, float, int]]]] = {}
-        dictionary of search space for each implementation method. By default, the value is set to
-        {}.
+        whether the metric should be calculated column-wise or not,
+        by default False
+    dict_config_opti: Optional[Dict[str, Dict[str, Union[str, float, int]]]]
+        dictionary of search space for each implementation method.
+        By default, the value is set to {}.
     max_evals: int = 10
         number of calls of the optimization algorithm
         10.
+
     """
 
     def __init__(
@@ -53,24 +60,29 @@ class Comparator:
         df_imputed: pd.DataFrame,
         df_mask: pd.DataFrame,
     ) -> pd.DataFrame:
-        """Functions evaluating the reconstruction's quality
+        """Get errors - estimate the reconstruction's quality.
 
         Parameters
         ----------
-        signal_ref : pd.DataFrame
+        df_origin : pd.DataFrame
             reference/orginal signal
-        signal_imputed : pd.DataFrame
+        df_imputed : pd.DataFrame
             imputed signal
+        df_mask : pd.DataFrame
+            masked dataframe (NA)
 
         Returns
         -------
         pd.DataFrame
             DataFrame of results obtained via different metrics
+
         """
         dict_errors = {}
         for name_metric in self.metrics:
             fun_metric = metrics.get_metric(name_metric)
-            dict_errors[name_metric] = fun_metric(df_origin, df_imputed, df_mask)
+            dict_errors[name_metric] = fun_metric(
+                df_origin, df_imputed, df_mask
+            )
         df_errors = pd.concat(dict_errors.values(), keys=dict_errors.keys())
         return df_errors
 
@@ -81,23 +93,25 @@ class Comparator:
         dict_config_opti_imputer: Dict[str, Any] = {},
         metric_optim: str = "mse",
     ) -> pd.Series:
-        """Evaluate the errors in the cross-validation
+        """Evaluate the errors in the cross-validation.
 
         Parameters
         ----------
-        tested_model : any
+        imputer : Any
             imputation model
         df : pd.DataFrame
             dataframe to impute
         dict_config_opti_imputer : Dict
             search space for tested_model's hyperparameters
         metric_optim : str
-            Loss function used when imputers undergo hyperparameter optimization
+            Loss function used when imputers undergo hyperparameter
+            optimization
 
         Returns
         -------
         pd.Series
             Series with the errors for each metric and each variable
+
         """
         list_errors = []
         df_origin = df[self.selected_columns].copy()
@@ -117,9 +131,12 @@ class Comparator:
             subset = self.generator_holes.subset
             if subset is None:
                 raise ValueError(
-                    "HoleGenerator `subset` should be overwritten in split but it is none!"
+                    "HoleGenerator `subset` should be overwritten in split "
+                    "but it is none!"
                 )
-            df_errors = self.get_errors(df_origin[subset], df_imputed[subset], df_mask[subset])
+            df_errors = self.get_errors(
+                df_origin[subset], df_imputed[subset], df_mask[subset]
+            )
             list_errors.append(df_errors)
         df_errors = pd.DataFrame(list_errors)
         errors_mean = df_errors.mean(axis=0)
@@ -130,20 +147,20 @@ class Comparator:
         self,
         df: pd.DataFrame,
     ):
-        """Function to compare different imputation methods on dataframe df
+        """Compure different imputation methods on dataframe df.
 
         Parameters
         ----------
         df : pd.DataFrame
-        verbose : bool, optional
-            _description_, by default True
+            input dataframe (for comparison)
+
         Returns
         -------
         pd.DataFrame
-            Dataframe with the metrics results, imputers are in columns and indices represent
-            metrics and variables.
-        """
+            Dataframe with the metrics results, imputers are in columns
+            and indices represent metrics and variables.
 
+        """
         dict_errors = {}
 
         for name, imputer in self.dict_imputers.items():
@@ -156,7 +173,10 @@ class Comparator:
                 )
                 print("done.")
             except Exception as excp:
-                print(f"Error while testing {name} of type {type(imputer).__name__}!")
+                print(
+                    f"Error while testing {name} of type "
+                    f"{type(imputer).__name__}!"
+                )
                 raise excp
 
         df_errors = pd.DataFrame(dict_errors)

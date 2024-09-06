@@ -1,3 +1,5 @@
+"""Script for characterising the holes."""
+
 from abc import ABC, abstractmethod
 from typing import Optional, Union
 
@@ -9,34 +11,37 @@ from qolmat.imputations.imputers import ImputerEM
 
 
 class McarTest(ABC):
-    """
-    Astract class for MCAR tests.
-    """
+    """Astract class for MCAR tests."""
 
     @abstractmethod
     def test(self, df: pd.DataFrame) -> float:
+        """Test function."""
         pass
 
 
 class LittleTest(McarTest):
-    """
-    This class implements the Little's test, which is designed to detect the heterogeneity accross
-    the missing patterns. The null hypothesis is "The missing data mechanism is MCAR". The
-    shortcoming of this test is that it won't detect the heterogeneity of covariance.
+    """Little Test class.
+
+    This class implements the Little's test, which is designed to detect the
+    heterogeneity accross the missing patterns. The null hypothesis is
+    "The missing data mechanism is MCAR". The shortcoming of this test is
+    that it won't detect the heterogeneity of covariance.
 
     References
     ----------
-    Little. "A Test of Missing Completely at Random for Multivariate Data with Missing Values."
-    Journal of the American Statistical Association, Volume 83, 1988 - Issue 404
+    Little. "A Test of Missing Completely at Random for Multivariate Data with
+    Missing Values." Journal of the American Statistical Association,
+    Volume 83, 1988 - Issue 404
 
     Parameters
     ----------
     imputer : Optional[ImputerEM]
-        Imputer based on the EM algorithm. The 'model' attribute must be equal to 'multinormal'.
-        If None, the default ImputerEM is taken.
+        Imputer based on the EM algorithm. The 'model' attribute must be
+        equal to 'multinormal'. If None, the default ImputerEM is taken.
     random_state : int, RandomState instance or None, default=None
         Controls the randomness.
         Pass an int for reproducible output across multiple function calls.
+
     """
 
     def __init__(
@@ -47,15 +52,14 @@ class LittleTest(McarTest):
         super().__init__()
         if imputer and imputer.model != "multinormal":
             raise AttributeError(
-                "The ImputerEM model must be 'multinormal' to use the Little's test"
+                "The ImputerEM model must be 'multinormal' "
+                "to use the Little's test"
             )
         self.imputer = imputer
         self.random_state = random_state
 
     def test(self, df: pd.DataFrame) -> float:
-        """
-        Apply the Little's test over a real dataframe.
-
+        """Apply the Little's test over a real dataframe.
 
         Parameters
         ----------
@@ -66,6 +70,7 @@ class LittleTest(McarTest):
         -------
         float
             The p-value of the test.
+
         """
         imputer = self.imputer or ImputerEM(random_state=self.random_state)
         imputer = imputer._fit_element(df)
@@ -79,16 +84,22 @@ class LittleTest(McarTest):
         # Iterate over the patterns
 
         df_nan = df.notna()
-        for tup_pattern, df_nan_pattern in df_nan.groupby(df_nan.columns.tolist()):
+        for tup_pattern, df_nan_pattern in df_nan.groupby(
+            df_nan.columns.tolist()
+        ):
             n_rows_pattern, _ = df_nan_pattern.shape
             ind_pattern = df_nan_pattern.index
             df_pattern = df.loc[ind_pattern, list(tup_pattern)]
             obs_mean = df_pattern.mean().to_numpy()
 
             diff_means = obs_mean - ml_means[list(tup_pattern)]
-            inv_sigma_pattern = np.linalg.inv(ml_cov[:, tup_pattern][tup_pattern, :])
+            inv_sigma_pattern = np.linalg.inv(
+                ml_cov[:, tup_pattern][tup_pattern, :]
+            )
 
-            d0 += n_rows_pattern * np.dot(np.dot(diff_means, inv_sigma_pattern), diff_means.T)
+            d0 += n_rows_pattern * np.dot(
+                np.dot(diff_means, inv_sigma_pattern), diff_means.T
+            )
             degree_f += tup_pattern.count(True)
 
         return 1 - float(chi2.cdf(d0, degree_f))

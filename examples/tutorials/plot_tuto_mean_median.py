@@ -1,5 +1,4 @@
-"""
-========================================================================================
+"""========================================================================================
 Comparison of basic imputers
 ========================================================================================
 
@@ -21,7 +20,6 @@ from qolmat.benchmark import comparator, missing_patterns
 from qolmat.imputations import imputers
 from qolmat.utils import data, plot
 
-
 # %%
 # 1. Data
 # ---------------------------------------------------------------
@@ -29,11 +27,14 @@ from qolmat.utils import data, plot
 # Originally, the first 81 columns contain extracted features and
 # the 82nd column contains the critical temperature which is used as the
 # target variable.
-# The data does not contain missing values; so for the purpose of this notebook,
+# The data does not contain missing values;
+# so for the purpose of this notebook,
 # we corrupt the data, with the :func:`qolmat.utils.data.add_holes` function.
 # In this way, each column has missing values.
 
-df = data.add_holes(data.get_data("Superconductor"), ratio_masked=0.2, mean_size=120)
+df = data.add_holes(
+    data.get_data("Superconductor"), ratio_masked=0.2, mean_size=120
+)
 
 # %%
 # The dataset contains 82 columns. For simplicity,
@@ -55,7 +56,9 @@ cols_to_impute = df.columns
 # a missing (resp. observed) value.
 
 plt.figure(figsize=(15, 4))
-plt.imshow(df.notna().values.T, aspect="auto", cmap="binary", interpolation="none")
+plt.imshow(
+    df.notna().values.T, aspect="auto", cmap="binary", interpolation="none"
+)
 plt.yticks(range(len(df.columns)), df.columns)
 plt.xlabel("Samples", fontsize=12)
 plt.grid(False)
@@ -102,7 +105,9 @@ colorsList = [(1, 0, 0), (0, 0, 0), (1, 1, 1)]
 custom_cmap = matplotlib.colors.ListedColormap(colorsList)
 
 plt.figure(figsize=(15, 4))
-plt.imshow(df_tot.values.T, aspect="auto", cmap=custom_cmap, interpolation="none")
+plt.imshow(
+    df_tot.values.T, aspect="auto", cmap=custom_cmap, interpolation="none"
+)
 plt.yticks(range(len(df_tot.columns)), df_tot.columns)
 plt.xlabel("Samples", fontsize=12)
 plt.grid(False)
@@ -147,7 +152,9 @@ plt.show()
 # are relatively poor. Other imputation methods are therefore
 # necessary (see folder `imputations`).
 
-dfs_imputed = {name: imp.fit_transform(df) for name, imp in dict_imputers.items()}
+dfs_imputed = {
+    name: imp.fit_transform(df) for name, imp in dict_imputers.items()
+}
 
 for col in cols_to_impute:
     fig, ax = plt.subplots(figsize=(10, 3))

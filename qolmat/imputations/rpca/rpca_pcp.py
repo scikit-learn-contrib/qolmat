@@ -1,3 +1,5 @@
+"""Script for the PCP RPCA."""
+
 from __future__ import annotations
 
 import warnings
@@ -13,8 +15,9 @@ from qolmat.utils import utils
 
 
 class RpcaPcp(RPCA):
-    """
-    This class implements the basic RPCA decomposition using Alternating Lagrangian Multipliers.
+    """Class for the basic RPCA decomposition.
+
+    It uses Alternating Lagrangian Multipliers.
 
     References
     ----------
@@ -24,7 +27,8 @@ class RpcaPcp(RPCA):
     Parameters
     ----------
     random_state : int, optional
-        The seed of the pseudo random number generator to use, for reproductibility.
+        The seed of the pseudo random number generator to use,
+        for reproductibility.
     period: Optional[int]
         number of rows of the reshaped matrix if the signal is a 1D-array
     rank: Optional[int]
@@ -34,12 +38,14 @@ class RpcaPcp(RPCA):
     lam: Optional[float]
         penalizing parameter for the sparse matrix
     max_iterations: Optional[int]
-        stopping criteria, maximum number of iterations. By default, the value is set to 10_000
+        stopping criteria, maximum number of iterations.
+        By default, the value is set to 10_000
     tolerance: Optional[float]
-        stoppign critera, minimum difference between 2 consecutive iterations. By default,
-        the value is set to 1e-6
+        stoppign critera, minimum difference between 2 consecutive iterations.
+        By default, the value is set to 1e-6
     verbose: Optional[bool]
         verbosity level, if False the warnings are silenced
+
     """
 
     def __init__(
@@ -51,14 +57,15 @@ class RpcaPcp(RPCA):
         tolerance: float = 1e-6,
         verbose: bool = True,
     ) -> None:
-        super().__init__(max_iterations=max_iterations, tolerance=tolerance, verbose=verbose)
+        super().__init__(
+            max_iterations=max_iterations, tolerance=tolerance, verbose=verbose
+        )
         self.rng = sku.check_random_state(random_state)
         self.mu = mu
         self.lam = lam
 
     def get_params_scale(self, D: NDArray):
-        """
-        Get parameters for scaling in RPCA based on the input data.
+        """Get parameters for scaling in RPCA based on the input data.
 
         Parameters
         ----------
@@ -81,8 +88,9 @@ class RpcaPcp(RPCA):
         return dict_params
 
     def decompose(self, D: NDArray, Omega: NDArray) -> Tuple[NDArray, NDArray]:
-        """
-        Estimate the relevant parameters then compute the PCP RPCA decomposition, using the
+        """Estimate the relevant parameters.
+
+        It computes the PCP RPCA decomposition, using the
         Augumented Largrangian Multiplier (ALM)
 
         Parameters
@@ -98,6 +106,7 @@ class RpcaPcp(RPCA):
             Low-rank signal
         A: NDArray
             Anomalies
+
         """
         D = utils.linear_interpolation(D)
         if np.all(D == 0):
@@ -116,7 +125,6 @@ class RpcaPcp(RPCA):
 
         M: NDArray = D - A
         for iteration in range(self.max_iterations):
-
             M = rpca_utils.svd_thresholding(D - A + Y / mu, 1 / mu)
             A = rpca_utils.soft_thresholding(D - M + Y / mu, lam / mu)
             A[~Omega] = (D - M)[~Omega]
@@ -141,7 +149,9 @@ class RpcaPcp(RPCA):
         Omega: NDArray,
         lam: float,
     ):
-        """Check that the functional minimized by the RPCA
+        """Check that the functional minimized by the RPCA.
+
+        Check that the functional minimized by the RPCA
         is smaller at the end than at the beginning
 
         Parameters
@@ -156,12 +166,16 @@ class RpcaPcp(RPCA):
             boolean matrix indicating the observed values
         lam : float
             parameter penalizing the L1-norm of the anomaly/sparse part
+
         """
         cost_start = np.linalg.norm(observations, "nuc")
-        cost_end = np.linalg.norm(low_rank, "nuc") + lam * np.sum(Omega * np.abs(anomalies))
+        cost_end = np.linalg.norm(low_rank, "nuc") + lam * np.sum(
+            Omega * np.abs(anomalies)
+        )
         if self.verbose and round(cost_start, 4) - round(cost_end, 4) <= -1e-2:
             function_str = "||D||_* + lam ||A||_1"
             warnings.warn(
-                f"RPCA algorithm may provide bad results. Function {function_str} increased from"
-                f" {cost_start} to {cost_end} instead of decreasing!"
+                "RPCA algorithm may provide bad results. "
+                f"Function {function_str} increased from {cost_start} "
+                f"to {cost_end} instead of decreasing!"
             )

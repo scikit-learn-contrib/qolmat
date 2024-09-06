@@ -1,9 +1,11 @@
+"""Utils for diffusion imputers."""
+
 import numpy as np
 import torch
 
 
 def get_num_params(model: torch.nn.Module) -> int:
-    """Get the total number of parameters of a model
+    """Get the total number of parameters of a model.
 
     Parameters
     ----------
@@ -14,6 +16,7 @@ def get_num_params(model: torch.nn.Module) -> int:
     -------
     float
         the total number of parameters
+
     """
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])

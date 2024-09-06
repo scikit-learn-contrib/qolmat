@@ -1,10 +1,11 @@
+from typing import Any
+
 import numpy as np
 import pandas as pd
 import pytest
-
-from typing import Any
-
-from sklearn.utils.estimator_checks import check_estimator, parametrize_with_checks
+from sklearn.utils.estimator_checks import (
+    parametrize_with_checks,
+)
 
 from qolmat.benchmark import metrics
 from qolmat.imputations import imputers, imputers_pytorch
@@ -82,7 +83,9 @@ def test_TabDDPM_fit(df: pd.DataFrame) -> None:
     )
 
     model = ddpms.TabDDPM(num_noise_steps=10, num_blocks=1, dim_embedding=64)
-    model = model.fit(df, batch_size=2, epochs=2, x_valid=df, print_valid=False)
+    model = model.fit(
+        df, batch_size=2, epochs=2, x_valid=df, print_valid=False
+    )
 
     df_imputed = model.predict(df)
 
@@ -94,7 +97,6 @@ def test_TabDDPM_fit(df: pd.DataFrame) -> None:
 
 @pytest.mark.parametrize("df", [df_incomplete])
 def test_TabDDPM_process_data(df: pd.DataFrame) -> None:
-
     model = ddpms.TabDDPM(num_noise_steps=10, num_blocks=1, dim_embedding=64)
     arr_processed, arr_mask, _ = model._process_data(df, is_training=True)
 
@@ -104,11 +106,14 @@ def test_TabDDPM_process_data(df: pd.DataFrame) -> None:
 
 @pytest.mark.parametrize("df", [df_incomplete])
 def test_TabDDPM_process_reversely_data(df: pd.DataFrame) -> None:
-
     model = ddpms.TabDDPM(num_noise_steps=10, num_blocks=1, dim_embedding=64)
-    model = model.fit(df, batch_size=2, epochs=2, x_valid=df, print_valid=False)
+    model = model.fit(
+        df, batch_size=2, epochs=2, x_valid=df, print_valid=False
+    )
 
-    arr_processed, arr_mask, list_indices = model._process_data(df, is_training=False)
+    arr_processed, arr_mask, list_indices = model._process_data(
+        df, is_training=False
+    )
     df_imputed = model._process_reversely_data(arr_processed, df, list_indices)
 
     np.testing.assert_array_equal(df.shape, df_imputed.shape)
@@ -118,11 +123,16 @@ def test_TabDDPM_process_reversely_data(df: pd.DataFrame) -> None:
 
 @pytest.mark.parametrize("df", [df_incomplete])
 def test_TabDDPM_q_sample(df: pd.DataFrame) -> None:
-
     model = ddpms.TabDDPM(num_noise_steps=10, num_blocks=1, dim_embedding=64)
-    model = model.fit(df, batch_size=2, epochs=2, x_valid=df, print_valid=False)
+    model = model.fit(
+        df, batch_size=2, epochs=2, x_valid=df, print_valid=False
+    )
 
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    device = (
+        torch.device("cuda")
+        if torch.cuda.is_available()
+        else torch.device("cpu")
+    )
 
     ts_data_noised, ts_noise = model._q_sample(
         x=torch.ones(2, 5, dtype=torch.float).to(device),
@@ -135,7 +145,9 @@ def test_TabDDPM_q_sample(df: pd.DataFrame) -> None:
 
 @pytest.mark.parametrize("df", [df_incomplete])
 def test_TabDDPM_eval(df: pd.DataFrame) -> None:
-    model = ddpms.TabDDPM(num_noise_steps=10, num_blocks=1, dim_embedding=64, is_clip=True)
+    model = ddpms.TabDDPM(
+        num_noise_steps=10, num_blocks=1, dim_embedding=64, is_clip=True
+    )
     model = model.fit(
         df,
         batch_size=2,
@@ -156,7 +168,9 @@ def test_TabDDPM_eval(df: pd.DataFrame) -> None:
         list(df.index),
     )
 
-    np.testing.assert_array_equal(list(scores.keys()), ["mean_absolute_error", "dist_wasserstein"])
+    np.testing.assert_array_equal(
+        list(scores.keys()), ["mean_absolute_error", "dist_wasserstein"]
+    )
 
 
 @pytest.mark.parametrize("df", [df_incomplete])
@@ -191,8 +205,12 @@ def test_TabDDPM_predict(df: pd.DataFrame) -> None:
         }
     )
 
-    model = ddpms.TabDDPM(num_noise_steps=10, num_blocks=1, dim_embedding=64, is_clip=True)
-    model = model.fit(df, batch_size=2, epochs=2, x_valid=df, print_valid=False)
+    model = ddpms.TabDDPM(
+        num_noise_steps=10, num_blocks=1, dim_embedding=64, is_clip=True
+    )
+    model = model.fit(
+        df, batch_size=2, epochs=2, x_valid=df, print_valid=False
+    )
 
     df_imputed = model.predict(df)
 
@@ -216,7 +234,12 @@ def test_TsDDPM_fit(df: pd.DataFrame) -> None:
 
     model = ddpms.TsDDPM(num_noise_steps=10, num_blocks=1, dim_embedding=64)
     model = model.fit(
-        df, batch_size=2, epochs=2, x_valid=df, print_valid=False, index_datetime="datetime"
+        df,
+        batch_size=2,
+        epochs=2,
+        x_valid=df,
+        print_valid=False,
+        index_datetime="datetime",
     )
 
     df_imputed = model.predict(df)
@@ -229,10 +252,16 @@ def test_TsDDPM_fit(df: pd.DataFrame) -> None:
 
 @pytest.mark.parametrize("df", [df_incomplete])
 def test_TsDDPM_process_data(df: pd.DataFrame) -> None:
-
-    model = ddpms.TsDDPM(num_noise_steps=10, num_blocks=1, dim_embedding=64, is_rolling=False)
+    model = ddpms.TsDDPM(
+        num_noise_steps=10, num_blocks=1, dim_embedding=64, is_rolling=False
+    )
     model = model.fit(
-        df, batch_size=2, epochs=2, x_valid=df, print_valid=False, index_datetime="datetime"
+        df,
+        batch_size=2,
+        epochs=2,
+        x_valid=df,
+        print_valid=False,
+        index_datetime="datetime",
     )
 
     arr_processed, arr_mask, _ = model._process_data(df, is_training=True)
@@ -240,9 +269,16 @@ def test_TsDDPM_process_data(df: pd.DataFrame) -> None:
     np.testing.assert_array_equal(arr_processed.shape, [5, 1, 5])
     np.testing.assert_array_equal(arr_mask.shape, [5, 1, 5])
 
-    model = ddpms.TsDDPM(num_noise_steps=10, num_blocks=1, dim_embedding=64, is_rolling=True)
+    model = ddpms.TsDDPM(
+        num_noise_steps=10, num_blocks=1, dim_embedding=64, is_rolling=True
+    )
     model = model.fit(
-        df, batch_size=2, epochs=2, x_valid=df, print_valid=False, index_datetime="datetime"
+        df,
+        batch_size=2,
+        epochs=2,
+        x_valid=df,
+        print_valid=False,
+        index_datetime="datetime",
     )
 
     arr_processed, arr_mask, _ = model._process_data(df, is_training=True)
@@ -253,25 +289,42 @@ def test_TsDDPM_process_data(df: pd.DataFrame) -> None:
 
 @pytest.mark.parametrize("df", [df_incomplete])
 def test_TsDDPM_process_reversely_data(df: pd.DataFrame) -> None:
-
-    model = ddpms.TsDDPM(num_noise_steps=10, num_blocks=1, dim_embedding=64, is_rolling=False)
+    model = ddpms.TsDDPM(
+        num_noise_steps=10, num_blocks=1, dim_embedding=64, is_rolling=False
+    )
     model = model.fit(
-        df, batch_size=2, epochs=2, x_valid=df, print_valid=False, index_datetime="datetime"
+        df,
+        batch_size=2,
+        epochs=2,
+        x_valid=df,
+        print_valid=False,
+        index_datetime="datetime",
     )
 
-    arr_processed, arr_mask, list_indices = model._process_data(df, is_training=False)
+    arr_processed, arr_mask, list_indices = model._process_data(
+        df, is_training=False
+    )
     df_imputed = model._process_reversely_data(arr_processed, df, list_indices)
 
     np.testing.assert_array_equal(df.shape, df_imputed.shape)
     np.testing.assert_array_equal(df.index, df_imputed.index)
     np.testing.assert_array_equal(df.columns, df_imputed.columns)
 
-    model = ddpms.TsDDPM(num_noise_steps=10, num_blocks=1, dim_embedding=64, is_rolling=True)
+    model = ddpms.TsDDPM(
+        num_noise_steps=10, num_blocks=1, dim_embedding=64, is_rolling=True
+    )
     model = model.fit(
-        df, batch_size=2, epochs=2, x_valid=df, print_valid=False, index_datetime="datetime"
+        df,
+        batch_size=2,
+        epochs=2,
+        x_valid=df,
+        print_valid=False,
+        index_datetime="datetime",
     )
 
-    arr_processed, arr_mask, list_indices = model._process_data(df, is_training=False)
+    arr_processed, arr_mask, list_indices = model._process_data(
+        df, is_training=False
+    )
     df_imputed = model._process_reversely_data(arr_processed, df, list_indices)
 
     np.testing.assert_array_equal(df.shape, df_imputed.shape)
@@ -281,12 +334,20 @@ def test_TsDDPM_process_reversely_data(df: pd.DataFrame) -> None:
 
 @pytest.mark.parametrize("df", [df_incomplete])
 def test_TsDDPM_q_sample(df: pd.DataFrame) -> None:
-
     model = ddpms.TsDDPM(num_noise_steps=10, num_blocks=1, dim_embedding=64)
     model = model.fit(
-        df, batch_size=2, epochs=2, x_valid=df, print_valid=False, index_datetime="datetime"
+        df,
+        batch_size=2,
+        epochs=2,
+        x_valid=df,
+        print_valid=False,
+        index_datetime="datetime",
     )
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    device = (
+        torch.device("cuda")
+        if torch.cuda.is_available()
+        else torch.device("cpu")
+    )
 
     ts_data_noised, ts_noise = model._q_sample(
         x=torch.ones(2, 1, 5, dtype=torch.float).to(device),
@@ -299,9 +360,13 @@ def test_TsDDPM_q_sample(df: pd.DataFrame) -> None:
 
 @parametrize_with_checks(
     [
-        imputers_pytorch.ImputerDiffusion(model=ddpms.TabDDPM(), batch_size=1, epochs=1),
+        imputers_pytorch.ImputerDiffusion(
+            model=ddpms.TabDDPM(), batch_size=1, epochs=1
+        ),
     ]
 )
-def test_sklearn_compatible_estimator(estimator: imputers._Imputer, check: Any) -> None:
+def test_sklearn_compatible_estimator(
+    estimator: imputers._Imputer, check: Any
+) -> None:
     """Check compatibility with sklearn, using sklearn estimator checks API."""
     check(estimator)

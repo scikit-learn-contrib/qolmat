@@ -1,12 +1,7 @@
-"""
-Modular utility functions for RPCA
-"""
+"""Modular utility functions for RPCA."""
 
-from typing import Tuple
 import numpy as np
 from numpy.typing import NDArray
-import scipy
-from scipy.linalg import toeplitz
 from scipy import sparse as sps
 
 
@@ -14,8 +9,7 @@ def approx_rank(
     M: NDArray,
     threshold: float = 0.95,
 ) -> int:
-    """
-    Estimate a bound on the rank of an array by SVD.
+    """Estimate a bound on the rank of an array by SVD.
 
     Parameters
     ----------
@@ -45,8 +39,7 @@ def soft_thresholding(
     X: NDArray,
     threshold: float,
 ) -> NDArray:
-    """
-    Shrinkage operator (i.e. soft thresholding) on the elements of X.
+    """Shrinkage operator (i.e. soft thresholding) on the elements of X.
 
     Parameters
     ----------
@@ -59,13 +52,13 @@ def soft_thresholding(
     -------
     NDArray
         Array V such that V = sign(X) * max(abs(X - threshold,0)
+
     """
     return np.sign(X) * np.maximum(np.abs(X) - threshold, 0)
 
 
 def svd_thresholding(X: NDArray, threshold: float) -> NDArray:
-    """
-    Apply the shrinkage operator to the singular values obtained from the SVD of X.
+    """Apply shrinkage to the singular values from X's SVD.
 
     Parameters
     ----------
@@ -81,6 +74,7 @@ def svd_thresholding(X: NDArray, threshold: float) -> NDArray:
             U is the array of left singular vectors of X
             V is the array of the right singular vectors of X
             s is the array of the singular values as a diagonal array
+
     """
     U, s, Vh = np.linalg.svd(X, full_matrices=False)
     s = soft_thresholding(s, threshold)
@@ -88,8 +82,7 @@ def svd_thresholding(X: NDArray, threshold: float) -> NDArray:
 
 
 def l1_norm(M: NDArray) -> float:
-    """
-    L1 norm of an array
+    """Compute the L1 norm of an array.
 
     Parameters
     ----------
@@ -100,13 +93,15 @@ def l1_norm(M: NDArray) -> float:
     -------
     float
         L1 norm of M
+
     """
     return np.sum(np.abs(M))
 
 
-def toeplitz_matrix(T: int, dimension: int) -> NDArray:
-    """
-    Create a sparse Toeplitz square matrix H to take into account temporal correlations in the RPCA
+def toeplitz_matrix(T: int, dimension: int) -> sps.spmatrix:
+    """Create a sparse Toeplitz square matrix H.
+
+    It is useful to take into account temporal correlations in the RPCA
     H=Toeplitz(0,1,-1), in which the central diagonal is defined as ones and
     the T upper diagonal is defined as minus ones.
 
@@ -121,11 +116,13 @@ def toeplitz_matrix(T: int, dimension: int) -> NDArray:
     -------
     NDArray
         Sparse Toeplitz matrix using scipy format
-    """
 
+    """
     n_lags = dimension - T
     diagonals = [np.ones(n_lags), -np.ones(n_lags)]
-    H_top = sps.diags(diagonals, offsets=[0, T], shape=(n_lags, dimension), format="csr")
+    H_top = sps.diags(
+        diagonals, offsets=[0, T], shape=(n_lags, dimension), format="csr"
+    )
     H = sps.dok_matrix((dimension, dimension))
     H[:n_lags] = H_top
     return H

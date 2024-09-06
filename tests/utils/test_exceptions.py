@@ -1,4 +1,3 @@
-import pytest
 from qolmat.utils import exceptions
 
 
