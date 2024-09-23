@@ -1,5 +1,7 @@
 """Utils algebra functions for qolmat package."""
 
+from typing import Optional, Tuple
+
 import numpy as np
 import scipy
 from numpy.typing import NDArray
@@ -96,3 +98,84 @@ def kl_divergence_gaussian_exact(
     term_diag_L = 2 * np.sum(np.log(np.diagonal(L2) / np.diagonal(L1)))
     div_kl = 0.5 * (norm_M - n_variables + norm_y + term_diag_L)
     return div_kl
+
+
+def svdtriplet(
+    X: NDArray[np.float64],
+    row_weights: Optional[NDArray[np.float64]] = None,
+    col_weights: Optional[NDArray[np.float64]] = None,
+    ncp: int = np.inf,
+) -> Tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
+    """Perform a weighted Singular Value Decomposition (SVD) of matrix X.
+
+    This function computes the SVD of a weighted matrix, where weights are
+    applied to both the rows and columns. Row and column weights are optional,
+    and if not provided, uniform weights are applied by default.
+
+    Parameters
+    ----------
+    X : NDArray[np.float64]
+        Input matrix to decompose with SVD.
+    row_weights : Optional[NDArray[np.float64]], optional
+        Weights for the rows of the matrix, by default None (uniform weights).
+    col_weights : Optional[NDArray[np.float64]], optional
+        Weights for the columns of the matrix, by default None (uniform
+        weights).
+    ncp : int, optional
+        The number of components to retain, by default np.inf. This will be
+        capped at min(rows-1, cols).
+
+    Returns
+    -------
+    Tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]
+        A tuple containing:
+        - Singular values (s)
+        - Left singular vectors (U)
+        - Right singular vectors (V)
+
+    """
+    X = np.asarray(X, dtype=np.float64)
+    if X.ndim != 2:
+        raise ValueError("Input matrix X must be 2-dimensional")
+    n_rows, n_cols = X.shape
+    if row_weights is None:
+        row_weights = np.ones(n_rows) / n_rows
+    else:
+        row_weights = np.asarray(row_weights, dtype=np.float64)
+        if row_weights.shape[0] != n_rows:
+            raise ValueError("Row weights must match the number of rows in X")
+
+    if col_weights is None:
+        col_weights = np.ones(n_cols)
+    else:
+        col_weights = np.asarray(col_weights, dtype=np.float64)
+        if col_weights.shape[0] != n_cols:
+            raise ValueError(
+                "Column weights must match the number of columns in X"
+            )
+
+    row_weights /= row_weights.sum()
+    X_weighted = X * np.sqrt(col_weights)  # Column weights
+    X_weighted *= np.sqrt(row_weights[:, None])  # Row weights
+
+    ncp = min(ncp, n_rows - 1, n_cols)
+
+    if n_cols <= n_rows:
+        U, s, Vt = np.linalg.svd(X_weighted, full_matrices=False)
+        V = Vt.T
+    else:
+        Vt, s, U = np.linalg.svd(X_weighted.T, full_matrices=False)
+        V = Vt.T
+        U = U.T
+
+    # Truncate U, V, and s to the top ncp components
+    U, V, s = U[:, :ncp], V[:, :ncp], s[:ncp]
+
+    sign_correction = np.sign(np.sum(V, axis=0))
+    sign_correction[sign_correction == 0] = 1
+    U *= sign_correction
+    V *= sign_correction
+    U /= np.sqrt(row_weights[:, None])
+    V /= np.sqrt(col_weights[:, None])
+
+    return s, U, V
