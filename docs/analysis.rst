@@ -45,7 +45,7 @@ The MCAR missing-data mechanism means that there is independence between the pre
 a. Little's Test
 ^^^^^^^^^^^^^^^^
 
-The best-known MCAR test is the :ref:`Little [2]<Little-article>` test, and it has been implemented in :class:`LittleTest`. Keep in mind that the Little's test is designed to test the homogeneity of means across the missing patterns and won't be efficient to detect the heterogeneity of covariance accross missing patterns.
+The best-known MCAR test is the :ref:`Little [1]<Little-article>` test, and it has been implemented in :class:`LittleTest`. Keep in mind that the Little's test is designed to test the homogeneity of means across the missing patterns and won't be efficient to detect the heterogeneity of covariance accross missing patterns.
 
 b. PKLM Test
 ^^^^^^^^^^^^

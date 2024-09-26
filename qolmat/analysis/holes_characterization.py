@@ -334,7 +334,7 @@ class PKLMTest(McarTest):
     @staticmethod
     def _check_draw(
         X: np.ndarray, features_idx: List[int], target_idx: int
-    ) -> np.bool_:
+    ) -> bool:
         """Check if the drawn features and target are valid.
 
         Here we check
@@ -365,7 +365,7 @@ class PKLMTest(McarTest):
 
     def _generate_label_feature_combinations(
         self, X: np.ndarray
-    ) -> List[Tuple[int, List[int]]]:
+    ) -> List[Tuple[List[int], int]]:
         """Generate all valid combinations of features and labels.
 
         Parameters
@@ -687,7 +687,7 @@ class PKLMTest(McarTest):
 
         """
         U_k = B[k, :] @ U
-        p_v_k = 1
+        p_v_k = 1.
 
         for u_sigma_k in (B[k, :] @ U_sigma).tolist():
             if u_sigma_k >= U_k:
@@ -745,7 +745,7 @@ class PKLMTest(McarTest):
         U = U / self.nb_projections
         list_U_sigma = [x / self.nb_permutation for x in list_U_sigma]
 
-        p_value = 1
+        p_value = 1.
         for u_sigma in list_U_sigma:
             if u_sigma >= U:
                 p_value += 1
