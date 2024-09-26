@@ -11,7 +11,7 @@ The analysis module provides tools to characterize the type of holes.
 
 The MNAR case is the trickiest, the user must first consider whether their missing data mechanism is MNAR. In the meantime, we make assume that the missing-data mechanism is ignorable (ie., it is not MNAR). If an MNAR mechanism is suspected, please see this article :ref:`An approach to test for MNAR [1]<Noonan-article>` for relevant actions.
 
-Then Qolmat proposes a test to determine whether the missing data mechanism is MCAR or MAR.
+Then Qolmat proposes two tests to determine whether the missing data mechanism is MCAR or MAR.
 
 2. How to use the results
 -------------------------
@@ -50,7 +50,11 @@ The best-known MCAR test is the :ref:`Little [2]<Little-article>` test, and it h
 b. PKLM Test
 ^^^^^^^^^^^^
 
-The :ref:`PKLM [2]<PKLM-article>` (Projected Kullback-Leibler MCAR) test compares the distributions of different missing patterns on random projections in the variable space of the data. This recent test applies to mixed-type data. It is not implemented yet in Qolmat.
+The :ref:`PKLM [2]<PKLM-article>` (Projected Kullback-Leibler MCAR) test compares the distributions of different missing patterns on random projections in the variable space of the data. This recent test applies to mixed-type data. The :class:`PKLMTest` is now implemented in Qolmat.
+To carry out this test, we perform random projections in the variable space of the data. These random projections allow us to construct a fully observed sub-matrix and an associated number of missing patterns.
+The idea is then to compare the distributions of the missing patterns through the Kullback-Leibler distance.
+To do this, the distributions for each pattern are estimated using Random Forests.
+
 
 References
 ----------
