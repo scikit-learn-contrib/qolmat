@@ -188,8 +188,6 @@ class PKLMTest(McarTest):
         Number of trees per projection.
     compute_partial_p_values : bool
         If true, compute the partial p-values.
-    exact_p_value : bool
-        If True, compute exact p-value.
     encoder : OneHotEncoder or None, default=None
         Encoder to convert non numeric pandas dataframe values to numeric
         values.
@@ -206,7 +204,6 @@ class PKLMTest(McarTest):
         nb_permutation: int = 30,
         nb_trees_per_proj: int = 200,
         compute_partial_p_values: bool = False,
-        exact_p_value: bool = False,
         encoder: Union[None, OneHotEncoder] = None,
         random_state: Union[None, int, np.random.RandomState] = None,
     ):
@@ -216,13 +213,7 @@ class PKLMTest(McarTest):
         self.nb_permutation = nb_permutation
         self.nb_trees_per_proj = nb_trees_per_proj
         self.compute_partial_p_values = compute_partial_p_values
-        self.exact_p_value = exact_p_value
         self.encoder = encoder
-
-        if self.exact_p_value:
-            self.process_permutation = self._parallel_process_permutation_exact
-        else:
-            self.process_permutation = self._parallel_process_permutation
 
     def _encode_dataframe(self, df: pd.DataFrame) -> np.ndarray:
         """Encode the DataFrame.
@@ -593,21 +584,6 @@ class PKLMTest(McarTest):
         y = self._build_label(X, M_perm, features_idx, target_idx)
         return self._U_hat(oob_probabilities, y)
 
-    def _parallel_process_permutation_exact(
-        self,
-        X: np.ndarray,
-        M_perm: np.ndarray,
-        features_idx: np.ndarray,
-        target_idx: int,
-        oob_probabilites_unused: np.ndarray,
-    ) -> float:
-        X_features, _ = self._build_dataset(X, features_idx, target_idx)
-        y = self._build_label(X, M_perm, features_idx, target_idx)
-        # In this case, we fit the classifier in each permutation.
-        # It takes much more longer.
-        oob_probabilities = self._get_oob_probabilities(X_features, y)
-        return self._U_hat(oob_probabilities, y)
-
     def _parallel_process_projection(
         self,
         X: np.ndarray,
@@ -622,7 +598,7 @@ class PKLMTest(McarTest):
         # We fit only one classifier to get oob probabilities and compute u_hat
         # nb_permutations times.
         result_u_permutations = Parallel(n_jobs=-1)(
-            delayed(self.process_permutation)(
+            delayed(self._parallel_process_permutation)(
                 X, M_perm, features_idx, target_idx, oob_probabilities
             )
             for M_perm in list_permutations

@@ -394,18 +394,3 @@ for col_index, partial_p_v in enumerate(partial_p_values):
 # As a result, by removing the missing patterns induced by variable 2, the p-value rises
 # above the significance threshold set beforehand. Thus in this sense, the test detects that the
 # main culprit of the MAR mechanism lies in the second variable.
-
-
-# %%
-# Calculation time -> TO BE DELETED
-# | **n_rows** | **n_cols** | **Calculation_time** |
-# |------------|------------|----------------------|
-# | 200        | 2          | 2"12                 |
-# | 500        | 2          | 2"24                 |
-# | 500        | 4          | 2"18                 |
-# | 1000       | 4          | 2"48                 |
-# | 1000       | 6          | 2"42                 |
-# | 10000      | 6          | 20"54                |
-# | 10000      | 10         | 14"48                |
-# | 100000     | 10         | 4'51"                |
-# | 100000     | 15         | 3'06"                |
