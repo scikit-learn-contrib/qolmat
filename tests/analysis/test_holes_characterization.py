@@ -110,7 +110,7 @@ def missingness_matrix_mcar_perm(missingness_matrix_mcar):
 
 @pytest.fixture
 def oob_probabilities() -> np.ndarray:
-    return np.matrix([[0.5, 0.5], [0, 1], [1, 0], [1, 0]]).A
+    return np.array([[0.5, 0.5], [0, 1], [1, 0], [1, 0]])
 
 
 def test__encode_dataframe(supported_multitypes_dataframe):
