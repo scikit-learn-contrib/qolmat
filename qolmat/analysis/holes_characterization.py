@@ -732,10 +732,10 @@ class PKLMTest(McarTest):
             return p_value
         else:
             B = self._build_B(list_proj, n_cols)
-            U = np.array([item[0] for item in parallel_results])
-            U_sigma = np.array([item[1] for item in parallel_results])
+            U_matrix = np.array([np.atleast_1d(item[0]) for item in parallel_results])
+            U_sigma = np.array([np.atleast_1d(item[1]) for item in parallel_results])
             p_values = [
-                self._compute_partial_p_value(B, U, U_sigma, k)
+                self._compute_partial_p_value(B, U_matrix, U_sigma, k)
                 for k in range(n_cols)
             ]
             return p_value, p_values
