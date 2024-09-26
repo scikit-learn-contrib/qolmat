@@ -73,8 +73,16 @@ has_nan = df_mask.any(axis=1)
 df_observed = df.loc[~has_nan]
 df_hidden = df.loc[has_nan]
 
-plt.scatter(df_observed["Column 1"], df_observed[["Column 2"]], label="Fully observed values")
-plt.scatter(df_hidden[["Column 1"]], df_hidden[["Column 2"]], label="Values with missing C2")
+plt.scatter(
+    df_observed["Column 1"],
+    df_observed[["Column 2"]],
+    label="Fully observed values",
+)
+plt.scatter(
+    df_hidden[["Column 1"]],
+    df_hidden[["Column 2"]],
+    label="Values with missing C2",
+)
 
 plt.legend(
     loc="lower left",
@@ -99,7 +107,9 @@ print(f"The p-value of the PKLM test is: {pklm_result:.2%}")
 # Case 2: MAR holes with mean bias (True positive)
 # ================================================
 
-df_mask = pd.DataFrame({"Column 1": False, "Column 2": df["Column 1"] > q975}, index=df.index)
+df_mask = pd.DataFrame(
+    {"Column 1": False, "Column 2": df["Column 1"] > q975}, index=df.index
+)
 
 df_nan = df.where(~df_mask, np.nan)
 
@@ -107,8 +117,16 @@ has_nan = df_mask.any(axis=1)
 df_observed = df.loc[~has_nan]
 df_hidden = df.loc[has_nan]
 
-plt.scatter(df_observed["Column 1"], df_observed[["Column 2"]], label="Fully observed values")
-plt.scatter(df_hidden[["Column 1"]], df_hidden[["Column 2"]], label="Values with missing C2")
+plt.scatter(
+    df_observed["Column 1"],
+    df_observed[["Column 2"]],
+    label="Fully observed values",
+)
+plt.scatter(
+    df_hidden[["Column 1"]],
+    df_hidden[["Column 2"]],
+    label="Values with missing C2",
+)
 
 plt.legend(
     loc="lower left",
@@ -139,7 +157,8 @@ print(f"The p-value of the PKLM test is: {pklm_result:.2%}")
 # MAR but the means between missing patterns is not statistically different.
 
 df_mask = pd.DataFrame(
-    {"Column 1": False, "Column 2": df["Column 1"].abs() > q975}, index=df.index
+    {"Column 1": False, "Column 2": df["Column 1"].abs() > q975},
+    index=df.index,
 )
 
 df_nan = df.where(~df_mask, np.nan)
@@ -148,8 +167,16 @@ has_nan = df_mask.any(axis=1)
 df_observed = df.loc[~has_nan]
 df_hidden = df.loc[has_nan]
 
-plt.scatter(df_observed["Column 1"], df_observed[["Column 2"]], label="Fully observed values")
-plt.scatter(df_hidden[["Column 1"]], df_hidden[["Column 2"]], label="Values with missing C2")
+plt.scatter(
+    df_observed["Column 1"],
+    df_observed[["Column 2"]],
+    label="Fully observed values",
+)
+plt.scatter(
+    df_hidden[["Column 1"]],
+    df_hidden[["Column 2"]],
+    label="Values with missing C2",
+)
 
 plt.legend(
     loc="lower left",
@@ -182,7 +209,7 @@ print(f"The p-value of the PKLM test is: {pklm_result:.2%}")
 #
 # We also note that the Little's test does not handle categorical data or temporally
 # correlated data.
-# 
+#
 # This is why we have implemented the PKLM test, which makes up for the shortcomings of the Little
 # test. We present this test in more detail in the next section.
 
@@ -277,21 +304,18 @@ n_rows = 100
 col1 = rng.rand(n_rows) * 100
 col2 = rng.randint(1, 100, n_rows)
 col3 = rng.choice([True, False], n_rows)
-modalities = ['A', 'B', 'C', 'D']
+modalities = ["A", "B", "C", "D"]
 col4 = rng.choice(modalities, n_rows)
 
-df = pd.DataFrame({
-    'Numeric1': col1,
-    'Numeric2': col2,
-    'Boolean': col3,
-    'Object': col4
-})
+df = pd.DataFrame(
+    {"Numeric1": col1, "Numeric2": col2, "Boolean": col3, "Object": col4}
+)
 
 hole_gen = UniformHoleGenerator(
     n_splits=1,
     ratio_masked=0.2,
-    subset=['Numeric1', 'Numeric2', 'Boolean', 'Object'],
-    random_state=rng
+    subset=["Numeric1", "Numeric2", "Boolean", "Object"],
+    random_state=rng,
 )
 df_mask = hole_gen.generate_mask(df)
 df_nan = df.where(~df_mask, np.nan)
@@ -328,9 +352,11 @@ print(f"The p-value of the PKLM test is: {pklm_result:.2%}")
 data = rng.multivariate_normal(
     mean=[0, 0, 0, 0],
     cov=[[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]],
-    size=400
+    size=400,
 )
-df = pd.DataFrame(data=data, columns=["Column 1", "Column 2", "Column 3", "Column 4"])
+df = pd.DataFrame(
+    data=data, columns=["Column 1", "Column 2", "Column 3", "Column 4"]
+)
 
 df_mask = pd.DataFrame(
     {
@@ -339,7 +365,7 @@ df_mask = pd.DataFrame(
         "Column 3": False,
         "Column 4": False,
     },
-    index=df.index
+    index=df.index,
 )
 df_nan = df.where(~df_mask, np.nan)
 
@@ -360,7 +386,9 @@ print(f"The p-value of the PKLM test is: {p_value:.2%}")
 
 # %%
 for col_index, partial_p_v in enumerate(partial_p_values):
-    print(f"The partial p-value for the column index {col_index + 1} is: {partial_p_v:.2%}")
+    print(
+        f"The partial p-value for the column index {col_index + 1} is: {partial_p_v:.2%}"
+    )
 
 # %%
 # As a result, by removing the missing patterns induced by variable 2, the p-value rises

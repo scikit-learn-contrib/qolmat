@@ -66,7 +66,11 @@ print(df_data.isna().sum())
 df_data_valid = df_data.iloc[:500]
 
 tabddpm = ImputerDiffusion(
-    model=TabDDPM(), epochs=10, batch_size=100, x_valid=df_data_valid, print_valid=True
+    model=TabDDPM(),
+    epochs=10,
+    batch_size=100,
+    x_valid=df_data_valid,
+    print_valid=True,
 )
 tabddpm = tabddpm.fit(df_data)
 
@@ -150,8 +154,12 @@ plt.show()
 # reconstruction errors (mae) but increases distribution distance (KL_columnwise).
 
 dict_imputers = {
-    "num_sampling=5": ImputerDiffusion(model=TabDDPM(num_sampling=5), epochs=10, batch_size=100),
-    "num_sampling=10": ImputerDiffusion(model=TabDDPM(num_sampling=10), epochs=10, batch_size=100),
+    "num_sampling=5": ImputerDiffusion(
+        model=TabDDPM(num_sampling=5), epochs=10, batch_size=100
+    ),
+    "num_sampling=10": ImputerDiffusion(
+        model=TabDDPM(num_sampling=10), epochs=10, batch_size=100
+    ),
 }
 
 comparison = comparator.Comparator(
@@ -196,7 +204,9 @@ results.groupby(axis=0, level=0).mean().groupby(axis=0, level=0).mean()
 #   but requires a longer training/inference time.
 
 dict_imputers = {
-    "tabddpm": ImputerDiffusion(model=TabDDPM(num_sampling=5), epochs=10, batch_size=100),
+    "tabddpm": ImputerDiffusion(
+        model=TabDDPM(num_sampling=5), epochs=10, batch_size=100
+    ),
     "tsddpm": ImputerDiffusion(
         model=TsDDPM(num_sampling=5, is_rolling=False),
         epochs=10,
