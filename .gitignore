@@ -1,6 +1,5 @@
 *.ipynb
 poetry.lock
-qolmat/imputations/mimca/
 # Byte-compiled / optimized / DLL files
 data/
 __pycache__/
