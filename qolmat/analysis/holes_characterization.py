@@ -1,4 +1,5 @@
 """Script for characterising the holes."""
+
 from abc import ABC, abstractmethod
 from itertools import combinations
 from typing import List, Optional, Tuple, Union
@@ -16,7 +17,7 @@ from qolmat.utils.input_check import check_pd_df_dtypes
 
 
 class McarTest(ABC):
-    """Astract class for MCAR tests.
+    """Abstract class for MCAR tests.
 
     Parameters
     ----------
@@ -25,16 +26,14 @@ class McarTest(ABC):
 
     Methods
     -------
-    test(df)
+    test
         Abstract method to perform the MCAR test on the given DataFrame or
         NumPy array.
 
     """
 
     def __init__(
-        self,
-        random_state: Union[None, int,
-        np.random.RandomState] = None
+        self, random_state: Union[None, int, np.random.RandomState] = None
     ):
         """Initialize the McarTest class with a random state.
 
@@ -48,8 +47,7 @@ class McarTest(ABC):
 
     @abstractmethod
     def test(
-        self,
-        df: Union[pd.DataFrame, np.ndarray]
+        self, df: Union[pd.DataFrame, np.ndarray]
     ) -> Union[float, Tuple[float, List[float]]]:
         """Perform the MCAR test on the input data.
 
@@ -581,6 +579,27 @@ class PKLMTest(McarTest):
         target_idx: int,
         oob_probabilities: np.ndarray,
     ) -> float:
+        """Process a permutation.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            input array
+        M_perm : np.ndarray
+            permutation array
+        features_idx : np.ndarray
+            index of the features
+        target_idx : int
+            index of the target
+        oob_probabilities : np.ndarray
+            out of bag probabilities
+
+        Returns
+        -------
+        float
+            esimtated statistic U_hat
+
+        """
         y = self._build_label(X, M_perm, features_idx, target_idx)
         return self._U_hat(oob_probabilities, y)
 
@@ -591,6 +610,25 @@ class PKLMTest(McarTest):
         features_idx: np.ndarray,
         target_idx: int,
     ) -> Tuple[float, List[float]]:
+        """Compute statistics for a projection.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            input array
+        list_permutations : List[np.ndarray]
+            list of permutations
+        features_idx : np.ndarray
+            index of the features
+        target_idx : int
+            index of the target
+
+        Returns
+        -------
+        Tuple[float, List[float]]
+            estimated statistic u_hat and list of u_hat for each permutation
+
+        """
         X_features, y = self._build_dataset(X, features_idx, target_idx)
         oob_probabilities = self._get_oob_probabilities(X_features, y)
         u_hat = self._U_hat(oob_probabilities, y)
@@ -663,7 +701,7 @@ class PKLMTest(McarTest):
 
         """
         U_k = B[k, :] @ U
-        p_v_k = 1.
+        p_v_k = 1.0
 
         for u_sigma_k in (B[k, :] @ U_sigma).tolist():
             if u_sigma_k >= U_k:
@@ -721,7 +759,7 @@ class PKLMTest(McarTest):
         U = U / self.nb_projections
         list_U_sigma = [x / self.nb_permutation for x in list_U_sigma]
 
-        p_value = 1.
+        p_value = 1.0
         for u_sigma in list_U_sigma:
             if u_sigma >= U:
                 p_value += 1
@@ -732,8 +770,12 @@ class PKLMTest(McarTest):
             return p_value
         else:
             B = self._build_B(list_proj, n_cols)
-            U_matrix = np.array([np.atleast_1d(item[0]) for item in parallel_results])
-            U_sigma = np.array([np.atleast_1d(item[1]) for item in parallel_results])
+            U_matrix = np.array(
+                [np.atleast_1d(item[0]) for item in parallel_results]
+            )
+            U_sigma = np.array(
+                [np.atleast_1d(item[1]) for item in parallel_results]
+            )
             p_values = [
                 self._compute_partial_p_value(B, U_matrix, U_sigma, k)
                 for k in range(n_cols)
