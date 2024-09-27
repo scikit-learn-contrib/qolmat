@@ -363,3 +363,166 @@ def nan_mean_cov(X: NDArray) -> Tuple[NDArray, NDArray]:
     cov = np.ma.cov(np.ma.masked_invalid(X), rowvar=False).data
     cov = cov.reshape(n_variables, n_variables)
     return means, cov
+
+
+def moy_p(V, weights):
+    """Compute the weighted mean of a vector, ignoring NaNs.
+
+    Parameters
+    ----------
+    V : array-like
+        Input vector with possible NaN values.
+    weights : array-like
+        Weights corresponding to each element in V.
+
+    Returns
+    -------
+    float
+        Weighted mean of non-NaN elements.
+
+    """
+    mask = ~np.isnan(V)
+    total_weight = np.sum(weights[mask])
+    if total_weight == 0:
+        return 0.0  # or use np.finfo(float).eps for a small positive value
+    return np.sum(V[mask] * weights[mask]) / total_weight
+
+
+def tab_disjonctif_NA(df):
+    """Create a disjunctive (one-hot encoded).
+
+    Parameters
+    ----------
+    df : DataFrame
+        Input DataFrame with categorical and numeric variables.
+
+    Returns
+    -------
+    DataFrame
+        Disjunctive table with one-hot encoding.
+
+    """  # noqa: E501
+    df_encoded_list = []
+    for col in df.columns:
+        if df[col].dtype.name == "category" or df[col].dtype == object:
+            df[col] = df[col].astype("category")
+            # Include '__MISSING__' as a category if not already present
+            if "__MISSING__" not in df[col].cat.categories:
+                df[col] = df[col].cat.add_categories(["__MISSING__"])
+            # Fill missing values with '__MISSING__'
+            df[col] = df[col].fillna("__MISSING__")
+            # One-hot encode the categorical variable
+            encoded = pd.get_dummies(
+                df[col],
+                prefix=col,
+                prefix_sep="_",
+                dummy_na=False,
+                dtype=float,
+            )
+            df_encoded_list.append(encoded)
+        else:
+            # Numeric column; keep as is
+            df_encoded_list.append(df[[col]])
+    # Concatenate all encoded columns
+    df_encoded = pd.concat(df_encoded_list, axis=1)
+    return df_encoded
+
+
+def tab_disjonctif_prop(df, seed=None):
+    """Perform probabilistic imputation for categorical columns using observed
+    value distributions, without creating a separate missing category.
+
+    Parameters
+    ----------
+    df : DataFrame
+        DataFrame with categorical columns to impute.
+    seed : int, optional
+        Random seed for reproducibility. Default is None.
+
+    Returns
+    -------
+    DataFrame
+        Disjunctive coded DataFrame with missing values probabilistically
+        imputed.
+
+    """  # noqa: D205
+    if seed is not None:
+        np.random.seed(seed)
+    df = df.copy()
+    df_encoded_list = []
+    for col in df.columns:
+        if df[col].dtype.name == "category" or df[col].dtype == object:
+            # Ensure categories are strings
+            df[col] = df[col].cat.rename_categories(
+                df[col].cat.categories.astype(str)
+            )
+            observed = df[col][df[col].notna()]
+            categories = df[col].cat.categories.tolist()
+            # Get observed frequencies
+            freqs = observed.value_counts(normalize=True)
+            # Impute missing values based on observed frequencies
+            missing_indices = df[col][df[col].isna()].index
+            if len(missing_indices) > 0:
+                imputed_values = np.random.choice(
+                    freqs.index, size=len(missing_indices), p=freqs.values
+                )
+                df.loc[missing_indices, col] = imputed_values
+            # One-hot encode without creating missing category
+            encoded = pd.get_dummies(
+                df[col],
+                prefix=col,
+                prefix_sep="_",
+                dummy_na=False,
+                dtype=float,
+            )
+            col_names = [f"{col}_{cat}" for cat in categories]
+            encoded = encoded.reindex(columns=col_names, fill_value=0.0)
+            df_encoded_list.append(encoded)
+        else:
+            df_encoded_list.append(df[[col]])
+    df_encoded = pd.concat(df_encoded_list, axis=1)
+    return df_encoded
+
+
+def find_category(df_original, tab_disj):
+    """Reconstruct the original categorical variables from the disjunctive.
+
+    Parameters
+    ----------
+    df_original : DataFrame
+        Original DataFrame with categorical variables.
+    tab_disj : DataFrame
+        Disjunctive table after imputation.
+
+    Returns
+    -------
+    DataFrame
+        Reconstructed DataFrame with imputed categorical variables.
+
+    """
+    df_reconstructed = df_original.copy()
+    start_idx = 0
+    for col in df_original.columns:
+        if (
+            df_original[col].dtype.name == "category"
+            or df_original[col].dtype == object
+        ):  # noqa: E501
+            categories = df_original[col].cat.categories.tolist()
+            if "__MISSING__" in categories:
+                missing_cat_index = categories.index("__MISSING__")
+            else:
+                missing_cat_index = None
+            num_categories = len(categories)
+            sub_tab = tab_disj.iloc[:, start_idx : start_idx + num_categories]
+            if missing_cat_index is not None:
+                sub_tab.iloc[:, missing_cat_index] = -np.inf
+            # Find the category with the maximum value for each row
+            max_indices = sub_tab.values.argmax(axis=1)
+            df_reconstructed[col] = [categories[idx] for idx in max_indices]
+            # Replace '__MISSING__' back to NaN
+            df_reconstructed[col].replace("__MISSING__", np.nan, inplace=True)
+            start_idx += num_categories
+        else:
+            # For numeric variables, keep as is
+            start_idx += 1  # Increment start_idx by 1 for numeric columns
+    return df_reconstructed

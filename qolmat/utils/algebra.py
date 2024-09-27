@@ -100,82 +100,51 @@ def kl_divergence_gaussian_exact(
     return div_kl
 
 
-def svdtriplet(
-    X: NDArray[np.float64],
-    row_weights: Optional[NDArray[np.float64]] = None,
-    col_weights: Optional[NDArray[np.float64]] = None,
-    ncp: int = np.inf,
-) -> Tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
-    """Perform a weighted Singular Value Decomposition (SVD) of matrix X.
-
-    This function computes the SVD of a weighted matrix, where weights are
-    applied to both the rows and columns. Row and column weights are optional,
-    and if not provided, uniform weights are applied by default.
+def svdtriplet(X, row_w=None, ncp=np.inf):
+    """Perform weighted SVD on matrix X with row weights.
 
     Parameters
     ----------
-    X : NDArray[np.float64]
-        Input matrix to decompose with SVD.
-    row_weights : Optional[NDArray[np.float64]], optional
-        Weights for the rows of the matrix, by default None (uniform weights).
-    col_weights : Optional[NDArray[np.float64]], optional
-        Weights for the columns of the matrix, by default None (uniform
-        weights).
-    ncp : int, optional
-        The number of components to retain, by default np.inf. This will be
-        capped at min(rows-1, cols).
+    X : ndarray
+        Data matrix of shape (n_samples, n_features).
+    row_w : array-like, optional
+        Row weights. If None, uniform weights are assumed. Default is None.
+    ncp : int
+        Number of principal components to retain. Default is infinity.
 
     Returns
     -------
-    Tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]
-        A tuple containing:
-        - Singular values (s)
-        - Left singular vectors (U)
-        - Right singular vectors (V)
+    s : ndarray
+        Singular values.
+    U : ndarray
+        Left singular vectors.
+    V : ndarray
+        Right singular vectors.
 
     """
-    X = np.asarray(X, dtype=np.float64)
-    if X.ndim != 2:
-        raise ValueError("Input matrix X must be 2-dimensional")
-    n_rows, n_cols = X.shape
-    if row_weights is None:
-        row_weights = np.ones(n_rows) / n_rows
+    if not isinstance(X, np.ndarray):
+        X = np.array(X, dtype=float)
     else:
-        row_weights = np.asarray(row_weights, dtype=np.float64)
-        if row_weights.shape[0] != n_rows:
-            raise ValueError("Row weights must match the number of rows in X")
-
-    if col_weights is None:
-        col_weights = np.ones(n_cols)
+        X = X.astype(float)
+    if row_w is None:
+        row_w = np.ones(X.shape[0]) / X.shape[0]
     else:
-        col_weights = np.asarray(col_weights, dtype=np.float64)
-        if col_weights.shape[0] != n_cols:
-            raise ValueError(
-                "Column weights must match the number of columns in X"
-            )
-
-    row_weights /= row_weights.sum()
-    X_weighted = X * np.sqrt(col_weights)  # Column weights
-    X_weighted *= np.sqrt(row_weights[:, None])  # Row weights
-
-    ncp = min(ncp, n_rows - 1, n_cols)
-
-    if n_cols <= n_rows:
-        U, s, Vt = np.linalg.svd(X_weighted, full_matrices=False)
-        V = Vt.T
-    else:
-        Vt, s, U = np.linalg.svd(X_weighted.T, full_matrices=False)
-        V = Vt.T
-        U = U.T
-
-    # Truncate U, V, and s to the top ncp components
-    U, V, s = U[:, :ncp], V[:, :ncp], s[:ncp]
-
-    sign_correction = np.sign(np.sum(V, axis=0))
-    sign_correction[sign_correction == 0] = 1
-    U *= sign_correction
-    V *= sign_correction
-    U /= np.sqrt(row_weights[:, None])
-    V /= np.sqrt(col_weights[:, None])
-
+        row_w = np.array(row_w, dtype=float)
+        row_w /= row_w.sum()
+    ncp = int(min(ncp, X.shape[0] - 1, X.shape[1]))
+    # Apply weights to rows
+    X_weighted = X * np.sqrt(row_w[:, None])
+    # Perform SVD
+    U, s, Vt = np.linalg.svd(X_weighted, full_matrices=False)
+    V = Vt.T
+    U = U[:, :ncp]
+    V = V[:, :ncp]
+    s = s[:ncp]
+    # Adjust signs to ensure consistency
+    mult = np.sign(np.sum(V, axis=0))
+    mult[mult == 0] = 1
+    U *= mult
+    V *= mult
+    # Rescale U by the square root of row weights
+    U /= np.sqrt(row_w[:, None])
     return s, U, V
