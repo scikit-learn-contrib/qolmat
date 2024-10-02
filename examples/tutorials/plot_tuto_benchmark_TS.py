@@ -78,7 +78,9 @@ plt.show()
 ratio_masked = 0.1
 
 imputer_median = imputers.ImputerSimple(groups=("station",), strategy="median")
-imputer_interpol = imputers.ImputerInterpolation(groups=("station",), method="linear")
+imputer_interpol = imputers.ImputerInterpolation(
+    groups=("station",), method="linear"
+)
 imputer_residuals = imputers.ImputerResiduals(
     groups=("station",),
     period=365,
@@ -103,7 +105,10 @@ imputer_mice = imputers.ImputerMICE(
 )
 
 generator_holes = missing_patterns.EmpiricalHoleGenerator(
-    n_splits=4, groups=("station",), subset=cols_to_impute, ratio_masked=ratio_masked
+    n_splits=4,
+    groups=("station",),
+    subset=cols_to_impute,
+    ratio_masked=ratio_masked,
 )
 
 dict_imputers = {
@@ -142,11 +147,17 @@ results.style.highlight_min(color="lightsteelblue", axis=1)
 # Aotizhongxin
 
 df_plot = df[cols_to_impute]
-dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_imputers.items()}
+dfs_imputed = {
+    name: imp.fit_transform(df_plot) for name, imp in dict_imputers.items()
+}
 station = "Aotizhongxin"
 df_station = df_plot.loc[station]
-dfs_imputed_station = {name: df_plot.loc[station] for name, df_plot in dfs_imputed.items()}
-fig, axs = plt.subplots(3, 1, sharex=True, figsize=(10, 3 * len(cols_to_impute)))
+dfs_imputed_station = {
+    name: df_plot.loc[station] for name, df_plot in dfs_imputed.items()
+}
+fig, axs = plt.subplots(
+    3, 1, sharex=True, figsize=(10, 3 * len(cols_to_impute))
+)
 for col, ax in zip(cols_to_impute, axs.flatten()):
     values_orig = df_station[col]
     ax.plot(values_orig, ".", color="black", label="original")
@@ -174,7 +185,9 @@ n_columns = len(dfs_imputed_station)
 fig = plt.figure(figsize=(10, 10))
 i_plot = 1
 for i, col in enumerate(cols_to_impute[:-1]):
-    for i_imputer, (name_imputer, df_imp) in enumerate(dfs_imputed_station.items()):
+    for i_imputer, (name_imputer, df_imp) in enumerate(
+        dfs_imputed_station.items()
+    ):
         ax = fig.add_subplot(n_columns, n_imputers, i_plot)
         plot.compare_covariances(
             df_station,

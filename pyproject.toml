@@ -36,7 +36,6 @@ classifiers = [
 [tool.poetry.dependencies]
 python = ">=3.8.1,<3.12"
 bump2version = "1.0.1"
-dcor = "0.6"
 jupyter = "1.0.0"
 jupyterlab = "1.2.6"
 jupytext = "1.14.4"
@@ -53,7 +52,8 @@ twine = "3.7.1"
 wheel = "0.37.1"
 category-encoders = "^2.6.3"
 ipykernel = "^6.29.5"
-torch = "^2.4.0"
+torch = "*"
+dcor = "0.6"
 
 [tool.poetry.dev-dependencies]
 matplotlib = "3.6.2"
@@ -116,7 +116,7 @@ docstring-code-format = true
 
 [tool.ruff.lint]
 select = ["C", "D", "E", "F", "I", "Q", "W"]
-ignore = ["C901", "D107"]
+ignore = ["C901", "D107", "D203", "D213"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["qolmat"]

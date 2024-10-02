@@ -482,9 +482,9 @@ def add_datetime_features(
     df = df.copy()
     time = df.index.get_level_values(col_time).to_series()
     days_in_year = time.dt.year.apply(
-        lambda x: 366
-        if ((x % 4 == 0) and (x % 100 != 0)) or (x % 400 == 0)
-        else 365
+        lambda x: (
+            366 if ((x % 4 == 0) and (x % 100 != 0)) or (x % 400 == 0) else 365
+        )
     )
     ratio = time.dt.dayofyear.values / days_in_year.values
     df["time_cos"] = np.cos(2 * np.pi * ratio)

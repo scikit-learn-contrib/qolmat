@@ -14,6 +14,7 @@ We use Beijing Multi-Site Air-Quality Data Set.
 It consists in hourly air pollutants data from 12 chinese nationally-controlled
 air-quality monitoring sites.
 """
+
 from typing import List
 
 import matplotlib
@@ -49,7 +50,9 @@ cols_to_impute = df.columns
 # Missing values are in white, while observed ones are in black.
 
 plt.figure(figsize=(15, 4))
-plt.imshow(df.notna().values.T, aspect="auto", cmap="binary", interpolation="none")
+plt.imshow(
+    df.notna().values.T, aspect="auto", cmap="binary", interpolation="none"
+)
 plt.yticks(range(len(df.columns)), df.columns)
 plt.xlabel("Samples", fontsize=12)
 plt.grid(False)
@@ -96,7 +99,9 @@ def visualise_missing_values(df_init: pd.DataFrame, df_mask: pd.DataFrame):
     colorsList = [(0.9, 0, 0), (0, 0, 0), (0.8, 0.8, 0.8)]
     custom_cmap = matplotlib.colors.ListedColormap(colorsList)
     plt.figure(figsize=(15, 4))
-    plt.imshow(df_tot.values.T, aspect="auto", cmap=custom_cmap, interpolation="none")
+    plt.imshow(
+        df_tot.values.T, aspect="auto", cmap=custom_cmap, interpolation="none"
+    )
     plt.yticks(range(len(df_tot.columns)), df_tot.columns)
     plt.xlabel("Samples", fontsize=12)
     plt.grid(False)
@@ -156,7 +161,9 @@ def plot_cdf(
     _, axs = plt.subplots(1, df.shape[1], sharey=True, figsize=(15, 3))
 
     hole_sizes_original = get_holes_sizes_column_wise(df.to_numpy())
-    for ind, (hole_original, col) in enumerate(zip(hole_sizes_original, df.columns)):
+    for ind, (hole_original, col) in enumerate(
+        zip(hole_sizes_original, df.columns)
+    ):
         sorted_data = np.sort(hole_original)
         cdf = np.arange(1, len(sorted_data) + 1) / len(sorted_data)
         axs[ind].plot(sorted_data, cdf, c="gray", lw=2, label="original")
@@ -166,7 +173,9 @@ def plot_cdf(
         array_mask[array_mask == True] = np.nan
         hole_sizes_created = get_holes_sizes_column_wise(array_mask.to_numpy())
 
-        for ind, (hole_created, col) in enumerate(zip(hole_sizes_created, df.columns)):
+        for ind, (hole_created, col) in enumerate(
+            zip(hole_sizes_created, df.columns)
+        ):
             sorted_data = np.sort(hole_created)
             cdf = np.arange(1, len(sorted_data) + 1) / len(sorted_data)
             axs[ind].plot(sorted_data, cdf, c=color, lw=2, label=label)
@@ -309,7 +318,13 @@ plot_cdf(df, [grouped_mask], ["created"], ["tab:red"])
 
 plot_cdf(
     df,
-    [uniform_mask, geometric_mask, empirical_mask, multi_markov_mask, grouped_mask],
+    [
+        uniform_mask,
+        geometric_mask,
+        empirical_mask,
+        multi_markov_mask,
+        grouped_mask,
+    ],
     ["uniform", "geometric", "empirical", "mutli markov", "grouped"],
     ["tab:orange", "tab:blue", "tab:green", "tab:pink", "tab:olive"],
 )
