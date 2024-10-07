@@ -5,7 +5,7 @@ Tutorial for imputers based on diffusion models
 In this tutorial, we show how to use :class:`~qolmat.imputations.diffusions.ddpms.TabDDPM`
 and :class:`~qolmat.imputations.diffusions.ddpms.TsDDPM` classes.
 """
-
+import logging
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -14,6 +14,12 @@ from qolmat.benchmark import comparator, missing_patterns
 from qolmat.imputations.diffusions.ddpms import TabDDPM, TsDDPM
 from qolmat.imputations.imputers_pytorch import ImputerDiffusion
 from qolmat.utils import data
+
+logging.basicConfig(
+    format="%(asctime)s %(levelname)-8s %(message)s",
+    level=logging.INFO,
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 # %%
 # 1. Time-series data
@@ -31,8 +37,7 @@ df_data.index = df_data.index.set_levels(
     [df_data.index.levels[0], pd.to_datetime(df_data.index.levels[1])]
 )
 
-print("Number of nan at each column:")
-print(df_data.isna().sum())
+logging.info(f"Number of nan at each column: {df_data.isna().sum()}")
 
 # %%
 # 2. Hyperparameters for the wapper ImputerDiffusion
@@ -77,14 +82,15 @@ tabddpm = tabddpm.fit(df_data)
 # %%
 # We can see the architecture of the TabDDPM with ``get_summary_architecture()``
 
-print(tabddpm.get_summary_architecture())
+logging.info(tabddpm.get_summary_architecture())
 
 # %%
 # We also get the summary of the training progress with ``get_summary_training()``
 
 summary = tabddpm.get_summary_training()
 
-print(f"Performance metrics: {list(summary.keys())}")
+logging.info(f"Performance metrics: {list(summary.keys())}")
+
 
 metric = "mean_absolute_error"
 metric_scores = summary[metric]
@@ -151,7 +157,7 @@ plt.show()
 # * ``dim_embedding``: dimension of hidden layers in residual blocks (``int = 128``)
 #
 # Let see an example below. We can observe that a large ``num_sampling`` generally improves
-# reconstruction errors (mae) but increases distribution distance (KL_columnwise).
+# reconstruction errors (mae) but increases distribution distance (kl_columnwise).
 
 dict_imputers = {
     "num_sampling=5": ImputerDiffusion(
@@ -166,7 +172,7 @@ comparison = comparator.Comparator(
     dict_imputers,
     selected_columns=df_data.columns,
     generator_holes=missing_patterns.UniformHoleGenerator(n_splits=2),
-    metrics=["mae", "KL_columnwise"],
+    metrics=["mae", "kl_columnwise"],
 )
 results = comparison.compare(df_data)
 
@@ -220,7 +226,7 @@ comparison = comparator.Comparator(
     dict_imputers,
     selected_columns=df_data.columns,
     generator_holes=missing_patterns.UniformHoleGenerator(n_splits=2),
-    metrics=["mae", "KL_columnwise"],
+    metrics=["mae", "kl_columnwise"],
 )
 results = comparison.compare(df_data)
 

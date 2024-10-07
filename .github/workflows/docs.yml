@@ -1,0 +1,30 @@
+name: Build Docs
+
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.8.3
+      - name: Lock
+        run: poetry lock --no-update
+      - name: Install
+        run: poetry install
+      - name: Build Docs
+        run: |
+          poetry run sphinx-build -b html docs/ _build/html

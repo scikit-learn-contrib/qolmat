@@ -1,5 +1,6 @@
 """Script for DDPM classes."""
 
+import logging
 import time
 from datetime import timedelta
 from typing import Callable, Dict, List, Tuple, Union
@@ -20,6 +21,12 @@ from qolmat.imputations.diffusions.base import (
     ResidualBlockTS,
 )
 from qolmat.imputations.diffusions.utils import get_num_params
+
+logging.basicConfig(
+    format="%(asctime)s %(levelname)-8s %(message)s",
+    level=logging.INFO,
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 
 class TabDDPM:
@@ -184,7 +191,7 @@ class TabDDPM:
         self.time_durations.append(time_duration)
         print_step = 1 if int(self.epochs / 10) == 0 else int(self.epochs / 10)
         if self.print_valid and epoch == 0:
-            print(
+            logging.info(
                 f"Num params of {self.__class__.__name__}: {self.num_params}"
             )
         if self.print_valid and epoch % print_step == 0:
@@ -200,7 +207,7 @@ class TabDDPM:
             string_valid += (
                 f" | remaining {timedelta(seconds=remaining_duration)}"
             )
-            print(string_valid)
+            logging.info(string_valid)
 
     def _impute(self, x: np.ndarray, x_mask_obs: np.ndarray) -> np.ndarray:
         """Impute data array.
@@ -763,7 +770,7 @@ class TsDDPM(TabDDPM):
         if is_training:
             if self.is_rolling:
                 if self.print_valid:
-                    print(
+                    logging.info(
                         "Preprocessing data with sliding window "
                         "(pandas.DataFrame.rolling) "
                         "can require more times than usual. "

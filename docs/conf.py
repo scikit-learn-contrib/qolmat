@@ -159,6 +159,11 @@ sphinx_gallery_conf = {
     "reference_url": {"qolmat": None},
 }
 
+suppress_warnings = ["autosectionlabel.*"]
+
+# doctest configuration
+doctest_test_doctest_blocks = "default"
+
 html_css_files = [
     "custom.css",
 ]

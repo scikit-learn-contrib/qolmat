@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import warnings
 from typing import Optional, Tuple, Union
 
@@ -12,6 +13,12 @@ from sklearn.base import BaseEstimator, TransformerMixin
 
 from qolmat.imputations.rpca import rpca_utils
 from qolmat.utils import utils
+
+logging.basicConfig(
+    format="%(asctime)s %(levelname)-8s %(message)s",
+    level=logging.INFO,
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 
 class SoftImpute(BaseEstimator, TransformerMixin):
@@ -170,9 +177,9 @@ class SoftImpute(BaseEstimator, TransformerMixin):
             # Step 4 : Stopping upon convergence
             ratio = SoftImpute._check_convergence(U_old, D_old, V_old, U, D, V)
             if self.verbose:
-                print(f"Iteration {iter_}: ratio = {round(ratio, 4)}")
+                logging.info(f"Iteration {iter_}: ratio = {round(ratio, 4)}")
                 if ratio < self.tolerance:
-                    print(
+                    logging.info(
                         f"Convergence reached at iteration {iter_} "
                         f"with ratio = {round(ratio, 4)}"
                     )

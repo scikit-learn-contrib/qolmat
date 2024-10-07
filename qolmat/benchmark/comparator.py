@@ -1,5 +1,6 @@
 """Script for comparator."""
 
+import logging
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -7,6 +8,12 @@ import pandas as pd
 
 from qolmat.benchmark import hyperparameters, metrics
 from qolmat.benchmark.missing_patterns import _HoleGenerator
+
+logging.basicConfig(
+    format="%(asctime)s %(levelname)-8s %(message)s",
+    level=logging.INFO,
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 
 class Comparator:
@@ -39,7 +46,7 @@ class Comparator:
         dict_models: Dict[str, Any],
         selected_columns: List[str],
         generator_holes: _HoleGenerator,
-        metrics: List = ["mae", "wmape", "KL_columnwise"],
+        metrics: List = ["mae", "wmape", "kl_columnwise"],
         dict_config_opti: Optional[Dict[str, Any]] = {},
         metric_optim: str = "mse",
         max_evals: int = 10,
@@ -167,13 +174,13 @@ class Comparator:
             dict_config_opti_imputer = self.dict_config_opti.get(name, {})
 
             try:
-                print(f"Testing model: {name}...", end="")
+                logging.info(f"Testing model: {name}...")
                 dict_errors[name] = self.evaluate_errors_sample(
                     imputer, df, dict_config_opti_imputer, self.metric_optim
                 )
-                print("done.")
+                logging.info("done.")
             except Exception as excp:
-                print(
+                logging.info(
                     f"Error while testing {name} of type "
                     f"{type(imputer).__name__}!"
                 )

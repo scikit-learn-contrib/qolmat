@@ -260,13 +260,13 @@ class RpcaNoisy(RPCA):
         Tuple
             A tuple containing the following elements:
             - M : np.ndarray
-                Low-rank signal matrix of shape (m, n).
+            Low-rank signal matrix of shape (m, n).
             - A : np.ndarray
-                Anomalies matrix of shape (m, n).
+            Anomalies matrix of shape (m, n).
             - L : np.ndarray
-                Basis unitary array of shape (m, rank).
+            Basis unitary array of shape (m, rank).
             - Q : np.ndarray
-                Basis unitary array of shape (rank, n).
+            Basis unitary array of shape (rank, n).
 
         Raises
         ------

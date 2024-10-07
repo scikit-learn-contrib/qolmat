@@ -124,7 +124,7 @@ comparison = comparator.Comparator(
     dict_imputers,
     cols_to_impute,
     generator_holes=generator_holes,
-    metrics=["mae", "wmape", "KL_columnwise", "wasserstein_columnwise"],
+    metrics=["mae", "wmape", "kl_columnwise", "wasserstein_columnwise"],
     max_evals=10,
 )
 results = comparison.compare(df)
@@ -133,7 +133,7 @@ results.style.highlight_min(color="lightsteelblue", axis=1)
 # %%
 # We have considered four metrics for comparison.
 # ``mae`` and ``wmape`` are point-wise metrics,
-# while ``KL_columnwise`` and ``wasserstein_columnwise`` are metrics
+# while ``kl_columnwise`` and ``wasserstein_columnwise`` are metrics
 # that compare distributions.
 # Since we treat time series with strong seasonal patterns, imputation
 # on residuals works very well.

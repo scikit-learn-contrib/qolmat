@@ -1,5 +1,6 @@
 """Script for pytroch imputers."""
 
+import logging
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -22,6 +23,13 @@ try:
     import torch.optim as optim
 except ModuleNotFoundError:
     raise PyTorchExtraNotInstalled
+
+
+logging.basicConfig(
+    format="%(asctime)s %(levelname)-8s %(message)s",
+    level=logging.INFO,
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 
 class ImputerRegressorPyTorch(ImputerRegressor):
@@ -109,7 +117,7 @@ class ImputerRegressorPyTorch(ImputerRegressor):
             loss.backward()
             optimizer.step()
             if (epoch + 1) % 10 == 0:
-                print(
+                logging.info(
                     f"Epoch [{epoch + 1}/{self.epochs}], "
                     f"Loss: {loss.item():.4f}"
                 )
@@ -231,7 +239,7 @@ class Autoencoder(nn.Module):
             loss.backward()
             optimizer.step()
             if (epoch + 1) % 10 == 0:
-                print(
+                logging.info(
                     f"Epoch [{epoch + 1}/{self.epochs}], "
                     f"Loss: {loss.item():.4f}"
                 )

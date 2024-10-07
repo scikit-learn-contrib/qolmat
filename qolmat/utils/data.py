@@ -250,6 +250,9 @@ def get_data(
         )
         df = pd.read_csv(csv_url, index_col=0)
         return df
+    elif name_data == "conductor":
+        df = read_csv_local("conductors")
+        return df
     elif name_data == "Monach_weather":
         urllink = os.path.join(
             url_zenodo, "4654822/files/weather_dataset.zip?download=1"
