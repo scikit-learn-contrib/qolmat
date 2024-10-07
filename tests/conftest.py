@@ -87,7 +87,7 @@ def pytest_sessionstart(session: Any) -> None:
     for rst_file in RST_FILES_TO_TEST:
         if rst_file.exists():
             logging.info(f"Testing Python code in {rst_file}.")
-            with open(rst_file) as f:
+            with open(rst_file, encoding="utf-8") as f:
                 content = f.read()
             code_blocks = extract_python_blocks(content)
 
