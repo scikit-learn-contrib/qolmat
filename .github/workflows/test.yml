@@ -18,9 +18,6 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
         python-version: [3.8, 3.9, 3.10, 3.11]
-        include:
-          - os: ubuntu-latest
-            python-version: 3.11
     defaults:
       run:
         shell: bash -l {0}
@@ -29,7 +26,7 @@ jobs:
       - name: Set OS and Python version
         id: set-vars
         run: |
-          if [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref }}" == "refs/heads/dev" ]]; then
+          if [[ "${GITHUB_REF}" == "refs/heads/main" || "${GITHUB_REF}" == "refs/heads/dev" ]]; then
             echo "os-matrix=ubuntu-latest,windows-latest" >> $GITHUB_ENV
             echo "python-matrix=3.8,3.9,3.10,3.11" >> $GITHUB_ENV
           else
