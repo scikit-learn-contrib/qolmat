@@ -96,7 +96,7 @@ jobs:
         id: changed-files
         run: |
           git fetch origin ${{ github.base_ref }}:${{ github.base_ref }} --depth=1
-          git diff --name-only origin/${{ github.base_ref }} > changed_files.txt
+          git diff --name-only ${{ github.base_ref }} > changed_files.txt
       - name: Build Docs
         if: contains(fromJSON('["docs/", ".rst"]').join(','), fromJSON('["${{ steps.changed-files.outputs.files }}"]').join(','))
         run: |
