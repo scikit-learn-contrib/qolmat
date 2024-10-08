@@ -1,32 +1,55 @@
-name: Unit tests
+name: Unit tests and docs generation
 
 on:
   push:
     branches:
       - "**"
   pull_request:
+    branches:
+      - "**"
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 jobs:
   check:
     if: github.event.pull_request.draft == false
-    runs-on: ${{matrix.os}}
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        python-version: ['3.8', '3.9', '3.10', '3.11']
+        python-version: [3.8, 3.9, 3.10, 3.11]
+        include:
+          - os: ubuntu-latest
+            python-version: 3.11
     defaults:
       run:
         shell: bash -l {0}
 
     steps:
+      - name: Set OS and Python version
+        id: set-vars
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref }}" == "refs/heads/dev" ]]; then
+            echo "os-matrix=ubuntu-latest,windows-latest" >> $GITHUB_ENV
+            echo "python-matrix=3.8,3.9,3.10,3.11" >> $GITHUB_ENV
+          else
+            echo "os-matrix=ubuntu-latest" >> $GITHUB_ENV
+            echo "python-matrix=3.11" >> $GITHUB_ENV
       - name: Checkout
         uses: actions/checkout@v3
       - name: Python
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Cache Poetry
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pypoetry
+            ~/.cache/pip
+          key: ${{ runner.os }}-poetry-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-${{ matrix.python-version }}-
       - name: Poetry
         uses: snok/install-poetry@v1
         with:
@@ -41,3 +64,42 @@ jobs:
         uses: codecov/codecov-action@v3
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  docs:
+    runs-on: ubuntu-latest
+    needs: check
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Cache Poetry
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pypoetry
+            ~/.cache/pip
+          key: ${{ runner.os }}-poetry-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-${{ matrix.python-version }}-
+      - name: Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.8.3
+      - name: Lock
+        run: poetry lock --no-update
+      - name: Install
+        run: poetry install
+      - name: Check Changed Files
+        id: changed-files
+        run: |
+          git fetch origin ${{ github.base_ref }} --depth=1
+          git diff --name-only origin/${{ github.base_ref }} > changed_files.txt
+      - name: Build Docs
+        if: contains(fromJSON('["docs/", ".rst"]').join(','), fromJSON('["${{ steps.changed-files.outputs.files }}"]').join(','))
+        run: |
+          poetry run sphinx-build -b html docs/ _build/html
