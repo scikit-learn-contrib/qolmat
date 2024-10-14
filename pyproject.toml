@@ -102,8 +102,32 @@ targets = ["qolmat"]
 [tool.mypy]
 pretty = true
 strict = false
-python_version = ">=3.8.1,<3.12"
+python_version = "3.10"
 ignore_missing_imports = true
+disable_error_code = ["union-attr"]
+exclude = "docs"
+
+[[tool.mypy.overrides]]
+module = "sklearn.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "matplotlib.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "numpy.*"
+ignore_missing_imports = true
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "yaml"
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = "--cov=qolmat --doctest-glob=*.rst --doctest-modules"
+testpaths = ["tests"]
+norecursedirs = ["_build"]
 
 [tool.ruff]
 line-length = 79
