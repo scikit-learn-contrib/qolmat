@@ -23,6 +23,12 @@ def generator_holes_mock(mocker: MockerFixture) -> _HoleGenerator:
     mock.split.return_value = [
         pd.DataFrame({"A": [False, False, True], "B": [True, False, False]})
     ]
+    mock.n_splits = 1
+    mock.subset = ["A", "B"]
+    mock.ratio_masked = 0.3
+    mock.random_state = 42
+    mock.groups = None
+
     return mock
 
 
