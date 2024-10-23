@@ -114,6 +114,13 @@ class Comparator:
         df_with_holes = df_origin.copy()
         df_with_holes[df_mask] = np.nan
 
+        subset = self.generator_holes.subset
+        if subset is None:
+            raise ValueError(
+                "HoleGenerator `subset` should be overwritten in split "
+                "but it is none!"
+            )
+
         split_results = {}
         for imputer_name, imputer in self.dict_imputers.items():
             dict_config_opti_imputer = self.dict_config_opti.get(
@@ -131,7 +138,9 @@ class Comparator:
             )
 
             df_imputed = imputer_opti.fit_transform(df_with_holes)
-            errors = self.get_errors(df_origin, df_imputed, df_mask)
+            errors = self.get_errors(
+                df_origin[subset], df_imputed[subset], df_mask[subset]
+            )
             split_results[imputer_name] = errors
 
         return pd.concat(split_results, axis=1)
@@ -154,6 +163,13 @@ class Comparator:
         """
         imputer_name, imputer, all_masks, df_origin = imputer_data
 
+        subset = self.generator_holes.subset
+        if subset is None:
+            raise ValueError(
+                "HoleGenerator `subset` should be overwritten in split "
+                "but it is none!"
+            )
+
         dict_config_opti_imputer = self.dict_config_opti.get(imputer_name, {})
         imputer_opti = hyperparameters.optimize(
             imputer,
@@ -170,7 +186,9 @@ class Comparator:
             df_with_holes = df_origin.copy()
             df_with_holes[df_mask] = np.nan
             df_imputed = imputer_opti.fit_transform(df_with_holes)
-            errors = self.get_errors(df_origin, df_imputed, df_mask)
+            errors = self.get_errors(
+                df_origin[subset], df_imputed[subset], df_mask[subset]
+            )
             imputer_results.append(errors)
 
         return imputer_name, pd.concat(imputer_results).groupby(
