@@ -1,3 +1,4 @@
+*.xlsx
 *.ipynb
 poetry.lock
 # Byte-compiled / optimized / DLL files
@@ -63,7 +64,7 @@ examples/figures/*
 examples/data/*
 examples/local
 data/data_local/*
-
+        notebooks/
 # VSCode
 .vscode
 

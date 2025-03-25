@@ -205,11 +205,13 @@ def imputeMCA(
         Z_mean = Z.apply(lambda col: moy_p(col.values, row_w))
         Z = Z.subtract(Z_mean, axis=1)
         Zscale = Z.multiply(np.sqrt(M), axis=1)
+        
         U, s, Vt = np.linalg.svd(Zscale.values, full_matrices=False)
         V = Vt.T
         U = U[:, :ncp]
         V = V[:, :ncp]
         s = s[:ncp]
+
         if method.lower() == "em":
             moyeig = 0
         else:
