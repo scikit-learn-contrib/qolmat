@@ -221,22 +221,42 @@ def imputeMCA(
         Z_mean = Z.apply(lambda col: moy_p(col.values, row_w))
         Z = Z.subtract(Z_mean, axis=1)
         Zscale = Z.multiply(np.sqrt(M), axis=1)
-        U, s, Vt = np.linalg.svd(Zscale.values, full_matrices=False)
-        V = Vt.T
-        U = U[:, :ncp]
-        V = V[:, :ncp]
-        s = s[:ncp]
+
+        #U, s, Vt = np.linalg.svd(Zscale.values, full_matrices=False)
+        #V = Vt.T
+        #U = U[:, :ncp]
+        #V = V[:, :ncp]
+        #s = s[:ncp]
+        U_full, s_full, Vt_full = np.linalg.svd(Zscale.values, full_matrices=False)
         if method.lower() == "em":
             moyeig = 0
         else:
-            if len(s) > ncp:
-                moyeig = np.mean(s[ncp:] ** 2)
-                moyeig = min(moyeig * coeff_ridge, s[ncp - 1] ** 2)
+            if len(s_full) > ncp:
+                moyeig = np.mean(s_full[ncp:] ** 2)
+                moyeig = min(moyeig * coeff_ridge, s_full[ncp - 1] ** 2)
             else:
                 moyeig = 0
-        eig_shrunk = (s**2 - moyeig) / s
-        eig_shrunk = np.maximum(eig_shrunk, 0)
-        rec = U @ np.diag(eig_shrunk) @ V.T
+        U = U_full[:, :ncp]
+        V = Vt_full.T[:, :ncp]
+        s_retained = s_full[:ncp]
+        s_shrunk = (s_retained ** 2 - moyeig) / s_retained
+        s_shrunk = np.maximum(s_shrunk, 0)
+        rec = U @ np.diag(s_shrunk) @ V.T
+
+
+        # if method.lower() == "em":
+        #     moyeig = 0
+        # else:
+        #     if len(s) > ncp:
+        #         moyeig = np.mean(s[ncp:] ** 2)
+        #         moyeig = min(moyeig * coeff_ridge, s[ncp - 1] ** 2)
+        #     else:
+        #         moyeig = 0
+
+        #eig_shrunk = (s**2 - moyeig) / s
+        #eig_shrunk = np.maximum(eig_shrunk, 0)
+        #rec = U @ np.diag(eig_shrunk) @ V.T
+
         tab_disj_rec = pd.DataFrame(
             rec, columns=tab_disj_comp.columns, index=tab_disj_comp.index
         )
