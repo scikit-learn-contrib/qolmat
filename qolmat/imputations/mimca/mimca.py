@@ -1,7 +1,13 @@
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-
+from qolmat.utils.algebra import svdtriplet
+from qolmat.utils.utils import (
+    find_category,
+    moy_p,
+    tab_disjonctif_NA,
+    tab_disjonctif_prop,
+)
 
 def moy_p(V, weights):
     """Compute the weighted mean of a vector, ignoring NaNs.
@@ -205,76 +211,74 @@ def imputeMCA(
     continue_flag = True
     while continue_flag:
         nbiter += 1
-        M = (
-            tab_disj_comp.apply(lambda col: moy_p(col.values, row_w))
-            / don.shape[1]
-        )  # noqa: E501
-        M = M.replace({0: np.finfo(float).eps})
-        M = M.fillna(np.finfo(float).eps)
-        tab_disj_comp_mean = tab_disj_comp.apply(
-            lambda col: moy_p(col.values, row_w)
-        )  # noqa: E501
-        tab_disj_comp_mean = tab_disj_comp_mean.replace(
-            {0: np.finfo(float).eps}
-        )  # noqa: E501
-        Z = tab_disj_comp.div(tab_disj_comp_mean, axis=1)
-        Z_mean = Z.apply(lambda col: moy_p(col.values, row_w))
-        Z = Z.subtract(Z_mean, axis=1)
-        Zscale = Z.multiply(np.sqrt(M), axis=1)
-
-        #U, s, Vt = np.linalg.svd(Zscale.values, full_matrices=False)
-        #V = Vt.T
-        #U = U[:, :ncp]
-        #V = V[:, :ncp]
-        #s = s[:ncp]
-        U_full, s_full, Vt_full = np.linalg.svd(Zscale.values, full_matrices=False)
-        if method.lower() == "em":
+        # 1. Compute weighted category proportions (M)
+        M = tab_disj_comp.apply(lambda col: moy_p(col.values, row_w)) / don.shape[1]
+        M = M.replace(0, np.finfo(float).eps).fillna(np.finfo(float).eps)
+        if (M < 0).any():
+            raise ValueError("Negative values in M – check data or reduce ncp.")
+        # 2. Center and scale the completed disjunctive table
+        col_means = tab_disj_comp.apply(lambda col: moy_p(col.values, row_w))
+        col_means = col_means.replace(0, np.finfo(float).eps)
+        Z = tab_disj_comp.div(col_means, axis=1)            # divide by means
+        Z = Z.subtract(Z.apply(lambda col: moy_p(col.values, row_w)), axis=1)  # center
+        Zscale = Z.multiply(np.sqrt(M), axis=1)             # scale by sqrt(M)
+        # 3. Weighted SVD on Zscale (apply row weights via svdtriplet)
+        # Perform full SVD (all components) to get entire spectrum
+        ncp_svd = min(Zscale.shape[0], Zscale.shape[1])
+        s, U, V = svdtriplet(Zscale.values, row_w=row_w, ncp=ncp_svd)
+        # `s` = array of singular values (length = rank), U = left singular vectors, V = right singular vectors
+        s = np.array(s)
+        # 4. Compute regularization term (moyeig) as in missMDA
+        Ncol = Zscale.shape[1]            # number of indicator columns (incl. all categories)
+        n_vars = don.shape[1]            # number of original categorical variables
+        if method == "em":
             moyeig = 0
         else:
-            if len(s_full) > ncp:
-                moyeig = np.mean(s_full[ncp:] ** 2)
-                moyeig = min(moyeig * coeff_ridge, s_full[ncp - 1] ** 2)
+            if len(s) > ncp:
+                # Exclude first ncp components and any structural zero eigenvalues
+                if don.shape[0] > (Ncol - n_vars):
+                    # If number of individuals > (total dummies - variables), skip the last `n_vars` singular values
+                    tail_vals = s[ncp: len(s) - n_vars] if len(s) - n_vars > ncp else np.array([])
+                else:
+                    # Otherwise skip none at the high-index end
+                    tail_vals = s[ncp:]
+                moyeig = np.mean(tail_vals**2) if tail_vals.size > 0 else 0
+                # Regularization: scale by coeff_ridge, cap at (ncp+1)th eigenvalue^2
+                next_eig_sq = s[ncp]**2
+                moyeig = min(moyeig * coeff_ridge, next_eig_sq)
             else:
                 moyeig = 0
-        U = U_full[:, :ncp]
-        V = Vt_full.T[:, :ncp]
-        s_retained = s_full[:ncp]
-        s_shrunk = (s_retained ** 2 - moyeig) / s_retained
-        s_shrunk = np.maximum(s_shrunk, 0)
-        rec = U @ np.diag(s_shrunk) @ V.T
-
-
-        # if method.lower() == "em":
-        #     moyeig = 0
-        # else:
-        #     if len(s) > ncp:
-        #         moyeig = np.mean(s[ncp:] ** 2)
-        #         moyeig = min(moyeig * coeff_ridge, s[ncp - 1] ** 2)
-        #     else:
-        #         moyeig = 0
-
-        #eig_shrunk = (s**2 - moyeig) / s
-        #eig_shrunk = np.maximum(eig_shrunk, 0)
-        #rec = U @ np.diag(eig_shrunk) @ V.T
-
-        tab_disj_rec = pd.DataFrame(
-            rec, columns=tab_disj_comp.columns, index=tab_disj_comp.index
-        )
-        tab_disj_rec = tab_disj_rec.div(np.sqrt(M), axis=1) + 1
-        tab_disj_rec = tab_disj_rec.multiply(tab_disj_comp_mean, axis=1)
+        # 5. Shrink the first ncp singular values and reconstruct
+        # (eig_shrunk = (lambda^2 - moyeig)/lambda for each singular value)
+        if len(s) >= 1:
+            lambda_vals = s[:min(ncp, len(s))]
+            eig_shrunk = (lambda_vals**2 - moyeig) / (lambda_vals + 1e-15)
+            eig_shrunk = np.maximum(eig_shrunk, 0)  # no negative eigenvalues
+        else:
+            eig_shrunk = np.array([])
+        # Use first `ncp` components for reconstruction
+        r = min(ncp, len(s), U.shape[1], V.shape[1])
+        if r == 0:
+            rec = np.zeros_like(Zscale.values)
+        elif r == 1:
+            rec = np.outer(U[:, 0] * eig_shrunk[0], V[:, 0])   # outer product for rank-1
+        else:
+            rec = U[:, :r] @ np.diag(eig_shrunk[:r]) @ V[:, :r].T
+        tab_disj_rec = pd.DataFrame(rec, index=tab_disj_comp.index, columns=tab_disj_comp.columns)
+        # Reverse scaling and centering to get back to indicator scale
+        tab_disj_rec = tab_disj_rec.div(np.sqrt(M), axis=1).add(1.0) 
+        tab_disj_rec = tab_disj_rec.multiply(col_means, axis=1)
+        # 6. Compute weighted change on imputed cells
         diff = tab_disj_rec - tab_disj_rec_old
-        diff_values = diff.values
-        hidden_values = hidden.values
-        diff_values[~hidden_values] = 0
-        relch = np.sum((diff_values**2) * row_w[:, None])
+        diff.values[~hidden.values] = 0    # zero-out observed cells
+        rel_change = np.sum((diff.values**2) * row_w[:, None])
+        # 7. Update and iterate
+        tab_disj_comp.values[hidden.values] = tab_disj_rec.values[hidden.values]
         tab_disj_rec_old = tab_disj_rec.copy()
-        tab_disj_comp.values[hidden_values] = tab_disj_rec.values[
-            hidden_values
-        ]  # noqa: E501
-        continue_flag = (relch > threshold) and (nbiter < maxiter)
+        continue_flag = (rel_change > threshold) and (nbiter < maxiter)
+    # 8. Reconstruct categorical data from completed indicator matrix
     completeObs = find_category(don, tab_disj_comp)
     return {"tab_disj": tab_disj_comp, "completeObs": completeObs}
-
 
 def estim_ncpMCA(
     don,

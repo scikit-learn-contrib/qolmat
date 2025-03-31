@@ -306,6 +306,7 @@ def estim_ncpMCA(
         don = don.drop(columns=cols_to_drop)
     method = method.lower()
     method_cv = method_cv.lower()
+
     for col in don.columns:
         if not pd.api.types.is_categorical_dtype(don[col]):
             don[col] = don[col].astype("category")
@@ -315,50 +316,37 @@ def estim_ncpMCA(
         rng = np.random.default_rng(seed)
     else:
         rng = np.random.default_rng()
+
+
     if method_cv == "kfold":
         res = np.full((ncp_max - ncp_min + 1, nbsim), np.nan)
-        if verbose:
-            sim_range = tqdm(range(nbsim), desc="Simulations")
-        else:
-            sim_range = range(nbsim)
-        for sim in sim_range:
-            compteur = 0
+        for sim in range(nbsim):
             max_attempts = 50
-            while compteur < max_attempts:
-                donNA = prodna(don, pNA, rng)
-                categories_complete = all(
-                    donNA[col].nunique(dropna=True) == don[col].nunique(dropna=True)  # noqa: E501
-                    for col in don.columns
-                )
-                if categories_complete:
+            for attempt in range(max_attempts):
+                donNA = don.copy()
+                total_cells = donNA.shape[0] * donNA.shape[1]
+                n_missing = int(np.floor(total_cells * pNA))
+                idx = rng.choice(total_cells, n_missing, replace=False)
+                row_idx = idx // donNA.shape[1]
+                col_idx = idx % donNA.shape[1]
+                for r, c in zip(row_idx, col_idx):
+                    donNA.iat[r, c] = np.nan
+                if all(donNA[col].nunique(dropna=True) == don[col].nunique(dropna=True) for col in don.columns):
                     break
-                compteur += 1
             else:
-                raise ValueError(
-                    "It is too difficult to suppress some cells.\n"
-                    "Maybe several categories are taken by only one individual"
-                )
-            for nbaxes in range(ncp_min, ncp_max + 1):
-                imputed = imputeMCA(
-                    donNA,
-                    ncp=nbaxes,
-                    method=method,
-                    threshold=threshold,
-                    seed=seed
-                )
-                tab_disj_comp = imputed["tab_disj"]
-                numerator = ((tab_disj_comp - vrai_tab) ** 2).sum().sum()
-                denominator = tab_disjonctif_NA(donNA).isna().sum().sum() - vrai_tab.isna().sum().sum()  # noqa: E501
-                if denominator == 0:
-                    res[nbaxes - ncp_min, sim] = np.nan
-                else:
-                    res[nbaxes - ncp_min, sim] = numerator / denominator
+                raise ValueError("Too many attempts to inject missing values without dropping categories.")
+            for nb in range(ncp_min, ncp_max + 1):
+                imputed = imputeMCA(donNA, ncp=nb, method=method, threshold=threshold, seed=seed)
+                tab_comp = imputed["tab_disj"]
+                numerator = ((tab_comp - vrai_tab)**2).sum().sum()
+                denom = tab_disjonctif_NA(donNA).isna().sum().sum() - vrai_tab.isna().sum().sum()
+                res[nb - ncp_min, sim] = numerator / denom if denom != 0 else np.nan
         crit = np.nanmean(res, axis=1)
         if np.all(np.isnan(crit)):
             raise ValueError("All simulations resulted in NaN error")
-        ncp = int(np.nanargmin(crit) + ncp_min)
+        opt_ncp = int(np.nanargmin(crit) + ncp_min)
         criterion = crit.tolist()
-        return {"ncp": ncp, "criterion": criterion}
+        return {"ncp": opt_ncp, "criterion": criterion}
 
 
     elif method_cv == "loo":
