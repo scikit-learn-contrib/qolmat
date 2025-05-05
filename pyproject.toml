@@ -55,7 +55,7 @@ ipykernel = "^6.29.5"
 torch = "*"
 dcor = "0.6"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 matplotlib = "3.6.2"
 pre-commit = "2.21.0"
 
