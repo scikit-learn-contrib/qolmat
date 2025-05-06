@@ -33,6 +33,7 @@ def _get_numerical_features(df1: pd.DataFrame) -> List[str]:
     """
     cols_numerical = df1.select_dtypes(include=np.number).columns.tolist()
     if len(cols_numerical) == 0:
+        print(df1)
         raise Exception("No numerical feature is found.")
     else:
         return cols_numerical

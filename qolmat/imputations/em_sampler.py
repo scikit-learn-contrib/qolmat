@@ -190,7 +190,6 @@ class EM(BaseEstimator, TransformerMixin):
         self.n_iter_ou = n_iter_ou
         self.ampli = ampli
         self.rng = sku.check_random_state(random_state)
-        self.cov = np.array([[]])
         self.dt = dt
         self.tolerance = tolerance
         self.stagnation_threshold = stagnation_threshold
@@ -657,6 +656,7 @@ class MultiNormalEM(EM):
             period=period,
             verbose=verbose,
         )
+        self.cov = np.array([[]])
         self.dict_criteria_stop = {"logliks": [], "means": [], "covs": []}
 
     def get_loglikelihood(self, X: NDArray) -> float:

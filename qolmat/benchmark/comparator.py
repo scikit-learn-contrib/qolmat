@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
+from sklearn import utils as sku
 
 from qolmat.benchmark import hyperparameters, metrics
 from qolmat.benchmark.missing_patterns import _HoleGenerator
@@ -169,8 +170,12 @@ class Comparator:
 
         """
         dict_errors = {}
-
+        self.generator_holes.random_state = sku.check_random_state(
+            self.generator_holes.random_state
+        )
+        self.generator_holes.save_rng_state()
         for name, imputer in self.dict_imputers.items():
+            self.generator_holes.load_rng_state()
             dict_config_opti_imputer = self.dict_config_opti.get(name, {})
 
             try:

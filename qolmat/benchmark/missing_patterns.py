@@ -190,6 +190,12 @@ class _HoleGenerator:
         elif isinstance(self.subset, str):
             raise SubsetIsAString(self.subset)
 
+    def save_rng_state(self):
+        self.state_rng = self.random_state.get_state()
+
+    def load_rng_state(self):
+        self.random_state.set_state(self.state_rng)
+
 
 class UniformHoleGenerator(_HoleGenerator):
     """UniformHoleGenerator class.
