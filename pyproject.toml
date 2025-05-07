@@ -35,10 +35,6 @@ classifiers = [
 
 [tool.poetry.dependencies]
 python = ">=3.8.1,<3.12"
-bump2version = "1.0.1"
-jupyter = "1.0.0"
-jupyterlab = "1.2.6"
-jupytext = "1.14.4"
 hyperopt = "0.2.7"
 numpy = "1.24.4"
 packaging = "23.1"
@@ -48,16 +44,22 @@ scikit-learn = "1.3.2"
 sphinx-markdown-tables = { version = "*", optional = true }
 statsmodels = "0.14.0"
 typed-ast = { version = "*", optional = true }
-twine = "3.7.1"
-wheel = "0.37.1"
 category-encoders = "^2.6.3"
-ipykernel = "^6.29.5"
-torch = "*"
 dcor = "0.6"
 
+[tool.poetry.group.torch.dependencies]
+torch = "< 2.5"
+
 [tool.poetry.group.dev.dependencies]
+bump2version = "1.0.1"
+ipykernel = "^6.29.5"
+jupyter = "1.0.0"
+jupyterlab = "1.2.6"
+jupytext = "1.14.4"
 matplotlib = "3.6.2"
 pre-commit = "2.21.0"
+twine = "3.7.1"
+wheel = "0.37.1"
 
 [tool.poetry.group.checkers.dependencies]
 bandit = "^1.7.9"
