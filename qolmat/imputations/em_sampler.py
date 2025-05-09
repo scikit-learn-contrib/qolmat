@@ -458,6 +458,11 @@ class EM(BaseEstimator, TransformerMixin):
 
         """
         X = X.copy()
+        # utils.check_dtypes(X)
+        # sku.check_array(X, ensure_all_finite="allow-nan", dtype="float")
+        sku.validation.validate_data(
+            self, X, ensure_all_finite="allow-nan", dtype="float"
+        )
         self.shape_original = X.shape
 
         self.hash_fit = hash(X.tobytes())
@@ -506,6 +511,10 @@ class EM(BaseEstimator, TransformerMixin):
         """
         mask_na = np.isnan(X)
         X = X.copy()
+        # sku.check_array(X, ensure_all_finite="allow-nan", dtype="float")
+        sku.validation.validate_data(
+            self, X, ensure_all_finite="allow-nan", dtype="float", reset=False
+        )
 
         # shape_original = X.shape
         if hash(X.tobytes()) == self.hash_fit:

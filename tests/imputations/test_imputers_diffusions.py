@@ -363,10 +363,16 @@ def test_TsDDPM_q_sample(df: pd.DataFrame) -> None:
         imputers_pytorch.ImputerDiffusion(
             model=ddpms.TabDDPM(), batch_size=1, epochs=1
         ),
-    ]
+    ],
+    expected_failed_checks={
+        "check_estimators_overwrite_params": "TODO",
+        "check_estimators_pickle": "TODO",
+    },
 )
 def test_sklearn_compatible_estimator(
     estimator: imputers._Imputer, check: Any
 ) -> None:
     """Check compatibility with sklearn, using sklearn estimator checks API."""
-    check(estimator)
+    check(
+        estimator,
+    )

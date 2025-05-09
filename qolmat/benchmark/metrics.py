@@ -132,9 +132,8 @@ def root_mean_squared_error(
         df1,
         df2,
         df_mask,
-        skm.mean_squared_error,
+        skm.root_mean_squared_error,
         type_cols="numerical",
-        squared=False,
     )
 
 

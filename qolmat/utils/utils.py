@@ -5,7 +5,6 @@ from typing import List, Tuple, Union
 import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
-from sklearn.base import check_array
 
 from qolmat.utils.exceptions import NotDimension2
 
@@ -85,7 +84,7 @@ def _validate_input(X: NDArray) -> pd.DataFrame:
         then the dataframe columns are integers
 
     """
-    check_array(X, force_all_finite="allow-nan", dtype=None)
+    check_dtypes(X)
     if not isinstance(X, pd.DataFrame):
         X_np = np.array(X)
         if len(X_np.shape) == 0:
@@ -96,9 +95,55 @@ def _validate_input(X: NDArray) -> pd.DataFrame:
         df = df.infer_objects()
     else:
         df = X
+        if df.map(lambda x: not isinstance(x, (float, int, str))).any().any():
+            raise TypeError("Argument must contains only strings and numbers!")
     # df = df.astype(float)
 
     return df
+
+
+def check_dtypes(X: NDArray | pd.DataFrame):
+    """Validate that all elements are of type int, float, or str.
+
+    This function checks whether each element in the input array or DataFrame
+    is an instance of int, float, or str. If any element is not of one of
+    these types, a TypeError is raised.
+
+    Parameters
+    ----------
+    X : numpy.ndarray or pandas.DataFrame
+        The input data to validate. It can be a NumPy array or a pandas
+        DataFrame. If it is a DataFrame, it will be converted to a NumPy
+        array for validation.
+
+    Raises
+    ------
+    TypeError
+        If any element in the input array or DataFrame is not an instance
+        of int, float, or str.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> check_dtypes(np.array([1, 2.0, "three"]))
+    >>> check_dtypes(
+    ...     pd.DataFrame({"col1": [1, 2.0], "col2": ["three", "four"]})
+    ... )
+    >>> check_dtypes(np.array([1, 2.0, None]))
+    Traceback (most recent call last):
+        ...
+    TypeError: Input argument must be of type string or number.
+
+    """
+    if isinstance(X, pd.DataFrame):
+        X = X.values
+
+    def is_invalid_type(x):
+        return not isinstance(x, (int, float, str))
+
+    if np.any(np.vectorize(is_invalid_type)(X)):
+        raise TypeError("Input argument must be of type string or number.")
 
 
 def progress_bar(

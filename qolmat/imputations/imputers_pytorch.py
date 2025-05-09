@@ -652,16 +652,16 @@ class ImputerDiffusion(_Imputer):
         self.index_datetime = index_datetime
         self.freq_str = freq_str
 
-    def _more_tags(self):
-        return {
-            "non_deterministic": True,
-            "_xfail_checks": {
-                "check_estimators_pickle": "Diffusion models can return\
-                                  different outputs",
-                "check_estimators_overwrite_params": "Diffusion models can\
-                                    return different outputs",
-            },
-        }
+    # def _more_tags(self):
+    #     return {
+    #         "non_deterministic": True,
+    #         "_xfail_checks": {
+    #             "check_estimators_pickle": "Diffusion models can return\
+    #                               different outputs",
+    #             "check_estimators_overwrite_params": "Diffusion models can\
+    #                                 return different outputs",
+    #         },
+    #     }
 
     def _fit_element(
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0

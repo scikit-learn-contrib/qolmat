@@ -131,7 +131,7 @@ df_monach_elec_preprocess = pd.DataFrame(
         [5014.0, 3655.0, 3172.0, 1119.0, 305.0],
     ],
     columns=["T1 NSW", "T2 VIC", "T3 QUN", "T4 SA", "T5 TAS"],
-    index=pd.date_range(start="2002-01-01", periods=3, freq="30T"),
+    index=pd.date_range(start="2002-01-01", periods=3, freq="30min"),
 )
 
 index_preprocess_offline = pd.MultiIndex.from_tuples(

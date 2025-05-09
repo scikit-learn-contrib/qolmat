@@ -155,6 +155,7 @@ def test_ImputerOracle_fit_transform(
 
 @pytest.mark.parametrize("df", [df_mixed])
 def test_ImputerSimple_mean_fit_transform(df: pd.DataFrame) -> None:
+    print("coucouc")
     imputer = imputers.ImputerSimple(strategy="mean")
     result = imputer.fit_transform(df)
     expected = pd.DataFrame(
