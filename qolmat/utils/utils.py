@@ -102,7 +102,7 @@ def _validate_input(X: NDArray) -> pd.DataFrame:
     return df
 
 
-def check_dtypes(X: NDArray | pd.DataFrame):
+def check_dtypes(X: pd.DataFrame):
     """Validate that all elements are of type int, float, or str.
 
     This function checks whether each element in the input array or DataFrame
