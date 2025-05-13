@@ -20,7 +20,6 @@ from qolmat.imputations.diffusions.base import (
     ResidualBlock,
     ResidualBlockTS,
 )
-from qolmat.imputations.diffusions.utils import get_num_params
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s %(message)s",
@@ -176,8 +175,8 @@ class TabDDPM:
         epsilon = torch.randn_like(x, device=self.device)
         return sqrt_alpha_hat * x + sqrt_one_minus_alpha_hat * epsilon, epsilon
 
-    def _set_eps_model(self) -> None:
-        self._eps_model = AutoEncoder(
+    def _get_eps_model(self) -> AutoEncoder:
+        model = AutoEncoder(
             num_noise_steps=self.num_noise_steps,
             dim_input=self.dim_input,
             residual_block=ResidualBlock(
@@ -186,11 +185,34 @@ class TabDDPM:
             dim_embedding=self.dim_embedding,
             num_blocks=self.num_blocks,
             p_dropout=self.p_dropout,
-        ).to(self.device)
+        )
+        return model
+
+    def _set_eps_model(self) -> None:
+        model = self._get_eps_model()
+        self._eps_model = model.to(self.device)
 
         self.optimiser = torch.optim.Adam(
             self._eps_model.parameters(), lr=self.lr
         )
+
+    def get_num_params(self) -> int:
+        """Compute the number of parameters of the underlying model.
+
+        Returns
+        -------
+            int: Number of parameters if the model has been fitted,
+            0 otherwise.
+
+        """
+        if hasattr(self, "_eps_model"):
+            model_parameters = filter(
+                lambda p: p.requires_grad, self._eps_model.parameters()
+            )
+            params = sum([np.prod(p.size()) for p in model_parameters])
+            return int(params)
+        else:
+            return 0
 
     def _print_valid(self, epoch: int, time_duration: float) -> None:
         """Print model performance on validation data.
@@ -206,8 +228,9 @@ class TabDDPM:
         self.time_durations.append(time_duration)
         print_step = 1 if int(self.epochs / 10) == 0 else int(self.epochs / 10)
         if self.print_valid and epoch == 0:
+            n_params = self.get_num_params()
             logging.info(
-                f"Num params of {self.__class__.__name__}: {self.num_params}"
+                f"Num params of {self.__class__.__name__}: {n_params}"
             )
         if self.print_valid and epoch % print_step == 0:
             string_valid = f"Epoch {epoch}: "
@@ -526,7 +549,6 @@ class TabDDPM:
         )
 
         self._set_eps_model()
-        self.num_params: int = get_num_params(self._eps_model)
         self.summary: Dict[str, List] = {
             "epoch_loss": [],
         }

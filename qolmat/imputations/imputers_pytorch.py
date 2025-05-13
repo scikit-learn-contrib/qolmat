@@ -1,6 +1,7 @@
 """Script for pytroch imputers."""
 
 import logging
+from copy import copy
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -809,6 +810,7 @@ class ImputerDiffusion(_Imputer):
         model = self.get_model()
         hp_fit = self._get_params_fit()
         model = model.fit(df, **hp_fit)
+        self.model_last = copy(model)
         return model
 
     def _transform_element(
@@ -876,7 +878,7 @@ class ImputerDiffusion(_Imputer):
             Summary of the training
 
         """
-        model = self.get_model()
+        model = self.model_last
         return model.summary
 
     def get_summary_architecture(self) -> Dict:
@@ -888,8 +890,9 @@ class ImputerDiffusion(_Imputer):
             Summary of the architecture
 
         """
-        model = self.get_model()
+        model = self.model_last
+        eps_model = model._get_eps_model()
         return {
-            "number_parameters": model.num_params,
-            "epsilon_model": model._eps_model,
+            "number_parameters": model.get_num_params(),
+            "epsilon_model": eps_model,
         }
