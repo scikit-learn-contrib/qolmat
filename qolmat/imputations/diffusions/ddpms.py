@@ -3,7 +3,7 @@
 import logging
 import time
 from datetime import timedelta
-from typing import Callable, Dict, List, Tuple, Union
+from typing import Any, Callable, Dict, List, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -132,7 +132,7 @@ class TabDDPM:
         seed_torch = self.random_state.randint(2**31 - 1)
         torch.manual_seed(seed_torch)
 
-    def __getstate__(self) -> str:
+    def __getstate__(self) -> dict[str, Any]:
         """Hashing method used in sklearn check tests.
 
         Returns

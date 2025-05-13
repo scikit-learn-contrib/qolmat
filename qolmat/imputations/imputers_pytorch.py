@@ -876,7 +876,8 @@ class ImputerDiffusion(_Imputer):
             Summary of the training
 
         """
-        return self.model.summary
+        model = self.get_model()
+        return model.summary
 
     def get_summary_architecture(self) -> Dict:
         """Get the summary of the architecture.
@@ -887,7 +888,8 @@ class ImputerDiffusion(_Imputer):
             Summary of the architecture
 
         """
+        model = self.get_model()
         return {
-            "number_parameters": self.model.num_params,
-            "epsilon_model": self.model._eps_model,
+            "number_parameters": model.num_params,
+            "epsilon_model": model._eps_model,
         }
