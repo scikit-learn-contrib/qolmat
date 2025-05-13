@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import warnings
 from typing import Optional, Tuple, Union
 
@@ -12,6 +13,12 @@ from sklearn.base import BaseEstimator, TransformerMixin
 
 from qolmat.imputations.rpca import rpca_utils
 from qolmat.utils import utils
+
+logging.basicConfig(
+    format="%(asctime)s %(levelname)-8s %(message)s",
+    level=logging.INFO,
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 
 class SoftImpute(BaseEstimator, TransformerMixin):
@@ -170,9 +177,9 @@ class SoftImpute(BaseEstimator, TransformerMixin):
             # Step 4 : Stopping upon convergence
             ratio = SoftImpute._check_convergence(U_old, D_old, V_old, U, D, V)
             if self.verbose:
-                print(f"Iteration {iter_}: ratio = {round(ratio, 4)}")
+                logging.info(f"Iteration {iter_}: ratio = {round(ratio, 4)}")
                 if ratio < self.tolerance:
-                    print(
+                    logging.info(
                         f"Convergence reached at iteration {iter_} "
                         f"with ratio = {round(ratio, 4)}"
                     )
@@ -243,32 +250,6 @@ class SoftImpute(BaseEstimator, TransformerMixin):
         DVtV = D_old**2 * (V_old.T @ V)
         cross_term = (DUtU @ DVtV).diagonal().sum()
         return (tr_D_old4 + tr_D4 - 2 * cross_term) / max(tr_D_old4, 1e-9)
-
-    # def transform(self, D: NDArray) -> NDArray:
-    #     """Impute all missing values in D.
-
-    #     Parameters
-    #     ----------
-    #     D : array-like of shape (n_samples, n_features)
-    #         The input data to complete.
-
-    #     Returns
-    #     -------
-    #     D : NDArray
-    #         The imputed dataset.
-    #     """
-    #     D_transformed = self.u @ np.diag(self.d.T[0]) @ (self.v).T
-    #     if self.projected:
-    #         D_ = utils.prepare_data(D, self.period)
-    #         mask = np.isnan(D_)
-    #         D_transformed[~mask] = D_[~mask]
-
-    #     D_transformed = utils.get_shape_original(D_transformed, D.shape)
-
-    #     if np.all(np.isnan(D_transformed)):
-    #         raise AssertionError("Result contains NaN. This is a bug.")
-
-    #     return D_transformed
 
     @staticmethod
     def cost_function(

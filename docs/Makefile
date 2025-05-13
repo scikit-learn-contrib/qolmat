@@ -37,6 +37,9 @@ clean:
 	-rm -rf examples/tutorials/*
 	-rm -rf generated/*
 
+doctest:
+	$(SPHINXBUILD) -b doctest . _build/doctest
+
 html:
 	# These two lines make the build a bit more lengthy, and the
 	# the embedding of images more robust

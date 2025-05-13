@@ -376,7 +376,11 @@ df_nan = df.where(~df_mask, np.nan)
 
 # %%
 pklm_test = PKLMTest(random_state=rng, compute_partial_p_values=True)
-p_value, partial_p_values = pklm_test.test(df_nan)
+result = pklm_test.test(df_nan)
+if isinstance(result, tuple):
+    p_value, partial_p_values = result
+else:
+    p_value = result
 print(f"The p-value of the PKLM test is: {p_value:.2%}")
 
 # %%

@@ -132,9 +132,8 @@ def root_mean_squared_error(
         df1,
         df2,
         df_mask,
-        skm.mean_squared_error,
+        skm.root_mean_squared_error,
         type_cols="numerical",
-        squared=False,
     )
 
 
@@ -876,10 +875,10 @@ def frechet_distance(
     """Compute Frechet distance computed using a pattern decomposition.
 
     Several variant are implemented:
-    - the `single` method relies on a single estimation of the means and
+    i) the `single` method relies on a single estimation of the means and
     covariance matrix. It is relevent for MCAR data.
-    - the `pattern`method relies on the aggregation of the estimated distance
-    between each pattern. It is relevent for MAR data.
+    ii) the `pattern` method relies on the aggregation of the estimated
+    distance between each pattern. It is relevent for MAR data.
 
     Parameters
     ----------
@@ -1200,9 +1199,9 @@ def get_metric(
         "wmape": weighted_mean_absolute_percentage_error,
         "accuracy": accuracy,
         "wasserstein_columnwise": dist_wasserstein,
-        "KL_columnwise": partial(kl_divergence, method="columnwise"),
-        "KL_gaussian": partial(kl_divergence, method="gaussian"),
-        "KS_test": kolmogorov_smirnov_test,
+        "kl_columnwise": partial(kl_divergence, method="columnwise"),
+        "kl_gaussian": partial(kl_divergence, method="gaussian"),
+        "ks_test": kolmogorov_smirnov_test,
         "correlation_diff": (
             mean_difference_correlation_matrix_numerical_features
         ),

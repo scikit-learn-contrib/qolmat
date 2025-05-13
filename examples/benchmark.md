@@ -185,7 +185,7 @@ Concretely, the comparator takes as input a dataframe to impute, a proportion of
 Note these metrics compute reconstruction errors; it tells nothing about the distances between the "true" and "imputed" distributions.
 
 ```python tags=[]
-metrics = ["mae", "wmape", "KL_columnwise", "frechet"]
+metrics = ["mae", "wmape", "kl_columnwise", "frechet"]
 comparison = comparator.Comparator(
     dict_imputers,
     cols_to_impute,
@@ -311,7 +311,7 @@ from qolmat.imputations.imputers_pytorch import ImputerDiffusion
 from qolmat.imputations.diffusions.ddpms import TabDDPM
 
 X = np.array([[1, 1, 1, 1], [np.nan, np.nan, 3, 2], [1, 2, 2, 1], [2, 2, 2, 2]])
-imputer = ImputerDiffusion(model=TabDDPM(random_state=11), epochs=50, batch_size=1)
+imputer = ImputerDiffusion(epochs=50, batch_size=1, random_state=11)
 
 imputer.fit_transform(X)
 ```
@@ -322,7 +322,7 @@ from qolmat.imputations.imputers_pytorch import ImputerDiffusion
 from qolmat.imputations.diffusions.ddpms import TabDDPM
 
 X = np.array([[1, 1, 1, 1], [np.nan, np.nan, 3, 2], [1, 2, 2, 1], [2, 2, 2, 2]])
-imputer = ImputerDiffusion(model=TabDDPM(random_state=11), epochs=50, batch_size=1)
+imputer = ImputerDiffusion(epochs=50, batch_size=1, random_state=11)
 
 imputer.fit_transform(X)
 ```
@@ -358,7 +358,7 @@ encoder, decoder  = imputers_pytorch.build_autoencoder(input_dim=n_variables,lat
 ```python
 dict_imputers["MLP"] = imputer_mlp = imputers_pytorch.ImputerRegressorPyTorch(estimator=estimator, groups=('station',), epochs=500)
 dict_imputers["Autoencoder"] = imputer_autoencoder = imputers_pytorch.ImputerAutoencoder(encoder, decoder, max_iterations=100, epochs=100)
-dict_imputers["Diffusion"] = imputer_diffusion = imputers_pytorch.ImputerDiffusion(model=TabDDPM(num_sampling=5), epochs=100, batch_size=100)
+dict_imputers["Diffusion"] = imputer_diffusion = imputers_pytorch.ImputerDiffusion(epochs=100, batch_size=100, num_sampling=5)
 ```
 
 We can re-run the imputation model benchmark as before.

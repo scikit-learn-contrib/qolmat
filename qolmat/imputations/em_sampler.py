@@ -1,5 +1,6 @@
 """Script for EM imputation."""
 
+import logging
 import warnings
 from abc import abstractmethod
 from typing import Dict, List, Literal, Tuple, Union
@@ -11,8 +12,13 @@ from scipy import optimize as spo
 from sklearn import utils as sku
 from sklearn.base import BaseEstimator, TransformerMixin
 
-# from typing_extensions import Self
 from qolmat.utils import utils
+
+logging.basicConfig(
+    format="%(asctime)s %(levelname)-8s %(message)s",
+    level=logging.INFO,
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 
 def _conjugate_gradient(A: NDArray, X: NDArray, mask: NDArray) -> NDArray:
@@ -436,7 +442,7 @@ class EM(BaseEstimator, TransformerMixin):
             self.update_criteria_stop(X)
             if self._check_convergence():
                 if self.verbose:
-                    print(f"EM converged after {iter_em} iterations.")
+                    logging.info(f"EM converged after {iter_em} iterations.")
                 break
 
         self.dict_criteria_stop = {key: [] for key in self.dict_criteria_stop}
@@ -452,6 +458,11 @@ class EM(BaseEstimator, TransformerMixin):
 
         """
         X = X.copy()
+        # utils.check_dtypes(X)
+        # sku.check_array(X, ensure_all_finite="allow-nan", dtype="float")
+        sku.validation.validate_data(
+            self, X, ensure_all_finite="allow-nan", dtype="float"
+        )
         self.shape_original = X.shape
 
         self.hash_fit = hash(X.tobytes())
@@ -500,6 +511,10 @@ class EM(BaseEstimator, TransformerMixin):
         """
         mask_na = np.isnan(X)
         X = X.copy()
+        # sku.check_array(X, ensure_all_finite="allow-nan", dtype="float")
+        sku.validation.validate_data(
+            self, X, ensure_all_finite="allow-nan", dtype="float", reset=False
+        )
 
         # shape_original = X.shape
         if hash(X.tobytes()) == self.hash_fit:

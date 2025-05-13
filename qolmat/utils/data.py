@@ -198,9 +198,9 @@ def get_data(
         df = pd.read_csv(path)
         df = df[
             ["Survived", "Sex", "Age", "SibSp", "Parch", "Fare", "Embarked"]
-        ]
+        ].copy()
         df["Age"] = pd.to_numeric(df["Age"], errors="coerce")
-        df["Fare"] = pd.to_numeric(df["Fare"], errors="coerce")
+        df.loc["Fare"] = pd.to_numeric(df["Fare"], errors="coerce")
         return df
     elif name_data == "Artificial":
         city = "Wonderland"
@@ -249,6 +249,9 @@ def get_data(
             "tabular-benchmark/resolve/main/reg_num/superconduct.csv"
         )
         df = pd.read_csv(csv_url, index_col=0)
+        return df
+    elif name_data == "conductor":
+        df = read_csv_local("conductors")
         return df
     elif name_data == "Monach_weather":
         urllink = os.path.join(

@@ -77,7 +77,7 @@ imputer_mean = imputers.ImputerSimple(strategy="mean")
 imputer_median = imputers.ImputerSimple(strategy="median")
 dict_imputers = {"mean": imputer_mean, "median": imputer_median}
 
-metrics = ["mae", "wmape", "KL_columnwise"]
+metrics = ["mae", "wmape", "kl_columnwise"]
 
 # %%
 # Concretely, the comparator takes as input a dataframe to impute,

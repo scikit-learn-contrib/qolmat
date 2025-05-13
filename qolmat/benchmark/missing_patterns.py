@@ -247,14 +247,15 @@ class UniformHoleGenerator(_HoleGenerator):
             ratio_masked = self.ratio_masked
             if self.sample_proportional:
                 ratio_masked *= self.dict_ratios[col] * len(X.columns)
-            n_masked_col = math.ceil(self.ratio_masked * len(X))
-            indices = np.where(X[col].notna())[0]
-            indices = self.random_state.choice(
-                indices,
+            n_masked_col = math.ceil(ratio_masked * len(X))
+            indices_int = np.where(X[col].notna())[0]
+            indices_int = self.random_state.choice(
+                indices_int,
                 replace=False,
                 size=n_masked_col,
             )
-            df_mask[col].iloc[indices] = True
+            indices_int = df_mask.index[indices_int]
+            df_mask.loc[indices_int, col] = True
 
         return df_mask
 
@@ -371,7 +372,8 @@ class _SamplerHoleGenerator(_HoleGenerator):
                 sample = min(min(sample, sizes_max.max()), n_masked_left)
                 i_hole = self.rng.choice(np.where(sample <= sizes_max)[0])
 
-                if not (~mask[column].iloc[i_hole - sample : i_hole]).all():
+                indices_hole = mask.index[i_hole - sample : i_hole]
+                if not (~mask.loc[indices_hole, column]).all():
                     raise ValueError(
                         "The mask condition is not satisfied for "
                         f"column={column}, "
@@ -379,7 +381,7 @@ class _SamplerHoleGenerator(_HoleGenerator):
                         f"and i_hole={i_hole}."
                     )
 
-                mask[column].iloc[i_hole - sample : i_hole] = True
+                mask.loc[indices_hole, column] = True
                 n_masked_left -= sample
 
                 sizes_max.iloc[i_hole - sample : i_hole] = 0

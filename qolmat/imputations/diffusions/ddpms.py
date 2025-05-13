@@ -1,8 +1,9 @@
 """Script for DDPM classes."""
 
+import logging
 import time
 from datetime import timedelta
-from typing import Callable, Dict, List, Tuple, Union
+from typing import Any, Callable, Dict, List, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -19,7 +20,12 @@ from qolmat.imputations.diffusions.base import (
     ResidualBlock,
     ResidualBlockTS,
 )
-from qolmat.imputations.diffusions.utils import get_num_params
+
+logging.basicConfig(
+    format="%(asctime)s %(levelname)-8s %(message)s",
+    level=logging.INFO,
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 
 class TabDDPM:
@@ -40,7 +46,7 @@ class TabDDPM:
         beta_start: float = 1e-4,
         beta_end: float = 0.02,
         lr: float = 0.001,
-        ratio_nan: float = 0.1,
+        ratio_masked: float = 0.1,
         dim_embedding: int = 128,
         num_blocks: int = 1,
         p_dropout: float = 0.0,
@@ -60,7 +66,7 @@ class TabDDPM:
             Range of beta (noise scale value), by default 0.02
         lr : float, optional
             Learning rate, by default 0.001
-        ratio_nan : float, optional
+        ratio_masked : float, optional
             Ratio of artificial nan for training and validation, by default 0.1
         dim_embedding : int, optional
             Embedding dimension, by default 128
@@ -112,7 +118,7 @@ class TabDDPM:
         self.loss_func = torch.nn.MSELoss(reduction="none")
 
         self.lr = lr
-        self.ratio_nan = ratio_nan
+        self.ratio_masked = ratio_masked
         self.num_noise_steps = num_noise_steps
         self.dim_embedding = dim_embedding
         self.num_blocks = num_blocks
@@ -124,6 +130,21 @@ class TabDDPM:
         self.random_state = sku.check_random_state(random_state)
         seed_torch = self.random_state.randint(2**31 - 1)
         torch.manual_seed(seed_torch)
+
+    def __getstate__(self) -> dict[str, Any]:
+        """Hashing method used in sklearn check tests.
+
+        Returns
+        -------
+        ________
+        str
+            Hashed object containing the underlying model weights
+
+        """
+        state = self.__dict__.copy()
+        if "optimiser" in state:
+            state.pop("optimiser")
+        return state
 
     def _q_sample(
         self, x: torch.Tensor, t: torch.Tensor
@@ -154,8 +175,8 @@ class TabDDPM:
         epsilon = torch.randn_like(x, device=self.device)
         return sqrt_alpha_hat * x + sqrt_one_minus_alpha_hat * epsilon, epsilon
 
-    def _set_eps_model(self) -> None:
-        self._eps_model = AutoEncoder(
+    def _get_eps_model(self) -> AutoEncoder:
+        model = AutoEncoder(
             num_noise_steps=self.num_noise_steps,
             dim_input=self.dim_input,
             residual_block=ResidualBlock(
@@ -164,11 +185,34 @@ class TabDDPM:
             dim_embedding=self.dim_embedding,
             num_blocks=self.num_blocks,
             p_dropout=self.p_dropout,
-        ).to(self.device)
+        )
+        return model
+
+    def _set_eps_model(self) -> None:
+        model = self._get_eps_model()
+        self._eps_model = model.to(self.device)
 
         self.optimiser = torch.optim.Adam(
             self._eps_model.parameters(), lr=self.lr
         )
+
+    def get_num_params(self) -> int:
+        """Compute the number of parameters of the underlying model.
+
+        Returns
+        -------
+            int: Number of parameters if the model has been fitted,
+            0 otherwise.
+
+        """
+        if hasattr(self, "_eps_model"):
+            model_parameters = filter(
+                lambda p: p.requires_grad, self._eps_model.parameters()
+            )
+            params = sum([np.prod(p.size()) for p in model_parameters])
+            return int(params)
+        else:
+            return 0
 
     def _print_valid(self, epoch: int, time_duration: float) -> None:
         """Print model performance on validation data.
@@ -184,8 +228,9 @@ class TabDDPM:
         self.time_durations.append(time_duration)
         print_step = 1 if int(self.epochs / 10) == 0 else int(self.epochs / 10)
         if self.print_valid and epoch == 0:
-            print(
-                f"Num params of {self.__class__.__name__}: {self.num_params}"
+            n_params = self.get_num_params()
+            logging.info(
+                f"Num params of {self.__class__.__name__}: {n_params}"
             )
         if self.print_valid and epoch % print_step == 0:
             string_valid = f"Epoch {epoch}: "
@@ -200,7 +245,7 @@ class TabDDPM:
             string_valid += (
                 f" | remaining {timedelta(seconds=remaining_duration)}"
             )
-            print(string_valid)
+            logging.info(string_valid)
 
     def _impute(self, x: np.ndarray, x_mask_obs: np.ndarray) -> np.ndarray:
         """Impute data array.
@@ -441,6 +486,9 @@ class TabDDPM:
             Return Self
 
         """
+        seed_torch = self.random_state.randint(2**31 - 1)
+        torch.manual_seed(seed_torch)
+
         self.dim_input = len(x.columns)
         self.epochs = epochs
         self.batch_size = batch_size
@@ -479,7 +527,7 @@ class TabDDPM:
             # (with one mask)
             # in validation dataset
             x_valid_mask = missing_patterns.UniformHoleGenerator(
-                n_splits=1, ratio_masked=self.ratio_nan
+                n_splits=1, ratio_masked=self.ratio_masked
             ).split(x_valid)[0]
             # x_valid_obs_mask is the mask for observed values
             x_valid_obs_mask = ~x_valid_mask
@@ -501,7 +549,6 @@ class TabDDPM:
         )
 
         self._set_eps_model()
-        self.num_params: int = get_num_params(self._eps_model)
         self.summary: Dict[str, List] = {
             "epoch_loss": [],
         }
@@ -513,7 +560,7 @@ class TabDDPM:
             for id_batch, (x_batch, mask_x_batch) in enumerate(dataloader):
                 mask_obs_rand = (
                     torch.FloatTensor(mask_x_batch.size()).uniform_()
-                    > self.ratio_nan
+                    > self.ratio_masked
                 )
                 for col in self.cols_idx_not_imputed:
                     mask_obs_rand[:, col] = 0.0
@@ -569,6 +616,8 @@ class TabDDPM:
             Imputed data
 
         """
+        seed_torch = self.random_state.randint(2**31 - 1)
+        torch.manual_seed(seed_torch)
         self._eps_model.eval()
 
         x_processed, x_mask, x_indices = self._process_data(
@@ -763,7 +812,7 @@ class TsDDPM(TabDDPM):
         if is_training:
             if self.is_rolling:
                 if self.print_valid:
-                    print(
+                    logging.info(
                         "Preprocessing data with sliding window "
                         "(pandas.DataFrame.rolling) "
                         "can require more times than usual. "

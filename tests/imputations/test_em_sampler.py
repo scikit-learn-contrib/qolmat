@@ -242,7 +242,6 @@ def test_sample_ou_2d(model):
     alpha = 0.01
     q_alpha = scipy.stats.norm.ppf(1 - alpha / 2)
 
-    print(mean_est, "vs", mean_theo)
     assert abs(mean_est - mean_theo) < np.sqrt(var_theo / n_samples) * q_alpha
 
     ratio_inf = scipy.stats.chi2.ppf(alpha / 2, n_samples) / (n_samples - 1)
@@ -252,8 +251,6 @@ def test_sample_ou_2d(model):
 
     ratio = var_est / var_theo
 
-    print(var_est, "vs", var_theo)
-    print(ratio_inf, "<", ratio, "<", ratio_sup)
     assert ratio_inf <= ratio
     assert ratio <= ratio_sup
 
