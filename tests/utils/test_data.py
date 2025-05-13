@@ -336,7 +336,6 @@ def test_data_get_data(
             "Beijing_online",
             "Superconductor_online",
             "Monach_weather",
-            "Monach_weather",
             "Monach_electricity_australia",
             "Titanic",
             "SNCF",
@@ -372,7 +371,7 @@ def test_data_get_data(
         pd.testing.assert_frame_equal(df_result, df_monach_elec_preprocess)
     elif name_data == "Titanic":
         assert mock_read_dl.call_count == 1
-        assert np.shape(df_result) == (3, 7)
+        assert np.shape(df_result) == (4, 7)
     elif name_data == "SNCF":
         assert not df_result.empty
         assert df_result.index.name == "station"

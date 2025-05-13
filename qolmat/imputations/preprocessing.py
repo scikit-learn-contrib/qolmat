@@ -167,7 +167,7 @@ class BinTransformer(TransformerMixin, BaseEstimator):
             X,
             accept_sparse=False,
             ensure_all_finite="allow-nan",
-            reset=False,
+            reset=True,
             dtype=["float", "int", "string", "categorical", "object"],
         )
         df = utils._validate_input(X)

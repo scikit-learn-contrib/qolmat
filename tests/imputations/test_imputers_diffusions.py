@@ -26,6 +26,7 @@ df_incomplete = pd.DataFrame(
         "col5": [93, 75, np.nan, 12, np.nan],
     },
     index=pd.date_range("2023-04-17", periods=5, freq="D"),
+    dtype=float,
 )
 df_incomplete.index = df_incomplete.index.set_names("datetime")
 
