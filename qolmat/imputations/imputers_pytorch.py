@@ -810,7 +810,7 @@ class ImputerDiffusion(_Imputer):
         model = self.get_model()
         hp_fit = self._get_params_fit()
         model = model.fit(df, **hp_fit)
-        self.model_last = copy(model)
+        self._model_fitted = copy(model)
         return model
 
     def _transform_element(
@@ -878,7 +878,7 @@ class ImputerDiffusion(_Imputer):
             Summary of the training
 
         """
-        model = self.model_last
+        model = self._model_fitted
         return model.summary
 
     def get_summary_architecture(self) -> Dict:
@@ -890,7 +890,7 @@ class ImputerDiffusion(_Imputer):
             Summary of the architecture
 
         """
-        model = self.model_last
+        model = self._model_fitted
         eps_model = model._get_eps_model()
         return {
             "number_parameters": model.get_num_params(),
