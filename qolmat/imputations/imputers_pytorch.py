@@ -6,11 +6,11 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
-from sklearn.base import BaseEstimator
 from sklearn.preprocessing import StandardScaler
 
 # from typing_extensions import Self
 from qolmat.benchmark import metrics
+from qolmat.imputations.diffusions import ddpms
 from qolmat.imputations.imputers import ImputerRegressor, _Imputer
 from qolmat.utils.exceptions import (
     EstimatorNotDefined,
@@ -570,8 +570,8 @@ class ImputerDiffusion(_Imputer):
 
     def __init__(
         self,
+        model: str = "TabDDPM",
         groups: Tuple[str, ...] = (),
-        model: Optional[BaseEstimator] = None,
         epochs: int = 100,
         batch_size: int = 100,
         x_valid: pd.DataFrame = None,
@@ -584,6 +584,22 @@ class ImputerDiffusion(_Imputer):
         cols_imputed: Tuple[str, ...] = (),
         index_datetime: str = "",
         freq_str: str = "1D",
+        random_state: Union[None, int, np.random.RandomState] = None,
+        # Model parameters
+        num_noise_steps: int = 50,
+        beta_start: float = 1e-4,
+        beta_end: float = 0.02,
+        lr: float = 0.001,
+        ratio_masked: float = 0.1,
+        dim_embedding: int = 128,
+        dim_feedforward: int = 64,
+        num_blocks: int = 1,
+        nheads_feature: int = 5,
+        nheads_time: int = 8,
+        num_layers_transformer: int = 1,
+        p_dropout: float = 0.0,
+        num_sampling: int = 1,
+        is_rolling: bool = False,
     ):
         """Init ImputerDiffusion.
 
@@ -591,9 +607,9 @@ class ImputerDiffusion(_Imputer):
         ----------
         groups : Tuple[str, ...], optional
             List of column names to group by, by default ()
-        model : Optional[BaseEstimator], optional
-            Imputer based on diffusion models (e.g., TabDDPM, TsDDPM),
-            by default None
+        model : str
+            Name of the imputer based on diffusion models (e.g., TabDDPM,
+            TsDDPM), by default `TabDDPM`
         epochs : int, optional
             Number of epochs, by default 10
         batch_size : int, optional
@@ -618,12 +634,42 @@ class ImputerDiffusion(_Imputer):
             Frequency string of DateOffset of Pandas.
             It is for processing time-series data, used in diffusion models
             e.g., TsDDPM.
+        random_state : Union[None, int, np.random.RandomState], optional
+            Controls the randomness of the fit_transform, by default None
+        num_noise_steps : int, optional
+            Number of noise steps, by default 50
+        beta_start : float, optional
+            Range of beta (noise scale value), by default 1e-4
+        beta_end : float, optional
+            Range of beta (noise scale value), by default 0.02
+        lr : float, optional
+            Learning rate, by default 0.001
+        ratio_masked : float, optional
+            Ratio of artificial nan for training and validation, by default 0.1
+        dim_embedding : int, optional
+            Embedding dimension, by default 128
+        dim_feedforward : int, optional
+            Feedforward layer dimension in Transformers, by default 64
+        num_blocks : int, optional
+            Number of residual blocks, by default 1
+        nheads_feature : int, optional
+            Number of heads to encode feature-based context, by default 5
+        nheads_time : int, optional
+            Number of heads to encode time-based context, by default 8
+        num_layers_transformer : int, optional
+            Number of transformer layer, by default 1
+        p_dropout : float, optional
+            Dropout probability, by default 0.0
+        num_sampling : int, optional
+            Number of samples generated for each cell, by default 1
+        is_rolling : bool, optional
+            Use pandas.DataFrame.rolling for preprocessing data,
+            by default False
 
         Examples
         --------
         >>> import numpy as np
         >>> from qolmat.imputations.imputers_pytorch import ImputerDiffusion
-        >>> from qolmat.imputations.diffusions.ddpms import TabDDPM
         >>>
         >>> X = np.array(
         ...     [
@@ -634,7 +680,7 @@ class ImputerDiffusion(_Imputer):
         ...     ]
         ... )
         >>> imputer = ImputerDiffusion(
-        ...     model=TabDDPM(random_state=11), epochs=50, batch_size=1
+        ...     epochs=50, batch_size=1, random_state=11
         ... )
         >>>
         >>> df_imputed = imputer.fit_transform(X)
@@ -651,17 +697,85 @@ class ImputerDiffusion(_Imputer):
         self.cols_imputed = cols_imputed
         self.index_datetime = index_datetime
         self.freq_str = freq_str
+        self.random_state = random_state
+        self.num_noise_steps = num_noise_steps
+        self.beta_start = beta_start
+        self.beta_end = beta_end
+        self.lr = lr
+        self.ratio_masked = ratio_masked
+        self.dim_embedding = dim_embedding
+        self.dim_feedforward = dim_feedforward
+        self.num_blocks = num_blocks
+        self.nheads_feature = nheads_feature
+        self.nheads_time = nheads_time
+        self.num_layers_transformer = num_layers_transformer
+        self.p_dropout = p_dropout
+        self.num_sampling = num_sampling
+        self.is_rolling = is_rolling
 
-    # def _more_tags(self):
-    #     return {
-    #         "non_deterministic": True,
-    #         "_xfail_checks": {
-    #             "check_estimators_pickle": "Diffusion models can return\
-    #                               different outputs",
-    #             "check_estimators_overwrite_params": "Diffusion models can\
-    #                                 return different outputs",
-    #         },
-    #     }
+    def get_model(self) -> ddpms.TabDDPM:
+        """Get the underlying model of the imputer based on its attributes.
+
+        Returns
+        -------
+        ddpms.TabDDPM
+            TabDDPM model to be used in the fit and transform methods.
+
+        """
+        params_model = self.get_params_model()
+        if self.model == "TabDDPM":
+            return ddpms.TabDDPM(
+                random_state=self.random_state,
+                **params_model,
+            )
+        elif self.model == "TsDDPM":
+            return ddpms.TsDDPM(
+                random_state=self.random_state,
+                **params_model,  # type: ignore #noqa
+            )
+        else:
+            raise ValueError(
+                f"Model argument `{self.model}` is invalid!"
+                " Valid values are `TabDDPM`and `TsDDPM`."
+            )
+
+    def get_params_model(self) -> dict:
+        """Get parameters for creating a DDPM model.
+
+        Returns
+        -------
+        dict
+            A dictionary containing the parameters required to create a model
+            of type TabDDPM or TsDDPM.
+
+        """
+        list_params = [
+            "num_noise_steps",
+            "beta_start",
+            "beta_end",
+            "lr",
+            "ratio_masked",
+            "dim_embedding",
+            "num_blocks",
+            "p_dropout",
+            "num_sampling",
+        ]
+        if self.model == "TabDDPM":
+            list_params += ["is_clip"]
+        elif self.model == "TsDDPM":
+            list_params += [
+                "dim_feedforward",
+                "nheads_feature",
+                "nheads_time",
+                "num_layers_transformer",
+                "is_rolling",
+            ]
+        dict_params = {
+            key: value
+            for key, value in self.__dict__.items()
+            if key in list_params
+        }
+        return dict_params
 
     def _fit_element(
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
@@ -692,8 +806,10 @@ class ImputerDiffusion(_Imputer):
 
         """
         self._check_dataframe(df)
-        hp = self._get_params_fit()
-        return self.model.fit(df, **hp)
+        model = self.get_model()
+        hp_fit = self._get_params_fit()
+        model = model.fit(df, **hp_fit)
+        return model
 
     def _transform_element(
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
@@ -723,7 +839,11 @@ class ImputerDiffusion(_Imputer):
             Input has to be a pandas.DataFrame.
 
         """
-        df_imputed = self.model.predict(df)
+        self._check_dataframe(df)
+        if df.notna().all().all():
+            return df
+        model = self._dict_fitting[col][ngroup]
+        df_imputed = model.predict(df)
         return df_imputed
 
     def _get_params_fit(self) -> Dict:

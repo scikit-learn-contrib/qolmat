@@ -47,7 +47,7 @@ class TabDDPM:
         beta_start: float = 1e-4,
         beta_end: float = 0.02,
         lr: float = 0.001,
-        ratio_nan: float = 0.1,
+        ratio_masked: float = 0.1,
         dim_embedding: int = 128,
         num_blocks: int = 1,
         p_dropout: float = 0.0,
@@ -67,7 +67,7 @@ class TabDDPM:
             Range of beta (noise scale value), by default 0.02
         lr : float, optional
             Learning rate, by default 0.001
-        ratio_nan : float, optional
+        ratio_masked : float, optional
             Ratio of artificial nan for training and validation, by default 0.1
         dim_embedding : int, optional
             Embedding dimension, by default 128
@@ -119,7 +119,7 @@ class TabDDPM:
         self.loss_func = torch.nn.MSELoss(reduction="none")
 
         self.lr = lr
-        self.ratio_nan = ratio_nan
+        self.ratio_masked = ratio_masked
         self.num_noise_steps = num_noise_steps
         self.dim_embedding = dim_embedding
         self.num_blocks = num_blocks
@@ -131,6 +131,21 @@ class TabDDPM:
         self.random_state = sku.check_random_state(random_state)
         seed_torch = self.random_state.randint(2**31 - 1)
         torch.manual_seed(seed_torch)
+
+    def __getstate__(self) -> str:
+        """Hashing method used in sklearn check tests.
+
+        Returns
+        -------
+        ________
+        str
+            Hashed object containing the underlying model weights
+
+        """
+        state = self.__dict__.copy()
+        if "optimiser" in state:
+            state.pop("optimiser")
+        return state
 
     def _q_sample(
         self, x: torch.Tensor, t: torch.Tensor
@@ -448,6 +463,9 @@ class TabDDPM:
             Return Self
 
         """
+        seed_torch = self.random_state.randint(2**31 - 1)
+        torch.manual_seed(seed_torch)
+
         self.dim_input = len(x.columns)
         self.epochs = epochs
         self.batch_size = batch_size
@@ -486,7 +504,7 @@ class TabDDPM:
             # (with one mask)
             # in validation dataset
             x_valid_mask = missing_patterns.UniformHoleGenerator(
-                n_splits=1, ratio_masked=self.ratio_nan
+                n_splits=1, ratio_masked=self.ratio_masked
             ).split(x_valid)[0]
             # x_valid_obs_mask is the mask for observed values
             x_valid_obs_mask = ~x_valid_mask
@@ -520,7 +538,7 @@ class TabDDPM:
             for id_batch, (x_batch, mask_x_batch) in enumerate(dataloader):
                 mask_obs_rand = (
                     torch.FloatTensor(mask_x_batch.size()).uniform_()
-                    > self.ratio_nan
+                    > self.ratio_masked
                 )
                 for col in self.cols_idx_not_imputed:
                     mask_obs_rand[:, col] = 0.0
@@ -576,6 +594,8 @@ class TabDDPM:
             Imputed data
 
         """
+        seed_torch = self.random_state.randint(2**31 - 1)
+        torch.manual_seed(seed_torch)
         self._eps_model.eval()
 
         x_processed, x_mask, x_indices = self._process_data(

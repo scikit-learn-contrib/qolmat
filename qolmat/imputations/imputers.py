@@ -2003,39 +2003,6 @@ class ImputerSoftImpute(_Imputer):
 
         return model
 
-    # def _fit_element(
-    #     self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
-    # ) -> softimpute.SoftImpute:
-    #     """
-    #     Fits the imputer on `df`, at the group and/or column level depending
-    #     on self.groups and self.columnwise.
-
-    #     Parameters
-    #     ----------
-    #     df : pd.DataFrame
-    #         Dataframe on which the imputer is fitted
-    #     col : str, optional
-    #         Column on which the imputer is fitted, by default "__all__"
-    #     ngroup : int, optional
-    #         Id of the group on which the method is applied
-
-    #     Returns
-    #     -------
-    #     Any
-    #         Return fitted SoftImpute model
-
-    #     Raises
-    #     ------
-    #     NotDataFrame
-    #         Input has to be a pandas.DataFrame.
-    #     """
-    #     self._check_dataframe(df)
-    #     assert col == "__all__"
-    #     hyperparams = self.get_hyperparams()
-    #     model = softimpute.SoftImpute(random_state=self._rng, **hyperparams)
-    #     model = model.fit(df.values)
-    #     return model
-
     def _transform_element(
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
     ) -> pd.DataFrame:
