@@ -71,7 +71,6 @@ logging.info(f"Number of nan at each column: {df_data.isna().sum()}")
 df_data_valid = df_data.iloc[:500]
 
 tabddpm = ImputerDiffusion(
-    model=TabDDPM(),
     epochs=10,
     batch_size=100,
     x_valid=df_data_valid,
@@ -160,12 +159,8 @@ plt.show()
 # reconstruction errors (mae) but increases distribution distance (kl_columnwise).
 
 dict_imputers = {
-    "num_sampling=5": ImputerDiffusion(
-        model=TabDDPM(num_sampling=5), epochs=10, batch_size=100
-    ),
-    "num_sampling=10": ImputerDiffusion(
-        model=TabDDPM(num_sampling=10), epochs=10, batch_size=100
-    ),
+    "num_sampling=5": ImputerDiffusion(epochs=10, batch_size=100, num_sampling=5),
+    "num_sampling=10": ImputerDiffusion(epochs=10, batch_size=100, num_sampling=10),
 }
 
 comparison = comparator.Comparator(
@@ -187,7 +182,7 @@ results.groupby(axis=0, level=0).mean().groupby(axis=0, level=0).mean()
 #
 # Two important hyperparameters for processing time-series data are ``index_datetime``
 # and ``freq_str``.
-# E.g., ``ImputerDiffusion(model=TabDDPM(), index_datetime='datetime', freq_str='1D')``,
+# E.g., ``ImputerDiffusion(index_datetime='datetime', freq_str='1D')``,
 #
 # * ``index_datetime``: the column name of datetime in index. It must be a pandas datetime object.
 #
@@ -210,15 +205,16 @@ results.groupby(axis=0, level=0).mean().groupby(axis=0, level=0).mean()
 #   but requires a longer training/inference time.
 
 dict_imputers = {
-    "tabddpm": ImputerDiffusion(
-        model=TabDDPM(num_sampling=5), epochs=10, batch_size=100
+    "tabddpm": ImputerDiffusion(model="TabDDPM", epochs=10, batch_size=100, num_sampling=5
     ),
     "tsddpm": ImputerDiffusion(
-        model=TsDDPM(num_sampling=5, is_rolling=False),
+        model="TsDDPM",
         epochs=10,
         batch_size=5,
         index_datetime="date",
         freq_str="5D",
+        num_sampling=5,
+        is_rolling=False
     ),
 }
 

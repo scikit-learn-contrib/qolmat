@@ -251,32 +251,6 @@ class SoftImpute(BaseEstimator, TransformerMixin):
         cross_term = (DUtU @ DVtV).diagonal().sum()
         return (tr_D_old4 + tr_D4 - 2 * cross_term) / max(tr_D_old4, 1e-9)
 
-    # def transform(self, D: NDArray) -> NDArray:
-    #     """Impute all missing values in D.
-
-    #     Parameters
-    #     ----------
-    #     D : array-like of shape (n_samples, n_features)
-    #         The input data to complete.
-
-    #     Returns
-    #     -------
-    #     D : NDArray
-    #         The imputed dataset.
-    #     """
-    #     D_transformed = self.u @ np.diag(self.d.T[0]) @ (self.v).T
-    #     if self.projected:
-    #         D_ = utils.prepare_data(D, self.period)
-    #         mask = np.isnan(D_)
-    #         D_transformed[~mask] = D_[~mask]
-
-    #     D_transformed = utils.get_shape_original(D_transformed, D.shape)
-
-    #     if np.all(np.isnan(D_transformed)):
-    #         raise AssertionError("Result contains NaN. This is a bug.")
-
-    #     return D_transformed
-
     @staticmethod
     def cost_function(
         X: NDArray,

@@ -17,7 +17,6 @@ from sklearn.impute import IterativeImputer, KNNImputer
 from sklearn.impute._base import _BaseImputer
 from statsmodels.tsa import seasonal as tsa_seasonal
 
-# from typing_extensions import Self
 from qolmat.imputations import em_sampler, softimpute
 from qolmat.imputations.rpca import rpca_noisy, rpca_pcp
 from qolmat.utils import utils
@@ -108,15 +107,15 @@ class _Imputer(_BaseImputer):
         if not isinstance(X, (pd.DataFrame)):
             raise NotDataFrame(type(X))
 
-    def _more_tags(self):
-        """Indicate this class allows inputs with categorical data and nans.
-
-        It modifies the behaviour of the functions checking data.
-        """
-        return {
-            "X_types": ["2darray", "categorical", "string"],
-            "allow_nan": True,
-        }
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        # tags.input_tags = InputTags(
+        #     two_d_array=True, categorical=True, string=True, allow_nan=True
+        # )
+        tags.input_tags.allow_nan = True
+        tags.target_tags.single_output = False
+        tags.non_deterministic = True
+        return tags
 
     def fit(self, X: pd.DataFrame, y: pd.DataFrame = None) -> "_Imputer":
         """Fit the imputer on X.
@@ -134,6 +133,12 @@ class _Imputer(_BaseImputer):
             Returns self.
 
         """
+        sku.validation.validate_data(
+            self,
+            X,
+            ensure_all_finite="allow-nan",
+            dtype=["float", "int", "string", "categorical", "object"],
+        )
         df = utils._validate_input(X)
         self.n_features_in_ = len(df.columns)
 
@@ -185,6 +190,13 @@ class _Imputer(_BaseImputer):
             Imputed dataframe.
 
         """
+        sku.validation.validate_data(
+            self,
+            X,
+            ensure_all_finite="allow-nan",
+            dtype=["float", "int", "string", "categorical", "object"],
+            reset=False,
+        )
         df = utils._validate_input(X)
         if tuple(df.columns) != self.columns_:
             raise ValueError(
@@ -488,6 +500,13 @@ class ImputerOracle(_Imputer):
             dataframe imputed with premasked values
 
         """
+        sku.validation.validate_data(
+            self,
+            X,
+            ensure_all_finite="allow-nan",
+            dtype=["float", "int", "string", "categorical", "object"],
+            reset=False,
+        )
         df = utils._validate_input(X)
 
         if tuple(df.columns) != self.columns_:
@@ -1905,7 +1924,7 @@ class ImputerRpcaNoisy(_Imputer):
 
 
 class ImputerSoftImpute(_Imputer):
-    """SoftIMpute imputer.
+    """SoftImpute imputer.
 
     This class implements the Soft Impute method:
     Hastie, Trevor, et al. Matrix completion and low-rank SVD via fast
@@ -1984,39 +2003,6 @@ class ImputerSoftImpute(_Imputer):
 
         return model
 
-    # def _fit_element(
-    #     self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
-    # ) -> softimpute.SoftImpute:
-    #     """
-    #     Fits the imputer on `df`, at the group and/or column level depending
-    #     on self.groups and self.columnwise.
-
-    #     Parameters
-    #     ----------
-    #     df : pd.DataFrame
-    #         Dataframe on which the imputer is fitted
-    #     col : str, optional
-    #         Column on which the imputer is fitted, by default "__all__"
-    #     ngroup : int, optional
-    #         Id of the group on which the method is applied
-
-    #     Returns
-    #     -------
-    #     Any
-    #         Return fitted SoftImpute model
-
-    #     Raises
-    #     ------
-    #     NotDataFrame
-    #         Input has to be a pandas.DataFrame.
-    #     """
-    #     self._check_dataframe(df)
-    #     assert col == "__all__"
-    #     hyperparams = self.get_hyperparams()
-    #     model = softimpute.SoftImpute(random_state=self._rng, **hyperparams)
-    #     model = model.fit(df.values)
-    #     return model
-
     def _transform_element(
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
     ) -> pd.DataFrame:
@@ -2066,18 +2052,6 @@ class ImputerSoftImpute(_Imputer):
         df_imputed = df.where(~df.isna(), df_imputed)
 
         return df_imputed
-
-    def _more_tags(self):
-        return {
-            "_xfail_checks": {
-                "check_fit2d_1sample": (
-                    "This test shouldn't be running at all!"
-                ),
-                "check_fit2d_1feature": (
-                    "This test shouldn't be running at all!"
-                ),
-            },
-        }
 
 
 class ImputerEM(_Imputer):

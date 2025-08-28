@@ -22,14 +22,14 @@
 .. toctree::
    :maxdepth: 2
    :hidden:
-   :caption: API
-
-   api
-
-.. toctree::
-   :maxdepth: 2
-   :hidden:
    :caption: ANALYSIS
 
    analysis
    examples/tutorials/plot_tuto_mcar
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+   :caption: API
+
+   api
