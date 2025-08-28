@@ -65,7 +65,7 @@ def columnwise_metric(
             f"({df1.columns} != {df2.columns})"
         )
     if type_cols == "all":
-        cols = df1.columns
+        cols = df1.columns.tolist()
     elif type_cols == "numerical":
         cols = utils._get_numerical_features(df1)
     elif type_cols == "categorical":
@@ -74,6 +74,8 @@ def columnwise_metric(
         raise ValueError(
             f"Value {type_cols} is not valid for parameter `type_cols`!"
         )
+    if cols == []:
+        raise ValueError(f"No column found for the type {type_cols}!")
     values = {}
     for col in cols:
         df1_col = df1.loc[df_mask[col], col]
@@ -510,6 +512,8 @@ def mean_difference_correlation_matrix_numerical_features(
     _check_same_number_columns(df1, df2)
 
     cols_numerical = utils._get_numerical_features(df1)
+    if cols_numerical == []:
+        raise Exception("No numerical feature found")
     df_corr1 = _get_correlation_pearson_matrix(
         df1[cols_numerical], use_p_value=use_p_value
     )
@@ -594,6 +598,8 @@ def mean_difference_correlation_matrix_categorical_features(
     _check_same_number_columns(df1, df2)
 
     cols_categorical = utils._get_categorical_features(df1)
+    if cols_categorical == []:
+        raise Exception("No categorical feature found")
     df_corr1 = _get_correlation_chi2_matrix(
         df1[cols_categorical], use_p_value=use_p_value
     )
@@ -681,7 +687,11 @@ def mean_diff_corr_matrix_categorical_vs_numerical_features(
     _check_same_number_columns(df1, df2)
 
     cols_categorical = utils._get_categorical_features(df1)
+    if cols_categorical == []:
+        raise Exception("No categorical feature found")
     cols_numerical = utils._get_numerical_features(df1)
+    if cols_numerical == []:
+        raise Exception("No numerical feature found")
     df_corr1 = _get_correlation_f_oneway_matrix(
         df1, cols_categorical, cols_numerical, use_p_value=use_p_value
     )
