@@ -21,6 +21,7 @@ from qolmat.imputations import em_sampler, softimpute
 from qolmat.imputations.rpca import rpca_noisy, rpca_pcp
 from qolmat.utils import utils
 from qolmat.utils.exceptions import NotDataFrame
+from qolmat.utils.utils import RandomSetting
 
 
 class _Imputer(_BaseImputer):
@@ -34,7 +35,7 @@ class _Imputer(_BaseImputer):
     shrink : bool, optional
         Indicates if the elementwise imputation method returns a single value,
         by default False
-    random_state : Union[None, int, np.random.RandomState], optional
+    random_state : RandomSetting, optional
         Controls the randomness of the fit_transform, by default None
     imputer_params: Tuple[str, ...]
         List of parameters of the imputer, which can be specified globally or
@@ -48,7 +49,7 @@ class _Imputer(_BaseImputer):
         self,
         columnwise: bool = False,
         shrink: bool = False,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         imputer_params: Tuple[str, ...] = (),
         groups: Tuple[str, ...] = (),
     ):
@@ -644,7 +645,7 @@ class ImputerShuffle(_Imputer):
     ----------
     groups: Tuple[str, ...]
         List of column names to group by, by default []
-    random_state : Union[None, int, np.random.RandomState], optional
+    random_state : RandomSetting, optional
         Determine the randomness of the imputer, by default None
 
     Examples
@@ -674,7 +675,7 @@ class ImputerShuffle(_Imputer):
     def __init__(
         self,
         groups: Tuple[str, ...] = (),
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
     ) -> None:
         super().__init__(
             groups=groups, columnwise=True, random_state=random_state
@@ -1273,7 +1274,7 @@ class ImputerMICE(_Imputer):
         specific groups for groupby, by default ()
     estimator : Optional[BaseEstimator], optional
         estimator to use, by default None
-    random_state : Union[None, int, np.random.RandomState], optional
+    random_state : RandomSetting, optional
         random state, by default None
     sample_posterior : bool, optional
         true if sample, false otherwise, by default False
@@ -1286,7 +1287,7 @@ class ImputerMICE(_Imputer):
         self,
         groups: Tuple[str, ...] = (),
         estimator: Optional[BaseEstimator] = None,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         sample_posterior=False,
         max_iter=100,
     ) -> None:
@@ -1397,7 +1398,7 @@ class ImputerRegressor(_Imputer):
         train dataset, and will not be used for the inference,
         - if `column` all non complete columns will be ignored.
         By default, `row`
-    random_state : Union[None, int, np.random.RandomState], optional
+    random_state : RandomSetting, optional
         Controls the randomness of the fit_transform, by default None
 
     Examples
@@ -1431,7 +1432,7 @@ class ImputerRegressor(_Imputer):
         groups: Tuple[str, ...] = (),
         estimator: Optional[BaseEstimator] = None,
         handler_nan: str = "row",
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
     ):
         super().__init__(
             imputer_params=imputer_params,
@@ -1613,7 +1614,7 @@ class ImputerRpcaPcp(_Imputer):
         each column into an array)
         or to be applied directly on the dataframe.
         By default, the value is set to False.
-    random_state : Union[None, int, np.random.RandomState], optional
+    random_state : RandomSetting, optional
         Controls the randomness of the fit_transform, by default None
 
     """
@@ -1622,7 +1623,7 @@ class ImputerRpcaPcp(_Imputer):
         self,
         groups: Tuple[str, ...] = (),
         columnwise: bool = False,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         period: int = 1,
         mu: Optional[float] = None,
         lam: Optional[float] = None,
@@ -1744,7 +1745,7 @@ class ImputerRpcaNoisy(_Imputer):
         each column into an array)
         or to be applied directly on the dataframe.
         By default, the value is set to False.
-    random_state : Union[None, int, np.random.RandomState], optional
+    random_state : RandomSetting, optional
         Controls the randomness of the fit_transform, by default None
 
     """
@@ -1753,7 +1754,7 @@ class ImputerRpcaNoisy(_Imputer):
         self,
         groups: Tuple[str, ...] = (),
         columnwise: bool = False,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         period: int = 1,
         mu: Optional[float] = None,
         rank: Optional[int] = None,
@@ -1943,7 +1944,7 @@ class ImputerSoftImpute(_Imputer):
         each column into an array)
         or to be applied directly on the dataframe.
         By default, the value is set to False.
-    random_state : Union[None, int, np.random.RandomState], optional
+    random_state : RandomSetting, optional
         Controls the randomness of the fit_transform, by default None
 
     """
@@ -1952,7 +1953,7 @@ class ImputerSoftImpute(_Imputer):
         self,
         groups: Tuple[str, ...] = (),
         columnwise: bool = False,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         period: int = 1,
         rank: Optional[int] = None,
         tolerance: float = 1e-05,
@@ -2077,7 +2078,7 @@ class ImputerEM(_Imputer):
         each value will be imputed by the mean up to a noise with fixed noise,
         for the VAR1 case the imputation will be a noisy temporal
         interpolation.
-    random_state : Union[None, int, np.random.RandomState], optional
+    random_state : RandomSetting, optional
         Controls the randomness of the fit_transform, by default None
 
     """
@@ -2087,7 +2088,7 @@ class ImputerEM(_Imputer):
         groups: Tuple[str, ...] = (),
         model: Optional[str] = "multinormal",
         columnwise: bool = False,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         method: Literal["mle", "sample"] = "sample",
         max_iter_em: int = 200,
         n_iter_ou: int = 50,

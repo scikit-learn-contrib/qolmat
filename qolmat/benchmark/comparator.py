@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 from joblib import Parallel, cpu_count, delayed
+from sklearn import utils as sku
 
 from qolmat.benchmark import hyperparameters, metrics
 from qolmat.benchmark.missing_patterns import _HoleGenerator
@@ -110,6 +111,12 @@ class Comparator:
             errors results
 
         """
+        self.generator_holes.random_state = sku.check_random_state(
+            self.generator_holes.random_state
+        )
+        self.generator_holes.save_rng_state()
+        for name, imputer in self.dict_imputers.items():
+            self.generator_holes.load_rng_state()
         _, df_mask, df_origin = split_data
         df_with_holes = df_origin.copy()
         df_with_holes[df_mask] = np.nan

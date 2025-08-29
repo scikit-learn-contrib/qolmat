@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from scipy.stats import norm
+from sklearn import utils as sku
 
 from qolmat.analysis.holes_characterization import LittleTest, PKLMTest
 from qolmat.benchmark.missing_patterns import UniformHoleGenerator
@@ -12,7 +13,7 @@ from qolmat.imputations.imputers import ImputerEM
 
 @pytest.fixture
 def mcar_df() -> pd.DataFrame:
-    rng = np.random.default_rng(42)
+    rng = sku.check_random_state(42)
     matrix = rng.multivariate_normal(
         mean=[0, 0], cov=[[1, 0], [0, 1]], size=200
     )
@@ -26,7 +27,7 @@ def mcar_df() -> pd.DataFrame:
 
 @pytest.fixture
 def mar_hm_df() -> pd.DataFrame:
-    rng = np.random.default_rng(42)
+    rng = sku.check_random_state(42)
     matrix = rng.multivariate_normal(
         mean=[0, 0], cov=[[1, 0], [0, 1]], size=200
     )
@@ -42,7 +43,7 @@ def mar_hm_df() -> pd.DataFrame:
 
 @pytest.fixture
 def mar_hc_df() -> pd.DataFrame:
-    rng = np.random.default_rng(42)
+    rng = sku.check_random_state(42)
     matrix = rng.multivariate_normal(
         mean=[0, 0], cov=[[1, 0], [0, 1]], size=200
     )
@@ -88,7 +89,7 @@ def supported_multitypes_dataframe() -> pd.DataFrame:
 
 @pytest.fixture
 def np_matrix_with_nan_mcar() -> np.ndarray:
-    rng = np.random.default_rng(42)
+    rng = sku.check_random_state(42)
     n_rows, n_cols = 10, 4
     matrix = rng.normal(size=(n_rows, n_cols))
     num_nan = int(n_rows * n_cols * 0.40)
@@ -104,7 +105,7 @@ def missingness_matrix_mcar(np_matrix_with_nan_mcar):
 
 @pytest.fixture
 def missingness_matrix_mcar_perm(missingness_matrix_mcar):
-    rng = np.random.default_rng(42)
+    rng = sku.check_random_state(42)
     return rng.permutation(missingness_matrix_mcar)
 
 

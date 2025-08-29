@@ -13,18 +13,19 @@ from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
+from sklearn import utils as sku
 
 from qolmat.analysis.holes_characterization import LittleTest, PKLMTest
 from qolmat.benchmark.missing_patterns import UniformHoleGenerator
 
 plt.rcParams.update({"font.size": 12})
-
+seed = 1234
+rng = sku.check_random_state(seed)
 
 # %%
 # Generating random data
 # ----------------------
 
-rng = np.random.RandomState(42)
 data = rng.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]], size=200)
 df = pd.DataFrame(data=data, columns=["Column 1", "Column 2"])
 

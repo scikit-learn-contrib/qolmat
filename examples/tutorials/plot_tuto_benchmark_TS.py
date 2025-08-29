@@ -25,6 +25,10 @@ from sklearn.linear_model import LinearRegression
 from qolmat.benchmark import comparator, missing_patterns
 from qolmat.imputations import imputers
 from qolmat.utils import data, plot
+from sklearn import utils as sku
+
+seed = 1234
+rng = sku.check_random_state(seed)
 
 # %%
 # 1. Data
@@ -96,6 +100,7 @@ imputer_tsou = imputers.ImputerEM(
     n_iter_ou=15,
     dt=1e-3,
     p=1,
+    random_state=rng
 )
 imputer_mice = imputers.ImputerMICE(
     groups=("station",),
@@ -109,6 +114,7 @@ generator_holes = missing_patterns.EmpiricalHoleGenerator(
     groups=("station",),
     subset=cols_to_impute,
     ratio_masked=ratio_masked,
+    random_state=rng
 )
 
 dict_imputers = {

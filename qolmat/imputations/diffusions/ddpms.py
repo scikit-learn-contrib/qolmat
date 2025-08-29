@@ -3,7 +3,7 @@
 import logging
 import time
 from datetime import timedelta
-from typing import Any, Callable, Dict, List, Tuple, Union
+from typing import Any, Callable, Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -20,6 +20,7 @@ from qolmat.imputations.diffusions.base import (
     ResidualBlock,
     ResidualBlockTS,
 )
+from qolmat.utils.utils import RandomSetting
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s %(message)s",
@@ -52,7 +53,7 @@ class TabDDPM:
         p_dropout: float = 0.0,
         num_sampling: int = 1,
         is_clip: bool = True,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
     ):
         """Init function.
 
@@ -667,7 +668,7 @@ class TsDDPM(TabDDPM):
         p_dropout: float = 0.0,
         num_sampling: int = 1,
         is_rolling: bool = False,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
     ):
         """Init function.
 
@@ -893,7 +894,7 @@ class TsDDPM(TabDDPM):
         x_windows_mask_processed = []
         self.size_window = np.max([w.shape[0] for w in x_windows])
         for x_w in x_windows:
-            x_w_fillna = x_w.fillna(method="bfill")
+            x_w_fillna = x_w.bfill()
             x_w_fillna = x_w_fillna.fillna(x.mean())
             x_w_norm = self.normalizer_x.transform(x_w_fillna.values)
             x_w_mask = ~x_w.isna().to_numpy()

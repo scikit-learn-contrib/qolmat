@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 
 from qolmat.benchmark import missing_patterns
+from qolmat.utils.utils import RandomSetting
 
 CURRENT_DIR = os.path.abspath(os.path.dirname(__file__))
 ROOT_DIR = os.path.join(CURRENT_DIR, "..")
@@ -362,7 +363,10 @@ def preprocess_data_beijing(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_holes(
-    df: pd.DataFrame, ratio_masked: float, mean_size: int
+    df: pd.DataFrame,
+    ratio_masked: float,
+    mean_size: int,
+    random_state: RandomSetting = None,
 ) -> pd.DataFrame:
     """Create holes in a dataset with no missing value, starting from `df`.
 
@@ -372,12 +376,12 @@ def add_holes(
     ----------
     df : pd.DataFrame
         dataframe no missing values
-
     mean_size : int
         Targeted mean size of the holes to add
-
     ratio_masked : float
         Targeted global proportion of nans added in the returned dataset
+    random_state: RandomSetting
+        Random state for reproducibility
 
     Returns
     -------
@@ -388,11 +392,18 @@ def add_holes(
     groups = df.index.names.difference(["datetime", "date", "index", None])
     if groups != []:
         generator = missing_patterns.GeometricHoleGenerator(
-            1, ratio_masked=ratio_masked, subset=df.columns, groups=groups
+            1,
+            ratio_masked=ratio_masked,
+            subset=df.columns,
+            random_state=random_state,
+            groups=groups,
         )
     else:
         generator = missing_patterns.GeometricHoleGenerator(
-            1, ratio_masked=ratio_masked, subset=df.columns
+            1,
+            ratio_masked=ratio_masked,
+            subset=df.columns,
+            random_state=random_state,
         )
 
     generator.dict_probas_out = {
@@ -417,6 +428,7 @@ def get_data_corrupted(
     name_data: str = "Beijing",
     mean_size: int = 90,
     ratio_masked: float = 0.2,
+    random_state: RandomSetting = None,
 ) -> pd.DataFrame:
     """Corrupt data.
 
@@ -431,6 +443,8 @@ def get_data_corrupted(
         Mean size of the holes to be generated using a geometric law
     ratio_masked: float
         Percent of missing data in each column in the output dataframe
+    random_state: RandomSetting
+        Random state for reproducibility
 
     Returns
     -------
@@ -439,7 +453,12 @@ def get_data_corrupted(
 
     """
     df = get_data(name_data)
-    df = add_holes(df, mean_size=mean_size, ratio_masked=ratio_masked)
+    df = add_holes(
+        df,
+        mean_size=mean_size,
+        ratio_masked=ratio_masked,
+        random_state=random_state,
+    )
     return df
 
 

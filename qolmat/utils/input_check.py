@@ -1,4 +1,5 @@
 """Util file for input checks."""
+
 import pandas as pd
 
 from qolmat.utils.exceptions import TypeNotHandled

@@ -9,11 +9,14 @@ import logging
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from sklearn import utils as sku
 
 from qolmat.benchmark import comparator, missing_patterns
-from qolmat.imputations.diffusions.ddpms import TabDDPM, TsDDPM
 from qolmat.imputations.imputers_pytorch import ImputerDiffusion
 from qolmat.utils import data
+
+seed = 1234
+rng = sku.check_random_state(seed)
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s %(message)s",
@@ -31,7 +34,7 @@ logging.basicConfig(
 # For this tutorial, we only use a small subset of this data
 # 1000 rows and 2 features (TEMP, PRES).
 
-df_data = data.get_data_corrupted("Beijing")
+df_data = data.get_data_corrupted("Beijing", random_state=rng)
 df_data = df_data[["TEMP", "PRES"]].iloc[:1000]
 df_data.index = df_data.index.set_levels(
     [df_data.index.levels[0], pd.to_datetime(df_data.index.levels[1])]
@@ -75,6 +78,7 @@ tabddpm = ImputerDiffusion(
     batch_size=100,
     x_valid=df_data_valid,
     print_valid=True,
+    random_state=rng,
 )
 tabddpm = tabddpm.fit(df_data)
 
@@ -159,19 +163,19 @@ plt.show()
 # reconstruction errors (mae) but increases distribution distance (kl_columnwise).
 
 dict_imputers = {
-    "num_sampling=5": ImputerDiffusion(epochs=10, batch_size=100, num_sampling=5),
-    "num_sampling=10": ImputerDiffusion(epochs=10, batch_size=100, num_sampling=10),
+    "num_sampling=5": ImputerDiffusion(epochs=10, batch_size=100, num_sampling=5, random_state=rng),
+    "num_sampling=10": ImputerDiffusion(epochs=10, batch_size=100, num_sampling=10, random_state=rng),
 }
 
 comparison = comparator.Comparator(
     dict_imputers,
     selected_columns=df_data.columns,
-    generator_holes=missing_patterns.UniformHoleGenerator(n_splits=2),
+    generator_holes=missing_patterns.UniformHoleGenerator(n_splits=2, random_state=rng),
     metrics=["mae", "kl_columnwise"],
 )
 results = comparison.compare(df_data)
 
-results.groupby(axis=0, level=0).mean().groupby(axis=0, level=0).mean()
+results.groupby(level=0).mean().groupby(level=0).mean()
 
 # %%
 # 4. Hyperparameters for TsDDPM
@@ -205,7 +209,7 @@ results.groupby(axis=0, level=0).mean().groupby(axis=0, level=0).mean()
 #   but requires a longer training/inference time.
 
 dict_imputers = {
-    "tabddpm": ImputerDiffusion(model="TabDDPM", epochs=10, batch_size=100, num_sampling=5
+    "tabddpm": ImputerDiffusion(model="TabDDPM", epochs=10, batch_size=100, num_sampling=5, random_state=rng
     ),
     "tsddpm": ImputerDiffusion(
         model="TsDDPM",
@@ -214,19 +218,19 @@ dict_imputers = {
         index_datetime="date",
         freq_str="5D",
         num_sampling=5,
-        is_rolling=False
+        is_rolling=False, random_state=rng
     ),
 }
 
 comparison = comparator.Comparator(
     dict_imputers,
     selected_columns=df_data.columns,
-    generator_holes=missing_patterns.UniformHoleGenerator(n_splits=2),
+    generator_holes=missing_patterns.UniformHoleGenerator(n_splits=2, random_state=rng),
     metrics=["mae", "kl_columnwise"],
 )
 results = comparison.compare(df_data)
 
-results.groupby(axis=0, level=0).mean().groupby(axis=0, level=0).mean()
+results.groupby(level=0).mean().groupby(level=0).mean()
 
 # %%
 # [1] Ho, Jonathan, Ajay Jain, and Pieter Abbeel. `Denoising diffusion probabilistic models.

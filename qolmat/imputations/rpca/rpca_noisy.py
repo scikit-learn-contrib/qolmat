@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import scipy as scp
@@ -15,6 +15,7 @@ from sklearn import utils as sku
 from qolmat.imputations.rpca import rpca_utils
 from qolmat.imputations.rpca.rpca import RPCA
 from qolmat.utils import utils
+from qolmat.utils.utils import RandomSetting
 
 
 class RpcaNoisy(RPCA):
@@ -63,7 +64,7 @@ class RpcaNoisy(RPCA):
 
     def __init__(
         self,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         rank: Optional[int] = None,
         mu: Optional[float] = None,
         tau: Optional[float] = None,

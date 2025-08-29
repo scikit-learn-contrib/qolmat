@@ -5,6 +5,7 @@ import pytest
 import scipy
 from numpy.typing import NDArray
 from scipy import linalg
+from sklearn import utils as sku
 from sklearn.datasets import make_spd_matrix
 
 from qolmat.imputations import em_sampler
@@ -31,8 +32,8 @@ mask: NDArray = np.isnan(X_missing)
 
 # @pytest.fixture
 def generate_multinormal_predefined_mean_cov(d=3, n=500):
-    rng = np.random.default_rng(42)
-    seed = rng.integers(np.iinfo(np.int32).max)
+    rng = sku.check_random_state(42)
+    seed = rng.randint(np.iinfo(np.int32).max)
     random_state = np.random.RandomState(seed=seed)
     mean = np.array([rng.uniform(low=0, high=d) for _ in range(d)])
     covariance = make_spd_matrix(n_dim=d, random_state=random_state)
@@ -51,7 +52,7 @@ def generate_multinormal_predefined_mean_cov(d=3, n=500):
 
 
 def get_matrix_B(d, p, eigmax=1):
-    rng = np.random.default_rng(42)
+    rng = sku.check_random_state(42)
     B = rng.normal(0, 1, size=(d * p + 1, d))
     U, S, Vt = linalg.svd(B, check_finite=False, full_matrices=False)
     S = rng.uniform(0, eigmax, size=d)
@@ -60,8 +61,8 @@ def get_matrix_B(d, p, eigmax=1):
 
 
 def generate_varp_process(d=3, n=10000, p=1):
-    rng = np.random.default_rng(42)
-    seed = rng.integers(np.iinfo(np.int32).max)
+    rng = sku.check_random_state(42)
+    seed = rng.randint(np.iinfo(np.int32).max)
     random_state = np.random.RandomState(seed=seed)
     B = get_matrix_B(d, p, eigmax=0.9)
     nu = B[0, :]
@@ -434,7 +435,7 @@ def test_gradient_X_loglik(em: em_sampler.EM, p: int):
     d = 3
     X, _, _, _ = generate_varp_process(d=d, n=10, p=p)
     em.fit_parameters(X)
-    rng = np.random.default_rng(42)
+    rng = sku.check_random_state(42)
     X0 = rng.uniform(0, 10, size=X.shape)
     # X0 = X
     loglik = em.get_loglikelihood(X0)

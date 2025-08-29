@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import warnings
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple
 
 import numpy as np
 from numpy.typing import NDArray
@@ -13,6 +13,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 
 from qolmat.imputations.rpca import rpca_utils
 from qolmat.utils import utils
+from qolmat.utils.utils import RandomSetting
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s %(message)s",
@@ -75,7 +76,7 @@ class SoftImpute(BaseEstimator, TransformerMixin):
         tolerance: float = 1e-05,
         tau: Optional[float] = None,
         max_iterations: int = 100,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         verbose: bool = False,
     ):
         self.period = period
