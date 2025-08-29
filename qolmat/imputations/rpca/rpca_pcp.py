@@ -8,6 +8,7 @@ from typing import Optional, Tuple
 import numpy as np
 from numpy.typing import NDArray
 from sklearn import utils as sku
+from tqdm import tqdm
 
 from qolmat.imputations.rpca import rpca_utils
 from qolmat.imputations.rpca.rpca import RPCA
@@ -125,7 +126,9 @@ class RpcaPcp(RPCA):
         errors: NDArray = np.full((self.max_iterations,), fill_value=np.nan)
 
         M: NDArray = D - A
-        for iteration in range(self.max_iterations):
+        for iteration in tqdm(
+            range(self.max_iterations), desc="RPCA PCP decomposition"
+        ):
             M = rpca_utils.svd_thresholding(D - A + Y / mu, 1 / mu)
             A = rpca_utils.soft_thresholding(D - M + Y / mu, lam / mu)
             A[~Omega] = (D - M)[~Omega]

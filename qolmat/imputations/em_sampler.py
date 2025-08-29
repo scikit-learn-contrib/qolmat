@@ -11,6 +11,7 @@ from scipy import linalg as spl
 from scipy import optimize as spo
 from sklearn import utils as sku
 from sklearn.base import BaseEstimator, TransformerMixin
+from tqdm import tqdm
 
 from qolmat.utils import utils
 from qolmat.utils.utils import RandomSetting
@@ -433,7 +434,9 @@ class EM(BaseEstimator, TransformerMixin):
 
         X = self._maximize_likelihood(X_imp, mask_na)
 
-        for iter_em in range(self.max_iter_em):
+        for iter_em in tqdm(
+            range(self.max_iter_em), desc="EM parameters estimation"
+        ):
             X = self._sample_ou(X, mask_na)
 
             self.combine_parameters()

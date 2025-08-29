@@ -11,6 +11,7 @@ from numpy.typing import NDArray
 from scipy.sparse import dok_matrix, identity
 from scipy.sparse.linalg import spsolve
 from sklearn import utils as sku
+from tqdm import tqdm
 
 from qolmat.imputations.rpca import rpca_utils
 from qolmat.imputations.rpca.rpca import RPCA
@@ -311,7 +312,9 @@ class RpcaNoisy(RPCA):
         Ir = np.eye(rank)
         In = identity(n_rows)
 
-        for _ in range(max_iterations):
+        for _ in tqdm(
+            range(max_iterations), desc="Noisy RPCA loss minimization"
+        ):
             M_temp = M.copy()
             A_temp = A.copy()
             L_temp = L.copy()
