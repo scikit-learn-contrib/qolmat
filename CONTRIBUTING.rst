@@ -29,14 +29,11 @@ You can create a virtual environment via `conda`:
 
 .. code:: sh
 
-    $ conda env create -f environment.dev.yml
-    $ conda activate env_qolmat_dev
-
-If you need to use pytorch, enter the command:
-
-.. code:: sh
-
-    $ pip install -e .[pytorch]
+    $ pip install poetry
+    $ poetry config virtualenvs.in-project true
+    $ poetry lock
+    $ poetry install
+    $ poetry shell
 
 Once the environment is installed, pre-commit is installed, but need to be activated using the following command:
 
@@ -78,7 +75,7 @@ These tests absolutely have to pass.
 
 .. code:: sh
 
-    $ mypy qolmat
+    $ make check-types
 
 Unit test
 ^^^^^^^^^
@@ -88,4 +85,4 @@ The coverage should on new features must be above 95%.
 
 .. code:: sh
 
-    $ pytest -vs --cov-branch --cov=qolmat --pyargs tests --cov-report term-missing
+    $ make check-coverage

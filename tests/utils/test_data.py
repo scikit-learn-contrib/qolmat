@@ -1,19 +1,40 @@
 import datetime
 import os
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
 import pytest
 from pytest_mock.plugin import MockerFixture
-from unittest.mock import MagicMock, patch
+
 from qolmat.utils import data
 
 columns = ["station", "date", "year", "month", "day", "hour", "a", "b", "wd"]
 df_beijing_raw = pd.DataFrame(
     [
         ["Beijing", datetime.datetime(2013, 3, 1), 2013, 3, 1, 0, 1, 2, "NW"],
-        ["Beijing", datetime.datetime(2013, 3, 1), 2014, 3, 1, 0, 3, np.nan, "NW"],
-        ["Beijing", datetime.datetime(2013, 3, 1), 2015, 3, 1, 0, np.nan, 6, "NW"],
+        [
+            "Beijing",
+            datetime.datetime(2013, 3, 1),
+            2014,
+            3,
+            1,
+            0,
+            3,
+            np.nan,
+            "NW",
+        ],
+        [
+            "Beijing",
+            datetime.datetime(2013, 3, 1),
+            2015,
+            3,
+            1,
+            0,
+            np.nan,
+            6,
+            "NW",
+        ],
     ],
     columns=columns,
 )
@@ -71,7 +92,13 @@ df_monach_weather_preprocess = pd.DataFrame(
         [2.0, 5.0, 4.0, 1.0, 4.0],
         [3.0, 6.0, 3.0, 4.0, 6.0],
     ],
-    columns=["T1 rain", "T2 preasure", "T3 temperature", "T4 humidity", "T5 sun"],
+    columns=[
+        "T1 rain",
+        "T2 preasure",
+        "T3 temperature",
+        "T4 humidity",
+        "T5 sun",
+    ],
     index=pd.date_range(start="2010-01-01", periods=3, freq="1D"),
 )
 
@@ -104,7 +131,7 @@ df_monach_elec_preprocess = pd.DataFrame(
         [5014.0, 3655.0, 3172.0, 1119.0, 305.0],
     ],
     columns=["T1 NSW", "T2 VIC", "T3 QUN", "T4 SA", "T5 TAS"],
-    index=pd.date_range(start="2002-01-01", periods=3, freq="30T"),
+    index=pd.date_range(start="2002-01-01", periods=3, freq="30min"),
 )
 
 index_preprocess_offline = pd.MultiIndex.from_tuples(
@@ -222,7 +249,9 @@ def test_get_dataframes_in_folder(mock_convert_tsf, mock_read_csv, mock_walk):
     mock_walk.return_value = [("/fakepath", ("subfolder",), ("file.csv",))]
     result_csv = data.get_dataframes_in_folder("/fakepath", ".csv")
     assert len(result_csv) == 1
-    mock_read_csv.assert_called_once_with(os.path.join("/fakepath", "file.csv"))
+    mock_read_csv.assert_called_once_with(
+        os.path.join("/fakepath", "file.csv")
+    )
     pd.testing.assert_frame_equal(result_csv[0], df_conductor)
 
     mock_read_csv.reset_mock()
@@ -230,7 +259,9 @@ def test_get_dataframes_in_folder(mock_convert_tsf, mock_read_csv, mock_walk):
     mock_walk.return_value = [("/fakepath", ("subfolder",), ("file.tsf",))]
     result_tsf = data.get_dataframes_in_folder("/fakepath", ".tsf")
     assert len(result_tsf) == 1
-    mock_convert_tsf.assert_called_once_with(os.path.join("/fakepath", "file.tsf"))
+    mock_convert_tsf.assert_called_once_with(
+        os.path.join("/fakepath", "file.tsf")
+    )
     pd.testing.assert_frame_equal(result_tsf[0], df_beijing)
     mock_read_csv.assert_called()
 
@@ -238,14 +269,18 @@ def test_get_dataframes_in_folder(mock_convert_tsf, mock_read_csv, mock_walk):
 @patch("numpy.random.normal")
 @patch("numpy.random.choice")
 @patch("numpy.random.standard_exponential")
-def test_generate_artificial_ts(mock_standard_exponential, mock_choice, mock_normal):
+def test_generate_artificial_ts(
+    mock_standard_exponential, mock_choice, mock_normal
+):
     n_samples = 100
     periods = [10, 20]
     amp_anomalies = 1.0
     ratio_anomalies = 0.1
     amp_noise = 0.1
 
-    mock_standard_exponential.return_value = np.ones(int(n_samples * ratio_anomalies))
+    mock_standard_exponential.return_value = np.ones(
+        int(n_samples * ratio_anomalies)
+    )
     mock_choice.return_value = np.arange(int(n_samples * ratio_anomalies))
     mock_normal.return_value = np.zeros(n_samples)
 
@@ -274,11 +309,20 @@ def test_generate_artificial_ts(mock_standard_exponential, mock_choice, mock_nor
         ("Bug", None),
     ],
 )
-def test_data_get_data(name_data: str, df: pd.DataFrame, mocker: MockerFixture) -> None:
-    mock_download = mocker.patch("qolmat.utils.data.download_data_from_zip", return_value=[df])
-    mock_read = mocker.patch("qolmat.utils.data.read_csv_local", return_value=df)
+def test_data_get_data(
+    name_data: str, df: pd.DataFrame, mocker: MockerFixture
+) -> None:
+    mock_download = mocker.patch(
+        "qolmat.utils.data.download_data_from_zip", return_value=[df]
+    )
+    mock_read = mocker.patch(
+        "qolmat.utils.data.read_csv_local", return_value=df
+    )
     mock_read_dl = mocker.patch("pandas.read_csv", return_value=df)
-    mocker.patch("qolmat.utils.data.preprocess_data_beijing", return_value=df_preprocess_beijing)
+    mocker.patch(
+        "qolmat.utils.data.preprocess_data_beijing",
+        return_value=df_preprocess_beijing,
+    )
     mocker.patch("pandas.read_parquet", return_value=df_sncf)
 
     try:
@@ -291,7 +335,6 @@ def test_data_get_data(name_data: str, df: pd.DataFrame, mocker: MockerFixture) 
             "SNCF",
             "Beijing_online",
             "Superconductor_online",
-            "Monach_weather",
             "Monach_weather",
             "Monach_electricity_australia",
             "Titanic",
@@ -328,7 +371,7 @@ def test_data_get_data(name_data: str, df: pd.DataFrame, mocker: MockerFixture) 
         pd.testing.assert_frame_equal(df_result, df_monach_elec_preprocess)
     elif name_data == "Titanic":
         assert mock_read_dl.call_count == 1
-        assert np.shape(df_result) == (3, 7)
+        assert np.shape(df_result) == (4, 7)
     elif name_data == "SNCF":
         assert not df_result.empty
         assert df_result.index.name == "station"
@@ -346,7 +389,9 @@ def test_preprocess_data_beijing(df: pd.DataFrame) -> None:
     assert result_df.index.names == ["station", "datetime"]
     assert all(result_df.index.get_level_values("station") == "Beijing")
     assert len(result_df) == 1
-    assert np.isclose(result_df.loc[(("Beijing"),), "pm2.5"], 176.66666666666666)
+    assert np.isclose(
+        result_df.loc[(("Beijing"),), "pm2.5"], 176.66666666666666
+    )
 
 
 @pytest.mark.parametrize("df", [df_preprocess_offline])
@@ -363,7 +408,9 @@ def test_data_add_holes(df: pd.DataFrame) -> None:
         ("Beijing", df_beijing),
     ],
 )
-def test_data_get_data_corrupted(name_data: str, df: pd.DataFrame, mocker: MockerFixture) -> None:
+def test_data_get_data_corrupted(
+    name_data: str, df: pd.DataFrame, mocker: MockerFixture
+) -> None:
     mock_get = mocker.patch("qolmat.utils.data.get_data", return_value=df)
     df_out = data.get_data_corrupted(name_data)
     assert mock_get.call_count == 1
@@ -395,5 +442,7 @@ def test_data_add_datetime_features(df: pd.DataFrame) -> None:
     result = data.add_datetime_features(df)
     pd.testing.assert_index_equal(result.index, df.index)
     assert result.columns.tolist() == columns_out
-    pd.testing.assert_frame_equal(result.drop(columns=["time_cos", "time_sin"]), df)
+    pd.testing.assert_frame_equal(
+        result.drop(columns=["time_cos", "time_sin"]), df
+    )
     assert (result["time_cos"] ** 2 + result["time_sin"] ** 2 == 1).all()

@@ -1,5 +1,4 @@
-"""
-==============================
+"""==============================
 Benchmark for categorical data
 ==============================
 
@@ -8,13 +7,16 @@ We benchmark these methods on the Titanic Data Set.
 It comprehends passengers features as well as if they survived the accident.
 """
 
-from qolmat.imputations import preprocessing, imputers
+from sklearn.pipeline import Pipeline
+from sklearn import utils as sku
+
+from qolmat.benchmark import comparator, missing_patterns
+from qolmat.imputations import imputers, preprocessing
 from qolmat.imputations.imputers import ImputerRegressor
-from qolmat.benchmark import missing_patterns
-from qolmat.benchmark import comparator
 from qolmat.utils import data
 
-from sklearn.pipeline import Pipeline
+seed = 1234
+rng = sku.check_random_state(seed)
 
 # %%
 # 1. Titanic dataset
@@ -41,7 +43,7 @@ imputer_simple = imputers.ImputerSimple()
 
 cols_num = df.select_dtypes(include="number").columns
 cols_cat = df.select_dtypes(exclude="number").columns
-imputer_rpca = imputers.ImputerRpcaNoisy()
+imputer_rpca = imputers.ImputerRpcaNoisy(random_state=rng)
 ohe = preprocessing.OneHotEncoderProjector(
     handle_unknown="ignore",
     handle_missing="return_nan",
@@ -60,7 +62,7 @@ imputer_wrap_rpca = preprocessing.WrapperTransformer(imputer_rpca, wrapper)
 # - manage missing features (native to the HistGradientBoosting)
 
 pipestimator = preprocessing.make_robust_MixteHGB(avoid_new=True)
-imputer_hgb = ImputerRegressor(estimator=pipestimator, handler_nan="none")
+imputer_hgb = ImputerRegressor(estimator=pipestimator, handler_nan="none", random_state=rng)
 imputer_wrap_hgb = preprocessing.WrapperTransformer(imputer_hgb, bt)
 
 # %%
@@ -81,6 +83,7 @@ generator_holes = missing_patterns.UniformHoleGenerator(
     subset=cols_to_impute,
     ratio_masked=ratio_masked,
     sample_proportional=False,
+    random_state=rng
 )
 metrics = ["rmse", "accuracy"]
 

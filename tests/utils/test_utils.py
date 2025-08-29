@@ -1,20 +1,21 @@
 import sys
-import numpy as np
-from numpy.typing import NDArray
-import pandas as pd
-import pytest
-from qolmat.utils import utils
-from pytest_mock.plugin import MockerFixture
 from io import StringIO
 
-from qolmat.utils.exceptions import NotDimension2, SignalTooShort
+import numpy as np
+import pandas as pd
+import pytest
+from numpy.typing import NDArray
 
+from qolmat.utils import utils
+from qolmat.utils.exceptions import NotDimension2
 
 df = pd.DataFrame({"A": [1, 2, 3], "B": [4, 5, 6], "C": [7, 8, 9]})
 
 
 @pytest.mark.parametrize("iteration, total", [(1, 1)])
-def test_utils_utils_display_progress_bar(iteration: int, total: int, capsys) -> None:
+def test_utils_utils_display_progress_bar(
+    iteration: int, total: int, capsys
+) -> None:
     captured_output = StringIO()
     sys.stdout = captured_output
     utils.progress_bar(
@@ -34,7 +35,9 @@ def test_utils_utils_display_progress_bar(iteration: int, total: int, capsys) ->
     assert output == output_expected
 
 
-@pytest.mark.parametrize("values, lag_max", [(pd.Series([1.0, 2.0, 3.0, 4.0, 5.0]), 3)])
+@pytest.mark.parametrize(
+    "values, lag_max", [(pd.Series([1.0, 2.0, 3.0, 4.0, 5.0]), 3)]
+)
 def test_utils_utils_acf(values, lag_max):
     result = utils.acf(values, lag_max)
     result_expected = pd.Series([1.0, 1.0, 1.0])

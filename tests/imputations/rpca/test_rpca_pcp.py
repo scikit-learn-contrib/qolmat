@@ -85,6 +85,7 @@ def test_rpca_rpca_pcp_get_params_scale(X: NDArray):
 @pytest.mark.parametrize("X, mu", [(X_complete, small_mu)])
 def test_rpca_rpca_pcp_zero_lambda_small_mu(X: NDArray, mu: float):
     """Test RPCA PCP results if lambda equals zero.
+
     The problem is ill-conditioned and the result depends
     on the parameter mu; case when mu is small.
     """
@@ -98,6 +99,7 @@ def test_rpca_rpca_pcp_zero_lambda_small_mu(X: NDArray, mu: float):
 @pytest.mark.parametrize("X, mu", [(X_complete, large_mu)])
 def test_rpca_rpca_pcp_zero_lambda_large_mu(X: NDArray, mu: float):
     """Test RPCA PCP results if lambda equals zero.
+
     The problem is ill-conditioned and the result depends
     on the parameter mu; case when mu is large.
     """
@@ -120,7 +122,9 @@ def test_rpca_rpca_pcp_large_lambda_small_mu(X: NDArray, mu: float):
 
 def test_rpca_temporal_signal(synthetic_temporal_data):
     """Test RPCA PCP results for time series data.
-    Check if the cost function is smaller at the end than at the start."""
+
+    Check if the cost function is smaller at the end than at the start.
+    """
     signal = synthetic_temporal_data
     period = 100
     lam = 0.1
@@ -130,6 +134,6 @@ def test_rpca_temporal_signal(synthetic_temporal_data):
     Omega = ~np.isnan(D)
     D_interpolated = utils.linear_interpolation(D)
     X_result, A_result = rpca.decompose(D, Omega)
-    assert np.linalg.norm(D_interpolated, "nuc") >= np.linalg.norm(X_result, "nuc") + lam * np.sum(
-        np.abs(A_result)
-    )
+    assert np.linalg.norm(D_interpolated, "nuc") >= np.linalg.norm(
+        X_result, "nuc"
+    ) + lam * np.sum(np.abs(A_result))

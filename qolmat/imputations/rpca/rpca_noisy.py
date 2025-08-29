@@ -1,38 +1,41 @@
+"""Script for an the noisy RPCA."""
+
 from __future__ import annotations
 
 import warnings
-from typing import Dict, List, Optional, Tuple, TypeVar, Union
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import scipy as scp
+from numpy.typing import NDArray
 from scipy.sparse import dok_matrix, identity
 from scipy.sparse.linalg import spsolve
-from numpy.typing import NDArray
 from sklearn import utils as sku
 
 from qolmat.imputations.rpca import rpca_utils
 from qolmat.imputations.rpca.rpca import RPCA
 from qolmat.utils import utils
+from qolmat.utils.utils import RandomSetting
 
 
 class RpcaNoisy(RPCA):
-    """
-    This class implements a noisy version of the so-called 'improved RPCA'
+    """Clas for a noisy version of the so-called 'improved RPCA'.
 
     References
     ----------
-    Wang, Xuehui, et al. "An improved robust principal component analysis model for anomalies
-    detection of subway passenger flow."
+    Wang, Xuehui, et al. "An improved robust principal component analysis model
+    for anomalies detection of subway passenger flow."
     Journal of advanced transportation (2018).
 
-    Chen, Yuxin, et al. "Bridging convex and nonconvex optimization in robust PCA: Noise, outliers
-    and missing data."
+    Chen, Yuxin, et al. "Bridging convex and nonconvex optimization
+    in robust PCA: Noise, outliers and missing data."
     The Annals of Statistics 49.5 (2021): 2948-2971.
 
     Parameters
     ----------
     random_state : int, optional
-        The seed of the pseudo random number generator to use, for reproductibility.
+        The seed of the pseudo random number generator to use,
+        for reproductibility.
     rank: Optional[int]
         Upper bound of the rank to be estimated
     mu: Optional[float]
@@ -44,21 +47,24 @@ class RpcaNoisy(RPCA):
     list_periods: Optional[List[int]]
         list of periods, linked to the Toeplitz matrices
     list_etas: Optional[List[float]]
-        list of penalizing parameters for the corresponding period in list_periods
+        list of penalizing parameters for the corresponding period
+        in list_periods
     max_iterations: Optional[int]
-        stopping criteria, maximum number of iterations. By default, the value is set to 10_000
+        stopping criteria, maximum number of iterations.
+        By default, the value is set to 10_000
     tolerance: Optional[float]
-        stoppign critera, minimum difference between 2 consecutive iterations. By default,
-        the value is set to 1e-6
+        stoppign critera, minimum difference between 2 consecutive iterations.
+        By default, the value is set to 1e-6
     norm: Optional[str]
         error norm, can be "L1" or "L2". By default, the value is set to "L2"
     verbose: Optional[bool]
         verbosity level, if False the warnings are silenced
+
     """
 
     def __init__(
         self,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         rank: Optional[int] = None,
         mu: Optional[float] = None,
         tau: Optional[float] = None,
@@ -70,7 +76,9 @@ class RpcaNoisy(RPCA):
         norm: str = "L2",
         verbose: bool = True,
     ) -> None:
-        super().__init__(max_iterations=max_iterations, tolerance=tolerance, verbose=verbose)
+        super().__init__(
+            max_iterations=max_iterations, tolerance=tolerance, verbose=verbose
+        )
         self.rng = sku.check_random_state(random_state)
         self.rank = rank
         self.mu = mu
@@ -81,8 +89,7 @@ class RpcaNoisy(RPCA):
         self.norm = norm
 
     def get_params_scale(self, D: NDArray) -> Dict[str, float]:
-        """
-        Get parameters for scaling in RPCA based on the input data.
+        """Get parameters for scaling in RPCA based on the input data.
 
         Parameters
         ----------
@@ -111,8 +118,7 @@ class RpcaNoisy(RPCA):
         }
 
     def decompose(self, D: NDArray, Omega: NDArray) -> Tuple[NDArray, NDArray]:
-        """
-        Compute the noisy RPCA with L1 or L2 time penalisation
+        """Compute the noisy RPCA with L1 or L2 time penalisation.
 
         Parameters
         ----------
@@ -127,6 +133,7 @@ class RpcaNoisy(RPCA):
             Low-rank signal
         A: NDArray
             Anomalies
+
         """
         M, A, _, _ = self.decompose_with_basis(D, Omega)
         return M, A
@@ -134,9 +141,9 @@ class RpcaNoisy(RPCA):
     def decompose_with_basis(
         self, D: NDArray, Omega: NDArray
     ) -> Tuple[NDArray, NDArray, NDArray, NDArray]:
-        """
-        Compute the noisy RPCA with L1 or L2 time penalisation, and returns the decomposition of
-        the low-rank matrix.
+        """Compute the noisy RPCA with L1 or L2 time penalisation.
+
+        It returns the decomposition of the low-rank matrix.
 
         Parameters
         ----------
@@ -155,6 +162,7 @@ class RpcaNoisy(RPCA):
             Coefficients of the low-rank matrix in the reduced basis
         Q: NDArray
             Reduced basis of the low-rank matrix
+
         """
         D = utils.linear_interpolation(D)
         self.params_scale = self.get_params_scale(D)
@@ -175,8 +183,9 @@ class RpcaNoisy(RPCA):
         for period in self.list_periods:
             if not period < n_rows:
                 raise ValueError(
-                    "The periods provided in argument in `list_periods` must smaller "
-                    f"than the number of rows in the matrix but {period} >= {n_rows}!"
+                    "The periods provided in argument in `list_periods` "
+                    "must smaller than the number of rows "
+                    f"in the matrix but {period} >= {n_rows}!"
                 )
 
         M, A, L, Q = self.minimise_loss(
@@ -211,12 +220,12 @@ class RpcaNoisy(RPCA):
         tolerance: float = 1e-6,
         norm: str = "L2",
     ) -> Tuple:
-        """
-        Compute the noisy RPCA with a L2 time penalisation.
+        """Compute the noisy RPCA with a L2 time penalisation.
 
-        This function computes the noisy Robust Principal Component Analysis (RPCA) using a L2 time
-        penalisation. It iteratively minimizes a loss function to separate the low-rank and sparse
-        components from the input data matrix.
+        This function computes the noisy Robust Principal Component Analysis
+        (RPCA) using a L2 time penalisation. It iteratively minimizes a loss
+        function to separate the low-rank and sparse components from the
+        input data matrix.
 
         Parameters
         ----------
@@ -231,18 +240,19 @@ class RpcaNoisy(RPCA):
         lam : float
             Penalizing parameter for the sparse matrix.
         mu : float, optional
-            Initial stiffness parameter for the constraint on M, L, and Q. Defaults
-            to 1e-2.
+            Initial stiffness parameter for the constraint on M, L, and Q.
+            Defaults to 1e-2.
         list_periods : List[int], optional
             List of periods linked to the Toeplitz matrices. Defaults to [].
         list_etas : List[float], optional
-            List of penalizing parameters for the corresponding periods in list_periods. Defaults
+            List of penalizing parameters for the corresponding periods
+            in list_periods. Defaults
             to [].
         max_iterations : int, optional
             Stopping criteria, maximum number of iterations. Defaults to 10000.
         tolerance : float, optional
-            Stopping criteria, minimum difference between 2 consecutive iterations.
-            Defaults to 1e-6.
+            Stopping criteria, minimum difference between 2
+            consecutive iterations. Defaults to 1e-6.
         norm : str, optional
             Error norm, can be "L1" or "L2". Defaults to "L2".
 
@@ -251,21 +261,21 @@ class RpcaNoisy(RPCA):
         Tuple
             A tuple containing the following elements:
             - M : np.ndarray
-                Low-rank signal matrix of shape (m, n).
+            Low-rank signal matrix of shape (m, n).
             - A : np.ndarray
-                Anomalies matrix of shape (m, n).
+            Anomalies matrix of shape (m, n).
             - L : np.ndarray
-                Basis unitary array of shape (m, rank).
+            Basis unitary array of shape (m, rank).
             - Q : np.ndarray
-                Basis unitary array of shape (rank, n).
+            Basis unitary array of shape (rank, n).
 
         Raises
         ------
         ValueError
             If the periods provided in the argument in `list_periods` are not
             smaller than the number of rows in the matrix.
-        """
 
+        """
         rho = 1.1
         n_rows, n_cols = D.shape
 
@@ -288,10 +298,15 @@ class RpcaNoisy(RPCA):
         mu_bar = mu * 1e3
 
         # matrices for temporal correlation
-        list_H = [rpca_utils.toeplitz_matrix(period, n_rows) for period in list_periods]
+        list_H = [
+            rpca_utils.toeplitz_matrix(period, n_rows)
+            for period in list_periods
+        ]
         HtH = dok_matrix((n_rows, n_rows))
         for i_period, _ in enumerate(list_periods):
-            HtH += list_etas[i_period] * (list_H[i_period].T @ list_H[i_period])
+            HtH += list_etas[i_period] * (
+                list_H[i_period].T @ list_H[i_period]
+            )
 
         Ir = np.eye(rank)
         In = identity(n_rows)
@@ -335,7 +350,9 @@ class RpcaNoisy(RPCA):
             if norm == "L1":
                 for i_period, _ in enumerate(list_periods):
                     eta = list_etas[i_period]
-                    R[i_period] = rpca_utils.soft_thresholding(R[i_period] / mu, eta / mu)
+                    R[i_period] = rpca_utils.soft_thresholding(
+                        R[i_period] / mu, eta / mu
+                    )
 
             mu = min(mu * rho, mu_bar)
 
@@ -364,9 +381,11 @@ class RpcaNoisy(RPCA):
         Omega: NDArray,
         Q: NDArray,
     ) -> Tuple[NDArray, NDArray]:
-        """
-        Decompose the matrix D with an observation matrix Omega using the noisy RPCA algorithm,
-        with a fixed reduced basis given by the matrix Q. This allows to impute new data without
+        """Decompose the matrix D with an observation matrix Omega.
+
+        It uses the noisy RPCA algorithm,
+        with a fixed reduced basis given by the matrix Q.
+        This allows to impute new data without
         resolving the optimization problem on the whole dataset.
 
         Parameters
@@ -384,6 +403,7 @@ class RpcaNoisy(RPCA):
             A tuple representing the decomposition of D with:
             - M: low-rank matrix
             - A: sparse matrix
+
         """
         D = utils.linear_interpolation(D)
         params_scale = self.get_params_scale(D)
@@ -434,8 +454,9 @@ class RpcaNoisy(RPCA):
         tau: float,
         lam: float,
     ):
-        """
-        Check that the functional minimized by the RPCA is smaller at the end than at the
+        """Check cost function.
+
+        The functional minimized by the RPCA is smaller at the end than at the
         beginning.
 
         Parameters
@@ -452,6 +473,7 @@ class RpcaNoisy(RPCA):
             parameter penalizing the nuclear norm of the low rank part
         lam : float
             parameter penalizing the L1-norm of the anomaly/sparse part
+
         """
         cost_start = self.cost_function(
             D,
@@ -482,8 +504,11 @@ class RpcaNoisy(RPCA):
 
         if self.verbose and (cost_end > cost_start * (1 + 1e-6)):
             warnings.warn(
-                f"RPCA algorithm may provide bad results. Function {function_str} increased from"
-                f" {cost_start} to {cost_end} instead of decreasing!".format("%.2f")
+                "RPCA algorithm may provide bad results. "
+                f"Function {function_str} increased from"
+                f" {cost_start} to {cost_end} instead of decreasing!".format(
+                    "%.2f"
+                )
             )
 
     @staticmethod
@@ -498,8 +523,7 @@ class RpcaNoisy(RPCA):
         list_etas: List[float] = [],
         norm: str = "L2",
     ):
-        """
-        Estimated cost function for the noisy RPCA algorithm
+        """Estimate cost function for the noisy RPCA algorithm.
 
         Parameters
         ----------
@@ -518,27 +542,34 @@ class RpcaNoisy(RPCA):
         list_periods: Optional[List[int]]
             list of periods, linked to the Toeplitz matrices
         list_etas: Optional[List[float]]
-            list of penalizing parameters for the corresponding period in list_periods
+            list of penalizing parameters for the corresponding period in
+            list_periods
         norm: Optional[str]
-            error norm, can be "L1" or "L2". By default, the value is set to "L2"
+            error norm, can be "L1" or "L2".
+            By default, the value is set to "L2"
 
 
         Returns
         -------
         float
             Value of the cost function minimized by the RPCA
-        """
 
+        """
         temporal_norm: float = 0
         if len(list_etas) > 0:
             # matrices for temporal correlation
-            list_H = [rpca_utils.toeplitz_matrix(period, D.shape[0]) for period in list_periods]
+            list_H = [
+                rpca_utils.toeplitz_matrix(period, D.shape[0])
+                for period in list_periods
+            ]
             if norm == "L1":
                 for eta, H_matrix in zip(list_etas, list_H):
                     temporal_norm += eta * np.sum(np.abs(H_matrix @ M))
             elif norm == "L2":
                 for eta, H_matrix in zip(list_etas, list_H):
-                    temporal_norm += eta * float(np.linalg.norm(H_matrix @ M, "fro"))
+                    temporal_norm += eta * float(
+                        np.linalg.norm(H_matrix @ M, "fro")
+                    )
         anomalies_norm = np.sum(np.abs(A * Omega))
         cost = (
             1 / 2 * ((Omega * (D - M - A)) ** 2).sum()

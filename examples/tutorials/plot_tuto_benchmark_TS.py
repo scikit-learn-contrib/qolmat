@@ -1,5 +1,4 @@
-"""
-=========================
+"""=========================
 Benchmark for time series
 =========================
 
@@ -14,18 +13,22 @@ air-quality monitoring sites.
 # First import some libraries
 
 import numpy as np
-import pandas as pd
 
 np.random.seed(1234)
-from matplotlib import pyplot as plt
 import matplotlib.ticker as plticker
+from matplotlib import pyplot as plt
 
 tab10 = plt.get_cmap("tab10")
+
+from sklearn.linear_model import LinearRegression
 
 from qolmat.benchmark import comparator, missing_patterns
 from qolmat.imputations import imputers
 from qolmat.utils import data, plot
-from sklearn.linear_model import LinearRegression
+from sklearn import utils as sku
+
+seed = 1234
+rng = sku.check_random_state(seed)
 
 # %%
 # 1. Data
@@ -79,7 +82,9 @@ plt.show()
 ratio_masked = 0.1
 
 imputer_median = imputers.ImputerSimple(groups=("station",), strategy="median")
-imputer_interpol = imputers.ImputerInterpolation(groups=("station",), method="linear")
+imputer_interpol = imputers.ImputerInterpolation(
+    groups=("station",), method="linear"
+)
 imputer_residuals = imputers.ImputerResiduals(
     groups=("station",),
     period=365,
@@ -95,6 +100,7 @@ imputer_tsou = imputers.ImputerEM(
     n_iter_ou=15,
     dt=1e-3,
     p=1,
+    random_state=rng
 )
 imputer_mice = imputers.ImputerMICE(
     groups=("station",),
@@ -104,7 +110,11 @@ imputer_mice = imputers.ImputerMICE(
 )
 
 generator_holes = missing_patterns.EmpiricalHoleGenerator(
-    n_splits=4, groups=("station",), subset=cols_to_impute, ratio_masked=ratio_masked
+    n_splits=4,
+    groups=("station",),
+    subset=cols_to_impute,
+    ratio_masked=ratio_masked,
+    random_state=rng
 )
 
 dict_imputers = {
@@ -120,7 +130,7 @@ comparison = comparator.Comparator(
     dict_imputers,
     cols_to_impute,
     generator_holes=generator_holes,
-    metrics=["mae", "wmape", "KL_columnwise", "wasserstein_columnwise"],
+    metrics=["mae", "wmape", "kl_columnwise", "wasserstein_columnwise"],
     max_evals=10,
 )
 results = comparison.compare(df)
@@ -129,7 +139,7 @@ results.style.highlight_min(color="lightsteelblue", axis=1)
 # %%
 # We have considered four metrics for comparison.
 # ``mae`` and ``wmape`` are point-wise metrics,
-# while ``KL_columnwise`` and ``wasserstein_columnwise`` are metrics
+# while ``kl_columnwise`` and ``wasserstein_columnwise`` are metrics
 # that compare distributions.
 # Since we treat time series with strong seasonal patterns, imputation
 # on residuals works very well.
@@ -143,11 +153,17 @@ results.style.highlight_min(color="lightsteelblue", axis=1)
 # Aotizhongxin
 
 df_plot = df[cols_to_impute]
-dfs_imputed = {name: imp.fit_transform(df_plot) for name, imp in dict_imputers.items()}
+dfs_imputed = {
+    name: imp.fit_transform(df_plot) for name, imp in dict_imputers.items()
+}
 station = "Aotizhongxin"
 df_station = df_plot.loc[station]
-dfs_imputed_station = {name: df_plot.loc[station] for name, df_plot in dfs_imputed.items()}
-fig, axs = plt.subplots(3, 1, sharex=True, figsize=(10, 3 * len(cols_to_impute)))
+dfs_imputed_station = {
+    name: df_plot.loc[station] for name, df_plot in dfs_imputed.items()
+}
+fig, axs = plt.subplots(
+    3, 1, sharex=True, figsize=(10, 3 * len(cols_to_impute))
+)
 for col, ax in zip(cols_to_impute, axs.flatten()):
     values_orig = df_station[col]
     ax.plot(values_orig, ".", color="black", label="original")
@@ -175,7 +191,9 @@ n_columns = len(dfs_imputed_station)
 fig = plt.figure(figsize=(10, 10))
 i_plot = 1
 for i, col in enumerate(cols_to_impute[:-1]):
-    for i_imputer, (name_imputer, df_imp) in enumerate(dfs_imputed_station.items()):
+    for i_imputer, (name_imputer, df_imp) in enumerate(
+        dfs_imputed_station.items()
+    ):
         ax = fig.add_subplot(n_columns, n_imputers, i_plot)
         plot.compare_covariances(
             df_station,
