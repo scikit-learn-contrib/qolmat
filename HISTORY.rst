@@ -2,6 +2,12 @@
 History
 =======
 
+0.1.8 (2024-08-29)
+------------------
+* Tutorials reproducibility improved with random_state parameters
+* RPCA now accepts random_state parameters
+* Dependency management improved with poetry
+
 0.1.7 (2024-06-13)
 ------------------
 * Little's test implemented in a new hole_characterization module

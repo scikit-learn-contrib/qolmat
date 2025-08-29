@@ -2,7 +2,7 @@
 
 [tool.poetry]
 name = "qolmat"
-version = "0.1.8"
+version = "0.1.9"
 description = "A Python library for optimal data imputation."
 authors = [
     "Julien ROUSSEL <julien.roussel@capgemini.com>",
