@@ -14,6 +14,7 @@ from sklearn.ensemble import RandomForestClassifier
 
 from qolmat.imputations.imputers import ImputerEM
 from qolmat.utils.input_check import check_pd_df_dtypes
+from qolmat.utils.utils import RandomSetting
 
 
 class McarTest(ABC):
@@ -32,9 +33,7 @@ class McarTest(ABC):
 
     """
 
-    def __init__(
-        self, random_state: Union[None, int, np.random.RandomState] = None
-    ):
+    def __init__(self, random_state: RandomSetting = None):
         """Initialize the McarTest class with a random state.
 
         Parameters
@@ -95,7 +94,7 @@ class LittleTest(McarTest):
     def __init__(
         self,
         imputer: Optional[ImputerEM] = None,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
     ):
         super().__init__()
         if imputer and imputer.model != "multinormal":
@@ -203,7 +202,7 @@ class PKLMTest(McarTest):
         nb_trees_per_proj: int = 200,
         compute_partial_p_values: bool = False,
         encoder: Union[None, OneHotEncoder] = None,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
     ):
         super().__init__(random_state=random_state)
         self.nb_projections = nb_projections

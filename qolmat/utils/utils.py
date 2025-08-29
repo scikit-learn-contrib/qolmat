@@ -9,6 +9,7 @@ from numpy.typing import NDArray
 from qolmat.utils.exceptions import NotDimension2
 
 HyperValue = Union[int, float, str]
+RandomSetting = Union[int, np.random.RandomState, None]
 
 
 def _get_numerical_features(df1: pd.DataFrame) -> List[str]:

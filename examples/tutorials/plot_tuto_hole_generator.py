@@ -21,9 +21,14 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from sklearn import utils as sku
+from torch import rand
 
 from qolmat.benchmark import missing_patterns
 from qolmat.utils import data
+
+seed = 1234
+rng = sku.check_random_state(seed)
 
 # %%
 # 1. Data
@@ -42,7 +47,7 @@ df_data = data.get_data("Beijing")
 columns = ["TEMP", "PRES", "DEWP", "RAIN", "WSPM"]
 df_data = df_data[columns]
 
-df = data.add_holes(df_data, ratio_masked=0.2, mean_size=120)
+df = data.add_holes(df_data, ratio_masked=0.2, mean_size=120, random_state=rng)
 cols_to_impute = df.columns
 
 # %%
@@ -169,8 +174,8 @@ def plot_cdf(
         axs[ind].plot(sorted_data, cdf, c="gray", lw=2, label="original")
 
     for df_mask, label, color in zip(list_df_mask, labels, colors):
-        array_mask = df_mask.copy()
-        array_mask[array_mask == True] = np.nan
+        array_mask = df_mask.astype(float).copy()
+        array_mask[df_mask] = np.nan
         hole_sizes_created = get_holes_sizes_column_wise(array_mask.to_numpy())
 
         for ind, (hole_created, col) in enumerate(
@@ -197,7 +202,7 @@ def plot_cdf(
 # Note this class is more suited for tabular datasets.
 
 uniform_generator = missing_patterns.UniformHoleGenerator(
-    n_splits=1, subset=df.columns, ratio_masked=0.1
+    n_splits=1, subset=df.columns, ratio_masked=0.1, random_state=rng
 )
 uniform_mask = uniform_generator.split(df)[0]
 
@@ -223,7 +228,7 @@ plot_cdf(df, [uniform_mask], ["created"], ["tab:red"])
 # :class:`~qolmat.benchmark.missing_patterns.UniformHoleGenerator` class.
 
 geometric_generator = missing_patterns.GeometricHoleGenerator(
-    n_splits=1, subset=cols_to_impute, ratio_masked=0.1
+    n_splits=1, subset=cols_to_impute, ratio_masked=0.1, random_state=rng
 )
 geometric_mask = geometric_generator.split(df)[0]
 
@@ -249,7 +254,7 @@ plot_cdf(df, [geometric_mask], ["created"], ["tab:red"])
 # is learned on each group: here on each station.
 
 empirical_generator = missing_patterns.EmpiricalHoleGenerator(
-    n_splits=1, subset=df.columns, ratio_masked=0.1, groups=("station",)
+    n_splits=1, subset=df.columns, ratio_masked=0.1, groups=("station",), random_state=rng
 )
 empirical_mask = empirical_generator.split(df)[0]
 
@@ -274,7 +279,7 @@ plot_cdf(df, [geometric_mask], ["created"], ["tab:red"])
 # :class:`~qolmat.benchmark.missing_patterns.MultiMarkovHoleGenerator` class.
 
 multi_markov_generator = missing_patterns.MultiMarkovHoleGenerator(
-    n_splits=1, subset=df.columns, ratio_masked=0.1
+    n_splits=1, subset=df.columns, ratio_masked=0.1, random_state=rng
 )
 multi_markov_mask = multi_markov_generator.split(df)[0]
 
@@ -297,7 +302,7 @@ plot_cdf(df, [multi_markov_mask], ["created"], ["tab:red"])
 # :class:`~qolmat.benchmark.missing_patterns.GroupedHoleGenerator` class.
 
 grouped_generator = missing_patterns.GroupedHoleGenerator(
-    n_splits=1, subset=df.columns, ratio_masked=0.1, groups=("station",)
+    n_splits=1, subset=df.columns, ratio_masked=0.1, groups=("station",), random_state=rng
 )
 grouped_mask = grouped_generator.split(df)[0]
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple
 
 import numpy as np
 from numpy.typing import NDArray
@@ -12,6 +12,7 @@ from sklearn import utils as sku
 from qolmat.imputations.rpca import rpca_utils
 from qolmat.imputations.rpca.rpca import RPCA
 from qolmat.utils import utils
+from qolmat.utils.utils import RandomSetting
 
 
 class RpcaPcp(RPCA):
@@ -50,7 +51,7 @@ class RpcaPcp(RPCA):
 
     def __init__(
         self,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         mu: Optional[float] = None,
         lam: Optional[float] = None,
         max_iterations: int = int(1e4),

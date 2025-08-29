@@ -13,6 +13,7 @@ from sklearn import utils as sku
 from sklearn.base import BaseEstimator, TransformerMixin
 
 from qolmat.utils import utils
+from qolmat.utils.utils import RandomSetting
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)-8s %(message)s",
@@ -170,7 +171,7 @@ class EM(BaseEstimator, TransformerMixin):
         n_iter_ou: int = 50,
         n_samples: int = 10,
         ampli: float = 1,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         dt: float = 2e-2,
         tolerance: float = 1e-4,
         stagnation_threshold: float = 5e-3,
@@ -643,7 +644,7 @@ class MultiNormalEM(EM):
         n_iter_ou: int = 50,
         n_samples: int = 10,
         ampli: float = 1,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         dt: float = 2e-2,
         tolerance: float = 1e-4,
         stagnation_threshold: float = 5e-3,
@@ -987,7 +988,7 @@ class VARpEM(EM):
         max_iter_em: int = 200,
         n_iter_ou: int = 50,
         ampli: float = 1,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         dt: float = 2e-2,
         tolerance: float = 1e-4,
         stagnation_threshold: float = 5e-3,

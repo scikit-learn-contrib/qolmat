@@ -5,13 +5,14 @@ from __future__ import annotations
 import functools
 import math
 import warnings
-from typing import Callable, List, Optional, Tuple, Union
+from typing import Callable, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 from sklearn import utils as sku
 
 from qolmat.utils.exceptions import SubsetIsAString
+from qolmat.utils.utils import RandomSetting
 
 
 def compute_transition_counts_matrix(states: pd.Series):
@@ -125,7 +126,7 @@ class _HoleGenerator:
         n_splits: int,
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         groups: Tuple[str, ...] = (),
     ) -> None:
         self.n_splits = n_splits
@@ -225,7 +226,7 @@ class UniformHoleGenerator(_HoleGenerator):
         n_splits: int,
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         sample_proportional: bool = False,
     ):
         super().__init__(
@@ -295,7 +296,7 @@ class _SamplerHoleGenerator(_HoleGenerator):
         n_splits: int,
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         groups: Tuple[str, ...] = (),
     ):
         super().__init__(
@@ -432,7 +433,7 @@ class GeometricHoleGenerator(_SamplerHoleGenerator):
         n_splits: int,
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         groups: Tuple[str, ...] = (),
     ):
         super().__init__(
@@ -521,7 +522,7 @@ class EmpiricalHoleGenerator(_SamplerHoleGenerator):
         n_splits: int,
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         groups: Tuple[str, ...] = (),
     ):
         super().__init__(
@@ -645,7 +646,7 @@ class MultiMarkovHoleGenerator(_HoleGenerator):
         n_splits: int,
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         groups: Tuple[str, ...] = (),
     ):
         super().__init__(
@@ -815,7 +816,7 @@ class GroupedHoleGenerator(_HoleGenerator):
         n_splits: int,
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         groups: Tuple[str, ...] = (),
     ):
         super().__init__(

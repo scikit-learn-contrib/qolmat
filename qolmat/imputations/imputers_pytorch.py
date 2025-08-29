@@ -2,7 +2,7 @@
 
 import logging
 from copy import copy
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -17,6 +17,7 @@ from qolmat.utils.exceptions import (
     EstimatorNotDefined,
     PyTorchExtraNotInstalled,
 )
+from qolmat.utils.utils import RandomSetting
 
 try:
     import torch
@@ -312,7 +313,7 @@ class ImputerAutoencoder(_Imputer):
         encoder: nn.Sequential,
         decoder: nn.Sequential,
         groups: Tuple[str, ...] = (),
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         lamb: float = 1e-2,
         max_iterations: int = 100,
         epochs: int = 100,
@@ -585,7 +586,7 @@ class ImputerDiffusion(_Imputer):
         cols_imputed: Tuple[str, ...] = (),
         index_datetime: str = "",
         freq_str: str = "1D",
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         # Model parameters
         num_noise_steps: int = 50,
         beta_start: float = 1e-4,
@@ -635,7 +636,7 @@ class ImputerDiffusion(_Imputer):
             Frequency string of DateOffset of Pandas.
             It is for processing time-series data, used in diffusion models
             e.g., TsDDPM.
-        random_state : Union[None, int, np.random.RandomState], optional
+        random_state : RandomSetting, optional
             Controls the randomness of the fit_transform, by default None
         num_noise_steps : int, optional
             Number of noise steps, by default 50
