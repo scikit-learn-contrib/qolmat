@@ -127,7 +127,9 @@ class RpcaPcp(RPCA):
 
         M: NDArray = D - A
         for iteration in tqdm(
-            range(self.max_iterations), desc="RPCA PCP decomposition"
+            range(self.max_iterations),
+            desc="RPCA PCP decomposition",
+            disable=not self.verbose,
         ):
             M = rpca_utils.svd_thresholding(D - A + Y / mu, 1 / mu)
             A = rpca_utils.soft_thresholding(D - M + Y / mu, lam / mu)

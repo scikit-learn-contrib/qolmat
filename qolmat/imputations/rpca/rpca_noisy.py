@@ -201,6 +201,7 @@ class RpcaNoisy(RPCA):
             max_iterations=self.max_iterations,
             tolerance=self.tolerance,
             norm=self.norm,
+            verbose=self.verbose,
         )
 
         self._check_cost_function_minimized(D, M, A, Omega, tau, lam)
@@ -220,6 +221,7 @@ class RpcaNoisy(RPCA):
         max_iterations: int = 10000,
         tolerance: float = 1e-6,
         norm: str = "L2",
+        verbose: bool = False,
     ) -> Tuple:
         """Compute the noisy RPCA with a L2 time penalisation.
 
@@ -256,6 +258,9 @@ class RpcaNoisy(RPCA):
             consecutive iterations. Defaults to 1e-6.
         norm : str, optional
             Error norm, can be "L1" or "L2". Defaults to "L2".
+        verbose : bool, optional
+            Verbosity level, if False the warnings are silenced. Defaults to
+            False.
 
         Returns
         -------
@@ -313,7 +318,9 @@ class RpcaNoisy(RPCA):
         In = identity(n_rows)
 
         for _ in tqdm(
-            range(max_iterations), desc="Noisy RPCA loss minimization"
+            range(max_iterations),
+            desc="Noisy RPCA loss minimization",
+            disable=not verbose,
         ):
             M_temp = M.copy()
             A_temp = A.copy()

@@ -148,7 +148,9 @@ class SoftImpute(BaseEstimator, TransformerMixin):
         M = A @ B.T
         cost_start = SoftImpute.cost_function(X, M, A, Omega, tau)
         for iter_ in tqdm(
-            range(self.max_iterations), desc="Soft Impute decomposition"
+            range(self.max_iterations),
+            desc="Soft Impute decomposition",
+            disable=not self.verbose,
         ):
             U_old = U
             V_old = V

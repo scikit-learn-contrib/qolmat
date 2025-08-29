@@ -435,7 +435,9 @@ class EM(BaseEstimator, TransformerMixin):
         X = self._maximize_likelihood(X_imp, mask_na)
 
         for iter_em in tqdm(
-            range(self.max_iter_em), desc="EM parameters estimation"
+            range(self.max_iter_em),
+            desc="EM parameters estimation",
+            disable=not self.verbose,
         ):
             X = self._sample_ou(X, mask_na)
 
@@ -477,6 +479,7 @@ class EM(BaseEstimator, TransformerMixin):
         if hasattr(self, "p_to_fit") and self.p_to_fit:
             aics: List[float] = []
             for p in range(self.max_lagp + 1):
+                print("p=", p)
                 self.p = p
                 self.fit_X(X)
                 n1, n2 = self.X.shape
