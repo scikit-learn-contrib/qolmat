@@ -10,6 +10,7 @@ import numpy as np
 from numpy.typing import NDArray
 from sklearn import utils as sku
 from sklearn.base import BaseEstimator, TransformerMixin
+from tqdm import tqdm
 
 from qolmat.imputations.rpca import rpca_utils
 from qolmat.utils import utils
@@ -146,7 +147,11 @@ class SoftImpute(BaseEstimator, TransformerMixin):
         B = V * D
         M = A @ B.T
         cost_start = SoftImpute.cost_function(X, M, A, Omega, tau)
-        for iter_ in range(self.max_iterations):
+        for iter_ in tqdm(
+            range(self.max_iterations),
+            desc="Soft Impute decomposition",
+            disable=not self.verbose,
+        ):
             U_old = U
             V_old = V
             D_old = D

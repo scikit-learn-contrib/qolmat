@@ -2,7 +2,11 @@
 History
 =======
 
-0.1.8 (2024-08-29)
+0.1.10 (2024-??-??)
+------------------
+* Long EM and RPCA operations wrapped with tqdm progress bars
+
+0.1.9 (2024-08-29)
 ------------------
 * Tutorials reproducibility improved with random_state parameters
 * RPCA now accepts random_state parameters
