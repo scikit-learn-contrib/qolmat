@@ -107,14 +107,6 @@ class ImputerRegressorPyTorch(ImputerRegressor):
         optimizer = optim.Adam(estimator.parameters(), lr=self.learning_rate)
         loss_fn = self.loss_fn
 
-        # if X.shape[0] != estimator[0].in_features:
-        #     raise ValueError(
-        #         "The number of features in X does not match the input "
-        #         "features of the estimator. The estimator expects"
-        #         f" {estimator[0].in_features} features, but X has "
-        #         f"{X.shape[0]} features."
-        #     )
-
         with tqdm(total=self.epochs, desc="Training", unit="epoch") as pbar:
             for _ in range(self.epochs):
                 estimator.train()
