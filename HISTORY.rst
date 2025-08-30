@@ -5,6 +5,7 @@ History
 0.1.10 (2024-??-??)
 ------------------
 * Long EM and RPCA operations wrapped with tqdm progress bars
+* Readme code sample updated, and results table made consistant
 
 0.1.9 (2024-08-29)
 ------------------
