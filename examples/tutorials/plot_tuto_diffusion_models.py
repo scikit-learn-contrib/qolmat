@@ -169,7 +169,6 @@ dict_imputers = {
 
 comparison = comparator.Comparator(
     dict_imputers,
-    selected_columns=df_data.columns,
     generator_holes=missing_patterns.UniformHoleGenerator(n_splits=2, random_state=rng),
     metrics=["mae", "kl_columnwise"],
 )
@@ -224,7 +223,6 @@ dict_imputers = {
 
 comparison = comparator.Comparator(
     dict_imputers,
-    selected_columns=df_data.columns,
     generator_holes=missing_patterns.UniformHoleGenerator(n_splits=2, random_state=rng),
     metrics=["mae", "kl_columnwise"],
 )

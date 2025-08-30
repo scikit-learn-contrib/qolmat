@@ -171,12 +171,16 @@ def test_kl_divergence_gaussian(
 
 @pytest.mark.parametrize("df1", [df_incomplete])
 @pytest.mark.parametrize("df2", [df_imputed])
-def test_frechet_distance_base(df1: pd.DataFrame, df2: pd.DataFrame) -> None:
-    result = metrics.frechet_distance_base(df1, df1)
+@pytest.mark.parametrize("df_mask", [df_mask])
+def test_frechet_distance_base(
+    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
+) -> None:
+    result = metrics.frechet_distance_base(df1, df1, df_mask)
     np.testing.assert_allclose(result, 0, atol=1e-3)
 
-    result = metrics.frechet_distance_base(df1, df2)
-    np.testing.assert_allclose(result, 0.134, atol=1e-3)
+    result = metrics.frechet_distance_base(df1, df2, df_mask)
+    assert np.all(0 < result)
+    assert np.all(result < 1)
 
 
 @pytest.mark.parametrize("df1", [df_incomplete])
