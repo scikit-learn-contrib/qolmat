@@ -835,6 +835,7 @@ def sum_pairwise_distances(
 def frechet_distance_base(
     df1: pd.DataFrame,
     df2: pd.DataFrame,
+    df_mask: pd.DataFrame,
 ) -> pd.Series:
     """Compute the Fréchet distance between two dataframes df1 and df2.
 
@@ -853,6 +854,8 @@ def frechet_distance_base(
         true dataframe
     df2 : pd.DataFrame
         predicted dataframe
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
 
     Returns
     -------
@@ -860,8 +863,14 @@ def frechet_distance_base(
         Frechet distance in a Series object
 
     """
-    if df1.shape != df2.shape:
+    if df1.shape != df2.shape or df1.shape != df_mask.shape:
         raise Exception("inputs have to be of same dimensions.")
+
+    df1 = df1.copy()
+    df2 = df2.copy()
+    # Set to nan the values not in the mask
+    df1[~df_mask] = np.nan
+    df2[~df_mask] = np.nan
 
     std = (np.std(df1) + np.std(df2) + EPS) / 2
     mu = (np.nanmean(df1, axis=0) + np.nanmean(df2, axis=0)) / 2
@@ -911,7 +920,7 @@ def frechet_distance(
 
     """
     if method == "single":
-        return frechet_distance_base(df1, df2)
+        return frechet_distance_base(df1, df2, df_mask)
     return pattern_based_weighted_mean_metric(
         df1,
         df2,

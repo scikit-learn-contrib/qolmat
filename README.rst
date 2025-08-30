@@ -88,9 +88,8 @@ With just these few lines of code, you can see how easy it is to
   generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=4, ratio_masked=0.1)
   comparison = comparator.Comparator(
         dict_imputers,
-        columns,
         generator_holes = generator_holes,
-        metrics = ["mae", "wmape", "kl_columnwise", "ks_test", "energy"],
+        metrics = ["mae", "wmape", "kl_columnwise", "frechet"],
     )
   results = comparison.compare(df_with_nan)
   results.style.highlight_min(color="lightsteelblue", axis=1)

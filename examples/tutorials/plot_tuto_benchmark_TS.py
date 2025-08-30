@@ -128,7 +128,6 @@ n_imputers = len(dict_imputers)
 
 comparison = comparator.Comparator(
     dict_imputers,
-    cols_to_impute,
     generator_holes=generator_holes,
     metrics=["mae", "wmape", "kl_columnwise", "wasserstein_columnwise"],
     max_evals=10,

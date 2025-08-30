@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 from sklearn.preprocessing import StandardScaler
+from tqdm import tqdm
 
 # from typing_extensions import Self
 from qolmat.benchmark import metrics
@@ -106,23 +107,21 @@ class ImputerRegressorPyTorch(ImputerRegressor):
         optimizer = optim.Adam(estimator.parameters(), lr=self.learning_rate)
         loss_fn = self.loss_fn
 
-        for epoch in range(self.epochs):
-            estimator.train()
-            optimizer.zero_grad()
+        with tqdm(total=self.epochs, desc="Training", unit="epoch") as pbar:
+            for _ in range(self.epochs):
+                estimator.train()
+                optimizer.zero_grad()
 
-            input_data = torch.Tensor(X.values)
-            target_data = torch.Tensor(y.values)
-            target_data = target_data.unsqueeze(1)
-            outputs = estimator(input_data)
-            loss = loss_fn(outputs, target_data)
+                input_data = torch.Tensor(X.values)
+                target_data = torch.Tensor(y.values)
+                target_data = target_data.unsqueeze(1)
+                outputs = estimator(input_data)
+                loss = loss_fn(outputs, target_data)
 
-            loss.backward()
-            optimizer.step()
-            if (epoch + 1) % 10 == 0:
-                logging.info(
-                    f"Epoch [{epoch + 1}/{self.epochs}], "
-                    f"Loss: {loss.item():.4f}"
-                )
+                loss.backward()
+                optimizer.step()
+                pbar.set_postfix(loss=f"{loss.item():.4f}")
+                pbar.update(1)
         return estimator
 
     def _predict_estimator(
