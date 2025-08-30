@@ -11,6 +11,7 @@ from numpy.typing import NDArray
 from scipy.sparse import dok_matrix, identity
 from scipy.sparse.linalg import spsolve
 from sklearn import utils as sku
+from tqdm import tqdm
 
 from qolmat.imputations.rpca import rpca_utils
 from qolmat.imputations.rpca.rpca import RPCA
@@ -200,6 +201,7 @@ class RpcaNoisy(RPCA):
             max_iterations=self.max_iterations,
             tolerance=self.tolerance,
             norm=self.norm,
+            verbose=self.verbose,
         )
 
         self._check_cost_function_minimized(D, M, A, Omega, tau, lam)
@@ -219,6 +221,7 @@ class RpcaNoisy(RPCA):
         max_iterations: int = 10000,
         tolerance: float = 1e-6,
         norm: str = "L2",
+        verbose: bool = False,
     ) -> Tuple:
         """Compute the noisy RPCA with a L2 time penalisation.
 
@@ -255,6 +258,9 @@ class RpcaNoisy(RPCA):
             consecutive iterations. Defaults to 1e-6.
         norm : str, optional
             Error norm, can be "L1" or "L2". Defaults to "L2".
+        verbose : bool, optional
+            Verbosity level, if False the warnings are silenced. Defaults to
+            False.
 
         Returns
         -------
@@ -311,63 +317,73 @@ class RpcaNoisy(RPCA):
         Ir = np.eye(rank)
         In = identity(n_rows)
 
-        for _ in range(max_iterations):
-            M_temp = M.copy()
-            A_temp = A.copy()
-            L_temp = L.copy()
-            Q_temp = Q.copy()
-            if norm == "L1":
-                R_temp = R.copy()
-                sums = np.zeros((n_rows, n_cols))
-                for i_period, _ in enumerate(list_periods):
-                    sums += mu * R[i_period] - list_H[i_period] @ Y
+        with tqdm(
+            total=max_iterations,
+            desc="Noisy RPCA loss minimization",
+            unit="iteration",
+            disable=not verbose,
+        ) as pbar:
+            for _ in range(max_iterations):
+                M_temp = M.copy()
+                A_temp = A.copy()
+                L_temp = L.copy()
+                Q_temp = Q.copy()
+                if norm == "L1":
+                    R_temp = R.copy()
+                    sums = np.zeros((n_rows, n_cols))
+                    for i_period, _ in enumerate(list_periods):
+                        sums += mu * R[i_period] - list_H[i_period] @ Y
 
-                M = spsolve(
-                    (1 + mu) * In + HtH,
-                    D - A + mu * L @ Q - Y + sums,
-                )
-            else:
-                M = spsolve(
-                    (1 + mu) * In + 2 * HtH,
-                    D - A + mu * L @ Q - Y,
-                )
-            M = M.reshape(D.shape)
-
-            A_Omega = rpca_utils.soft_thresholding(D - M, lam)
-            A_Omega_C = D - M
-            A = np.where(Omega, A_Omega, A_Omega_C)
-            Q = scp.linalg.solve(
-                a=tau * Ir + mu * (L.T @ L),
-                b=L.T @ (mu * M + Y),
-            )
-
-            L = scp.linalg.solve(
-                a=tau * Ir + mu * (Q @ Q.T),
-                b=Q @ (mu * M.T + Y.T),
-            ).T
-
-            Y += mu * (M - L @ Q)
-            if norm == "L1":
-                for i_period, _ in enumerate(list_periods):
-                    eta = list_etas[i_period]
-                    R[i_period] = rpca_utils.soft_thresholding(
-                        R[i_period] / mu, eta / mu
+                    M = spsolve(
+                        (1 + mu) * In + HtH,
+                        D - A + mu * L @ Q - Y + sums,
                     )
+                else:
+                    M = spsolve(
+                        (1 + mu) * In + 2 * HtH,
+                        D - A + mu * L @ Q - Y,
+                    )
+                M = M.reshape(D.shape)
 
-            mu = min(mu * rho, mu_bar)
+                A_Omega = rpca_utils.soft_thresholding(D - M, lam)
+                A_Omega_C = D - M
+                A = np.where(Omega, A_Omega, A_Omega_C)
+                Q = scp.linalg.solve(
+                    a=tau * Ir + mu * (L.T @ L),
+                    b=L.T @ (mu * M + Y),
+                )
 
-            Mc = np.linalg.norm(M - M_temp, np.inf)
-            Ac = np.linalg.norm(A - A_temp, np.inf)
-            Lc = np.linalg.norm(L - L_temp, np.inf)
-            Qc = np.linalg.norm(Q - Q_temp, np.inf)
-            error_max = max([Mc, Ac, Lc, Qc])  # type: ignore # noqa
-            if norm == "L1":
-                for i_period, _ in enumerate(list_periods):
-                    Rc = np.linalg.norm(R[i_period] - R_temp[i_period], np.inf)
-                    error_max = max(error_max, Rc)  # type: ignore # noqa
+                L = scp.linalg.solve(
+                    a=tau * Ir + mu * (Q @ Q.T),
+                    b=Q @ (mu * M.T + Y.T),
+                ).T
 
-            if error_max < tolerance:
-                break
+                Y += mu * (M - L @ Q)
+                if norm == "L1":
+                    for i_period, _ in enumerate(list_periods):
+                        eta = list_etas[i_period]
+                        R[i_period] = rpca_utils.soft_thresholding(
+                            R[i_period] / mu, eta / mu
+                        )
+
+                mu = min(mu * rho, mu_bar)
+
+                Mc = np.linalg.norm(M - M_temp, np.inf)
+                Ac = np.linalg.norm(A - A_temp, np.inf)
+                Lc = np.linalg.norm(L - L_temp, np.inf)
+                Qc = np.linalg.norm(Q - Q_temp, np.inf)
+                error_max = max([Mc, Ac, Lc, Qc])  # type: ignore # noqa
+                if norm == "L1":
+                    for i_period, _ in enumerate(list_periods):
+                        Rc = np.linalg.norm(
+                            R[i_period] - R_temp[i_period], np.inf
+                        )
+                        error_max = max(error_max, Rc)  # type: ignore # noqa
+
+                if error_max < tolerance:
+                    break
+                pbar.set_postfix(error=f"{error_max.item():.4f}")
+                pbar.update(1)
 
         M = L @ Q
 

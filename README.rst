@@ -70,26 +70,26 @@ With just these few lines of code, you can see how easy it is to
   from qolmat.utils import data
 
   # load and prepare csv data
+
   df_data = data.get_data("Beijing")
   columns = ["TEMP", "PRES", "WSPM"]
   df_data = df_data[columns]
   df_with_nan = data.add_holes(df_data, ratio_masked=0.2, mean_size=120)
 
   # impute and compare
-  imputer_mean = imputers.ImputerSimple(strategy="mean", groups=("station",))
+  imputer_median = imputers.ImputerSimple(groups=("station",))
   imputer_interpol = imputers.ImputerInterpolation(method="linear", groups=("station",))
   imputer_var1 = imputers.ImputerEM(model="VAR", groups=("station",), method="mle", max_iter_em=50, n_iter_ou=15, dt=1e-3, p=1)
   dict_imputers = {
-        "mean": imputer_mean,
+        "median": imputer_median,
         "interpolation": imputer_interpol,
         "VAR(1) process": imputer_var1
     }
   generator_holes = missing_patterns.EmpiricalHoleGenerator(n_splits=4, ratio_masked=0.1)
   comparison = comparator.Comparator(
         dict_imputers,
-        columns,
         generator_holes = generator_holes,
-        metrics = ["mae", "wmape", "kl_columnwise", "ks_test", "energy"],
+        metrics = ["mae", "wmape", "kl_columnwise", "frechet"],
     )
   results = comparison.compare(df_with_nan)
   results.style.highlight_min(color="lightsteelblue", axis=1)

@@ -45,6 +45,7 @@ statsmodels = ">= 0.14.0"
 typed-ast = { version = "*", optional = true }
 category-encoders = "^2.6.3"
 dcor = ">= 0.6"
+tqdm = "*"
 
 [tool.poetry.group.torch.dependencies]
 torch = "< 2.5"

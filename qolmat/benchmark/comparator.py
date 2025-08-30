@@ -28,9 +28,6 @@ class Comparator:
     ----------
     dict_models: Dict[str, any]
         dictionary of imputation methods
-    selected_columns: List[str]Œ
-        list of column's names selected (all with at least one null value will
-        be imputed)
     columnwise_evaluation : Optional[bool], optional
         whether the metric should be calculated column-wise or not,
         by default False
@@ -46,7 +43,6 @@ class Comparator:
     def __init__(
         self,
         dict_models: Dict[str, Any],
-        selected_columns: List[str],
         generator_holes: _HoleGenerator,
         metrics: List = ["mae", "wmape", "kl_columnwise"],
         dict_config_opti: Optional[Dict[str, Any]] = {},
@@ -55,7 +51,6 @@ class Comparator:
         verbose: bool = False,
     ):
         self.dict_imputers = dict_models
-        self.selected_columns = selected_columns
         self.generator_holes = generator_holes
         self.metrics = metrics
         self.dict_config_opti = dict_config_opti

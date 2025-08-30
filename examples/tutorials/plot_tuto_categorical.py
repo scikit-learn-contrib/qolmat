@@ -89,7 +89,6 @@ metrics = ["rmse", "accuracy"]
 
 comparison = comparator.Comparator(
     dict_imputers,
-    cols_to_impute,
     generator_holes=generator_holes,
     metrics=metrics,
     max_evals=2,

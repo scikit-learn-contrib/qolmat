@@ -40,7 +40,6 @@ def generator_holes_mock(mocker: MockerFixture) -> _HoleGenerator:
 def comparator(generator_holes_mock: _HoleGenerator) -> Comparator:
     return Comparator(
         dict_models={},
-        selected_columns=["A", "B"],
         generator_holes=generator_holes_mock,
         metrics=["mae", "mse"],
     )
@@ -439,7 +438,6 @@ def test_compare_reproducibility():
     )
     comparator = Comparator(
         dict_models=dict_models,
-        selected_columns=df_data.columns,
         generator_holes=generator_holes,
         metrics=["mae", "mse"],
     )
