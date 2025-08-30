@@ -364,7 +364,7 @@ def test_exception_raise_different_shapes(
             df1, df2, df_mask
         )
     with pytest.raises(Exception):
-        metrics.frechet_distance_base(df1, df2)
+        metrics.frechet_distance_base(df1, df2, df_mask)
 
 
 @pytest.mark.parametrize("df1", [df_incomplete_cat])
