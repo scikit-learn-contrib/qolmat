@@ -57,7 +57,7 @@ imputer_wrap_rpca = preprocessing.WrapperTransformer(imputer_rpca, wrapper)
 # %%
 # The third approach uses ImputerRegressor which imputes iteratively each column using the other
 # ones. The function make_robust_MixteHGB provides an underlying model able to:
-# - adress both numerical targets (regression) and categorical targets (classification)
+# - address both numerical targets (regression) and categorical targets (classification)
 # - manage categorical features though one hot encoding
 # - manage missing features (native to the HistGradientBoosting)
 
