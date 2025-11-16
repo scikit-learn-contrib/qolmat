@@ -20,7 +20,7 @@ from qolmat.utils.utils import RandomSetting
 
 
 class RpcaNoisy(RPCA):
-    """Clas for a noisy version of the so-called 'improved RPCA'.
+    """Class for a noisy version of the so-called 'improved RPCA'.
 
     References
     ----------
