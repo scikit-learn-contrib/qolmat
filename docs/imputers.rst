@@ -79,7 +79,7 @@ This process is characterized by a time step :math:`h`. Given an initial station
 
 where :math:`Z_n` is a vector of independant standard normal random variables and :math:`L` is the log-likelihood.
 The sampled distribution tends to the target one in the limit :math:`h \rightarrow 0` and the number of iterations :math:`n \rightarrow \infty`.
-Sampling from the conditionnal distribution :math:`p(\mathbf{X}_{mis} \vert \mathbf{X}_{obs} ; \theta^{(n)})` (see MCEM [6]) is achieved by projecting the samples at each step.
+Sampling from the conditional distribution :math:`p(\mathbf{X}_{mis} \vert \mathbf{X}_{obs} ; \theta^{(n)})` (see MCEM [6]) is achieved by projecting the samples at each step.
 
 .. math::
     X_n = Proj_{obs} \left( \widetilde X_n \right),
