@@ -1076,7 +1076,7 @@ class VARpEM(EM):
         return grad_1 + grad_2
 
     def get_gamma(self, n_cols: int) -> NDArray:
-        """Compue gamma.
+        """Compute gamma.
 
         If the noise matrix is not full-rank, defines the projection matrix
         keeping the sampling process in the relevant subspace.
