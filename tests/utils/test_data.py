@@ -75,7 +75,7 @@ df_conductor = pd.DataFrame(
 df_monach_weather = pd.DataFrame(
     {
         "series_name": ["T1", "T2", "T3", "T4", "T5"],
-        "series_type": ["rain", "preasure", "temperature", "humidity", "sun"],
+        "series_type": ["rain", "pressure", "temperature", "humidity", "sun"],
         "series_value": [
             [1.0, 2.0, 3.0],
             [4.0, 5.0, 6.0],
@@ -94,7 +94,7 @@ df_monach_weather_preprocess = pd.DataFrame(
     ],
     columns=[
         "T1 rain",
-        "T2 preasure",
+        "T2 pressure",
         "T3 temperature",
         "T4 humidity",
         "T5 sun",
