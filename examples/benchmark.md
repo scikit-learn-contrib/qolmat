@@ -54,7 +54,7 @@ from qolmat.utils import data, utils, plot
 
 
 The dataset `Beijing` is the Beijing Multi-Site Air-Quality Data Set. It consists in hourly air pollutants data from 12 chinese nationally-controlled air-quality monitoring sites and is available at https://archive.ics.uci.edu/ml/machine-learning-databases/00501/.
-This dataset only contains numerical vairables.
+This dataset only contains numerical variables.
 
 ```python tags=[]
 df_data = data.get_data_corrupted("Beijing", ratio_masked=.2, mean_size=120)
