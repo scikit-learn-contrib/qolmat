@@ -902,9 +902,9 @@ def frechet_distance(
     Parameters
     ----------
     df1 : pd.DataFrame
-        First empirical ditribution
+        First empirical distribution
     df2 : pd.DataFrame
-        Second empirical ditribution
+        Second empirical distribution
     df_mask : pd.DataFrame
         Mask indicating on which values the distance has to computed on
     method: str
@@ -1093,9 +1093,9 @@ def distance_anticorr_pattern(
     Parameters
     ----------
     df1 : pd.DataFrame
-        First empirical ditribution
+        First empirical distribution
     df2 : pd.DataFrame
-        Second empirical ditribution
+        Second empirical distribution
     df_mask : pd.DataFrame
         Mask indicating on which values the distance has to computed on
     min_n_rows: int
