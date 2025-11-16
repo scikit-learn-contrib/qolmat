@@ -94,7 +94,7 @@ class TabDDPM:
         # Section 2, equation 1, num_noise_steps is T.
         self.num_noise_steps = num_noise_steps
 
-        # Section 2, equation 4 and near explation for alpha, alpha hat, beta.
+        # Section 2, equation 4 and near explanation for alpha, alpha hat, beta.
         self.beta_start = beta_start
         self.beta_end = beta_end
         self.beta = torch.linspace(
