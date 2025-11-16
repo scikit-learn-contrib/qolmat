@@ -119,7 +119,7 @@ def max_diff_Linf(
 
 
 class EM(BaseEstimator, TransformerMixin):
-    """Abstract class for EM imputatoin.
+    """Abstract class for EM imputation.
 
     It uses imputation through EM optimization and
     a projected MCMC sampling process.
