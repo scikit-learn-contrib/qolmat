@@ -349,7 +349,7 @@ class EM(BaseEstimator, TransformerMixin):
             grad_x = grad_x[mask_na]
             return grad_x
 
-        # the method BFGS is much slower, probabily not adapted
+        # the method BFGS is much slower, probability not adapted
         # to the high-dimension setting
         res = spo.minimize(fun_obj, X[mask_na], jac=fun_jac, method="CG")
         x = res.x
