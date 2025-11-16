@@ -70,7 +70,7 @@ class LittleTest(McarTest):
     """Little Test class.
 
     This class implements the Little's test, which is designed to detect the
-    heterogeneity accross the missing patterns. The null hypothesis is
+    heterogeneity across the missing patterns. The null hypothesis is
     "The missing data mechanism is MCAR". The shortcoming of this test is
     that it won't detect the heterogeneity of covariance.
 
