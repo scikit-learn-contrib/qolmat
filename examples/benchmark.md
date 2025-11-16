@@ -494,7 +494,7 @@ plt.show()
 ## Auto-correlation
 
 
-We are now interested in the auto-correlation function (ACF). As seen before, time series display seaonal patterns.
+We are now interested in the auto-correlation function (ACF). As seen before, time series display seasonal patterns.
 [Autocorrelation](https://en.wikipedia.org/wiki/Autocorrelation) is the correlation of a signal with a delayed copy of itself as a function of delay. It measures the similarity between observations of a random variable as a function of the time lag between them. The objective is to have an ACF to be similar between the original dataset and the imputed one.
 
 ```python
