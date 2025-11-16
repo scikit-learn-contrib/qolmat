@@ -338,7 +338,7 @@ class _SamplerHoleGenerator(_HoleGenerator):
         return list_sizes
 
     def generate_mask(self, X: pd.DataFrame) -> pd.DataFrame:
-        """Create missing data in an arraylike object based on a markov chain.
+        """Create missing data in an array-like object based on a markov chain.
 
         States of the MC are the different masks of missing values:
         there are at most pow(2,X.shape[1]) possible states.
@@ -729,7 +729,7 @@ class MultiMarkovHoleGenerator(_HoleGenerator):
         return realisations
 
     def generate_mask(self, X: pd.DataFrame) -> List[pd.DataFrame]:
-        """Create missing data in an arraylike object based on a markov chain.
+        """Create missing data in an array-like object based on a markov chain.
 
         States of the MC are the different masks of missing values:
         there are at most pow(2,X.shape[1]) possible states.
