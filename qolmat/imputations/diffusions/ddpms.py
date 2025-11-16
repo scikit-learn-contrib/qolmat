@@ -1022,7 +1022,7 @@ class TsDDPM(TabDDPM):
         if index_datetime == "":
             raise ValueError(
                 "Please set the params index_datetime "
-                "(the name of datatime-like index column). "
+                "(the name of datetime-like index column). "
                 f" Suggestions: {x.index.names}"
             )
         self.index_datetime = index_datetime
