@@ -224,7 +224,7 @@ class Comparator:
         -------
         pd.DataFrame
             DataFrame (2-level index) with results.
-            Columsn are imputers.
+            Columns are imputers.
             0-level index are the metrics.
             1-level index are the column names.
 

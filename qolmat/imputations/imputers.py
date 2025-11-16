@@ -1383,7 +1383,7 @@ class ImputerRegressor(_Imputer):
 
     This class implements a regression imputer in the multivariate case.
     It imputes each column using a single fit-predict for a given estimator,
-    based on the colunms which have no missing values.
+    based on the columns which have no missing values.
 
     Parameters
     ----------
