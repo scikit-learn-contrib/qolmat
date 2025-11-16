@@ -181,7 +181,7 @@ plt.show()
 
 # %%
 # We can also check the covariance. We simply plot one variable versus one another.
-# One observes the methods provide similar visual resuls: it's difficult to compare
+# One observes the methods provide similar visual results: it's difficult to compare
 # them based on this criterion, except the median imputation that greatly differs.
 # Black points and ellipses are original dataframes
 # whiel colored ones are imputed dataframes.

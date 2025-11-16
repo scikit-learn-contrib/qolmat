@@ -476,7 +476,7 @@ plt.show()
 
 
 We first check the covariance. We simply plot one variable versus one another.
-One observes the methods provide similar visual resuls: it's difficult to compare them based on this criterion.
+One observes the methods provide similar visual results: it's difficult to compare them based on this criterion.
 
 ```python
 fig = plt.figure(figsize=(6 * n_imputers, 6 * n_columns))
