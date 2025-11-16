@@ -842,7 +842,7 @@ def frechet_distance_base(
     Frechet_distance = || mu_1 - mu_2 ||_2^2
         + Tr(Sigma_1 + Sigma_2 - 2(Sigma_1 . Sigma_2)^(1/2))
     It is normalized, df1 and df2 are first scaled by a factor
-    (std(df1) + std(df2)) / 2 and then centered around
+    (std(df1) + std(df2)) / 2, and then centered around
     (mean(df1) + mean(df2)) / 2
     Based on: Dowson, D. C., and BV666017 Landau.
     "The Fréchet distance between multivariate normal distributions."
