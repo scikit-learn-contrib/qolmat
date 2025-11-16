@@ -100,7 +100,7 @@ been changed into tuple attributes so that all are not immutable
 0.0.13 (2023-06-07)
 -------------------
 
-* Refacto cross validation
+* Refactor cross validation
 * Fix Readme
 * Add test utils.plot
 
