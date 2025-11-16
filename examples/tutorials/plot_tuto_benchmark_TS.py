@@ -41,7 +41,7 @@ rng = sku.check_random_state(seed)
 # For the purpose of this notebook,
 # we corrupt the data, with the ``qolmat.utils.data.add_holes`` function
 # on three variables: "TEMP", "PRES" and "WSPM"
-# and the imputation methods will have acces to two additional features:
+# and the imputation methods will have access to two additional features:
 # "DEWP" and "RAIN".
 
 df_data = data.get_data("Beijing")
