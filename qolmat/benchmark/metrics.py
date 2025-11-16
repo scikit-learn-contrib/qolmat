@@ -245,7 +245,7 @@ def weighted_mean_absolute_percentage_error(
 def accuracy(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
 ) -> pd.Series:
-    """Compute the matching ratio beetween the two datasets.
+    """Compute the matching ratio between the two datasets.
 
     Parameters
     ----------
@@ -271,7 +271,7 @@ def accuracy(
 
 
 def accuracy_1D(values1: pd.Series, values2: pd.Series) -> float:
-    """Compute the matching ratio beetween the set of values.
+    """Compute the matching ratio between the set of values.
 
     Parameters
     ----------
