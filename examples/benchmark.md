@@ -17,7 +17,7 @@ jupyter:
 In Qolmat, a few data imputation methods are implemented as well as a way to evaluate their performance.**
 
 
-First, import some useful librairies
+First, import some useful libraries
 
 ```python tags=[]
 import warnings
