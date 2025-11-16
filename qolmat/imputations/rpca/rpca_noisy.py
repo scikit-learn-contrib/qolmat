@@ -1,4 +1,4 @@
-"""Script for an the noisy RPCA."""
+"""Script for the noisy RPCA."""
 
 from __future__ import annotations
 

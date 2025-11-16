@@ -932,7 +932,7 @@ def frechet_distance(
 
 
 def kl_divergence_1D(df1: pd.Series, df2: pd.Series) -> float:
-    """Estimate the the Kullback-Leibler divergence for 1D.
+    """Estimate the Kullback-Leibler divergence for 1D.
 
     Computation between the two 1D empirical distributions
     given by `df1`and `df2`. The samples are binarized using a uniform spacing

@@ -6,7 +6,7 @@ In this tutorial, we show how to use the Qolmat comparator
 (:class:`~qolmat.benchmark.comparator`) to choose
 the best imputation between two of the simplest imputation methods: mean or median
 (:class:`~qolmat.imputations.imputers.ImputerSimple`).
-The dataset used is the the numerical `superconduct` dataset and
+The dataset used is the numerical `superconduct` dataset and
 contains information on 21263 superconductors.
 We generate holes uniformly at random via
 :class:`~qolmat.benchmark.missing_patterns.UniformHoleGenerator`
