@@ -596,7 +596,7 @@ class PKLMTest(McarTest):
         Returns
         -------
         float
-            esimtated statistic U_hat
+            estimated statistic U_hat
 
         """
         y = self._build_label(X, M_perm, features_idx, target_idx)
