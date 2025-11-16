@@ -224,7 +224,7 @@ plot_cdf(df, [uniform_mask], ["created"], ["tab:red"])
 # The holes are generated following a Markov 1D process.
 # Holes are created column by column. The transition matrix of the
 # one-dimensional Markov process is learned from the data.
-# This metohd is implemented in the
+# This method is implemented in the
 # :class:`~qolmat.benchmark.missing_patterns.UniformHoleGenerator` class.
 
 geometric_generator = missing_patterns.GeometricHoleGenerator(
@@ -248,7 +248,7 @@ plot_cdf(df, [geometric_mask], ["created"], ["tab:red"])
 # The distribution of holes is learned from the data.
 # The distributions of holes are learned column by column; so you need to fit
 # the generator to the data.
-# This metohd is implemented in the
+# This method is implemented in the
 # :class:`~qolmat.benchmark.missing_patterns.EmpiricalHoleGenerator` class.
 # We specify ``groups=("station",)`` which means a distribution
 # is learned on each group: here on each station.
@@ -275,7 +275,7 @@ plot_cdf(df, [geometric_mask], ["created"], ["tab:red"])
 # Each line of the dataframe mask (np.nan) represents a state of the Markov chain.
 # Note it is also more difficult to achieve exactly the required
 # missing data ratio.
-# This metohd is implemented in the
+# This method is implemented in the
 # :class:`~qolmat.benchmark.missing_patterns.MultiMarkovHoleGenerator` class.
 
 multi_markov_generator = missing_patterns.MultiMarkovHoleGenerator(
@@ -298,7 +298,7 @@ plot_cdf(df, [multi_markov_mask], ["created"], ["tab:red"])
 # e. Grouped Hole Generator
 # ***************************************************************
 # The holes are generated according to the groups defined by the user.
-# This metohd is implemented in the
+# This method is implemented in the
 # :class:`~qolmat.benchmark.missing_patterns.GroupedHoleGenerator` class.
 
 grouped_generator = missing_patterns.GroupedHoleGenerator(
