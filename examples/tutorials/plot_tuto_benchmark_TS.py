@@ -51,7 +51,7 @@ cols_to_impute = ["TEMP", "PRES", "WSPM"]
 df = data.add_holes(df_data, ratio_masked=0.15, mean_size=50)
 df[["DEWP", "RAIN"]] = df_data[["DEWP", "RAIN"]]
 # %%
-# Let's take a look a one station, for instance "Aotizhongxin"
+# Let's take a look at one station, for instance "Aotizhongxin"
 
 station = "Aotizhongxin"
 fig, ax = plt.subplots(len(cols_to_impute), 1, figsize=(13, 8))
