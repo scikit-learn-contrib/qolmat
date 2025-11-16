@@ -16,7 +16,7 @@ Then Qolmat proposes two tests to determine whether the missing data mechanism i
 2. How to use the results
 -------------------------
 
-At the end of the MCAR test, it can then be assumed whether the missing data mechanism is MCAR or not. This serves three differents purposes:
+At the end of the MCAR test, it can then be assumed whether the missing data mechanism is MCAR or not. This serves three different purposes:
 
 a. Diagnosis
 ^^^^^^^^^^^^
