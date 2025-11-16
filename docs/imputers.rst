@@ -71,7 +71,7 @@ Suppose the data :math:`\mathbf{X}` has a density :math:`p_\theta` parametrized 
 
 **Expectation**
 
-Draw samples of :math:`\mathbf{X}` assuming a fixed :math:`\theta`, conditionnaly on the values of :math:`\mathbf{X}_\mathrm{obs}`. This is done by MCMC using a projected Langevin algorithm.
+Draw samples of :math:`\mathbf{X}` assuming a fixed :math:`\theta`, conditionally on the values of :math:`\mathbf{X}_\mathrm{obs}`. This is done by MCMC using a projected Langevin algorithm.
 This process is characterized by a time step :math:`h`. Given an initial station :math:`X_0`, one can update the state at iteration *t* as
 
 .. math::
