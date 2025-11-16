@@ -287,7 +287,7 @@ class TabDDPM:
                         * i
                     )
                     if len(x_batch.size()) == 3:
-                        # Data are splited into chunks
+                        # Data are split into chunks
                         # (i.e., Time-series data),
                         # a window of rows
                         # is processed.

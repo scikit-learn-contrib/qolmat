@@ -198,11 +198,11 @@ results.groupby(level=0).mean().groupby(level=0).mean()
 #
 # For TsDDPM, we have two options for splitting data:
 #
-# * ``is_rolling=False`` (default value): the data is splited by using
+# * ``is_rolling=False`` (default value): the data is split by using
 #   pandas.DataFrame.resample(rule=freq_str). There is no duplication of row between chunks,
 #   leading a smaller number of chunks than the number of rows in the original data.
 #
-# * ``is_rolling=True``: the data is splited by using pandas.DataFrame.rolling(window=freq_str).
+# * ``is_rolling=True``: the data is split by using pandas.DataFrame.rolling(window=freq_str).
 #   The number of chunks is also the number of rows in the original data.
 #   Note that setting ``is_rolling=True`` always produces better quality of imputations
 #   but requires a longer training/inference time.
