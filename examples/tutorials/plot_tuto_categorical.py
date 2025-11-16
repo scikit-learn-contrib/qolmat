@@ -68,7 +68,7 @@ imputer_wrap_hgb = preprocessing.WrapperTransformer(imputer_hgb, bt)
 # %%
 # 3. Mixed type model selection
 # ---------------------------------------------------------------
-# Let us now compare these three aproaches by measuring their ability to impute uniformly
+# Let us now compare these three approaches by measuring their ability to impute uniformly
 # distributed holes.
 
 dict_imputers = {
