@@ -143,7 +143,7 @@ def test_utils_prepare_data_2D_uneven(X: NDArray):
 
 
 @pytest.mark.parametrize("X", [X_incomplete])
-def test_utils_prepare_data_consistant(X: NDArray):
+def test_utils_prepare_data_consistent(X: NDArray):
     result1 = utils.prepare_data(X, 1)
     result2 = utils.prepare_data(result1, 2)
     result3 = utils.prepare_data(X, 2)
