@@ -77,7 +77,7 @@ This process is characterized by a time step :math:`h`. Given an initial station
 .. math::
     \widetilde X_n = X_{n-1} + \Gamma \nabla L_X(X_{n-1}, \theta_n) (X_{n-1} - \mu) h + (2 h \Gamma)^{1/2} Z_n,
 
-where :math:`Z_n` is a vector of independant standard normal random variables and :math:`L` is the log-likelihood.
+where :math:`Z_n` is a vector of independent standard normal random variables and :math:`L` is the log-likelihood.
 The sampled distribution tends to the target one in the limit :math:`h \rightarrow 0` and the number of iterations :math:`n \rightarrow \infty`.
 Sampling from the conditional distribution :math:`p(\mathbf{X}_{mis} \vert \mathbf{X}_{obs} ; \theta^{(n)})` (see MCEM [6]) is achieved by projecting the samples at each step.
 
