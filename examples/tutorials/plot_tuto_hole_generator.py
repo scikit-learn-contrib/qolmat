@@ -330,6 +330,6 @@ plot_cdf(
         multi_markov_mask,
         grouped_mask,
     ],
-    ["uniform", "geometric", "empirical", "mutli markov", "grouped"],
+    ["uniform", "geometric", "empirical", "multi markov", "grouped"],
     ["tab:orange", "tab:blue", "tab:green", "tab:pink", "tab:olive"],
 )
