@@ -106,7 +106,7 @@ def optimize(
         Each estimation involves one call to fit_transform per fold returned
         by the generator. See the n_fold attribute.
     verbose: bool
-        Verbosity switch, usefull for imputers that can have unstable
+        Verbosity switch, useful for imputers that can have unstable
         behavior for some hyperparameters values
 
     Returns
