@@ -83,7 +83,7 @@ def kl_divergence_gaussian_exact(
     Returns
     -------
     float
-        Kulback-Leibler divergence
+        Kullback-Leibler divergence
 
     """
     n_variables = len(means1)
