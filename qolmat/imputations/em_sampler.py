@@ -557,7 +557,7 @@ class EM(BaseEstimator, TransformerMixin):
         -------
         Tuple[NDArray, NDArray]
             A tuple containing:
-            - X the pretreatd data matrix
+            - X the pretreated data matrix
             - mask_na the updated mask
 
         """
@@ -1225,7 +1225,7 @@ class VARpEM(EM):
         -------
         Tuple[NDArray, NDArray]
             A tuple containing:
-            - X the pretreatd data matrix
+            - X the pretreated data matrix
             - mask_na the updated mask
 
         """
