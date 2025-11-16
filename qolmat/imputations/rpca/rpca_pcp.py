@@ -93,7 +93,7 @@ class RpcaPcp(RPCA):
         """Estimate the relevant parameters.
 
         It computes the PCP RPCA decomposition, using the
-        Augumented Largrangian Multiplier (ALM)
+        Augmented Largrangian Multiplier (ALM)
 
         Parameters
         ----------
