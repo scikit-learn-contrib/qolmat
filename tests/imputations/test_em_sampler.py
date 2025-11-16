@@ -93,7 +93,7 @@ def generate_varp_process(d=3, n=10000, p=1):
     "A, mask",
     [(A, mask)],
 )
-def test_gradient_conjugue(
+def test_gradient_conjugate(
     A: NDArray,
     mask: NDArray,
 ) -> None:
