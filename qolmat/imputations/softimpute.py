@@ -156,7 +156,7 @@ class SoftImpute(BaseEstimator, TransformerMixin):
             V_old = V
             D_old = D
 
-            # Step 2 : Upate on B
+            # Step 2 : Update on B
             D2_invreg = (D**2 + tau) ** (-1)
             Btilde = (
                 (U * D).T @ np.where(Omega, X - A @ B.T, 0) + (B * D**2).T
@@ -168,7 +168,7 @@ class SoftImpute(BaseEstimator, TransformerMixin):
             D = np.sqrt(D2tilde).reshape(1, -1)
             B = V * D
 
-            # Step 3 : Upate on A
+            # Step 3 : Update on A
             D2_invreg = (D**2 + tau) ** (-1)
             Atilde = (
                 (V * D).T @ np.where(Omega, X - A @ B.T, 0).T + (A * D**2).T
