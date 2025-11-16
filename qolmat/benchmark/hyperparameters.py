@@ -38,7 +38,7 @@ def get_objective(
         Generator creating the masked values in the nested cross validation
         allowing to measure the imputer performance
     metric: str
-        Metric used as perfomance indicator, common values are `mse` and `mae`
+        Metric used as performance indicator, common values are `mse` and `mae`
     names_hyperparams: List[str]
         List of the names of the hyperparameters which are being optimized
 
@@ -98,7 +98,7 @@ def optimize(
         Generator creating the masked values in the nested cross validation
         allowing to measure the imputer performance
     metric: str
-        Metric used as perfomance indicator, common values are `mse` and `mae`
+        Metric used as performance indicator, common values are `mse` and `mae`
     dict_config: Dict[str, HyperValue]
         Search space for the tested hyperparameters
     max_evals: int
