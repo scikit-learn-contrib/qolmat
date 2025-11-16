@@ -206,7 +206,7 @@ uniform_generator = missing_patterns.UniformHoleGenerator(
 )
 uniform_mask = uniform_generator.split(df)[0]
 
-print("Pourcentage of additional missing values:")
+print("Percentage of additional missing values:")
 print(round((uniform_mask.sum() / len(uniform_mask)) * 100, 2))
 visualise_missing_values(df, uniform_mask)
 
@@ -232,7 +232,7 @@ geometric_generator = missing_patterns.GeometricHoleGenerator(
 )
 geometric_mask = geometric_generator.split(df)[0]
 
-print("Pourcentage of additional missing values:")
+print("Percentage of additional missing values:")
 print(round((geometric_mask.sum() / len(geometric_mask)) * 100, 2))
 visualise_missing_values(df, geometric_mask)
 
@@ -258,7 +258,7 @@ empirical_generator = missing_patterns.EmpiricalHoleGenerator(
 )
 empirical_mask = empirical_generator.split(df)[0]
 
-print("Pourcentage of additional missing values:")
+print("Percentage of additional missing values:")
 print(round((empirical_mask.sum() / len(empirical_mask)) * 100, 2))
 visualise_missing_values(df, empirical_mask)
 
@@ -283,7 +283,7 @@ multi_markov_generator = missing_patterns.MultiMarkovHoleGenerator(
 )
 multi_markov_mask = multi_markov_generator.split(df)[0]
 
-print("Pourcentage of additional missing values:")
+print("Percentage of additional missing values:")
 print(round((multi_markov_mask.sum() / len(multi_markov_mask)) * 100, 2))
 visualise_missing_values(df, multi_markov_mask)
 
@@ -306,7 +306,7 @@ grouped_generator = missing_patterns.GroupedHoleGenerator(
 )
 grouped_mask = grouped_generator.split(df)[0]
 
-print("Pourcentage of additional missing values:")
+print("Percentage of additional missing values:")
 print(round((grouped_mask.sum() / len(grouped_mask)) * 100, 2))
 visualise_missing_values(df, grouped_mask)
 
