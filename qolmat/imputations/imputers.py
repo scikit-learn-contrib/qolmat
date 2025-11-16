@@ -33,7 +33,7 @@ class _Imputer(_BaseImputer):
         If True, the imputer will be computed for each column, else it will be
         computed on the whole dataframe, by default False
     shrink : bool, optional
-        Indicates if the elementwise imputation method returns a single value,
+        Indicates if the element-wise imputation method returns a single value,
         by default False
     random_state : RandomSetting, optional
         Controls the randomness of the fit_transform, by default None
