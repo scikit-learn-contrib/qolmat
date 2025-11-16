@@ -234,7 +234,7 @@ class _Imputer(_BaseImputer):
     ) -> pd.DataFrame:
         """Return an imputed dataframe.
 
-        The retruned df has same shape as `X`, with unchanged values,
+        The returned df has same shape as `X`, with unchanged values,
         but all nans are replaced by non-nan values.
         Depending on the imputer parameters, the dataframe can be imputed
         with columnwise and/or groupwise methods.
