@@ -173,7 +173,7 @@ class _Imputer(_BaseImputer):
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         """Transform/impute a dataframe.
 
-        It retruns a dataframe with same shape as `X`,
+        It returns a dataframe with same shape as `X`,
         unchanged values, where all nans are replaced by non-nan values.
         Depending on the imputer parameters, the dataframe can be imputed with
         columnwise and/or groupwise methods.
