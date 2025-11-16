@@ -408,7 +408,7 @@ class _Imputer(_BaseImputer):
         col : str, optional
             Column on which the imputer is fitted, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -440,7 +440,7 @@ class _Imputer(_BaseImputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -586,7 +586,7 @@ class ImputerSimple(_Imputer):
         col : str, optional
             Column on which the imputer is fitted, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -620,7 +620,7 @@ class ImputerSimple(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -696,7 +696,7 @@ class ImputerShuffle(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -779,7 +779,7 @@ class ImputerLOCF(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -855,7 +855,7 @@ class ImputerNOCB(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -952,7 +952,7 @@ class ImputerInterpolation(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -1085,7 +1085,7 @@ class ImputerResiduals(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -1201,7 +1201,7 @@ class ImputerKNN(_Imputer):
         col : str, optional
             Column on which the imputer is fitted, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -1239,7 +1239,7 @@ class ImputerKNN(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -1316,7 +1316,7 @@ class ImputerMICE(_Imputer):
         col : str, optional
             Column on which the imputer is fitted, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -1355,7 +1355,7 @@ class ImputerMICE(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -1503,7 +1503,7 @@ class ImputerRegressor(_Imputer):
         col : str, optional
             Column on which the imputer is fitted, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -1557,7 +1557,7 @@ class ImputerRegressor(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -1690,7 +1690,7 @@ class ImputerRpcaPcp(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -1839,7 +1839,7 @@ class ImputerRpcaNoisy(_Imputer):
         col : str, optional
             Column on which the imputer is fitted, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -1887,7 +1887,7 @@ class ImputerRpcaNoisy(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -2019,7 +2019,7 @@ class ImputerSoftImpute(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -2176,7 +2176,7 @@ class ImputerEM(_Imputer):
         col : str, optional
             Column on which the imputer is fitted, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -2210,7 +2210,7 @@ class ImputerEM(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------

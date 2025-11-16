@@ -348,7 +348,7 @@ class ImputerAutoencoder(_Imputer):
         col : str, optional
             Column on which the imputer is fitted, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -387,7 +387,7 @@ class ImputerAutoencoder(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -793,7 +793,7 @@ class ImputerDiffusion(_Imputer):
         col : str, optional
             Column on which the imputer is fitted, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -828,7 +828,7 @@ class ImputerDiffusion(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
