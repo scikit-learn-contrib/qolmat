@@ -115,7 +115,7 @@ class TabDDPM:
         self.sqrt_alpha = torch.sqrt(self.alpha)
         self.std_beta = torch.sqrt(self.beta)
 
-        # Hyper-parameters for bulding and training the model
+        # Hyper-parameters for building and training the model
         self.loss_func = torch.nn.MSELoss(reduction="none")
 
         self.lr = lr
