@@ -112,7 +112,7 @@ def plot_images(
     Parameters
     ----------
     M : np.ndarray
-        orginal array
+        original array
     A : np.ndarray
         background array
     E : np.ndarray

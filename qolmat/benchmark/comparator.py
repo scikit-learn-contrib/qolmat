@@ -69,7 +69,7 @@ class Comparator:
         Parameters
         ----------
         df_origin : pd.DataFrame
-            reference/orginal signal
+            reference/original signal
         df_imputed : pd.DataFrame
             imputed signal
         df_mask : pd.DataFrame
