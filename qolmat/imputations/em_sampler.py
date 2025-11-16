@@ -745,7 +745,7 @@ class MultiNormalEM(EM):
         return gamma
 
     def update_criteria_stop(self, X: NDArray):
-        """Update the variables to compute the stopping critera.
+        """Update the variables to compute the stopping criteria.
 
         Parameters
         ----------
@@ -1103,7 +1103,7 @@ class VARpEM(EM):
         return gamma
 
     def update_criteria_stop(self, X: NDArray):
-        """Update the variable to compute the stopping critera.
+        """Update the variable to compute the stopping criteria.
 
         Parameters
         ----------

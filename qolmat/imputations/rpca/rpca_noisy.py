@@ -54,7 +54,7 @@ class RpcaNoisy(RPCA):
         stopping criteria, maximum number of iterations.
         By default, the value is set to 10_000
     tolerance: Optional[float]
-        stoppign critera, minimum difference between 2 consecutive iterations.
+        stoppign criteria, minimum difference between 2 consecutive iterations.
         By default, the value is set to 1e-6
     norm: Optional[str]
         error norm, can be "L1" or "L2". By default, the value is set to "L2"
