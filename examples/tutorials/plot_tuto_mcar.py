@@ -260,7 +260,7 @@ Calculation time
 """
 
 # %%
-# 2.1 Parameters and Hyperparmaters
+# 2.1 Parameters and Hyperparameters
 # ================================================
 #
 # To use the PKLM test properly, it may be necessary to understand the use of hyper-parameters.
