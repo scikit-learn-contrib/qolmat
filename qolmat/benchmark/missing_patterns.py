@@ -51,7 +51,7 @@ def compute_transition_matrix(
     Parameters
     ----------
     states : pd.Series
-        serie of possible states (masks)
+        series of possible states (masks)
     ngroups : Optional[List], optional
         groups, by default None
 
