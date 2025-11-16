@@ -16,7 +16,7 @@ from qolmat.utils.utils import RandomSetting
 
 
 def compute_transition_counts_matrix(states: pd.Series):
-    """Compute transtion counts matrix.
+    """Compute transition counts matrix.
 
     Parameters
     ----------
