@@ -141,7 +141,7 @@ class EM(BaseEstimator, TransformerMixin):
         or to maximise likelihood (0), by default 1.
     random_state : int, optional
         The seed of the pseudo random number generator to use,
-        for reproductibility.
+        for reproducibility.
     dt : float, optional
         Process integration time step, a large value increases the sample bias
         and can make the algorithm unstable, but compensates for a
@@ -622,7 +622,7 @@ class MultiNormalEM(EM):
         or to maximise likelihood (0), by default 1.
     random_state : int, optional
         The seed of the pseudo random number generator to use,
-        for reproductibility.
+        for reproducibility.
     dt : float
         Process integration time step, a large value increases the sample bias
         and can make the algorithm unstable, but compensates for a
@@ -951,7 +951,7 @@ class VARpEM(EM):
         or to maximise likelihood (0), by default 1.
     random_state : int, optional
         The seed of the pseudo random number generator to use,
-        for reproductibility.
+        for reproducibility.
     dt : float
         Process integration time step, a large value increases the sample bias
         and can make the algorithm unstable, but compensates for

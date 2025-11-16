@@ -49,7 +49,7 @@ class SoftImpute(BaseEstimator, TransformerMixin):
         Maximum number of iterations
     random_state : int, optional
         The seed of the pseudo random number generator to use,
-        for reproductibility
+        for reproducibility
     verbose : bool
         flag for verbosity
 

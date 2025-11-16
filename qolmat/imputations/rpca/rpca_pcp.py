@@ -30,7 +30,7 @@ class RpcaPcp(RPCA):
     ----------
     random_state : int, optional
         The seed of the pseudo random number generator to use,
-        for reproductibility.
+        for reproducibility.
     period: Optional[int]
         number of rows of the reshaped matrix if the signal is a 1D-array
     rank: Optional[int]

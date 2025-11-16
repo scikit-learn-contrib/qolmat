@@ -36,7 +36,7 @@ class RpcaNoisy(RPCA):
     ----------
     random_state : int, optional
         The seed of the pseudo random number generator to use,
-        for reproductibility.
+        for reproducibility.
     rank: Optional[int]
         Upper bound of the rank to be estimated
     mu: Optional[float]
