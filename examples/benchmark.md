@@ -102,7 +102,7 @@ All presented methods are group-wise: here each station is imputed independently
 
 <u>**Hyperparameters' search**</u>:
 Some methods require hyperparameters. The user can directly specify them, or rather determine them through an optimization step using the `search_params` dictionary. The keys are the imputation method's name and the values are a dictionary specifying the minimum, maximum or list of categories and type of values (Integer, Real, Category or a dictionary indexed by the variable names) to search.
-In pratice, we rely on a cross validation to find the best hyperparams values minimizing an error reconstruction.
+In practice, we rely on a cross validation to find the best hyperparams values minimizing an error reconstruction.
 
 ```python tags=[]
 ratio_masked = 0.1
