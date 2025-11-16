@@ -205,7 +205,7 @@ print(f"The p-value of the PKLM test is: {pklm_result:.2%}")
 # %%
 # Limitations and conclusion
 # ==========================
-# In this tutoriel, we can see that Little's test fails to detect covariance heterogeneity between
+# In this tutorial, we can see that Little's test fails to detect covariance heterogeneity between
 # patterns.
 #
 # We also note that the Little's test does not handle categorical data or temporally
