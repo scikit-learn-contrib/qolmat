@@ -98,7 +98,7 @@ plt.show()
 This part is devoted to the imputation methods. The idea is to try different algorithms and compare them.
 
 <u>**Methods**</u>:
-All presented methods are group-wise: here each station is imputed independently. For example ImputerMean computes the mean of each variable in each station and uses the result for imputation; ImputerInterpolation interpolates termporal signals corresponding to each variable on each station.
+All presented methods are group-wise: here each station is imputed independently. For example ImputerMean computes the mean of each variable in each station and uses the result for imputation; ImputerInterpolation interpolates temporal signals corresponding to each variable on each station.
 
 <u>**Hyperparameters' search**</u>:
 Some methods require hyperparameters. The user can directly specify them, or rather determine them through an optimization step using the `search_params` dictionary. The keys are the imputation method's name and the values are a dictionary specifying the minimum, maximum or list of categories and type of values (Integer, Real, Category or a dictionary indexed by the variable names) to search.

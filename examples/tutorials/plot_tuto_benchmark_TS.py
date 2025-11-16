@@ -68,7 +68,7 @@ plt.show()
 # ---------------------------------------------------------------
 # All presented methods are group-wise: here each station is imputed independently.
 # For example ImputerMean computes the mean of each variable in each station and uses
-# the result for imputation; ImputerInterpolation interpolates termporal
+# the result for imputation; ImputerInterpolation interpolates temporal
 # signals corresponding to each variable on each station.
 # We consider five imputation methods:
 # ``median`` for a baseline imputation;
