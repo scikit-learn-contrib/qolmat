@@ -74,11 +74,11 @@ def kl_divergence_gaussian_exact(
     means1: NDArray
         Mean of the first distribution
     cov1: NDArray
-        Covariance matrx of the first distribution
+        Covariance matrix of the first distribution
     means2: NDArray
         Mean of the second distribution
     cov2: NDArray
-        Covariance matrx of the second distribution
+        Covariance matrix of the second distribution
 
     Returns
     -------
