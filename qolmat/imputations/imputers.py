@@ -879,7 +879,7 @@ class ImputerInterpolation(_Imputer):
     """Interpolation imputer.
 
     This class implements a way to impute time series using some interpolation
-    strategies suppoted by pd.Series.interpolate, such as "linear", "slinear",
+    strategies supported by pd.Series.interpolate, such as "linear", "slinear",
     "quadratic", ... By default, linear interpolation.
     As for pd.Series.interpolate, if "method" is "spline" or "polynomial",
     an "order" has to be passed.
