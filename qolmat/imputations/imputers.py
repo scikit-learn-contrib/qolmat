@@ -92,7 +92,7 @@ class _Imputer(_BaseImputer):
         return hyperparams
 
     def _check_dataframe(self, X: NDArray):
-        """Check that the input X is a dataframe, otherwise raises an error.
+        """Check that the input X is a dataframe; otherwise, raises an error.
 
         Parameters
         ----------
