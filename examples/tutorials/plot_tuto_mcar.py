@@ -266,7 +266,7 @@ Calculation time
 # To use the PKLM test properly, it may be necessary to understand the use of hyper-parameters.
 #
 # * ``nb_projections``: Number of projections on which the test statistic is calculated. This
-#   parameter has the greatest influence on test calculation time. Its defaut value
+#   parameter has the greatest influence on test calculation time. Its default value
 #   ``nb_projections=100``.
 #   Est-ce qu'on donne des ordres de grandeurs utiles ? J'avais un peu fait ce travail.
 #

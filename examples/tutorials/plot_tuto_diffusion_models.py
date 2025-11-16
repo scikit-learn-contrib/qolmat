@@ -54,12 +54,12 @@ logging.info(f"Number of nan at each column: {df_data.isna().sum()}")
 #
 # * ``cols_imputed``: list of columns that need to be imputed. Recall that we train the model on
 #   incomplete data by using the self-supervised learning method. We can set which columns to be
-#   masked during training. Its defaut value is ``None``.
+#   masked during training. Its default value is ``None``.
 #
-# * ``epochs`` : a number of iterations, its defaut value ``epochs=10``. In practice, we should
+# * ``epochs`` : a number of iterations, its default value ``epochs=10``. In practice, we should
 #   set a larger number of epochs e.g., ``epochs=100``.
 #
-# * ``batch_size`` : a size of batch, its defaut value ``batch_size=100``.
+# * ``batch_size`` : a size of batch, its default value ``batch_size=100``.
 #
 # The following hyperparams are for validation:
 #
