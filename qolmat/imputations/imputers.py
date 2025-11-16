@@ -232,7 +232,7 @@ class _Imputer(_BaseImputer):
     def fit_transform(
         self, X: pd.DataFrame, y: pd.DataFrame = None
     ) -> pd.DataFrame:
-        """Return a imputed dataframe.
+        """Return an imputed dataframe.
 
         The retruned df has same shape as `X`, with unchanged values,
         but all nans are replaced by non-nan values.
@@ -1266,7 +1266,7 @@ class ImputerMICE(_Imputer):
     """MICE imputer.
 
     Wrapper of the class sklearn.impute.IterativeImputer in our framework.
-    This imputer relies on a estimator which is iterative.
+    This imputer relies on an estimator which is iterative.
 
     Parameters
     ----------
