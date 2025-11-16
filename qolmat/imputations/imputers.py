@@ -2068,7 +2068,7 @@ class ImputerEM(_Imputer):
     method : {'multinormal', 'VAR'}, default='multinormal'
         Method defining the hypothesis made on the data distribution.
         Possible values:
-        - 'multinormal' : the data points a independent and uniformly
+        - 'multinormal' : the data points are independent and uniformly
         distributed following a multinormal distribution
         - 'VAR' : the data is a time series modeled by a VAR(p) process
     columnwise : bool
