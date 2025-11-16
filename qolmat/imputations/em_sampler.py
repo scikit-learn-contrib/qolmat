@@ -424,7 +424,7 @@ class EM(BaseEstimator, TransformerMixin):
 
         # first imputation
         X_imp = self.init_imputation(X)
-        self._check_conditionning(X_imp)
+        self._check_conditioning(X_imp)
 
         self.fit_parameters_with_missingness(X)
 
@@ -563,7 +563,7 @@ class EM(BaseEstimator, TransformerMixin):
         """
         return X, mask_na
 
-    def _check_conditionning(self, X: NDArray):
+    def _check_conditioning(self, X: NDArray):
         """Check that the data matrix X is not ill-conditioned.
 
         Running the EM algorithm on data with colinear columns leads to
