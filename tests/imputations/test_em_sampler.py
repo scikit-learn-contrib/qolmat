@@ -367,13 +367,13 @@ def test_multinormal_em_minimize_llik():
     llikelihood_imputed = imputer.get_loglikelihood(X_imputed)
     for _ in range(10):
         Delta = imputer.rng.uniform(0, 1, size=X.shape)
-        X_perturbated = X_imputed + Delta
-        llikelihood_perturbated = imputer.get_loglikelihood(X_perturbated)
-        assert llikelihood_perturbated < llikelihood_imputed
-    X_perturbated = X
-    X_perturbated[np.isnan(X)] = 0
-    llikelihood_perturbated = imputer.get_loglikelihood(X_perturbated)
-    assert llikelihood_perturbated < llikelihood_imputed
+        X_perturbed = X_imputed + Delta
+        llikelihood_perturbed = imputer.get_loglikelihood(X_perturbed)
+        assert llikelihood_perturbed < llikelihood_imputed
+    X_perturbed = X
+    X_perturbed[np.isnan(X)] = 0
+    llikelihood_perturbed = imputer.get_loglikelihood(X_perturbed)
+    assert llikelihood_perturbed < llikelihood_imputed
 
 
 @pytest.mark.parametrize("method", ["sample", "mle"])
