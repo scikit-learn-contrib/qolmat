@@ -19,7 +19,7 @@ def frechet_distance_exact(
     by a factor (std(df1) + std(df2)) / 2
     and then centered around (mean(df1) + mean(df2)) / 2
     The result is divided by the number of samples to get
-    an homogeneous result.
+    a homogeneous result.
     Based on: Dowson, D. C., and BV666017 Landau.
         "The Fréchet distance between multivariate normal distributions."
         Journal of multivariate analysis 12.3 (1982): 450-455.
