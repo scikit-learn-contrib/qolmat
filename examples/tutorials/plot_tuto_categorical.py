@@ -101,5 +101,5 @@ results = comparison.compare(df)
 results.loc["rmse"].style.highlight_min(color="lightgreen", axis=1)
 
 # %%
-# The HGB imputation methods globaly reaches a better accuracy on the categorical data.
+# The HGB imputation methods globally reaches a better accuracy on the categorical data.
 results.loc["accuracy"].style.highlight_max(color="lightgreen", axis=1)
