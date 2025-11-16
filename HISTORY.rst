@@ -41,7 +41,7 @@ History
 * RPCA algorithms now start with a normalizing scaler
 * The EM algorithms now include a gradient projection step to be more robust to colinearity
 * The EM algorithm based on the Gaussian model is now initialized using a robust estimation of the covariance matrix
-* A bug in the EM algorithm has been patched: the normalizing matrix gamma was creating a sampling biais
+* A bug in the EM algorithm has been patched: the normalizing matrix gamma was creating a sampling bias
 * Speed up of the EM algorithm likelihood maximization, using the conjugate gradient method
 * The ImputeRegressor class now handles the nans by `row` by default
 * The metric `frechet` was not correctly called and has been patched
