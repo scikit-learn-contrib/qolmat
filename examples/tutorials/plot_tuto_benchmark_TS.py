@@ -184,7 +184,7 @@ plt.show()
 # One observes the methods provide similar visual results: it's difficult to compare
 # them based on this criterion, except the median imputation that greatly differs.
 # Black points and ellipses are original dataframes
-# whiel colored ones are imputed dataframes.
+# while colored ones are imputed dataframes.
 
 n_columns = len(dfs_imputed_station)
 fig = plt.figure(figsize=(10, 10))
