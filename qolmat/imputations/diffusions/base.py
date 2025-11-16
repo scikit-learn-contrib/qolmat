@@ -18,7 +18,7 @@ class ResidualBlock(torch.nn.Module):
     def __init__(
         self, dim_input: int, dim_embedding: int = 128, p_dropout: float = 0.0
     ):
-        """Init funciton.
+        """Init function.
 
         Parameters
         ----------
