@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple
 
 import hyperopt as ho
 import numpy as np
@@ -12,6 +12,7 @@ from qolmat.benchmark.missing_patterns import (
     _HoleGenerator,
 )
 from qolmat.imputations.imputers import ImputerRpcaNoisy, _Imputer
+from qolmat.utils.utils import RandomSetting
 
 df_origin = pd.DataFrame(
     {"col1": [0, np.nan, 2, 4, np.nan], "col2": [-1, np.nan, 0.5, 1, 1.5]}
@@ -52,7 +53,7 @@ class ImputerTest(_Imputer):
     def __init__(
         self,
         groups: Tuple[str, ...] = (),
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         value: float = 0,
     ) -> None:
         """Init function."""

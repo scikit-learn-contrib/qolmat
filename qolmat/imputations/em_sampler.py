@@ -1,5 +1,6 @@
 """Script for EM imputation."""
 
+import logging
 import warnings
 from abc import abstractmethod
 from typing import Dict, List, Literal, Tuple, Union
@@ -10,9 +11,16 @@ from scipy import linalg as spl
 from scipy import optimize as spo
 from sklearn import utils as sku
 from sklearn.base import BaseEstimator, TransformerMixin
+from tqdm import tqdm
 
-# from typing_extensions import Self
 from qolmat.utils import utils
+from qolmat.utils.utils import RandomSetting
+
+logging.basicConfig(
+    format="%(asctime)s %(levelname)-8s %(message)s",
+    level=logging.INFO,
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 
 def _conjugate_gradient(A: NDArray, X: NDArray, mask: NDArray) -> NDArray:
@@ -111,7 +119,7 @@ def max_diff_Linf(
 
 
 class EM(BaseEstimator, TransformerMixin):
-    """Abstract class for EM imputatoin.
+    """Abstract class for EM imputation.
 
     It uses imputation through EM optimization and
     a projected MCMC sampling process.
@@ -133,7 +141,7 @@ class EM(BaseEstimator, TransformerMixin):
         or to maximise likelihood (0), by default 1.
     random_state : int, optional
         The seed of the pseudo random number generator to use,
-        for reproductibility.
+        for reproducibility.
     dt : float, optional
         Process integration time step, a large value increases the sample bias
         and can make the algorithm unstable, but compensates for a
@@ -164,7 +172,7 @@ class EM(BaseEstimator, TransformerMixin):
         n_iter_ou: int = 50,
         n_samples: int = 10,
         ampli: float = 1,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         dt: float = 2e-2,
         tolerance: float = 1e-4,
         stagnation_threshold: float = 5e-3,
@@ -184,7 +192,6 @@ class EM(BaseEstimator, TransformerMixin):
         self.n_iter_ou = n_iter_ou
         self.ampli = ampli
         self.rng = sku.check_random_state(random_state)
-        self.cov = np.array([[]])
         self.dt = dt
         self.tolerance = tolerance
         self.stagnation_threshold = stagnation_threshold
@@ -342,7 +349,7 @@ class EM(BaseEstimator, TransformerMixin):
             grad_x = grad_x[mask_na]
             return grad_x
 
-        # the method BFGS is much slower, probabily not adapted
+        # the method BFGS is much slower, probability not adapted
         # to the high-dimension setting
         res = spo.minimize(fun_obj, X[mask_na], jac=fun_jac, method="CG")
         x = res.x
@@ -417,7 +424,7 @@ class EM(BaseEstimator, TransformerMixin):
 
         # first imputation
         X_imp = self.init_imputation(X)
-        self._check_conditionning(X_imp)
+        self._check_conditioning(X_imp)
 
         self.fit_parameters_with_missingness(X)
 
@@ -427,7 +434,11 @@ class EM(BaseEstimator, TransformerMixin):
 
         X = self._maximize_likelihood(X_imp, mask_na)
 
-        for iter_em in range(self.max_iter_em):
+        for iter_em in tqdm(
+            range(self.max_iter_em),
+            desc="EM parameters estimation",
+            disable=not self.verbose,
+        ):
             X = self._sample_ou(X, mask_na)
 
             self.combine_parameters()
@@ -436,7 +447,7 @@ class EM(BaseEstimator, TransformerMixin):
             self.update_criteria_stop(X)
             if self._check_convergence():
                 if self.verbose:
-                    print(f"EM converged after {iter_em} iterations.")
+                    logging.info(f"EM converged after {iter_em} iterations.")
                 break
 
         self.dict_criteria_stop = {key: [] for key in self.dict_criteria_stop}
@@ -452,6 +463,11 @@ class EM(BaseEstimator, TransformerMixin):
 
         """
         X = X.copy()
+        # utils.check_dtypes(X)
+        # sku.check_array(X, ensure_all_finite="allow-nan", dtype="float")
+        sku.validation.validate_data(
+            self, X, ensure_all_finite="allow-nan", dtype="float"
+        )
         self.shape_original = X.shape
 
         self.hash_fit = hash(X.tobytes())
@@ -463,6 +479,7 @@ class EM(BaseEstimator, TransformerMixin):
         if hasattr(self, "p_to_fit") and self.p_to_fit:
             aics: List[float] = []
             for p in range(self.max_lagp + 1):
+                print("p=", p)
                 self.p = p
                 self.fit_X(X)
                 n1, n2 = self.X.shape
@@ -500,6 +517,10 @@ class EM(BaseEstimator, TransformerMixin):
         """
         mask_na = np.isnan(X)
         X = X.copy()
+        # sku.check_array(X, ensure_all_finite="allow-nan", dtype="float")
+        sku.validation.validate_data(
+            self, X, ensure_all_finite="allow-nan", dtype="float", reset=False
+        )
 
         # shape_original = X.shape
         if hash(X.tobytes()) == self.hash_fit:
@@ -536,13 +557,13 @@ class EM(BaseEstimator, TransformerMixin):
         -------
         Tuple[NDArray, NDArray]
             A tuple containing:
-            - X the pretreatd data matrix
+            - X the pretreated data matrix
             - mask_na the updated mask
 
         """
         return X, mask_na
 
-    def _check_conditionning(self, X: NDArray):
+    def _check_conditioning(self, X: NDArray):
         """Check that the data matrix X is not ill-conditioned.
 
         Running the EM algorithm on data with colinear columns leads to
@@ -601,7 +622,7 @@ class MultiNormalEM(EM):
         or to maximise likelihood (0), by default 1.
     random_state : int, optional
         The seed of the pseudo random number generator to use,
-        for reproductibility.
+        for reproducibility.
     dt : float
         Process integration time step, a large value increases the sample bias
         and can make the algorithm unstable, but compensates for a
@@ -629,7 +650,7 @@ class MultiNormalEM(EM):
         n_iter_ou: int = 50,
         n_samples: int = 10,
         ampli: float = 1,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         dt: float = 2e-2,
         tolerance: float = 1e-4,
         stagnation_threshold: float = 5e-3,
@@ -651,6 +672,7 @@ class MultiNormalEM(EM):
             period=period,
             verbose=verbose,
         )
+        self.cov = np.array([[]])
         self.dict_criteria_stop = {"logliks": [], "means": [], "covs": []}
 
     def get_loglikelihood(self, X: NDArray) -> float:
@@ -723,7 +745,7 @@ class MultiNormalEM(EM):
         return gamma
 
     def update_criteria_stop(self, X: NDArray):
-        """Update the variables to compute the stopping critera.
+        """Update the variables to compute the stopping criteria.
 
         Parameters
         ----------
@@ -929,7 +951,7 @@ class VARpEM(EM):
         or to maximise likelihood (0), by default 1.
     random_state : int, optional
         The seed of the pseudo random number generator to use,
-        for reproductibility.
+        for reproducibility.
     dt : float
         Process integration time step, a large value increases the sample bias
         and can make the algorithm unstable, but compensates for
@@ -972,7 +994,7 @@ class VARpEM(EM):
         max_iter_em: int = 200,
         n_iter_ou: int = 50,
         ampli: float = 1,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         dt: float = 2e-2,
         tolerance: float = 1e-4,
         stagnation_threshold: float = 5e-3,
@@ -1054,7 +1076,7 @@ class VARpEM(EM):
         return grad_1 + grad_2
 
     def get_gamma(self, n_cols: int) -> NDArray:
-        """Compue gamma.
+        """Compute gamma.
 
         If the noise matrix is not full-rank, defines the projection matrix
         keeping the sampling process in the relevant subspace.
@@ -1081,7 +1103,7 @@ class VARpEM(EM):
         return gamma
 
     def update_criteria_stop(self, X: NDArray):
-        """Update the variable to compute the stopping critera.
+        """Update the variable to compute the stopping criteria.
 
         Parameters
         ----------
@@ -1203,7 +1225,7 @@ class VARpEM(EM):
         -------
         Tuple[NDArray, NDArray]
             A tuple containing:
-            - X the pretreatd data matrix
+            - X the pretreated data matrix
             - mask_na the updated mask
 
         """

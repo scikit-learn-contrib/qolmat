@@ -5,17 +5,18 @@ from __future__ import annotations
 import functools
 import math
 import warnings
-from typing import Callable, List, Optional, Tuple, Union
+from typing import Callable, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 from sklearn import utils as sku
 
 from qolmat.utils.exceptions import SubsetIsAString
+from qolmat.utils.utils import RandomSetting
 
 
 def compute_transition_counts_matrix(states: pd.Series):
-    """Compute transtion counts matrix.
+    """Compute transition counts matrix.
 
     Parameters
     ----------
@@ -50,7 +51,7 @@ def compute_transition_matrix(
     Parameters
     ----------
     states : pd.Series
-        serie of possible states (masks)
+        series of possible states (masks)
     ngroups : Optional[List], optional
         groups, by default None
 
@@ -125,7 +126,7 @@ class _HoleGenerator:
         n_splits: int,
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         groups: Tuple[str, ...] = (),
     ) -> None:
         self.n_splits = n_splits
@@ -190,6 +191,12 @@ class _HoleGenerator:
         elif isinstance(self.subset, str):
             raise SubsetIsAString(self.subset)
 
+    def save_rng_state(self):
+        self.state_rng = self.random_state.get_state()
+
+    def load_rng_state(self):
+        self.random_state.set_state(self.state_rng)
+
 
 class UniformHoleGenerator(_HoleGenerator):
     """UniformHoleGenerator class.
@@ -219,7 +226,7 @@ class UniformHoleGenerator(_HoleGenerator):
         n_splits: int,
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         sample_proportional: bool = False,
     ):
         super().__init__(
@@ -247,14 +254,15 @@ class UniformHoleGenerator(_HoleGenerator):
             ratio_masked = self.ratio_masked
             if self.sample_proportional:
                 ratio_masked *= self.dict_ratios[col] * len(X.columns)
-            n_masked_col = math.ceil(self.ratio_masked * len(X))
-            indices = np.where(X[col].notna())[0]
-            indices = self.random_state.choice(
-                indices,
+            n_masked_col = math.ceil(ratio_masked * len(X))
+            indices_int = np.where(X[col].notna())[0]
+            indices_int = self.random_state.choice(
+                indices_int,
                 replace=False,
                 size=n_masked_col,
             )
-            df_mask[col].iloc[indices] = True
+            indices_int = df_mask.index[indices_int]
+            df_mask.loc[indices_int, col] = True
 
         return df_mask
 
@@ -288,7 +296,7 @@ class _SamplerHoleGenerator(_HoleGenerator):
         n_splits: int,
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         groups: Tuple[str, ...] = (),
     ):
         super().__init__(
@@ -330,7 +338,7 @@ class _SamplerHoleGenerator(_HoleGenerator):
         return list_sizes
 
     def generate_mask(self, X: pd.DataFrame) -> pd.DataFrame:
-        """Create missing data in an arraylike object based on a markov chain.
+        """Create missing data in an array-like object based on a markov chain.
 
         States of the MC are the different masks of missing values:
         there are at most pow(2,X.shape[1]) possible states.
@@ -371,7 +379,8 @@ class _SamplerHoleGenerator(_HoleGenerator):
                 sample = min(min(sample, sizes_max.max()), n_masked_left)
                 i_hole = self.rng.choice(np.where(sample <= sizes_max)[0])
 
-                if not (~mask[column].iloc[i_hole - sample : i_hole]).all():
+                indices_hole = mask.index[i_hole - sample : i_hole]
+                if not (~mask.loc[indices_hole, column]).all():
                     raise ValueError(
                         "The mask condition is not satisfied for "
                         f"column={column}, "
@@ -379,7 +388,7 @@ class _SamplerHoleGenerator(_HoleGenerator):
                         f"and i_hole={i_hole}."
                     )
 
-                mask[column].iloc[i_hole - sample : i_hole] = True
+                mask.loc[indices_hole, column] = True
                 n_masked_left -= sample
 
                 sizes_max.iloc[i_hole - sample : i_hole] = 0
@@ -424,7 +433,7 @@ class GeometricHoleGenerator(_SamplerHoleGenerator):
         n_splits: int,
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         groups: Tuple[str, ...] = (),
     ):
         super().__init__(
@@ -513,7 +522,7 @@ class EmpiricalHoleGenerator(_SamplerHoleGenerator):
         n_splits: int,
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         groups: Tuple[str, ...] = (),
     ):
         super().__init__(
@@ -637,7 +646,7 @@ class MultiMarkovHoleGenerator(_HoleGenerator):
         n_splits: int,
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         groups: Tuple[str, ...] = (),
     ):
         super().__init__(
@@ -720,7 +729,7 @@ class MultiMarkovHoleGenerator(_HoleGenerator):
         return realisations
 
     def generate_mask(self, X: pd.DataFrame) -> List[pd.DataFrame]:
-        """Create missing data in an arraylike object based on a markov chain.
+        """Create missing data in an array-like object based on a markov chain.
 
         States of the MC are the different masks of missing values:
         there are at most pow(2,X.shape[1]) possible states.
@@ -807,7 +816,7 @@ class GroupedHoleGenerator(_HoleGenerator):
         n_splits: int,
         subset: Optional[List[str]] = None,
         ratio_masked: float = 0.05,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         groups: Tuple[str, ...] = (),
     ):
         super().__init__(

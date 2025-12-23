@@ -1,8 +1,9 @@
 """Script for DDPM classes."""
 
+import logging
 import time
 from datetime import timedelta
-from typing import Callable, Dict, List, Tuple, Union
+from typing import Any, Callable, Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -19,7 +20,13 @@ from qolmat.imputations.diffusions.base import (
     ResidualBlock,
     ResidualBlockTS,
 )
-from qolmat.imputations.diffusions.utils import get_num_params
+from qolmat.utils.utils import RandomSetting
+
+logging.basicConfig(
+    format="%(asctime)s %(levelname)-8s %(message)s",
+    level=logging.INFO,
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 
 class TabDDPM:
@@ -40,13 +47,13 @@ class TabDDPM:
         beta_start: float = 1e-4,
         beta_end: float = 0.02,
         lr: float = 0.001,
-        ratio_nan: float = 0.1,
+        ratio_masked: float = 0.1,
         dim_embedding: int = 128,
         num_blocks: int = 1,
         p_dropout: float = 0.0,
         num_sampling: int = 1,
         is_clip: bool = True,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
     ):
         """Init function.
 
@@ -60,7 +67,7 @@ class TabDDPM:
             Range of beta (noise scale value), by default 0.02
         lr : float, optional
             Learning rate, by default 0.001
-        ratio_nan : float, optional
+        ratio_masked : float, optional
             Ratio of artificial nan for training and validation, by default 0.1
         dim_embedding : int, optional
             Embedding dimension, by default 128
@@ -87,7 +94,7 @@ class TabDDPM:
         # Section 2, equation 1, num_noise_steps is T.
         self.num_noise_steps = num_noise_steps
 
-        # Section 2, equation 4 and near explation for alpha, alpha hat, beta.
+        # Section 2, equation 4 and near explanation for alpha, alpha hat, beta.
         self.beta_start = beta_start
         self.beta_end = beta_end
         self.beta = torch.linspace(
@@ -108,11 +115,11 @@ class TabDDPM:
         self.sqrt_alpha = torch.sqrt(self.alpha)
         self.std_beta = torch.sqrt(self.beta)
 
-        # Hyper-parameters for bulding and training the model
+        # Hyper-parameters for building and training the model
         self.loss_func = torch.nn.MSELoss(reduction="none")
 
         self.lr = lr
-        self.ratio_nan = ratio_nan
+        self.ratio_masked = ratio_masked
         self.num_noise_steps = num_noise_steps
         self.dim_embedding = dim_embedding
         self.num_blocks = num_blocks
@@ -124,6 +131,21 @@ class TabDDPM:
         self.random_state = sku.check_random_state(random_state)
         seed_torch = self.random_state.randint(2**31 - 1)
         torch.manual_seed(seed_torch)
+
+    def __getstate__(self) -> dict[str, Any]:
+        """Hashing method used in sklearn check tests.
+
+        Returns
+        -------
+        ________
+        str
+            Hashed object containing the underlying model weights
+
+        """
+        state = self.__dict__.copy()
+        if "optimiser" in state:
+            state.pop("optimiser")
+        return state
 
     def _q_sample(
         self, x: torch.Tensor, t: torch.Tensor
@@ -154,8 +176,8 @@ class TabDDPM:
         epsilon = torch.randn_like(x, device=self.device)
         return sqrt_alpha_hat * x + sqrt_one_minus_alpha_hat * epsilon, epsilon
 
-    def _set_eps_model(self) -> None:
-        self._eps_model = AutoEncoder(
+    def _get_eps_model(self) -> AutoEncoder:
+        model = AutoEncoder(
             num_noise_steps=self.num_noise_steps,
             dim_input=self.dim_input,
             residual_block=ResidualBlock(
@@ -164,11 +186,34 @@ class TabDDPM:
             dim_embedding=self.dim_embedding,
             num_blocks=self.num_blocks,
             p_dropout=self.p_dropout,
-        ).to(self.device)
+        )
+        return model
+
+    def _set_eps_model(self) -> None:
+        model = self._get_eps_model()
+        self._eps_model = model.to(self.device)
 
         self.optimiser = torch.optim.Adam(
             self._eps_model.parameters(), lr=self.lr
         )
+
+    def get_num_params(self) -> int:
+        """Compute the number of parameters of the underlying model.
+
+        Returns
+        -------
+            int: Number of parameters if the model has been fitted,
+            0 otherwise.
+
+        """
+        if hasattr(self, "_eps_model"):
+            model_parameters = filter(
+                lambda p: p.requires_grad, self._eps_model.parameters()
+            )
+            params = sum([np.prod(p.size()) for p in model_parameters])
+            return int(params)
+        else:
+            return 0
 
     def _print_valid(self, epoch: int, time_duration: float) -> None:
         """Print model performance on validation data.
@@ -184,8 +229,9 @@ class TabDDPM:
         self.time_durations.append(time_duration)
         print_step = 1 if int(self.epochs / 10) == 0 else int(self.epochs / 10)
         if self.print_valid and epoch == 0:
-            print(
-                f"Num params of {self.__class__.__name__}: {self.num_params}"
+            n_params = self.get_num_params()
+            logging.info(
+                f"Num params of {self.__class__.__name__}: {n_params}"
             )
         if self.print_valid and epoch % print_step == 0:
             string_valid = f"Epoch {epoch}: "
@@ -200,7 +246,7 @@ class TabDDPM:
             string_valid += (
                 f" | remaining {timedelta(seconds=remaining_duration)}"
             )
-            print(string_valid)
+            logging.info(string_valid)
 
     def _impute(self, x: np.ndarray, x_mask_obs: np.ndarray) -> np.ndarray:
         """Impute data array.
@@ -241,7 +287,7 @@ class TabDDPM:
                         * i
                     )
                     if len(x_batch.size()) == 3:
-                        # Data are splited into chunks
+                        # Data are split into chunks
                         # (i.e., Time-series data),
                         # a window of rows
                         # is processed.
@@ -441,6 +487,9 @@ class TabDDPM:
             Return Self
 
         """
+        seed_torch = self.random_state.randint(2**31 - 1)
+        torch.manual_seed(seed_torch)
+
         self.dim_input = len(x.columns)
         self.epochs = epochs
         self.batch_size = batch_size
@@ -479,7 +528,7 @@ class TabDDPM:
             # (with one mask)
             # in validation dataset
             x_valid_mask = missing_patterns.UniformHoleGenerator(
-                n_splits=1, ratio_masked=self.ratio_nan
+                n_splits=1, ratio_masked=self.ratio_masked
             ).split(x_valid)[0]
             # x_valid_obs_mask is the mask for observed values
             x_valid_obs_mask = ~x_valid_mask
@@ -501,7 +550,6 @@ class TabDDPM:
         )
 
         self._set_eps_model()
-        self.num_params: int = get_num_params(self._eps_model)
         self.summary: Dict[str, List] = {
             "epoch_loss": [],
         }
@@ -513,7 +561,7 @@ class TabDDPM:
             for id_batch, (x_batch, mask_x_batch) in enumerate(dataloader):
                 mask_obs_rand = (
                     torch.FloatTensor(mask_x_batch.size()).uniform_()
-                    > self.ratio_nan
+                    > self.ratio_masked
                 )
                 for col in self.cols_idx_not_imputed:
                     mask_obs_rand[:, col] = 0.0
@@ -569,6 +617,8 @@ class TabDDPM:
             Imputed data
 
         """
+        seed_torch = self.random_state.randint(2**31 - 1)
+        torch.manual_seed(seed_torch)
         self._eps_model.eval()
 
         x_processed, x_mask, x_indices = self._process_data(
@@ -618,7 +668,7 @@ class TsDDPM(TabDDPM):
         p_dropout: float = 0.0,
         num_sampling: int = 1,
         is_rolling: bool = False,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
     ):
         """Init function.
 
@@ -763,7 +813,7 @@ class TsDDPM(TabDDPM):
         if is_training:
             if self.is_rolling:
                 if self.print_valid:
-                    print(
+                    logging.info(
                         "Preprocessing data with sliding window "
                         "(pandas.DataFrame.rolling) "
                         "can require more times than usual. "
@@ -844,7 +894,7 @@ class TsDDPM(TabDDPM):
         x_windows_mask_processed = []
         self.size_window = np.max([w.shape[0] for w in x_windows])
         for x_w in x_windows:
-            x_w_fillna = x_w.fillna(method="bfill")
+            x_w_fillna = x_w.bfill()
             x_w_fillna = x_w_fillna.fillna(x.mean())
             x_w_norm = self.normalizer_x.transform(x_w_fillna.values)
             x_w_mask = ~x_w.isna().to_numpy()
@@ -972,7 +1022,7 @@ class TsDDPM(TabDDPM):
         if index_datetime == "":
             raise ValueError(
                 "Please set the params index_datetime "
-                "(the name of datatime-like index column). "
+                "(the name of datetime-like index column). "
                 f" Suggestions: {x.index.names}"
             )
         self.index_datetime = index_datetime

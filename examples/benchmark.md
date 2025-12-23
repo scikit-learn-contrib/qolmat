@@ -17,7 +17,7 @@ jupyter:
 In Qolmat, a few data imputation methods are implemented as well as a way to evaluate their performance.**
 
 
-First, import some useful librairies
+First, import some useful libraries
 
 ```python tags=[]
 import warnings
@@ -54,7 +54,7 @@ from qolmat.utils import data, utils, plot
 
 
 The dataset `Beijing` is the Beijing Multi-Site Air-Quality Data Set. It consists in hourly air pollutants data from 12 chinese nationally-controlled air-quality monitoring sites and is available at https://archive.ics.uci.edu/ml/machine-learning-databases/00501/.
-This dataset only contains numerical vairables.
+This dataset only contains numerical variables.
 
 ```python tags=[]
 df_data = data.get_data_corrupted("Beijing", ratio_masked=.2, mean_size=120)
@@ -98,11 +98,11 @@ plt.show()
 This part is devoted to the imputation methods. The idea is to try different algorithms and compare them.
 
 <u>**Methods**</u>:
-All presented methods are group-wise: here each station is imputed independently. For example ImputerMean computes the mean of each variable in each station and uses the result for imputation; ImputerInterpolation interpolates termporal signals corresponding to each variable on each station.
+All presented methods are group-wise: here each station is imputed independently. For example ImputerMean computes the mean of each variable in each station and uses the result for imputation; ImputerInterpolation interpolates temporal signals corresponding to each variable on each station.
 
 <u>**Hyperparameters' search**</u>:
 Some methods require hyperparameters. The user can directly specify them, or rather determine them through an optimization step using the `search_params` dictionary. The keys are the imputation method's name and the values are a dictionary specifying the minimum, maximum or list of categories and type of values (Integer, Real, Category or a dictionary indexed by the variable names) to search.
-In pratice, we rely on a cross validation to find the best hyperparams values minimizing an error reconstruction.
+In practice, we rely on a cross validation to find the best hyperparams values minimizing an error reconstruction.
 
 ```python tags=[]
 ratio_masked = 0.1
@@ -185,7 +185,7 @@ Concretely, the comparator takes as input a dataframe to impute, a proportion of
 Note these metrics compute reconstruction errors; it tells nothing about the distances between the "true" and "imputed" distributions.
 
 ```python tags=[]
-metrics = ["mae", "wmape", "KL_columnwise", "frechet"]
+metrics = ["mae", "wmape", "kl_columnwise", "frechet"]
 comparison = comparator.Comparator(
     dict_imputers,
     cols_to_impute,
@@ -311,7 +311,7 @@ from qolmat.imputations.imputers_pytorch import ImputerDiffusion
 from qolmat.imputations.diffusions.ddpms import TabDDPM
 
 X = np.array([[1, 1, 1, 1], [np.nan, np.nan, 3, 2], [1, 2, 2, 1], [2, 2, 2, 2]])
-imputer = ImputerDiffusion(model=TabDDPM(random_state=11), epochs=50, batch_size=1)
+imputer = ImputerDiffusion(epochs=50, batch_size=1, random_state=11)
 
 imputer.fit_transform(X)
 ```
@@ -322,7 +322,7 @@ from qolmat.imputations.imputers_pytorch import ImputerDiffusion
 from qolmat.imputations.diffusions.ddpms import TabDDPM
 
 X = np.array([[1, 1, 1, 1], [np.nan, np.nan, 3, 2], [1, 2, 2, 1], [2, 2, 2, 2]])
-imputer = ImputerDiffusion(model=TabDDPM(random_state=11), epochs=50, batch_size=1)
+imputer = ImputerDiffusion(epochs=50, batch_size=1, random_state=11)
 
 imputer.fit_transform(X)
 ```
@@ -358,7 +358,7 @@ encoder, decoder  = imputers_pytorch.build_autoencoder(input_dim=n_variables,lat
 ```python
 dict_imputers["MLP"] = imputer_mlp = imputers_pytorch.ImputerRegressorPyTorch(estimator=estimator, groups=('station',), epochs=500)
 dict_imputers["Autoencoder"] = imputer_autoencoder = imputers_pytorch.ImputerAutoencoder(encoder, decoder, max_iterations=100, epochs=100)
-dict_imputers["Diffusion"] = imputer_diffusion = imputers_pytorch.ImputerDiffusion(model=TabDDPM(num_sampling=5), epochs=100, batch_size=100)
+dict_imputers["Diffusion"] = imputer_diffusion = imputers_pytorch.ImputerDiffusion(epochs=100, batch_size=100, num_sampling=5)
 ```
 
 We can re-run the imputation model benchmark as before.
@@ -476,7 +476,7 @@ plt.show()
 
 
 We first check the covariance. We simply plot one variable versus one another.
-One observes the methods provide similar visual resuls: it's difficult to compare them based on this criterion.
+One observes the methods provide similar visual results: it's difficult to compare them based on this criterion.
 
 ```python
 fig = plt.figure(figsize=(6 * n_imputers, 6 * n_columns))
@@ -494,7 +494,7 @@ plt.show()
 ## Auto-correlation
 
 
-We are now interested in the auto-correlation function (ACF). As seen before, time series display seaonal patterns.
+We are now interested in the auto-correlation function (ACF). As seen before, time series display seasonal patterns.
 [Autocorrelation](https://en.wikipedia.org/wiki/Autocorrelation) is the correlation of a signal with a delayed copy of itself as a function of delay. It measures the similarity between observations of a random variable as a function of the time lag between them. The objective is to have an ACF to be similar between the original dataset and the imputed one.
 
 ```python

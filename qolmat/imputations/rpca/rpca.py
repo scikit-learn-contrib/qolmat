@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Union
-
-import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin
+
+from qolmat.utils.utils import RandomSetting
 
 
 class RPCA(BaseEstimator, TransformerMixin):
@@ -28,7 +27,7 @@ class RPCA(BaseEstimator, TransformerMixin):
         self,
         max_iterations: int = int(1e4),
         tolerance: float = 1e-6,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         verbose: bool = True,
     ) -> None:
         self.max_iterations = max_iterations

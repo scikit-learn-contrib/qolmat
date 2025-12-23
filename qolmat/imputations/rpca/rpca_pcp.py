@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 import warnings
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple
 
 import numpy as np
 from numpy.typing import NDArray
 from sklearn import utils as sku
+from tqdm import tqdm
 
 from qolmat.imputations.rpca import rpca_utils
 from qolmat.imputations.rpca.rpca import RPCA
 from qolmat.utils import utils
+from qolmat.utils.utils import RandomSetting
 
 
 class RpcaPcp(RPCA):
@@ -28,7 +30,7 @@ class RpcaPcp(RPCA):
     ----------
     random_state : int, optional
         The seed of the pseudo random number generator to use,
-        for reproductibility.
+        for reproducibility.
     period: Optional[int]
         number of rows of the reshaped matrix if the signal is a 1D-array
     rank: Optional[int]
@@ -41,7 +43,7 @@ class RpcaPcp(RPCA):
         stopping criteria, maximum number of iterations.
         By default, the value is set to 10_000
     tolerance: Optional[float]
-        stoppign critera, minimum difference between 2 consecutive iterations.
+        stopping criteria, minimum difference between 2 consecutive iterations.
         By default, the value is set to 1e-6
     verbose: Optional[bool]
         verbosity level, if False the warnings are silenced
@@ -50,7 +52,7 @@ class RpcaPcp(RPCA):
 
     def __init__(
         self,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         mu: Optional[float] = None,
         lam: Optional[float] = None,
         max_iterations: int = int(1e4),
@@ -91,7 +93,7 @@ class RpcaPcp(RPCA):
         """Estimate the relevant parameters.
 
         It computes the PCP RPCA decomposition, using the
-        Augumented Largrangian Multiplier (ALM)
+        Augmented Largrangian Multiplier (ALM)
 
         Parameters
         ----------
@@ -124,7 +126,11 @@ class RpcaPcp(RPCA):
         errors: NDArray = np.full((self.max_iterations,), fill_value=np.nan)
 
         M: NDArray = D - A
-        for iteration in range(self.max_iterations):
+        for iteration in tqdm(
+            range(self.max_iterations),
+            desc="RPCA PCP decomposition",
+            disable=not self.verbose,
+        ):
             M = rpca_utils.svd_thresholding(D - A + Y / mu, 1 / mu)
             A = rpca_utils.soft_thresholding(D - M + Y / mu, lam / mu)
             A[~Omega] = (D - M)[~Omega]

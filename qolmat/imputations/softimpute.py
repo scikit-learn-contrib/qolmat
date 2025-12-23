@@ -2,16 +2,25 @@
 
 from __future__ import annotations
 
+import logging
 import warnings
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple
 
 import numpy as np
 from numpy.typing import NDArray
 from sklearn import utils as sku
 from sklearn.base import BaseEstimator, TransformerMixin
+from tqdm import tqdm
 
 from qolmat.imputations.rpca import rpca_utils
 from qolmat.utils import utils
+from qolmat.utils.utils import RandomSetting
+
+logging.basicConfig(
+    format="%(asctime)s %(levelname)-8s %(message)s",
+    level=logging.INFO,
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 
 class SoftImpute(BaseEstimator, TransformerMixin):
@@ -40,7 +49,7 @@ class SoftImpute(BaseEstimator, TransformerMixin):
         Maximum number of iterations
     random_state : int, optional
         The seed of the pseudo random number generator to use,
-        for reproductibility
+        for reproducibility
     verbose : bool
         flag for verbosity
 
@@ -68,7 +77,7 @@ class SoftImpute(BaseEstimator, TransformerMixin):
         tolerance: float = 1e-05,
         tau: Optional[float] = None,
         max_iterations: int = 100,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         verbose: bool = False,
     ):
         self.period = period
@@ -138,12 +147,16 @@ class SoftImpute(BaseEstimator, TransformerMixin):
         B = V * D
         M = A @ B.T
         cost_start = SoftImpute.cost_function(X, M, A, Omega, tau)
-        for iter_ in range(self.max_iterations):
+        for iter_ in tqdm(
+            range(self.max_iterations),
+            desc="Soft Impute decomposition",
+            disable=not self.verbose,
+        ):
             U_old = U
             V_old = V
             D_old = D
 
-            # Step 2 : Upate on B
+            # Step 2 : Update on B
             D2_invreg = (D**2 + tau) ** (-1)
             Btilde = (
                 (U * D).T @ np.where(Omega, X - A @ B.T, 0) + (B * D**2).T
@@ -155,7 +168,7 @@ class SoftImpute(BaseEstimator, TransformerMixin):
             D = np.sqrt(D2tilde).reshape(1, -1)
             B = V * D
 
-            # Step 3 : Upate on A
+            # Step 3 : Update on A
             D2_invreg = (D**2 + tau) ** (-1)
             Atilde = (
                 (V * D).T @ np.where(Omega, X - A @ B.T, 0).T + (A * D**2).T
@@ -170,9 +183,9 @@ class SoftImpute(BaseEstimator, TransformerMixin):
             # Step 4 : Stopping upon convergence
             ratio = SoftImpute._check_convergence(U_old, D_old, V_old, U, D, V)
             if self.verbose:
-                print(f"Iteration {iter_}: ratio = {round(ratio, 4)}")
+                logging.info(f"Iteration {iter_}: ratio = {round(ratio, 4)}")
                 if ratio < self.tolerance:
-                    print(
+                    logging.info(
                         f"Convergence reached at iteration {iter_} "
                         f"with ratio = {round(ratio, 4)}"
                     )
@@ -243,32 +256,6 @@ class SoftImpute(BaseEstimator, TransformerMixin):
         DVtV = D_old**2 * (V_old.T @ V)
         cross_term = (DUtU @ DVtV).diagonal().sum()
         return (tr_D_old4 + tr_D4 - 2 * cross_term) / max(tr_D_old4, 1e-9)
-
-    # def transform(self, D: NDArray) -> NDArray:
-    #     """Impute all missing values in D.
-
-    #     Parameters
-    #     ----------
-    #     D : array-like of shape (n_samples, n_features)
-    #         The input data to complete.
-
-    #     Returns
-    #     -------
-    #     D : NDArray
-    #         The imputed dataset.
-    #     """
-    #     D_transformed = self.u @ np.diag(self.d.T[0]) @ (self.v).T
-    #     if self.projected:
-    #         D_ = utils.prepare_data(D, self.period)
-    #         mask = np.isnan(D_)
-    #         D_transformed[~mask] = D_[~mask]
-
-    #     D_transformed = utils.get_shape_original(D_transformed, D.shape)
-
-    #     if np.all(np.isnan(D_transformed)):
-    #         raise AssertionError("Result contains NaN. This is a bug.")
-
-    #     return D_transformed
 
     @staticmethod
     def cost_function(

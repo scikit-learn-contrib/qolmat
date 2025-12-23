@@ -65,7 +65,7 @@ def columnwise_metric(
             f"({df1.columns} != {df2.columns})"
         )
     if type_cols == "all":
-        cols = df1.columns
+        cols = df1.columns.tolist()
     elif type_cols == "numerical":
         cols = utils._get_numerical_features(df1)
     elif type_cols == "categorical":
@@ -74,6 +74,8 @@ def columnwise_metric(
         raise ValueError(
             f"Value {type_cols} is not valid for parameter `type_cols`!"
         )
+    if cols == []:
+        raise ValueError(f"No column found for the type {type_cols}!")
     values = {}
     for col in cols:
         df1_col = df1.loc[df_mask[col], col]
@@ -132,9 +134,8 @@ def root_mean_squared_error(
         df1,
         df2,
         df_mask,
-        skm.mean_squared_error,
+        skm.root_mean_squared_error,
         type_cols="numerical",
-        squared=False,
     )
 
 
@@ -244,7 +245,7 @@ def weighted_mean_absolute_percentage_error(
 def accuracy(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
 ) -> pd.Series:
-    """Compute the matching ratio beetween the two datasets.
+    """Compute the matching ratio between the two datasets.
 
     Parameters
     ----------
@@ -270,7 +271,7 @@ def accuracy(
 
 
 def accuracy_1D(values1: pd.Series, values2: pd.Series) -> float:
-    """Compute the matching ratio beetween the set of values.
+    """Compute the matching ratio between the set of values.
 
     Parameters
     ----------
@@ -511,6 +512,8 @@ def mean_difference_correlation_matrix_numerical_features(
     _check_same_number_columns(df1, df2)
 
     cols_numerical = utils._get_numerical_features(df1)
+    if cols_numerical == []:
+        raise Exception("No numerical feature found")
     df_corr1 = _get_correlation_pearson_matrix(
         df1[cols_numerical], use_p_value=use_p_value
     )
@@ -595,6 +598,8 @@ def mean_difference_correlation_matrix_categorical_features(
     _check_same_number_columns(df1, df2)
 
     cols_categorical = utils._get_categorical_features(df1)
+    if cols_categorical == []:
+        raise Exception("No categorical feature found")
     df_corr1 = _get_correlation_chi2_matrix(
         df1[cols_categorical], use_p_value=use_p_value
     )
@@ -682,7 +687,11 @@ def mean_diff_corr_matrix_categorical_vs_numerical_features(
     _check_same_number_columns(df1, df2)
 
     cols_categorical = utils._get_categorical_features(df1)
+    if cols_categorical == []:
+        raise Exception("No categorical feature found")
     cols_numerical = utils._get_numerical_features(df1)
+    if cols_numerical == []:
+        raise Exception("No numerical feature found")
     df_corr1 = _get_correlation_f_oneway_matrix(
         df1, cols_categorical, cols_numerical, use_p_value=use_p_value
     )
@@ -826,13 +835,14 @@ def sum_pairwise_distances(
 def frechet_distance_base(
     df1: pd.DataFrame,
     df2: pd.DataFrame,
+    df_mask: pd.DataFrame,
 ) -> pd.Series:
     """Compute the Fréchet distance between two dataframes df1 and df2.
 
     Frechet_distance = || mu_1 - mu_2 ||_2^2
         + Tr(Sigma_1 + Sigma_2 - 2(Sigma_1 . Sigma_2)^(1/2))
     It is normalized, df1 and df2 are first scaled by a factor
-    (std(df1) + std(df2)) / 2 and then centered around
+    (std(df1) + std(df2)) / 2, and then centered around
     (mean(df1) + mean(df2)) / 2
     Based on: Dowson, D. C., and BV666017 Landau.
     "The Fréchet distance between multivariate normal distributions."
@@ -844,6 +854,8 @@ def frechet_distance_base(
         true dataframe
     df2 : pd.DataFrame
         predicted dataframe
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
 
     Returns
     -------
@@ -851,8 +863,14 @@ def frechet_distance_base(
         Frechet distance in a Series object
 
     """
-    if df1.shape != df2.shape:
+    if df1.shape != df2.shape or df1.shape != df_mask.shape:
         raise Exception("inputs have to be of same dimensions.")
+
+    df1 = df1.copy()
+    df2 = df2.copy()
+    # Set to nan the values not in the mask
+    df1[~df_mask] = np.nan
+    df2[~df_mask] = np.nan
 
     std = (np.std(df1) + np.std(df2) + EPS) / 2
     mu = (np.nanmean(df1, axis=0) + np.nanmean(df2, axis=0)) / 2
@@ -876,17 +894,17 @@ def frechet_distance(
     """Compute Frechet distance computed using a pattern decomposition.
 
     Several variant are implemented:
-    - the `single` method relies on a single estimation of the means and
+    i) the `single` method relies on a single estimation of the means and
     covariance matrix. It is relevent for MCAR data.
-    - the `pattern`method relies on the aggregation of the estimated distance
-    between each pattern. It is relevent for MAR data.
+    ii) the `pattern` method relies on the aggregation of the estimated
+    distance between each pattern. It is relevent for MAR data.
 
     Parameters
     ----------
     df1 : pd.DataFrame
-        First empirical ditribution
+        First empirical distribution
     df2 : pd.DataFrame
-        Second empirical ditribution
+        Second empirical distribution
     df_mask : pd.DataFrame
         Mask indicating on which values the distance has to computed on
     method: str
@@ -902,7 +920,7 @@ def frechet_distance(
 
     """
     if method == "single":
-        return frechet_distance_base(df1, df2)
+        return frechet_distance_base(df1, df2, df_mask)
     return pattern_based_weighted_mean_metric(
         df1,
         df2,
@@ -914,7 +932,7 @@ def frechet_distance(
 
 
 def kl_divergence_1D(df1: pd.Series, df2: pd.Series) -> float:
-    """Estimate the the Kullback-Leibler divergence for 1D.
+    """Estimate the Kullback-Leibler divergence for 1D.
 
     Computation between the two 1D empirical distributions
     given by `df1`and `df2`. The samples are binarized using a uniform spacing
@@ -1075,9 +1093,9 @@ def distance_anticorr_pattern(
     Parameters
     ----------
     df1 : pd.DataFrame
-        First empirical ditribution
+        First empirical distribution
     df2 : pd.DataFrame
-        Second empirical ditribution
+        Second empirical distribution
     df_mask : pd.DataFrame
         Mask indicating on which values the distance has to computed on
     min_n_rows: int
@@ -1200,9 +1218,9 @@ def get_metric(
         "wmape": weighted_mean_absolute_percentage_error,
         "accuracy": accuracy,
         "wasserstein_columnwise": dist_wasserstein,
-        "KL_columnwise": partial(kl_divergence, method="columnwise"),
-        "KL_gaussian": partial(kl_divergence, method="gaussian"),
-        "KS_test": kolmogorov_smirnov_test,
+        "kl_columnwise": partial(kl_divergence, method="columnwise"),
+        "kl_gaussian": partial(kl_divergence, method="gaussian"),
+        "ks_test": kolmogorov_smirnov_test,
         "correlation_diff": (
             mean_difference_correlation_matrix_numerical_features
         ),

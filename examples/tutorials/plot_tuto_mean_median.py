@@ -4,9 +4,9 @@ Comparison of basic imputers
 
 In this tutorial, we show how to use the Qolmat comparator
 (:class:`~qolmat.benchmark.comparator`) to choose
-the best imputation between imputation by the mean or the median
+the best imputation between two of the simplest imputation methods: mean or median
 (:class:`~qolmat.imputations.imputers.ImputerSimple`).
-The dataset used is the the numerical `superconduct` dataset and
+The dataset used is the numerical `superconduct` dataset and
 contains information on 21263 superconductors.
 We generate holes uniformly at random via
 :class:`~qolmat.benchmark.missing_patterns.UniformHoleGenerator`
@@ -15,10 +15,14 @@ We generate holes uniformly at random via
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+from sklearn import utils as sku
 
 from qolmat.benchmark import comparator, missing_patterns
 from qolmat.imputations import imputers
 from qolmat.utils import data, plot
+
+seed = 1234
+rng = sku.check_random_state(seed)
 
 # %%
 # 1. Data
@@ -33,7 +37,7 @@ from qolmat.utils import data, plot
 # In this way, each column has missing values.
 
 df = data.add_holes(
-    data.get_data("Superconductor"), ratio_masked=0.2, mean_size=120
+    data.get_data("Superconductor"), ratio_masked=0.2, mean_size=120, random_state=rng
 )
 
 # %%
@@ -77,7 +81,7 @@ imputer_mean = imputers.ImputerSimple(strategy="mean")
 imputer_median = imputers.ImputerSimple(strategy="median")
 dict_imputers = {"mean": imputer_mean, "median": imputer_median}
 
-metrics = ["mae", "wmape", "KL_columnwise"]
+metrics = ["mae", "wmape", "kl_columnwise"]
 
 # %%
 # Concretely, the comparator takes as input a dataframe to impute,
@@ -91,7 +95,7 @@ metrics = ["mae", "wmape", "KL_columnwise"]
 # ``subset=cols_to_impute``:
 
 generator_holes = missing_patterns.UniformHoleGenerator(
-    n_splits=2, subset=cols_to_impute, ratio_masked=0.1
+    n_splits=2, subset=cols_to_impute, ratio_masked=0.1, random_state=rng
 )
 df_mask = generator_holes.generate_mask(df)
 df_mask = np.invert(df_mask).astype("int")
@@ -119,7 +123,6 @@ plt.show()
 
 comparison = comparator.Comparator(
     dict_imputers,
-    cols_to_impute,
     generator_holes=generator_holes,
     metrics=metrics,
     max_evals=5,

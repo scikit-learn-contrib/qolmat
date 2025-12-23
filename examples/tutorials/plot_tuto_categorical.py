@@ -8,11 +8,15 @@ It comprehends passengers features as well as if they survived the accident.
 """
 
 from sklearn.pipeline import Pipeline
+from sklearn import utils as sku
 
 from qolmat.benchmark import comparator, missing_patterns
 from qolmat.imputations import imputers, preprocessing
 from qolmat.imputations.imputers import ImputerRegressor
 from qolmat.utils import data
+
+seed = 1234
+rng = sku.check_random_state(seed)
 
 # %%
 # 1. Titanic dataset
@@ -39,7 +43,7 @@ imputer_simple = imputers.ImputerSimple()
 
 cols_num = df.select_dtypes(include="number").columns
 cols_cat = df.select_dtypes(exclude="number").columns
-imputer_rpca = imputers.ImputerRpcaNoisy()
+imputer_rpca = imputers.ImputerRpcaNoisy(random_state=rng)
 ohe = preprocessing.OneHotEncoderProjector(
     handle_unknown="ignore",
     handle_missing="return_nan",
@@ -53,18 +57,18 @@ imputer_wrap_rpca = preprocessing.WrapperTransformer(imputer_rpca, wrapper)
 # %%
 # The third approach uses ImputerRegressor which imputes iteratively each column using the other
 # ones. The function make_robust_MixteHGB provides an underlying model able to:
-# - adress both numerical targets (regression) and categorical targets (classification)
+# - address both numerical targets (regression) and categorical targets (classification)
 # - manage categorical features though one hot encoding
 # - manage missing features (native to the HistGradientBoosting)
 
 pipestimator = preprocessing.make_robust_MixteHGB(avoid_new=True)
-imputer_hgb = ImputerRegressor(estimator=pipestimator, handler_nan="none")
+imputer_hgb = ImputerRegressor(estimator=pipestimator, handler_nan="none", random_state=rng)
 imputer_wrap_hgb = preprocessing.WrapperTransformer(imputer_hgb, bt)
 
 # %%
 # 3. Mixed type model selection
 # ---------------------------------------------------------------
-# Let us now compare these three aproaches by measuring their ability to impute uniformly
+# Let us now compare these three approaches by measuring their ability to impute uniformly
 # distributed holes.
 
 dict_imputers = {
@@ -79,12 +83,12 @@ generator_holes = missing_patterns.UniformHoleGenerator(
     subset=cols_to_impute,
     ratio_masked=ratio_masked,
     sample_proportional=False,
+    random_state=rng
 )
 metrics = ["rmse", "accuracy"]
 
 comparison = comparator.Comparator(
     dict_imputers,
-    cols_to_impute,
     generator_holes=generator_holes,
     metrics=metrics,
     max_evals=2,
@@ -97,5 +101,5 @@ results = comparison.compare(df)
 results.loc["rmse"].style.highlight_min(color="lightgreen", axis=1)
 
 # %%
-# The HGB imputation methods globaly reaches a better accuracy on the categorical data.
+# The HGB imputation methods globally reaches a better accuracy on the categorical data.
 results.loc["accuracy"].style.highlight_max(color="lightgreen", axis=1)

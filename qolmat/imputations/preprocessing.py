@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from category_encoders.one_hot import OneHotEncoder
 from numpy.typing import NDArray
+from sklearn import utils as sku
 from sklearn.base import (
     BaseEstimator,
     RegressorMixin,
@@ -20,10 +21,9 @@ from sklearn.ensemble import (
 )
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
+from sklearn.utils import InputTags
 from sklearn.utils.validation import (
-    check_array,
     check_is_fitted,
-    check_X_y,
 )
 
 # from typing_extensions import Self
@@ -68,8 +68,14 @@ class MixteHGBM(RegressorMixin, BaseEstimator):
             Returns self.
 
         """
-        X, y = check_X_y(
-            X, y, accept_sparse=True, force_all_finite="allow-nan"
+        X, y = sku.validation.validate_data(
+            self,
+            X,
+            y,
+            accept_sparse=False,
+            ensure_all_finite="allow-nan",
+            reset=True,
+            dtype=["float", "int", "string", "categorical", "object"],
         )
         self.is_fitted_ = True
         self.n_features_in_ = X.shape[1]
@@ -101,20 +107,30 @@ class MixteHGBM(RegressorMixin, BaseEstimator):
             Predicted target values.
 
         """
-        X = check_array(X, accept_sparse=True, force_all_finite="allow-nan")
+        sku.validation.validate_data(
+            self,
+            X,
+            accept_sparse=False,
+            ensure_all_finite="allow-nan",
+            reset=False,
+            dtype=["float", "int", "string", "categorical", "object"],
+        )
         check_is_fitted(self, "is_fitted_")
         y_pred = self.model_.predict(X)
         return y_pred
 
-    def _more_tags(self):
+    def __sklearn_tags__(self):
         """Indicate if the class allows inputs with categorical data and nans.
 
         It modifies the behaviour of the functions checking data.
         """
-        return {
-            "X_types": ["2darray", "categorical", "string"],
-            "allow_nan": True,
-        }
+        tags = super().__sklearn_tags__()
+        tags.input_tags = InputTags(
+            two_d_array=True, categorical=True, string=True, allow_nan=True
+        )
+        tags.target_tags.single_output = False
+        tags.non_deterministic = True
+        return tags
 
 
 class BinTransformer(TransformerMixin, BaseEstimator):
@@ -146,6 +162,14 @@ class BinTransformer(TransformerMixin, BaseEstimator):
             Fitted transformer.
 
         """
+        sku.validation.validate_data(
+            self,
+            X,
+            accept_sparse=False,
+            ensure_all_finite="allow-nan",
+            reset=True,
+            dtype=["float", "int", "string", "categorical", "object"],
+        )
         df = utils._validate_input(X)
         self.feature_names_in_ = df.columns
         self.n_features_in_ = len(df.columns)
@@ -176,16 +200,24 @@ class BinTransformer(TransformerMixin, BaseEstimator):
             Transformed input.
 
         """
+        sku.validation.validate_data(
+            self,
+            X,
+            accept_sparse=False,
+            ensure_all_finite="allow-nan",
+            reset=False,
+            dtype=["float", "int", "string", "categorical", "object"],
+        )
         df = utils._validate_input(X)
         check_is_fitted(self)
-        if (
-            not hasattr(self, "feature_names_in_")
-            or df.columns.to_list() != self.feature_names_in_.to_list()
-        ):
-            raise ValueError(
-                f"Feature names in X {df.columns} don't match with "
-                f"expected {self.feature_names_in_}"
-            )
+        # if (
+        #     not hasattr(self, "feature_names_in_")
+        #     or df.columns.to_list() != self.feature_names_in_.to_list()
+        # ):
+        #     raise ValueError(
+        #         f"Feature names in X {df.columns} don't match with "
+        #         f"expected {self.feature_names_in_}"
+        #     )
         df_out = df.copy()
         for col in df:
             values = df[col]
@@ -215,15 +247,18 @@ class BinTransformer(TransformerMixin, BaseEstimator):
         """
         return self.transform(X)
 
-    def _more_tags(self):
+    def __sklearn_tags__(self):
         """Indicate if the class allows inputs with categorical data and nans.
 
         It modifies the behaviour of the functions checking data.
         """
-        return {
-            "X_types": ["2darray", "categorical", "string"],
-            "allow_nan": True,
-        }
+        tags = super().__sklearn_tags__()
+        tags.input_tags = InputTags(
+            two_d_array=True, categorical=True, string=True, allow_nan=True
+        )
+        tags.target_tags.single_output = False
+        tags.non_deterministic = True
+        return tags
 
 
 class OneHotEncoderProjector(OneHotEncoder):

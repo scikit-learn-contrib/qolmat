@@ -127,10 +127,10 @@ def test_inverse_transform_OneHotEncoderProjector(encoder):
     df_back = encoder.inverse_transform(df_dum)
     pd.testing.assert_frame_equal(df, df_back)
 
-    df_dum_perturbated = df_dum + np.random.uniform(
+    df_dum_perturbed = df_dum + np.random.uniform(
         -0.5, 0.5, size=df_dum.shape
     )
-    df_back = encoder.inverse_transform(df_dum_perturbated)
+    df_back = encoder.inverse_transform(df_dum_perturbed)
     pd.testing.assert_frame_equal(df, df_back)
 
 

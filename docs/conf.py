@@ -27,7 +27,7 @@ copyright = "2022, Quantmetry"
 author = "Quantmetry"
 
 # The full version, including alpha/beta/rc tags
-version = "0.1.8"
+version = "0.1.10"
 release = version
 
 # -- General configuration ---------------------------------------------------
@@ -157,6 +157,11 @@ sphinx_gallery_conf = {
     "backreferences_dir": os.path.join("generated"),
     "reference_url": {"qolmat": None},
 }
+
+suppress_warnings = ["autosectionlabel.*"]
+
+# doctest configuration
+doctest_test_doctest_blocks = "default"
 
 html_css_files = [
     "custom.css",

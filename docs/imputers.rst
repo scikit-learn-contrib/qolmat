@@ -42,7 +42,7 @@ See the :class:`~qolmat.imputations.imputers.ImputerRpcaPcp` class for implement
 
 **Noisy RPCA** [2, 3, 4]
 
-The class :class:`RpcaNoisy` implements an recommanded improved version, which relies on a decomposition :math:`\mathbf{D} = \mathbf{M} + \mathbf{A} + \mathbf{E}`. The additionnal term encodes a Gaussian noise and makes the numerical convergence more reliable. This class also implements a time-consistency penalization for time series, parametrized by the :math:`\eta_k`and :math:`H_k`. By defining :math:`\Vert \mathbf{MH_k} \Vert_p` is either :math:`\Vert \mathbf{MH_k} \Vert_1` or  :math:`\Vert \mathbf{MH_k} \Vert_F^2`, the optimisation problem is the following
+The class :class:`RpcaNoisy` implements a recommended improved version, which relies on a decomposition :math:`\mathbf{D} = \mathbf{M} + \mathbf{A} + \mathbf{E}`. The additional term encodes a Gaussian noise and makes the numerical convergence more reliable. This class also implements a time-consistency penalization for time series, parametrized by the :math:`\eta_k`and :math:`H_k`. By defining :math:`\Vert \mathbf{MH_k} \Vert_p` is either :math:`\Vert \mathbf{MH_k} \Vert_1` or  :math:`\Vert \mathbf{MH_k} \Vert_F^2`, the optimisation problem is the following
 
 .. math::
    \text{min}_{\mathbf{M, A} \in \mathbb{R}^{m \times n}} \quad \frac 1 2 \Vert P_{\Omega} (\mathbf{D}-\mathbf{M}-\mathbf{A}) \Vert_F^2 + \tau \Vert \mathbf{M} \Vert_* + \lambda \Vert \mathbf{A} \Vert_1 + \sum_{k=1}^K \eta_k \Vert \mathbf{M H_k} \Vert_p
@@ -71,15 +71,15 @@ Suppose the data :math:`\mathbf{X}` has a density :math:`p_\theta` parametrized 
 
 **Expectation**
 
-Draw samples of :math:`\mathbf{X}` assuming a fixed :math:`\theta`, conditionnaly on the values of :math:`\mathbf{X}_\mathrm{obs}`. This is done by MCMC using a projected Langevin algorithm.
+Draw samples of :math:`\mathbf{X}` assuming a fixed :math:`\theta`, conditionally on the values of :math:`\mathbf{X}_\mathrm{obs}`. This is done by MCMC using a projected Langevin algorithm.
 This process is characterized by a time step :math:`h`. Given an initial station :math:`X_0`, one can update the state at iteration *t* as
 
 .. math::
     \widetilde X_n = X_{n-1} + \Gamma \nabla L_X(X_{n-1}, \theta_n) (X_{n-1} - \mu) h + (2 h \Gamma)^{1/2} Z_n,
 
-where :math:`Z_n` is a vector of independant standard normal random variables and :math:`L` is the log-likelihood.
+where :math:`Z_n` is a vector of independent standard normal random variables and :math:`L` is the log-likelihood.
 The sampled distribution tends to the target one in the limit :math:`h \rightarrow 0` and the number of iterations :math:`n \rightarrow \infty`.
-Sampling from the conditionnal distribution :math:`p(\mathbf{X}_{mis} \vert \mathbf{X}_{obs} ; \theta^{(n)})` (see MCEM [6]) is achieved by projecting the samples at each step.
+Sampling from the conditional distribution :math:`p(\mathbf{X}_{mis} \vert \mathbf{X}_{obs} ; \theta^{(n)})` (see MCEM [6]) is achieved by projecting the samples at each step.
 
 .. math::
     X_n = Proj_{obs} \left( \widetilde X_n \right),
@@ -113,7 +113,7 @@ Two parametric distributions are implemented:
 
 :class:`~qolmat.imputations.diffusions.ddpms.TabDDPM` is a deep learning imputer based on Denoising Diffusion Probabilistic Models (DDPMs) [8] for handling multivariate tabular data. Our implementation mainly follows the works of [8, 9]. Diffusion models focus on modeling the process of data transitions from noisy and incomplete observations to the underlying true data. They include two main processes:
 
-* Forward process perturbs observed data to noise until all the original data structures are lost. The pertubation is done over a series of steps. Let :math:`X_{obs}` be observed data, :math:`T` be the number of steps that noises :math:`\epsilon \sim N(0,I)` are added into the observed data. Therefore, :math:`X_{obs}^t = \bar{\alpha}_t \times X_{obs} + \sqrt{1-\bar{\alpha}_t} \times \epsilon` where :math:`\bar{\alpha}_t` controls the right amount of noise.
+* Forward process perturbs observed data to noise until all the original data structures are lost. The perturbation is done over a series of steps. Let :math:`X_{obs}` be observed data, :math:`T` be the number of steps that noises :math:`\epsilon \sim N(0,I)` are added into the observed data. Therefore, :math:`X_{obs}^t = \bar{\alpha}_t \times X_{obs} + \sqrt{1-\bar{\alpha}_t} \times \epsilon` where :math:`\bar{\alpha}_t` controls the right amount of noise.
 * Reverse process removes noise and reconstructs the observed data. At each step :math:`t`, we train an autoencoder :math:`\epsilon_\theta` based on ResNet [10] to predict the added noise :math:`\epsilon_t` based on the rest of the observed data. The objective function is the error between the noise added in the forward process and the noise predicted by :math:`\epsilon_\theta`.
 
 In training phase, we use the self-supervised learning method of [9] to train incomplete data. In detail, our model randomly masks a part of observed data and computes loss from these masked data. Moving on to the inference phase, (1) missing data are replaced by Gaussian noises :math:`\epsilon \sim N(0,I)`, (2) at each noise step from :math:`T` to 0, our model denoises these missing data based on :math:`\epsilon_\theta`.
