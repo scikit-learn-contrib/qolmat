@@ -18,7 +18,7 @@ class ResidualBlock(torch.nn.Module):
     def __init__(
         self, dim_input: int, dim_embedding: int = 128, p_dropout: float = 0.0
     ):
-        """Init funciton.
+        """Init function.
 
         Parameters
         ----------
@@ -72,7 +72,7 @@ class ResidualBlockTS(torch.nn.Module):
     (https://arxiv.org/abs/2106.11959).
     We follow the implementation found in
     https://github.com/Yura52/rtdl/blob/main/rtdl/nn/_backbones.py
-    This class is for Time-Series data where we add Tranformers to
+    This class is for Time-Series data where we add Transformers to
     encode time-based/feature-based context.
     """
 

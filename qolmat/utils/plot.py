@@ -112,7 +112,7 @@ def plot_images(
     Parameters
     ----------
     M : np.ndarray
-        orginal array
+        original array
     A : np.ndarray
         background array
     E : np.ndarray
@@ -381,7 +381,7 @@ def plot_imputations(
     df : pd.DataFrame
         original dataframe
     dict_df_imputed : Dict[str, pd.DataFrame]
-        dictionnary of imputed dataframe for each imputers
+        dictionary of imputed dataframe for each imputers
 
     """
     n_columns = len(df.columns)

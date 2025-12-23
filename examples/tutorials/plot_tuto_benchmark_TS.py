@@ -41,7 +41,7 @@ rng = sku.check_random_state(seed)
 # For the purpose of this notebook,
 # we corrupt the data, with the ``qolmat.utils.data.add_holes`` function
 # on three variables: "TEMP", "PRES" and "WSPM"
-# and the imputation methods will have acces to two additional features:
+# and the imputation methods will have access to two additional features:
 # "DEWP" and "RAIN".
 
 df_data = data.get_data("Beijing")
@@ -51,7 +51,7 @@ cols_to_impute = ["TEMP", "PRES", "WSPM"]
 df = data.add_holes(df_data, ratio_masked=0.15, mean_size=50)
 df[["DEWP", "RAIN"]] = df_data[["DEWP", "RAIN"]]
 # %%
-# Let's take a look a one station, for instance "Aotizhongxin"
+# Let's take a look at one station, for instance "Aotizhongxin"
 
 station = "Aotizhongxin"
 fig, ax = plt.subplots(len(cols_to_impute), 1, figsize=(13, 8))
@@ -68,7 +68,7 @@ plt.show()
 # ---------------------------------------------------------------
 # All presented methods are group-wise: here each station is imputed independently.
 # For example ImputerMean computes the mean of each variable in each station and uses
-# the result for imputation; ImputerInterpolation interpolates termporal
+# the result for imputation; ImputerInterpolation interpolates temporal
 # signals corresponding to each variable on each station.
 # We consider five imputation methods:
 # ``median`` for a baseline imputation;
@@ -181,10 +181,10 @@ plt.show()
 
 # %%
 # We can also check the covariance. We simply plot one variable versus one another.
-# One observes the methods provide similar visual resuls: it's difficult to compare
+# One observes the methods provide similar visual results: it's difficult to compare
 # them based on this criterion, except the median imputation that greatly differs.
-# Black points and ellipses are original datafames
-# whiel colored ones are imputed dataframes.
+# Black points and ellipses are original dataframes
+# while colored ones are imputed dataframes.
 
 n_columns = len(dfs_imputed_station)
 fig = plt.figure(figsize=(10, 10))

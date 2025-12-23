@@ -44,7 +44,7 @@ def soft_thresholding(
     Parameters
     ----------
     X : NDArray
-        Matrix which elements should be shrinked
+        Matrix which elements should be shrunk
     threshold : float
         Shrinking factor
 
@@ -63,7 +63,7 @@ def svd_thresholding(X: NDArray, threshold: float) -> NDArray:
     Parameters
     ----------
     X : NDArray
-        Matrix which singular values should be shrinked
+        Matrix which singular values should be shrunk
     threshold : float
         Shrinking factor
 

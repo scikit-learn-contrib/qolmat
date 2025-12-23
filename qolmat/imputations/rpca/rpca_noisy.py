@@ -1,4 +1,4 @@
-"""Script for an the noisy RPCA."""
+"""Script for the noisy RPCA."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from qolmat.utils.utils import RandomSetting
 
 
 class RpcaNoisy(RPCA):
-    """Clas for a noisy version of the so-called 'improved RPCA'.
+    """Class for a noisy version of the so-called 'improved RPCA'.
 
     References
     ----------
@@ -36,7 +36,7 @@ class RpcaNoisy(RPCA):
     ----------
     random_state : int, optional
         The seed of the pseudo random number generator to use,
-        for reproductibility.
+        for reproducibility.
     rank: Optional[int]
         Upper bound of the rank to be estimated
     mu: Optional[float]
@@ -54,7 +54,7 @@ class RpcaNoisy(RPCA):
         stopping criteria, maximum number of iterations.
         By default, the value is set to 10_000
     tolerance: Optional[float]
-        stoppign critera, minimum difference between 2 consecutive iterations.
+        stopping criteria, minimum difference between 2 consecutive iterations.
         By default, the value is set to 1e-6
     norm: Optional[str]
         error norm, can be "L1" or "L2". By default, the value is set to "L2"

@@ -245,7 +245,7 @@ def weighted_mean_absolute_percentage_error(
 def accuracy(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
 ) -> pd.Series:
-    """Compute the matching ratio beetween the two datasets.
+    """Compute the matching ratio between the two datasets.
 
     Parameters
     ----------
@@ -271,7 +271,7 @@ def accuracy(
 
 
 def accuracy_1D(values1: pd.Series, values2: pd.Series) -> float:
-    """Compute the matching ratio beetween the set of values.
+    """Compute the matching ratio between the set of values.
 
     Parameters
     ----------
@@ -842,7 +842,7 @@ def frechet_distance_base(
     Frechet_distance = || mu_1 - mu_2 ||_2^2
         + Tr(Sigma_1 + Sigma_2 - 2(Sigma_1 . Sigma_2)^(1/2))
     It is normalized, df1 and df2 are first scaled by a factor
-    (std(df1) + std(df2)) / 2 and then centered around
+    (std(df1) + std(df2)) / 2, and then centered around
     (mean(df1) + mean(df2)) / 2
     Based on: Dowson, D. C., and BV666017 Landau.
     "The Fréchet distance between multivariate normal distributions."
@@ -902,9 +902,9 @@ def frechet_distance(
     Parameters
     ----------
     df1 : pd.DataFrame
-        First empirical ditribution
+        First empirical distribution
     df2 : pd.DataFrame
-        Second empirical ditribution
+        Second empirical distribution
     df_mask : pd.DataFrame
         Mask indicating on which values the distance has to computed on
     method: str
@@ -932,7 +932,7 @@ def frechet_distance(
 
 
 def kl_divergence_1D(df1: pd.Series, df2: pd.Series) -> float:
-    """Estimate the the Kullback-Leibler divergence for 1D.
+    """Estimate the Kullback-Leibler divergence for 1D.
 
     Computation between the two 1D empirical distributions
     given by `df1`and `df2`. The samples are binarized using a uniform spacing
@@ -1093,9 +1093,9 @@ def distance_anticorr_pattern(
     Parameters
     ----------
     df1 : pd.DataFrame
-        First empirical ditribution
+        First empirical distribution
     df2 : pd.DataFrame
-        Second empirical ditribution
+        Second empirical distribution
     df_mask : pd.DataFrame
         Mask indicating on which values the distance has to computed on
     min_n_rows: int

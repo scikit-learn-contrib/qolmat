@@ -324,7 +324,7 @@ def get_data(
 
 
 def preprocess_data_beijing(df: pd.DataFrame) -> pd.DataFrame:
-    """Preprocess data from the "Beijing" datset.
+    """Preprocess data from the "Beijing" dataset.
 
     Parameters
     ----------

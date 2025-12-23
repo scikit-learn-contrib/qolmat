@@ -117,7 +117,7 @@ The observations are said to be Missing at Random (MAR) if the probability of an
 
 Finally, the observations are said to be Missing Not at Random (MNAR) in all other cases, i.e. if :math:`P(M | X_{obs}, X_{mis}, \psi)` does not simplify.
 
-Qolmat allows to generate new missing values on a an existing dataset, but only in the MCAR case.
+Qolmat allows to generate new missing values on an existing dataset, but only in the MCAR case.
 
 Here are the different classes to generate missing data. We recommend the last 3 for time series.
 
