@@ -126,13 +126,10 @@ class LittleTest(McarTest):
 
             diff_means = obs_mean - ml_means[list(tup_pattern)]
             inv_sigma_pattern = np.linalg.solve(
-                ml_cov[:, tup_pattern][tup_pattern, :],
-                np.eye(len(tup_pattern))
+                ml_cov[:, tup_pattern][tup_pattern, :], np.eye(len(tup_pattern))
             )
 
-            d0 += n_rows_pattern * np.dot(
-                np.dot(diff_means, inv_sigma_pattern), diff_means.T
-            )
+            d0 += n_rows_pattern * np.dot(np.dot(diff_means, inv_sigma_pattern), diff_means.T)
             degree_f += tup_pattern.count(True)
 
         return 1 - float(chi2.cdf(d0, degree_f))
@@ -225,7 +222,7 @@ class PKLMTest(McarTest):
             self.encoder = OneHotEncoder(
                 cols=df.select_dtypes(include=["object", "bool"]).columns,
                 return_df=False,
-                handle_missing='return_nan'
+                handle_missing="return_nan",
             )
 
         return self.encoder.fit_transform(df)
@@ -258,8 +255,8 @@ class PKLMTest(McarTest):
             [
                 pd.api.types.is_numeric_dtype,
                 pd.api.types.is_string_dtype,
-                pd.api.types.is_bool_dtype
-            ]
+                pd.api.types.is_bool_dtype,
+            ],
         )
         return self._encode_dataframe(X)
 
@@ -278,7 +275,7 @@ class PKLMTest(McarTest):
         int
             The number of possible projections.
         """
-        return p*(2**(p-1) - 1)
+        return p * (2 ** (p - 1) - 1)
 
     def _draw_features_and_target_indexes(self, X: np.ndarray) -> Tuple[List[int], int]:
         """
@@ -379,9 +376,7 @@ class PKLMTest(McarTest):
 
     @staticmethod
     def _build_dataset(
-        X: np.ndarray,
-        features_idx: np.ndarray,
-        target_idx: int
+        X: np.ndarray, features_idx: np.ndarray, target_idx: int
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Builds a dataset by selecting specified features and target from a NumPy array, excluding
@@ -414,10 +409,7 @@ class PKLMTest(McarTest):
 
     @staticmethod
     def _build_label(
-        X: np.ndarray,
-        perm: np.ndarray,
-        features_idx: np.ndarray,
-        target_idx: int
+        X: np.ndarray, perm: np.ndarray, features_idx: np.ndarray, target_idx: int
     ) -> np.ndarray:
         """
         Builds a label array by selecting target values from a permutation array,
@@ -463,7 +455,7 @@ class PKLMTest(McarTest):
             bootstrap=True,
             oob_score=True,
             random_state=self.rng,
-            max_features=1.,
+            max_features=1.0,
         )
         clf.fit(X, y)
         return clf.oob_decision_function_
@@ -486,7 +478,7 @@ class PKLMTest(McarTest):
             float: The computed U_hat statistic.
         """
         if oob_probabilities.shape[1] == 1:
-            return 0.
+            return 0.0
 
         oob_probabilities = np.clip(oob_probabilities, 1e-9, 1 - 1e-9)
 
@@ -503,24 +495,14 @@ class PKLMTest(McarTest):
         if unique_labels.shape[0] == 1:
             if unique_labels[0] == 0:
                 n0 = labels.shape[0]
-                return (
-                    np.log(p0_0 / (1 - p0_0)).sum() / n0
-                    - np.log(p1_0 / (1 - p1_0)).sum() / n0
-                )
+                return np.log(p0_0 / (1 - p0_0)).sum() / n0 - np.log(p1_0 / (1 - p1_0)).sum() / n0
             else:
                 n1 = labels.shape[0]
-                return (
-                    np.log(p1_1 / (1 - p1_1)).sum() / n1
-                    - np.log(p0_1 / (1 - p0_1)).sum() / n1
-                )
+                return np.log(p1_1 / (1 - p1_1)).sum() / n1 - np.log(p0_1 / (1 - p0_1)).sum() / n1
 
         n0, n1 = label_matrix.sum(axis=0)
-        u_0 = (
-            np.log(p0_0 / (1 - p0_0)).sum() / n0 - np.log(p0_1 / (1 - p0_1)).sum() / n1
-        )
-        u_1 = (
-            np.log(p1_1 / (1 - p1_1)).sum() / n1 - np.log(p1_0 / (1 - p1_0)).sum() / n0
-        )
+        u_0 = np.log(p0_0 / (1 - p0_0)).sum() / n0 - np.log(p0_1 / (1 - p0_1)).sum() / n1
+        u_1 = np.log(p1_1 / (1 - p1_1)).sum() / n1 - np.log(p1_0 / (1 - p1_0)).sum() / n0
 
         return u_0 + u_1
 
@@ -569,7 +551,6 @@ class PKLMTest(McarTest):
         )
         return u_hat, result_u_permutations
 
-
     @staticmethod
     def _build_B(list_proj: List, n_cols: int) -> np.ndarray:
         """
@@ -578,7 +559,7 @@ class PKLMTest(McarTest):
         Parameters:
         -----------
         list_proj : List
-            A list of tuples where each tuple represents a projection, and the 
+            A list of tuples where each tuple represents a projection, and the
             second element of each tuple is an index used to build the target.
         n_cols : int
             The number of columns in the resulting matrix B.
@@ -598,12 +579,8 @@ class PKLMTest(McarTest):
         return B.transpose()
 
     def _compute_partial_p_value(
-            self,
-            B: np.ndarray,
-            U: np.ndarray,
-            U_sigma: np.ndarray,
-            k: int
-        ) -> float:
+        self, B: np.ndarray, U: np.ndarray, U_sigma: np.ndarray, k: int
+    ) -> float:
         """
         Computes the partial p-value for a statistical test based on a given permutation.
 
@@ -624,10 +601,10 @@ class PKLMTest(McarTest):
         float
             The partial p-value.
         """
-        U_k = B[k, :]@U
+        U_k = B[k, :] @ U
         p_v_k = 1
 
-        for u_sigma_k in (B[k, :]@U_sigma).tolist():
+        for u_sigma_k in (B[k, :] @ U_sigma).tolist():
             if u_sigma_k >= U_k:
                 p_v_k += 1
 
@@ -664,9 +641,7 @@ class PKLMTest(McarTest):
         list_U_sigma = [0.0 for _ in range(self.nb_permutation)]
 
         parallel_results = Parallel(n_jobs=-1)(
-            delayed(self._parallel_process_projection)(
-                X, list_perm, features_idx, target_idx
-            )
+            delayed(self._parallel_process_projection)(X, list_perm, features_idx, target_idx)
             for features_idx, target_idx in list_proj
         )
 
@@ -684,7 +659,7 @@ class PKLMTest(McarTest):
                 p_value += 1
 
         p_value = p_value / (self.nb_permutation + 1)
-        
+
         if not self.compute_partial_p_values:
             return p_value
         else:

@@ -70,12 +70,14 @@ def test_attribute_error():
 
 @pytest.fixture
 def supported_multitypes_dataframe() -> pd.DataFrame:
-    return pd.DataFrame({
-        'int_col': [1, 2, 3],
-        'float_col': [1.1, 2.2, 3.3],
-        'str_col': ['a', 'b', 'c'],
-        'bool_col': [True, False, True]
-    })
+    return pd.DataFrame(
+        {
+            "int_col": [1, 2, 3],
+            "float_col": [1.1, 2.2, 3.3],
+            "str_col": ["a", "b", "c"],
+            "bool_col": [True, False, True],
+        }
+    )
 
 
 @pytest.fixture
@@ -104,6 +106,7 @@ def missingness_matrix_mcar_perm(missingness_matrix_mcar):
 def oob_probabilities() -> np.ndarray:
     return np.matrix([[0.5, 0.5], [0, 1], [1, 0], [1, 0]]).A
 
+
 def test__encode_dataframe(supported_multitypes_dataframe):
     mcar_test_pklm = PKLMTest(random_state=42)
     np_dataframe = mcar_test_pklm._encode_dataframe(supported_multitypes_dataframe)
@@ -115,20 +118,23 @@ def test__encode_dataframe(supported_multitypes_dataframe):
 def test__draw_features_and_target_indexes(np_matrix_with_nan_mcar):
     mcar_test_pklm = PKLMTest(random_state=42)
     _, p = np_matrix_with_nan_mcar.shape
-    features_idx, target_idx = mcar_test_pklm._draw_features_and_target_indexes(np_matrix_with_nan_mcar)
+    features_idx, target_idx = mcar_test_pklm._draw_features_and_target_indexes(
+        np_matrix_with_nan_mcar
+    )
     assert isinstance(target_idx, np.integer)
     assert isinstance(features_idx, list)
     assert target_idx not in features_idx
-    assert 0 <= target_idx <= (p-1)
+    assert 0 <= target_idx <= (p - 1)
     for feature_index in features_idx:
-        assert 0 <= feature_index <= (p-1)
+        assert 0 <= feature_index <= (p - 1)
 
 
-@pytest.mark.parametrize("dataframe_fixture, features_idx, target_idx, expected",
+@pytest.mark.parametrize(
+    "dataframe_fixture, features_idx, target_idx, expected",
     [
         ("np_matrix_with_nan_mcar", np.array([1, 0]), 2, True),
-        ("np_matrix_with_nan_mcar", np.array([1, 0, 2]), 3, False)
-    ]
+        ("np_matrix_with_nan_mcar", np.array([1, 0, 2]), 3, False),
+    ],
 )
 def test__check_draw(request, dataframe_fixture, features_idx, target_idx, expected):
     dataframe = request.getfixturevalue(dataframe_fixture)
@@ -152,14 +158,14 @@ def test__generate_label_feature_combinations(request, matrix_fixture):
         assert isinstance(features, list)
         assert label not in features
         for feature_index in features:
-            assert 0 <= feature_index <= (n_cols-1)
+            assert 0 <= feature_index <= (n_cols - 1)
 
 
-
-@pytest.mark.parametrize("dataframe_fixture, features_idx, target_idx",
+@pytest.mark.parametrize(
+    "dataframe_fixture, features_idx, target_idx",
     [
         ("np_matrix_with_nan_mcar", np.array([1, 0]), 2),
-    ]
+    ],
 )
 def test__build_dataset(request, dataframe_fixture, features_idx, target_idx):
     dataframe = request.getfixturevalue(dataframe_fixture)
@@ -173,18 +179,13 @@ def test__build_dataset(request, dataframe_fixture, features_idx, target_idx):
     assert len(y.shape) == 1
 
 
-@pytest.mark.parametrize("dataframe_fixture, permutation_fixture, features_idx, target_idx",
+@pytest.mark.parametrize(
+    "dataframe_fixture, permutation_fixture, features_idx, target_idx",
     [
         ("np_matrix_with_nan_mcar", "missingness_matrix_mcar_perm", np.array([1, 0]), 2),
-    ]
+    ],
 )
-def test__build_label(
-    request,
-    dataframe_fixture,
-    permutation_fixture,
-    features_idx,
-    target_idx
-):
+def test__build_label(request, dataframe_fixture, permutation_fixture, features_idx, target_idx):
     dataframe = request.getfixturevalue(dataframe_fixture)
     m_perm = request.getfixturevalue(permutation_fixture)
     mcar_test_pklm = PKLMTest()
@@ -195,11 +196,11 @@ def test__build_label(
 
 
 @pytest.mark.parametrize(
-        "oob_fixture, label",
-        [
-            ("oob_probabilities", np.array([1, 1, 1, 1])),
-            ("oob_probabilities", np.array([0, 0, 0, 0])),
-        ]
+    "oob_fixture, label",
+    [
+        ("oob_probabilities", np.array([1, 1, 1, 1])),
+        ("oob_probabilities", np.array([0, 0, 0, 0])),
+    ],
 )
 def test__U_hat_unique_label(request, oob_fixture, label):
     oob_prob = request.getfixturevalue(oob_fixture)
@@ -208,10 +209,10 @@ def test__U_hat_unique_label(request, oob_fixture, label):
 
 
 @pytest.mark.parametrize(
-        "oob_fixture, label, expected",
-        [
-            ("oob_probabilities", np.array([1, 0, 0, 0]), 2/3*(np.log(1 - 1e-9) - np.log(1e-9))),
-        ]
+    "oob_fixture, label, expected",
+    [
+        ("oob_probabilities", np.array([1, 0, 0, 0]), 2 / 3 * (np.log(1 - 1e-9) - np.log(1e-9))),
+    ],
 )
 def test__U_hat_computation(request, oob_fixture, label, expected):
     oob_prob = request.getfixturevalue(oob_fixture)
@@ -219,21 +220,22 @@ def test__U_hat_computation(request, oob_fixture, label, expected):
     u_hat = mcar_test_pklm._U_hat(oob_prob, label)
     assert round(u_hat, 2) == round(expected, 2)
 
+
 @pytest.mark.parametrize(
-        "list_proj, n_cols",
-        [
-            (
-                [
-                    (np.array([3, 1]), 0),
-                    (np.array([0]), 1),
-                    (np.array([3]), 0),
-                    (np.array([1, 2]), 3),
-                    (np.array([3, 0]), 2),
-                    (np.array([0, 1]), 2)
-                ],
-                4
-            )
-        ]
+    "list_proj, n_cols",
+    [
+        (
+            [
+                (np.array([3, 1]), 0),
+                (np.array([0]), 1),
+                (np.array([3]), 0),
+                (np.array([1, 2]), 3),
+                (np.array([3, 0]), 2),
+                (np.array([0, 1]), 2),
+            ],
+            4,
+        )
+    ],
 )
 def test__build_B(list_proj, n_cols):
     mcar_test_pklm = PKLMTest()
