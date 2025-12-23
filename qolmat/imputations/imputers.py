@@ -33,7 +33,7 @@ class _Imputer(_BaseImputer):
         If True, the imputer will be computed for each column, else it will be
         computed on the whole dataframe, by default False
     shrink : bool, optional
-        Indicates if the elementwise imputation method returns a single value,
+        Indicates if the element-wise imputation method returns a single value,
         by default False
     random_state : RandomSetting, optional
         Controls the randomness of the fit_transform, by default None
@@ -92,7 +92,7 @@ class _Imputer(_BaseImputer):
         return hyperparams
 
     def _check_dataframe(self, X: NDArray):
-        """Check that the input X is a dataframe, otherwise raises an error.
+        """Check that the input X is a dataframe; otherwise, raises an error.
 
         Parameters
         ----------
@@ -173,7 +173,7 @@ class _Imputer(_BaseImputer):
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         """Transform/impute a dataframe.
 
-        It retruns a dataframe with same shape as `X`,
+        It returns a dataframe with same shape as `X`,
         unchanged values, where all nans are replaced by non-nan values.
         Depending on the imputer parameters, the dataframe can be imputed with
         columnwise and/or groupwise methods.
@@ -232,9 +232,9 @@ class _Imputer(_BaseImputer):
     def fit_transform(
         self, X: pd.DataFrame, y: pd.DataFrame = None
     ) -> pd.DataFrame:
-        """Return a imputed dataframe.
+        """Return an imputed dataframe.
 
-        The retruned df has same shape as `X`, with unchanged values,
+        The returned df has same shape as `X`, with unchanged values,
         but all nans are replaced by non-nan values.
         Depending on the imputer parameters, the dataframe can be imputed
         with columnwise and/or groupwise methods.
@@ -408,7 +408,7 @@ class _Imputer(_BaseImputer):
         col : str, optional
             Column on which the imputer is fitted, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -440,7 +440,7 @@ class _Imputer(_BaseImputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -586,7 +586,7 @@ class ImputerSimple(_Imputer):
         col : str, optional
             Column on which the imputer is fitted, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -620,7 +620,7 @@ class ImputerSimple(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -696,7 +696,7 @@ class ImputerShuffle(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -779,7 +779,7 @@ class ImputerLOCF(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -855,7 +855,7 @@ class ImputerNOCB(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -879,7 +879,7 @@ class ImputerInterpolation(_Imputer):
     """Interpolation imputer.
 
     This class implements a way to impute time series using some interpolation
-    strategies suppoted by pd.Series.interpolate, such as "linear", "slinear",
+    strategies supported by pd.Series.interpolate, such as "linear", "slinear",
     "quadratic", ... By default, linear interpolation.
     As for pd.Series.interpolate, if "method" is "spline" or "polynomial",
     an "order" has to be passed.
@@ -952,7 +952,7 @@ class ImputerInterpolation(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -1085,7 +1085,7 @@ class ImputerResiduals(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -1201,7 +1201,7 @@ class ImputerKNN(_Imputer):
         col : str, optional
             Column on which the imputer is fitted, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -1239,7 +1239,7 @@ class ImputerKNN(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -1266,7 +1266,7 @@ class ImputerMICE(_Imputer):
     """MICE imputer.
 
     Wrapper of the class sklearn.impute.IterativeImputer in our framework.
-    This imputer relies on a estimator which is iterative.
+    This imputer relies on an estimator which is iterative.
 
     Parameters
     ----------
@@ -1316,7 +1316,7 @@ class ImputerMICE(_Imputer):
         col : str, optional
             Column on which the imputer is fitted, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -1355,7 +1355,7 @@ class ImputerMICE(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -1383,7 +1383,7 @@ class ImputerRegressor(_Imputer):
 
     This class implements a regression imputer in the multivariate case.
     It imputes each column using a single fit-predict for a given estimator,
-    based on the colunms which have no missing values.
+    based on the columns which have no missing values.
 
     Parameters
     ----------
@@ -1503,7 +1503,7 @@ class ImputerRegressor(_Imputer):
         col : str, optional
             Column on which the imputer is fitted, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -1557,7 +1557,7 @@ class ImputerRegressor(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -1690,7 +1690,7 @@ class ImputerRpcaPcp(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -1839,7 +1839,7 @@ class ImputerRpcaNoisy(_Imputer):
         col : str, optional
             Column on which the imputer is fitted, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -1887,7 +1887,7 @@ class ImputerRpcaNoisy(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -2019,7 +2019,7 @@ class ImputerSoftImpute(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -2068,7 +2068,7 @@ class ImputerEM(_Imputer):
     method : {'multinormal', 'VAR'}, default='multinormal'
         Method defining the hypothesis made on the data distribution.
         Possible values:
-        - 'multinormal' : the data points a independent and uniformly
+        - 'multinormal' : the data points are independent and uniformly
         distributed following a multinormal distribution
         - 'VAR' : the data is a time series modeled by a VAR(p) process
     columnwise : bool
@@ -2176,7 +2176,7 @@ class ImputerEM(_Imputer):
         col : str, optional
             Column on which the imputer is fitted, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -2210,7 +2210,7 @@ class ImputerEM(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------

@@ -94,7 +94,7 @@ class TabDDPM:
         # Section 2, equation 1, num_noise_steps is T.
         self.num_noise_steps = num_noise_steps
 
-        # Section 2, equation 4 and near explation for alpha, alpha hat, beta.
+        # Section 2, equation 4 and near explanation for alpha, alpha hat, beta.
         self.beta_start = beta_start
         self.beta_end = beta_end
         self.beta = torch.linspace(
@@ -115,7 +115,7 @@ class TabDDPM:
         self.sqrt_alpha = torch.sqrt(self.alpha)
         self.std_beta = torch.sqrt(self.beta)
 
-        # Hyper-parameters for bulding and training the model
+        # Hyper-parameters for building and training the model
         self.loss_func = torch.nn.MSELoss(reduction="none")
 
         self.lr = lr
@@ -287,7 +287,7 @@ class TabDDPM:
                         * i
                     )
                     if len(x_batch.size()) == 3:
-                        # Data are splited into chunks
+                        # Data are split into chunks
                         # (i.e., Time-series data),
                         # a window of rows
                         # is processed.
@@ -1022,7 +1022,7 @@ class TsDDPM(TabDDPM):
         if index_datetime == "":
             raise ValueError(
                 "Please set the params index_datetime "
-                "(the name of datatime-like index column). "
+                "(the name of datetime-like index column). "
                 f" Suggestions: {x.index.names}"
             )
         self.index_datetime = index_datetime

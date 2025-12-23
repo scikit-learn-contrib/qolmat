@@ -119,7 +119,7 @@ def max_diff_Linf(
 
 
 class EM(BaseEstimator, TransformerMixin):
-    """Abstract class for EM imputatoin.
+    """Abstract class for EM imputation.
 
     It uses imputation through EM optimization and
     a projected MCMC sampling process.
@@ -141,7 +141,7 @@ class EM(BaseEstimator, TransformerMixin):
         or to maximise likelihood (0), by default 1.
     random_state : int, optional
         The seed of the pseudo random number generator to use,
-        for reproductibility.
+        for reproducibility.
     dt : float, optional
         Process integration time step, a large value increases the sample bias
         and can make the algorithm unstable, but compensates for a
@@ -349,7 +349,7 @@ class EM(BaseEstimator, TransformerMixin):
             grad_x = grad_x[mask_na]
             return grad_x
 
-        # the method BFGS is much slower, probabily not adapted
+        # the method BFGS is much slower, probability not adapted
         # to the high-dimension setting
         res = spo.minimize(fun_obj, X[mask_na], jac=fun_jac, method="CG")
         x = res.x
@@ -424,7 +424,7 @@ class EM(BaseEstimator, TransformerMixin):
 
         # first imputation
         X_imp = self.init_imputation(X)
-        self._check_conditionning(X_imp)
+        self._check_conditioning(X_imp)
 
         self.fit_parameters_with_missingness(X)
 
@@ -557,13 +557,13 @@ class EM(BaseEstimator, TransformerMixin):
         -------
         Tuple[NDArray, NDArray]
             A tuple containing:
-            - X the pretreatd data matrix
+            - X the pretreated data matrix
             - mask_na the updated mask
 
         """
         return X, mask_na
 
-    def _check_conditionning(self, X: NDArray):
+    def _check_conditioning(self, X: NDArray):
         """Check that the data matrix X is not ill-conditioned.
 
         Running the EM algorithm on data with colinear columns leads to
@@ -622,7 +622,7 @@ class MultiNormalEM(EM):
         or to maximise likelihood (0), by default 1.
     random_state : int, optional
         The seed of the pseudo random number generator to use,
-        for reproductibility.
+        for reproducibility.
     dt : float
         Process integration time step, a large value increases the sample bias
         and can make the algorithm unstable, but compensates for a
@@ -745,7 +745,7 @@ class MultiNormalEM(EM):
         return gamma
 
     def update_criteria_stop(self, X: NDArray):
-        """Update the variables to compute the stopping critera.
+        """Update the variables to compute the stopping criteria.
 
         Parameters
         ----------
@@ -951,7 +951,7 @@ class VARpEM(EM):
         or to maximise likelihood (0), by default 1.
     random_state : int, optional
         The seed of the pseudo random number generator to use,
-        for reproductibility.
+        for reproducibility.
     dt : float
         Process integration time step, a large value increases the sample bias
         and can make the algorithm unstable, but compensates for
@@ -1076,7 +1076,7 @@ class VARpEM(EM):
         return grad_1 + grad_2
 
     def get_gamma(self, n_cols: int) -> NDArray:
-        """Compue gamma.
+        """Compute gamma.
 
         If the noise matrix is not full-rank, defines the projection matrix
         keeping the sampling process in the relevant subspace.
@@ -1103,7 +1103,7 @@ class VARpEM(EM):
         return gamma
 
     def update_criteria_stop(self, X: NDArray):
-        """Update the variable to compute the stopping critera.
+        """Update the variable to compute the stopping criteria.
 
         Parameters
         ----------
@@ -1225,7 +1225,7 @@ class VARpEM(EM):
         -------
         Tuple[NDArray, NDArray]
             A tuple containing:
-            - X the pretreatd data matrix
+            - X the pretreated data matrix
             - mask_na the updated mask
 
         """

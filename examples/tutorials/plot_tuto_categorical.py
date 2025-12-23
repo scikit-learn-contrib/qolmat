@@ -57,7 +57,7 @@ imputer_wrap_rpca = preprocessing.WrapperTransformer(imputer_rpca, wrapper)
 # %%
 # The third approach uses ImputerRegressor which imputes iteratively each column using the other
 # ones. The function make_robust_MixteHGB provides an underlying model able to:
-# - adress both numerical targets (regression) and categorical targets (classification)
+# - address both numerical targets (regression) and categorical targets (classification)
 # - manage categorical features though one hot encoding
 # - manage missing features (native to the HistGradientBoosting)
 
@@ -68,7 +68,7 @@ imputer_wrap_hgb = preprocessing.WrapperTransformer(imputer_hgb, bt)
 # %%
 # 3. Mixed type model selection
 # ---------------------------------------------------------------
-# Let us now compare these three aproaches by measuring their ability to impute uniformly
+# Let us now compare these three approaches by measuring their ability to impute uniformly
 # distributed holes.
 
 dict_imputers = {
@@ -101,5 +101,5 @@ results = comparison.compare(df)
 results.loc["rmse"].style.highlight_min(color="lightgreen", axis=1)
 
 # %%
-# The HGB imputation methods globaly reaches a better accuracy on the categorical data.
+# The HGB imputation methods globally reaches a better accuracy on the categorical data.
 results.loc["accuracy"].style.highlight_max(color="lightgreen", axis=1)

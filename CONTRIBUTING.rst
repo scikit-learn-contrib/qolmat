@@ -46,7 +46,7 @@ Documenting your change
 -----------------------
 
 If you're adding a class or a function, then you'll need to add a docstring with a doctest. We follow the `numpy docstring convention <https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_numpy.html>`_, so please do too.
-Any estimator should follow the [scikit-learn API](https://scikit-learn.org/stable/developers/develop.html), so please follow these guidelines.
+Any estimator should follow the `scikit-learn API <https://scikit-learn.org/stable/developers/develop.html>`_, so please follow these guidelines.
 
 Updating changelog
 ------------------

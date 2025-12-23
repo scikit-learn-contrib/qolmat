@@ -206,7 +206,7 @@ uniform_generator = missing_patterns.UniformHoleGenerator(
 )
 uniform_mask = uniform_generator.split(df)[0]
 
-print("Pourcentage of additional missing values:")
+print("Percentage of additional missing values:")
 print(round((uniform_mask.sum() / len(uniform_mask)) * 100, 2))
 visualise_missing_values(df, uniform_mask)
 
@@ -224,7 +224,7 @@ plot_cdf(df, [uniform_mask], ["created"], ["tab:red"])
 # The holes are generated following a Markov 1D process.
 # Holes are created column by column. The transition matrix of the
 # one-dimensional Markov process is learned from the data.
-# This metohd is implemented in the
+# This method is implemented in the
 # :class:`~qolmat.benchmark.missing_patterns.UniformHoleGenerator` class.
 
 geometric_generator = missing_patterns.GeometricHoleGenerator(
@@ -232,7 +232,7 @@ geometric_generator = missing_patterns.GeometricHoleGenerator(
 )
 geometric_mask = geometric_generator.split(df)[0]
 
-print("Pourcentage of additional missing values:")
+print("Percentage of additional missing values:")
 print(round((geometric_mask.sum() / len(geometric_mask)) * 100, 2))
 visualise_missing_values(df, geometric_mask)
 
@@ -248,7 +248,7 @@ plot_cdf(df, [geometric_mask], ["created"], ["tab:red"])
 # The distribution of holes is learned from the data.
 # The distributions of holes are learned column by column; so you need to fit
 # the generator to the data.
-# This metohd is implemented in the
+# This method is implemented in the
 # :class:`~qolmat.benchmark.missing_patterns.EmpiricalHoleGenerator` class.
 # We specify ``groups=("station",)`` which means a distribution
 # is learned on each group: here on each station.
@@ -258,7 +258,7 @@ empirical_generator = missing_patterns.EmpiricalHoleGenerator(
 )
 empirical_mask = empirical_generator.split(df)[0]
 
-print("Pourcentage of additional missing values:")
+print("Percentage of additional missing values:")
 print(round((empirical_mask.sum() / len(empirical_mask)) * 100, 2))
 visualise_missing_values(df, empirical_mask)
 
@@ -275,7 +275,7 @@ plot_cdf(df, [geometric_mask], ["created"], ["tab:red"])
 # Each line of the dataframe mask (np.nan) represents a state of the Markov chain.
 # Note it is also more difficult to achieve exactly the required
 # missing data ratio.
-# This metohd is implemented in the
+# This method is implemented in the
 # :class:`~qolmat.benchmark.missing_patterns.MultiMarkovHoleGenerator` class.
 
 multi_markov_generator = missing_patterns.MultiMarkovHoleGenerator(
@@ -283,7 +283,7 @@ multi_markov_generator = missing_patterns.MultiMarkovHoleGenerator(
 )
 multi_markov_mask = multi_markov_generator.split(df)[0]
 
-print("Pourcentage of additional missing values:")
+print("Percentage of additional missing values:")
 print(round((multi_markov_mask.sum() / len(multi_markov_mask)) * 100, 2))
 visualise_missing_values(df, multi_markov_mask)
 
@@ -298,7 +298,7 @@ plot_cdf(df, [multi_markov_mask], ["created"], ["tab:red"])
 # e. Grouped Hole Generator
 # ***************************************************************
 # The holes are generated according to the groups defined by the user.
-# This metohd is implemented in the
+# This method is implemented in the
 # :class:`~qolmat.benchmark.missing_patterns.GroupedHoleGenerator` class.
 
 grouped_generator = missing_patterns.GroupedHoleGenerator(
@@ -306,7 +306,7 @@ grouped_generator = missing_patterns.GroupedHoleGenerator(
 )
 grouped_mask = grouped_generator.split(df)[0]
 
-print("Pourcentage of additional missing values:")
+print("Percentage of additional missing values:")
 print(round((grouped_mask.sum() / len(grouped_mask)) * 100, 2))
 visualise_missing_values(df, grouped_mask)
 
@@ -330,6 +330,6 @@ plot_cdf(
         multi_markov_mask,
         grouped_mask,
     ],
-    ["uniform", "geometric", "empirical", "mutli markov", "grouped"],
+    ["uniform", "geometric", "empirical", "multi markov", "grouped"],
     ["tab:orange", "tab:blue", "tab:green", "tab:pink", "tab:olive"],
 )
