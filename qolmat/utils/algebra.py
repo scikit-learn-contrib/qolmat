@@ -1,5 +1,7 @@
 """Utils algebra functions for qolmat package."""
 
+from typing import Optional, Tuple
+
 import numpy as np
 import scipy
 from numpy.typing import NDArray
@@ -96,3 +98,53 @@ def kl_divergence_gaussian_exact(
     term_diag_L = 2 * np.sum(np.log(np.diagonal(L2) / np.diagonal(L1)))
     div_kl = 0.5 * (norm_M - n_variables + norm_y + term_diag_L)
     return div_kl
+
+
+def svdtriplet(X, row_w=None, ncp=np.inf):
+    """Perform weighted SVD on matrix X with row weights.
+
+    Parameters
+    ----------
+    X : ndarray
+        Data matrix of shape (n_samples, n_features).
+    row_w : array-like, optional
+        Row weights. If None, uniform weights are assumed. Default is None.
+    ncp : int
+        Number of principal components to retain. Default is infinity.
+
+    Returns
+    -------
+    s : ndarray
+        Singular values.
+    U : ndarray
+        Left singular vectors.
+    V : ndarray
+        Right singular vectors.
+
+    """
+    if not isinstance(X, np.ndarray):
+        X = np.array(X, dtype=float)
+    else:
+        X = X.astype(float)
+    if row_w is None:
+        row_w = np.ones(X.shape[0]) / X.shape[0]
+    else:
+        row_w = np.array(row_w, dtype=float)
+        row_w /= row_w.sum()
+    ncp = int(min(ncp, X.shape[0] - 1, X.shape[1]))
+    # Apply weights to rows
+    X_weighted = X * np.sqrt(row_w[:, None])
+    # Perform SVD
+    U, s, Vt = np.linalg.svd(X_weighted, full_matrices=False)
+    V = Vt.T
+    U = U[:, :ncp]
+    V = V[:, :ncp]
+    s = s[:ncp]
+    # Adjust signs to ensure consistency
+    mult = np.sign(np.sum(V, axis=0))
+    mult[mult == 0] = 1
+    U *= mult
+    V *= mult
+    # Rescale U by the square root of row weights
+    U /= np.sqrt(row_w[:, None])
+    return s, U, V

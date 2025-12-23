@@ -1,4 +1,8 @@
+*.xlsx
+*.ipynb
+poetry.lock
 # Byte-compiled / optimized / DLL files
+data/
 __pycache__/
 *.py[cod]
 *$py.class
@@ -61,7 +65,7 @@ examples/figures/*
 examples/data/*
 examples/local
 data/data_local/*
-
+        notebooks/
 # VSCode
 .vscode
 
