@@ -242,8 +242,8 @@ Calculation time
 #   ``nb_projections=100``.
 #   Est-ce qu'on donne des ordres de grandeurs utiles ? J'avais un peu fait ce travail.
 #
-# * ``nb_permutation`` : Number of permutations of the projected targets. The higher is better. This
-#   parameter has little impact on calculation time.
+# * ``nb_permutation`` : Number of permutations of the projected targets. The higher is better.
+#   This parameter has little impact on calculation time.
 #   Its default value ``nb_permutation=30``.
 #
 # * ``nb_trees_per_proj`` : The number of subtrees in each random forest fitted. In order to
@@ -268,8 +268,8 @@ Calculation time
 # ================================================
 #
 # As we have seen, Little's test only applies to quantitative data. In real life, however, it is
-# common to have to deal with mixed data. Here's an example of how to use the PKLM test on a dataset
-# with mixed data types.
+# common to have to deal with mixed data. Here's an example of how to use the PKLM test on a
+# dataset with mixed data types.
 
 # %%
 n_rows = 100

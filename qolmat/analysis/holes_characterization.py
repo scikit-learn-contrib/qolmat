@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from itertools import combinations
-from typing import List, Optional, Tuple, Union
+from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -41,7 +41,7 @@ class McarTest(ABC):
         self.rng = sku.check_random_state(random_state)
 
     @abstractmethod
-    def test(self, df: Union[pd.DataFrame, np.ndarray]) -> Union[float, Tuple[float, List[float]]]:
+    def test(self, df: Union[pd.DataFrame, np.ndarray]) -> Union[float, tuple[float, list[float]]]:
         """
         Perform the MCAR test on the input data.
 
@@ -53,14 +53,15 @@ class McarTest(ABC):
         Returns
         -------
         float or tuple of float and list of float
-            Test statistic, or a tuple with the test statistic and additional details if applicable.
+            Test statistic, or a tuple with the test statistic and additional details if
+            applicable.
         """
-        raise NotImplemented
+        raise NotImplementedError("Subclasses must implement this method.")
 
 
 class LittleTest(McarTest):
     """
-    This class implements the Little's test, which is designed to detect the heterogeneity accross
+    This class implements the Little's test, which is designed to detect the heterogeneity across
     the missing patterns. The null hypothesis is "The missing data mechanism is MCAR". The
     shortcoming of this test is that it won't detect the heterogeneity of covariance.
 
@@ -195,7 +196,7 @@ class PKLMTest(McarTest):
         self.encoder = encoder
 
         if self.exact_p_value:
-            self.process_permutation = self._parallel_process_permutation_exact
+            self.process_permutation = self._parallel_process_permutation_exact  # ignore F821
         else:
             self.process_permutation = self._parallel_process_permutation
 
@@ -277,7 +278,7 @@ class PKLMTest(McarTest):
         """
         return p * (2 ** (p - 1) - 1)
 
-    def _draw_features_and_target_indexes(self, X: np.ndarray) -> Tuple[List[int], int]:
+    def _draw_features_and_target_indexes(self, X: np.ndarray) -> tuple[list[int], int]:
         """
         Randomly selects features and a target from the dataframe.
         This corresponds to the Ai and Bi projections of the paper.
@@ -289,7 +290,7 @@ class PKLMTest(McarTest):
 
         Returns:
         --------
-        Tuple[np.ndarray, int]
+        tuple[np.ndarray, int]
             Indices of selected features and the target.
         """
         _, p = X.shape
@@ -299,7 +300,7 @@ class PKLMTest(McarTest):
         return features_idx.tolist(), target_idx
 
     @staticmethod
-    def _check_draw(X: np.ndarray, features_idx: List[int], target_idx: int) -> np.bool_:
+    def _check_draw(X: np.ndarray, features_idx: list[int], target_idx: int) -> np.bool_:
         """
         Checks if the drawn features and target are valid. Here we check that the number of induced
         classes is equal to 2. Using the notation from the paper, we want |G(Ai, Bi)| = 2.
@@ -323,7 +324,7 @@ class PKLMTest(McarTest):
         is_distinct_values = (~np.isnan(target_values)).any()
         return is_nan and is_distinct_values
 
-    def _generate_label_feature_combinations(self, X: np.ndarray) -> List[Tuple[int, List[int]]]:
+    def _generate_label_feature_combinations(self, X: np.ndarray) -> list[tuple[int, list[int]]]:
         """
         Generates all valid combinations of features and labels for projection if
         nb_projections_threshold > _get_max_draw(X.shape[1]).
@@ -335,7 +336,7 @@ class PKLMTest(McarTest):
 
         Returns:
         --------
-        List[Tuple[int, List[int]]]
+        list[tuple[int, list[int]]]
             A list of tuples where each tuple contains a label and a list of selected features that
             can be used for projection.
         """
@@ -353,7 +354,7 @@ class PKLMTest(McarTest):
 
         return result
 
-    def _draw_projection(self, X: np.ndarray) -> Tuple[List[int], int]:
+    def _draw_projection(self, X: np.ndarray) -> tuple[list[int], int]:
         """
         Draws a valid projection of features and a target.
         If nb_projections_threshold < _get_max_draw(X.shape[1]).
@@ -365,7 +366,7 @@ class PKLMTest(McarTest):
 
         Returns:
         --------
-        Tuple[np.ndarray, int]
+        tuple[np.ndarray, int]
             Indices of selected features and the target.
         """
         is_checked = False
@@ -377,7 +378,7 @@ class PKLMTest(McarTest):
     @staticmethod
     def _build_dataset(
         X: np.ndarray, features_idx: np.ndarray, target_idx: int
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
         Builds a dataset by selecting specified features and target from a NumPy array, excluding
         rows with NaN values in the feature columns.
@@ -395,7 +396,7 @@ class PKLMTest(McarTest):
 
         Returns:
         --------
-        Tuple[np.ndarray, np.ndarray]: A tuple containing:
+        tuple[np.ndarray, np.ndarray]: A tuple containing:
             - X (np.ndarray): Full observed array of selected features.
             - y (np.ndarray): Binary array indicating presence of NaN (1) in the target column.
         """
@@ -534,15 +535,15 @@ class PKLMTest(McarTest):
     def _parallel_process_projection(
         self,
         X: np.ndarray,
-        list_permutations: List[np.ndarray],
+        list_permutations: list[np.ndarray],
         features_idx: np.ndarray,
         target_idx: int,
-    ) -> Tuple[float, List[float]]:
+    ) -> tuple[float, list[float]]:
         X_features, y = self._build_dataset(X, features_idx, target_idx)
         oob_probabilities = self._get_oob_probabilities(X_features, y)
         u_hat = self._U_hat(oob_probabilities, y)
-        # We iterate over the permutation because for a given projection, we fit only one classifier
-        # to get oob probabilities and compute u_hat nb_permutations times.
+        # We iterate over the permutation because for a given projection, we fit only one
+        # classifier to get oob probabilities and compute u_hat nb_permutations times.
         result_u_permutations = Parallel(n_jobs=-1)(
             delayed(self.process_permutation)(
                 X, M_perm, features_idx, target_idx, oob_probabilities
@@ -552,13 +553,13 @@ class PKLMTest(McarTest):
         return u_hat, result_u_permutations
 
     @staticmethod
-    def _build_B(list_proj: List, n_cols: int) -> np.ndarray:
+    def _build_B(list_proj: list, n_cols: int) -> np.ndarray:
         """
         Constructs a binary matrix B based on the given projections.
 
         Parameters:
         -----------
-        list_proj : List
+        list_proj : list
             A list of tuples where each tuple represents a projection, and the
             second element of each tuple is an index used to build the target.
         n_cols : int
@@ -610,7 +611,7 @@ class PKLMTest(McarTest):
 
         return p_v_k / (self.nb_permutation + 1)
 
-    def test(self, X: Union[pd.DataFrame, np.ndarray]) -> Union[float, Tuple[float, List[float]]]:
+    def test(self, X: Union[pd.DataFrame, np.ndarray]) -> Union[float, tuple[float, list[float]]]:
         """
         Apply the PKLM test over a real dataset.
 
@@ -623,7 +624,7 @@ class PKLMTest(McarTest):
         -------
         float
             If compute_partial_p_values=False. Returns the p-value of the test.
-        Tuple[float, List[float]]
+        tuple[float, list[float]]
             If compute_partial_p_values=True. Returns the p-value of the test and the list of all
             the partial p-values.
         """
@@ -649,7 +650,6 @@ class PKLMTest(McarTest):
             U += U_projection
             list_U_sigma = [x + y for x, y in zip(list_U_sigma, results)]
 
-        # Je suggère d'alléger le code de cette manipulation même si théoriquement ça a de la valeur
         U = U / self.nb_projections
         list_U_sigma = [x / self.nb_permutation for x in list_U_sigma]
 
