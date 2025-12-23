@@ -195,11 +195,6 @@ class PKLMTest(McarTest):
         self.exact_p_value = exact_p_value
         self.encoder = encoder
 
-        if self.exact_p_value:
-            self.process_permutation = self._parallel_process_permutation_exact  # ignore F821
-        else:
-            self.process_permutation = self._parallel_process_permutation
-
     def _encode_dataframe(self, df: pd.DataFrame) -> np.ndarray:
         """
         Encodes the DataFrame by converting numeric columns to a numpy array
@@ -324,7 +319,7 @@ class PKLMTest(McarTest):
         is_distinct_values = (~np.isnan(target_values)).any()
         return is_nan and is_distinct_values
 
-    def _generate_label_feature_combinations(self, X: np.ndarray) -> list[tuple[int, list[int]]]:
+    def _generate_label_feature_combinations(self, X: np.ndarray) -> list[tuple[list[int], int]]:
         """
         Generates all valid combinations of features and labels for projection if
         nb_projections_threshold > _get_max_draw(X.shape[1]).
@@ -336,9 +331,9 @@ class PKLMTest(McarTest):
 
         Returns:
         --------
-        list[tuple[int, list[int]]]
-            A list of tuples where each tuple contains a label and a list of selected features that
-            can be used for projection.
+        list[tuple[list[int], int]]
+            A list of tuples where each tuple contains a list of selected features that
+            can be used for projection, a target label.
         """
         _, p = X.shape
         indices = list(range(p))
@@ -515,21 +510,12 @@ class PKLMTest(McarTest):
         target_idx: int,
         oob_probabilities: np.ndarray,
     ) -> float:
-        y = self._build_label(X, M_perm, features_idx, target_idx)
-        return self._U_hat(oob_probabilities, y)
-
-    def _parallel_process_permutation_exact(
-        self,
-        X: np.ndarray,
-        M_perm: np.ndarray,
-        features_idx: np.ndarray,
-        target_idx: int,
-        oob_probabilites_unused: np.ndarray,
-    ) -> float:
-        X_features, _ = self._build_dataset(X, features_idx, target_idx)
-        y = self._build_label(X, M_perm, features_idx, target_idx)
-        # In this case, we fit the classifier in each permutation. It takes much more longer.
-        oob_probabilities = self._get_oob_probabilities(X_features, y)
+        X_features, y = self._build_dataset(X, features_idx, target_idx)
+        if self.exact_p_value:
+            # Exact version
+            y = self._build_label(X, M_perm, features_idx, target_idx)
+            # In this case, we fit the classifier in each permutation. It takes much more longer.
+            oob_probabilities = self._get_oob_probabilities(X_features, y)
         return self._U_hat(oob_probabilities, y)
 
     def _parallel_process_projection(
@@ -545,7 +531,7 @@ class PKLMTest(McarTest):
         # We iterate over the permutation because for a given projection, we fit only one
         # classifier to get oob probabilities and compute u_hat nb_permutations times.
         result_u_permutations = Parallel(n_jobs=-1)(
-            delayed(self.process_permutation)(
+            delayed(self._parallel_process_permutation)(
                 X, M_perm, features_idx, target_idx, oob_probabilities
             )
             for M_perm in list_permutations
@@ -653,7 +639,7 @@ class PKLMTest(McarTest):
         U = U / self.nb_projections
         list_U_sigma = [x / self.nb_permutation for x in list_U_sigma]
 
-        p_value = 1
+        p_value = 1.0
         for u_sigma in list_U_sigma:
             if u_sigma >= U:
                 p_value += 1
