@@ -62,9 +62,7 @@ def get_objective(
             df_imputed = imputer.fit_transform(df_corrupted)
             subset = generator.subset
             fun_metric = metrics.get_metric(metric)
-            errors = fun_metric(
-                df_origin[subset], df_imputed[subset], df_mask[subset]
-            )
+            errors = fun_metric(df_origin[subset], df_imputed[subset], df_mask[subset])
             list_errors.append(errors)
 
         mean_errors = np.mean(errors)
@@ -120,9 +118,7 @@ def optimize(
         return imputer
     names_hyperparams = list(dict_config.keys())
     values_hyperparams = list(dict_config.values())
-    imputer.imputer_params = tuple(
-        set(imputer.imputer_params) | set(dict_config.keys())
-    )
+    imputer.imputer_params = tuple(set(imputer.imputer_params) | set(dict_config.keys()))
     if verbose and hasattr(imputer, "verbose"):
         setattr(imputer, "verbose", False)
     fun_obj = get_objective(imputer, df, generator, metric, names_hyperparams)

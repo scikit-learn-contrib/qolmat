@@ -37,19 +37,14 @@ class SubsetIsAString(Exception):
     """Raise an error when the subset is a string."""
 
     def __init__(self, subset: Any):
-        super().__init__(
-            f"Provided subset `{subset}` should be None or a list!"
-        )
+        super().__init__(f"Provided subset `{subset}` should be None or a list!")
 
 
 class NotDimension2(Exception):
     """Raise an error when the matrix is not of dim 2."""
 
     def __init__(self, shape: Tuple[int, ...]):
-        super().__init__(
-            f"Provided matrix is of shape {shape}, "
-            "which is not of dimension 2!"
-        )
+        super().__init__(f"Provided matrix is of shape {shape}, " "which is not of dimension 2!")
 
 
 class NotDataFrame(Exception):
@@ -74,18 +69,14 @@ class EstimatorNotDefined(Exception):
     """Raise an error when the estimator is not defined."""
 
     def __init__(self):
-        super().__init__(
-            "The underlying estimator should be defined beforehand!"
-        )
+        super().__init__("The underlying estimator should be defined beforehand!")
 
 
 class SingleSample(Exception):
     """Raise an error when there is a single sample."""
 
     def __init__(self):
-        super().__init__(
-            """This imputer cannot be fitted on a single sample!"""
-        )
+        super().__init__("""This imputer cannot be fitted on a single sample!""")
 
 
 class IllConditioned(Exception):
@@ -105,7 +96,4 @@ class TypeNotHandled(Exception):
     """Raise an error when the type is not handled."""
 
     def __init__(self, col: str, type_col: str):
-        super().__init__(
-            f"The column `{col}` is of type `{type_col}`, "
-            "which is not handled!"
-        )
+        super().__init__(f"The column `{col}` is of type `{type_col}`, " "which is not handled!")

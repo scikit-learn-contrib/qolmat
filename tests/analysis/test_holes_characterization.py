@@ -14,9 +14,7 @@ from qolmat.imputations.imputers import ImputerEM
 @pytest.fixture
 def mcar_df() -> pd.DataFrame:
     rng = sku.check_random_state(42)
-    matrix = rng.multivariate_normal(
-        mean=[0, 0], cov=[[1, 0], [0, 1]], size=200
-    )
+    matrix = rng.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]], size=200)
     df = pd.DataFrame(data=matrix, columns=["Column_1", "Column_2"])
     hole_gen = UniformHoleGenerator(
         n_splits=1, random_state=42, subset=["Column_2"], ratio_masked=0.2
@@ -28,9 +26,7 @@ def mcar_df() -> pd.DataFrame:
 @pytest.fixture
 def mar_hm_df() -> pd.DataFrame:
     rng = sku.check_random_state(42)
-    matrix = rng.multivariate_normal(
-        mean=[0, 0], cov=[[1, 0], [0, 1]], size=200
-    )
+    matrix = rng.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]], size=200)
 
     quantile_95 = norm.ppf(0.975)
     df = pd.DataFrame(matrix, columns=["Column_1", "Column_2"])
@@ -44,9 +40,7 @@ def mar_hm_df() -> pd.DataFrame:
 @pytest.fixture
 def mar_hc_df() -> pd.DataFrame:
     rng = sku.check_random_state(42)
-    matrix = rng.multivariate_normal(
-        mean=[0, 0], cov=[[1, 0], [0, 1]], size=200
-    )
+    matrix = rng.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]], size=200)
 
     quantile_95 = norm.ppf(0.975)
     df = pd.DataFrame(matrix, columns=["Column_1", "Column_2"])
@@ -116,9 +110,7 @@ def oob_probabilities() -> np.ndarray:
 
 def test__encode_dataframe(supported_multitypes_dataframe):
     mcar_test_pklm = PKLMTest(random_state=42)
-    np_dataframe = mcar_test_pklm._encode_dataframe(
-        supported_multitypes_dataframe
-    )
+    np_dataframe = mcar_test_pklm._encode_dataframe(supported_multitypes_dataframe)
     n_rows, n_cols = np_dataframe.shape
     assert n_rows == 3
     assert n_cols == 7
@@ -127,10 +119,8 @@ def test__encode_dataframe(supported_multitypes_dataframe):
 def test__draw_features_and_target_indexes(np_matrix_with_nan_mcar):
     mcar_test_pklm = PKLMTest(random_state=42)
     _, p = np_matrix_with_nan_mcar.shape
-    features_idx, target_idx = (
-        mcar_test_pklm._draw_features_and_target_indexes(
-            np_matrix_with_nan_mcar
-        )
+    features_idx, target_idx = mcar_test_pklm._draw_features_and_target_indexes(
+        np_matrix_with_nan_mcar
     )
     assert isinstance(target_idx, np.integer)
     assert isinstance(features_idx, list)
@@ -147,9 +137,7 @@ def test__draw_features_and_target_indexes(np_matrix_with_nan_mcar):
         ("np_matrix_with_nan_mcar", np.array([1, 0, 2]), 3, False),
     ],
 )
-def test__check_draw(
-    request, dataframe_fixture, features_idx, target_idx, expected
-):
+def test__check_draw(request, dataframe_fixture, features_idx, target_idx, expected):
     dataframe = request.getfixturevalue(dataframe_fixture)
     mcar_test_pklm = PKLMTest()
     result = mcar_test_pklm._check_draw(dataframe, features_idx, target_idx)
@@ -203,15 +191,11 @@ def test__build_dataset(request, dataframe_fixture, features_idx, target_idx):
         ),
     ],
 )
-def test__build_label(
-    request, dataframe_fixture, permutation_fixture, features_idx, target_idx
-):
+def test__build_label(request, dataframe_fixture, permutation_fixture, features_idx, target_idx):
     dataframe = request.getfixturevalue(dataframe_fixture)
     m_perm = request.getfixturevalue(permutation_fixture)
     mcar_test_pklm = PKLMTest()
-    label = mcar_test_pklm._build_label(
-        dataframe, m_perm, features_idx, target_idx
-    )
+    label = mcar_test_pklm._build_label(dataframe, m_perm, features_idx, target_idx)
     assert not np.any(np.isnan(label))
     assert len(label.shape) == 1
     assert np.isin(label, [0, 1]).all()

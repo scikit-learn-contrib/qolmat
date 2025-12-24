@@ -84,11 +84,7 @@ class TabDDPM:
             Pass an int for reproducible output across multiple function calls.
 
         """
-        self.device = (
-            torch.device("cuda")
-            if torch.cuda.is_available()
-            else torch.device("cpu")
-        )
+        self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
         # Hyper-parameters for DDPM
         # Section 2, equation 1, num_noise_steps is T.
@@ -147,9 +143,7 @@ class TabDDPM:
             state.pop("optimiser")
         return state
 
-    def _q_sample(
-        self, x: torch.Tensor, t: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def _q_sample(self, x: torch.Tensor, t: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """Sample q.
 
         Section 3.2, algorithm 1 formula implementation. Forward process,
@@ -180,9 +174,7 @@ class TabDDPM:
         model = AutoEncoder(
             num_noise_steps=self.num_noise_steps,
             dim_input=self.dim_input,
-            residual_block=ResidualBlock(
-                self.dim_embedding, self.dim_embedding, self.p_dropout
-            ),
+            residual_block=ResidualBlock(self.dim_embedding, self.dim_embedding, self.p_dropout),
             dim_embedding=self.dim_embedding,
             num_blocks=self.num_blocks,
             p_dropout=self.p_dropout,
@@ -193,9 +185,7 @@ class TabDDPM:
         model = self._get_eps_model()
         self._eps_model = model.to(self.device)
 
-        self.optimiser = torch.optim.Adam(
-            self._eps_model.parameters(), lr=self.lr
-        )
+        self.optimiser = torch.optim.Adam(self._eps_model.parameters(), lr=self.lr)
 
     def get_num_params(self) -> int:
         """Compute the number of parameters of the underlying model.
@@ -207,9 +197,7 @@ class TabDDPM:
 
         """
         if hasattr(self, "_eps_model"):
-            model_parameters = filter(
-                lambda p: p.requires_grad, self._eps_model.parameters()
-            )
+            model_parameters = filter(lambda p: p.requires_grad, self._eps_model.parameters())
             params = sum([np.prod(p.size()) for p in model_parameters])
             return int(params)
         else:
@@ -230,22 +218,14 @@ class TabDDPM:
         print_step = 1 if int(self.epochs / 10) == 0 else int(self.epochs / 10)
         if self.print_valid and epoch == 0:
             n_params = self.get_num_params()
-            logging.info(
-                f"Num params of {self.__class__.__name__}: {n_params}"
-            )
+            logging.info(f"Num params of {self.__class__.__name__}: {n_params}")
         if self.print_valid and epoch % print_step == 0:
             string_valid = f"Epoch {epoch}: "
             for s in self.summary:
-                string_valid += (
-                    f" {s}={round(self.summary[s][epoch], self.round)}"
-                )
+                string_valid += f" {s}={round(self.summary[s][epoch], self.round)}"
             # string_valid += f" | in {round(time_duration, 3)} secs"
-            remaining_duration = np.mean(self.time_durations) * (
-                self.epochs - epoch
-            )
-            string_valid += (
-                f" | remaining {timedelta(seconds=remaining_duration)}"
-            )
+            remaining_duration = np.mean(self.time_durations) * (self.epochs - epoch)
+            string_valid += f" | remaining {timedelta(seconds=remaining_duration)}"
             logging.info(string_valid)
 
     def _impute(self, x: np.ndarray, x_mask_obs: np.ndarray) -> np.ndarray:
@@ -293,38 +273,27 @@ class TabDDPM:
                         # is processed.
                         sqrt_alpha_t = self.sqrt_alpha[t].view(-1, 1, 1)
                         beta_t = self.beta[t].view(-1, 1, 1)
-                        sqrt_one_minus_alpha_hat_t = (
-                            self.sqrt_one_minus_alpha_hat[t].view(-1, 1, 1)
+                        sqrt_one_minus_alpha_hat_t = self.sqrt_one_minus_alpha_hat[t].view(
+                            -1, 1, 1
                         )
                         epsilon_t = self.std_beta[t].view(-1, 1, 1)
                     else:
                         # Each row of data is separately processed.
                         sqrt_alpha_t = self.sqrt_alpha[t].view(-1, 1)
                         beta_t = self.beta[t].view(-1, 1)
-                        sqrt_one_minus_alpha_hat_t = (
-                            self.sqrt_one_minus_alpha_hat[t].view(-1, 1)
-                        )
+                        sqrt_one_minus_alpha_hat_t = self.sqrt_one_minus_alpha_hat[t].view(-1, 1)
                         epsilon_t = self.std_beta[t].view(-1, 1)
 
-                    random_noise = (
-                        torch.randn_like(noise)
-                        if i > 1
-                        else torch.zeros_like(noise)
-                    )
+                    random_noise = torch.randn_like(noise) if i > 1 else torch.zeros_like(noise)
 
                     noise = (
                         (1 / sqrt_alpha_t)
                         * (
                             noise
-                            - (
-                                (beta_t / sqrt_one_minus_alpha_hat_t)
-                                * self._eps_model(noise, t)
-                            )
+                            - ((beta_t / sqrt_one_minus_alpha_hat_t) * self._eps_model(noise, t))
                         )
                     ) + (epsilon_t * random_noise)
-                    noise = (
-                        mask_x_batch * x_batch + (1.0 - mask_x_batch) * noise
-                    )
+                    noise = mask_x_batch * x_batch + (1.0 - mask_x_batch) * noise
 
                 # Generate data output, this activation function depends on
                 # normalizer_x
@@ -379,9 +348,7 @@ class TabDDPM:
         x_final.loc[x_out.index] = x_out.loc[x_out.index]
 
         x_mask_imputed_df = ~x_mask_obs_df
-        columns_with_True = x_mask_imputed_df.columns[
-            (x_mask_imputed_df).any()
-        ]
+        columns_with_True = x_mask_imputed_df.columns[(x_mask_imputed_df).any()]
         scores = {}
         for metric in self.metrics_valid:
             scores[metric.__name__] = metric(
@@ -416,9 +383,7 @@ class TabDDPM:
         """
         if is_training:
             self.normalizer_x.fit(x.values)
-        x_windows_processed = self.normalizer_x.transform(
-            x.fillna(x.mean()).values
-        )
+        x_windows_processed = self.normalizer_x.transform(x.fillna(x.mean()).values)
         x_windows_mask_processed = ~x.isna().to_numpy()
         if mask is not None:
             x_windows_mask_processed = mask.to_numpy()
@@ -430,9 +395,7 @@ class TabDDPM:
     ):
         x_normalized = self.normalizer_x.inverse_transform(x_imputed)
         x_normalized = x_normalized[: x_input.shape[0]]
-        x_out = pd.DataFrame(
-            x_normalized, columns=self.columns, index=x_input.index
-        )
+        x_out = pd.DataFrame(x_normalized, columns=self.columns, index=x_input.index)
 
         x_final = x_input.copy()
         x_final.loc[x_out.index] = x_out.loc[x_out.index]
@@ -503,14 +466,10 @@ class TabDDPM:
 
         if len(self.cols_imputed) != 0:
             self.cols_idx_not_imputed = [
-                idx
-                for idx, col in enumerate(self.columns)
-                if col not in self.cols_imputed
+                idx for idx, col in enumerate(self.columns) if col not in self.cols_imputed
             ]
 
-        self.interval_x = {
-            col: [x[col].min(), x[col].max()] for col in self.columns
-        }
+        self.interval_x = {col: [x[col].min(), x[col].max()] for col in self.columns}
 
         # x_mask: 1 for observed values, 0 for nan
         x_processed, x_mask, _ = self._process_data(x, is_training=True)
@@ -536,9 +495,7 @@ class TabDDPM:
                 x_processed_valid,
                 x_processed_valid_obs_mask,
                 x_processed_valid_indices,
-            ) = self._process_data(
-                x_valid, x_valid_obs_mask, is_training=False
-            )
+            ) = self._process_data(x_valid, x_valid_obs_mask, is_training=False)
 
         x_tensor = torch.from_numpy(x_processed).float().to(self.device)
         x_mask_tensor = torch.from_numpy(x_mask).float().to(self.device)
@@ -560,8 +517,7 @@ class TabDDPM:
             self._eps_model.train()
             for id_batch, (x_batch, mask_x_batch) in enumerate(dataloader):
                 mask_obs_rand = (
-                    torch.FloatTensor(mask_x_batch.size()).uniform_()
-                    > self.ratio_masked
+                    torch.FloatTensor(mask_x_batch.size()).uniform_() > self.ratio_masked
                 )
                 for col in self.cols_idx_not_imputed:
                     mask_obs_rand[:, col] = 0.0
@@ -576,9 +532,7 @@ class TabDDPM:
                 )
                 x_batch_t, noise = self._q_sample(x=x_batch, t=t)
                 predicted_noise = self._eps_model(x=x_batch_t, t=t)
-                loss = (
-                    self.loss_func(predicted_noise, noise) * mask_x_batch
-                ).mean()
+                loss = (self.loss_func(predicted_noise, noise) * mask_x_batch).mean()
                 loss.backward()
                 self.optimiser.step()
                 loss_epoch += loss.item()
@@ -621,9 +575,7 @@ class TabDDPM:
         torch.manual_seed(seed_torch)
         self._eps_model.eval()
 
-        x_processed, x_mask, x_indices = self._process_data(
-            x, is_training=False
-        )
+        x_processed, x_mask, x_indices = self._process_data(x, is_training=False)
 
         list_x_imputed = []
         for i in tqdm(range(self.num_sampling), leave=False):
@@ -727,9 +679,7 @@ class TsDDPM(TabDDPM):
         self.num_layers_transformer = num_layers_transformer
         self.is_rolling = is_rolling
 
-    def _q_sample(
-        self, x: torch.Tensor, t: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def _q_sample(self, x: torch.Tensor, t: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """Sample q.
 
         Section 3.2, algorithm 1 formula implementation. Forward process,
@@ -750,9 +700,7 @@ class TsDDPM(TabDDPM):
 
         """
         sqrt_alpha_hat = self.sqrt_alpha_hat[t].view(-1, 1, 1)
-        sqrt_one_minus_alpha_hat = self.sqrt_one_minus_alpha_hat[t].view(
-            -1, 1, 1
-        )
+        sqrt_one_minus_alpha_hat = self.sqrt_one_minus_alpha_hat[t].view(-1, 1, 1)
 
         epsilon = torch.randn_like(x, device=self.device)
         return sqrt_alpha_hat * x + sqrt_one_minus_alpha_hat * epsilon, epsilon
@@ -775,9 +723,7 @@ class TsDDPM(TabDDPM):
             p_dropout=self.p_dropout,
         ).to(self.device)
 
-        self.optimiser = torch.optim.Adam(
-            self._eps_model.parameters(), lr=self.lr
-        )
+        self.optimiser = torch.optim.Adam(self._eps_model.parameters(), lr=self.lr)
 
     def _process_data(
         self,
@@ -807,9 +753,7 @@ class TsDDPM(TabDDPM):
 
         x_windows: List = []
         x_windows_indices: List = []
-        columns_index = [
-            col for col in x.index.names if col != self.index_datetime
-        ]
+        columns_index = [col for col in x.index.names if col != self.index_datetime]
         if is_training:
             if self.is_rolling:
                 if self.print_valid:
@@ -822,23 +766,13 @@ class TsDDPM(TabDDPM):
                 if len(columns_index) == 0:
                     x_windows = x.rolling(window=self.freq_str)
                 else:
-                    columns_index_ = (
-                        columns_index[0]
-                        if len(columns_index) == 1
-                        else columns_index
-                    )
-                    for x_group in tqdm(
-                        x.groupby(by=columns_index_), disable=True, leave=False
-                    ):
+                    columns_index_ = columns_index[0] if len(columns_index) == 1 else columns_index
+                    for x_group in tqdm(x.groupby(by=columns_index_), disable=True, leave=False):
                         x_windows += list(
-                            x_group[1]
-                            .droplevel(columns_index)
-                            .rolling(window=self.freq_str)
+                            x_group[1].droplevel(columns_index).rolling(window=self.freq_str)
                         )
             else:
-                for x_w in x.resample(
-                    rule=self.freq_str, level=self.index_datetime
-                ):
+                for x_w in x.resample(rule=self.freq_str, level=self.index_datetime):
                     x_windows.append(x_w[1])
         else:
             if self.is_rolling:
@@ -850,43 +784,23 @@ class TsDDPM(TabDDPM):
                             x_windows.append(x_rolling)
                             x_windows_indices.append(x_rolling.index)
                 else:
-                    columns_index_ = (
-                        columns_index[0]
-                        if len(columns_index) == 1
-                        else columns_index
-                    )
-                    for x_group in tqdm(
-                        x.groupby(by=columns_index_), disable=True, leave=False
-                    ):
-                        x_group_index = (
-                            [x_group[0]]
-                            if len(columns_index) == 1
-                            else x_group[0]
-                        )
+                    columns_index_ = columns_index[0] if len(columns_index) == 1 else columns_index
+                    for x_group in tqdm(x.groupby(by=columns_index_), disable=True, leave=False):
+                        x_group_index = [x_group[0]] if len(columns_index) == 1 else x_group[0]
                         x_group_value = x_group[1].droplevel(columns_index)
-                        indices_nan = x_group_value.loc[
-                            x_group_value.isna().any(axis=1), :
-                        ].index
-                        x_group_rolling = x_group_value.rolling(
-                            window=self.freq_str
-                        )
+                        indices_nan = x_group_value.loc[x_group_value.isna().any(axis=1), :].index
+                        x_group_rolling = x_group_value.rolling(window=self.freq_str)
                         for x_rolling in x_group_rolling:
                             if x_rolling.index[-1] in indices_nan:
                                 x_windows.append(x_rolling)
                                 x_rolling_ = x_rolling.copy()
                                 for idx, col in enumerate(columns_index):
                                     x_rolling_[col] = x_group_index[idx]
-                                x_rolling_ = x_rolling_.set_index(
-                                    columns_index, append=True
-                                )
-                                x_rolling_ = x_rolling_.reorder_levels(
-                                    x.index.names
-                                )
+                                x_rolling_ = x_rolling_.set_index(columns_index, append=True)
+                                x_rolling_ = x_rolling_.reorder_levels(x.index.names)
                                 x_windows_indices.append(x_rolling_.index)
             else:
-                for x_w in x.resample(
-                    rule=self.freq_str, level=self.index_datetime
-                ):
+                for x_w in x.resample(rule=self.freq_str, level=self.index_datetime):
                     x_windows.append(x_w[1])
                     x_windows_indices.append(x_w[1].index)
 
@@ -947,13 +861,9 @@ class TsDDPM(TabDDPM):
             x_indices_nan_only.append(x_indices_batch[imputed_index])
 
         if len(np.shape(x_indices_nan_only)) == 1:
-            x_out_index = pd.Index(
-                x_indices_nan_only, name=x_input.index.names[0]
-            )
+            x_out_index = pd.Index(x_indices_nan_only, name=x_input.index.names[0])
         else:
-            x_out_index = pd.MultiIndex.from_tuples(
-                x_indices_nan_only, names=x_input.index.names
-            )
+            x_out_index = pd.MultiIndex.from_tuples(x_indices_nan_only, names=x_input.index.names)
         x_normalized = self.normalizer_x.inverse_transform(x_imputed_nan_only)
         x_out = pd.DataFrame(
             x_normalized,

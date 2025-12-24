@@ -26,9 +26,7 @@ def check_pd_df_dtypes(df: pd.DataFrame, allowed_types: list):
         return any(check(dtype) for check in allowed_types)
 
     invalid_columns = [
-        (col, dtype)
-        for col, dtype in df.dtypes.items()
-        if not is_allowed_type(dtype)
+        (col, dtype) for col, dtype in df.dtypes.items() if not is_allowed_type(dtype)
     ]
     if invalid_columns:
         for column_name, dtype in invalid_columns:

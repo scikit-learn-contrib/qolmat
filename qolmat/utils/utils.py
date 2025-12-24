@@ -55,9 +55,7 @@ def _get_categorical_features(df1: pd.DataFrame) -> List[str]:
 
     """
     cols_numerical = df1.select_dtypes(include=np.number).columns.tolist()
-    cols_categorical = [
-        col for col in df1.columns.to_list() if col not in cols_numerical
-    ]
+    cols_categorical = [col for col in df1.columns.to_list() if col not in cols_numerical]
     return cols_categorical
 
 
@@ -122,9 +120,7 @@ def check_dtypes(X: pd.DataFrame):
     >>> import numpy as np
     >>> import pandas as pd
     >>> check_dtypes(np.array([1, 2.0, "three"]))
-    >>> check_dtypes(
-    ...     pd.DataFrame({"col1": [1, 2.0], "col2": ["three", "four"]})
-    ... )
+    >>> check_dtypes(pd.DataFrame({"col1": [1, 2.0], "col2": ["three", "four"]}))
     >>> check_dtypes(np.array([1, 2.0, None]))
     Traceback (most recent call last):
         ...
@@ -170,9 +166,7 @@ def progress_bar(
         bar fill character, by default "█"
 
     """
-    percent = ("{0:." + str(decimals) + "f}").format(
-        100 * (iteration / float(total))
-    )
+    percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
     filled_length = int(length * iteration // total)
     bar = fill * filled_length + "-" * (length - filled_length)
     print(f"\r{prefix} |{bar}| {percent}% {suffix}", end="\r")
@@ -231,13 +225,9 @@ def impute_nans(M: NDArray, method: str = "zeros") -> NDArray:
         isna = np.isnan(values)
         nna = np.sum(isna)
         if method == "mean":
-            value_imputation = (
-                np.nanmean(M) if nna == n_rows else np.nanmean(values)
-            )
+            value_imputation = np.nanmean(M) if nna == n_rows else np.nanmean(values)
         elif method == "median":
-            value_imputation = (
-                np.nanmedian(M) if nna == n_rows else np.nanmedian(values)
-            )
+            value_imputation = np.nanmedian(M) if nna == n_rows else np.nanmedian(values)
         elif method == "zeros":
             value_imputation = 0
         else:

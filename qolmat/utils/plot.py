@@ -22,9 +22,7 @@ plt.rcParams["grid.color"] = "#cccccc"
 tab10 = plt.get_cmap("tab10")
 
 
-def plot_matrices(
-    list_matrices: List[np.ndarray], title: Optional[str] = None
-) -> None:
+def plot_matrices(list_matrices: List[np.ndarray], title: Optional[str] = None) -> None:
     """Plot RPCA matrices.
 
     Parameters
@@ -191,16 +189,11 @@ def make_ellipses(
     pearson = cov[0, 1] / np.sqrt(cov[0, 0] * cov[1, 1])
     ell_radius_x = np.sqrt(1 + pearson) * 2.5
     ell_radius_y = np.sqrt(1 - pearson) * 2.5
-    ell = mpl.patches.Ellipse(
-        (0, 0), width=ell_radius_x, height=ell_radius_y, facecolor=color
-    )
+    ell = mpl.patches.Ellipse((0, 0), width=ell_radius_x, height=ell_radius_y, facecolor=color)
     scale_x = np.sqrt(cov[0, 0]) * n_std
     scale_y = np.sqrt(cov[1, 1]) * n_std
     transf = (
-        mpl.transforms.Affine2D()
-        .rotate_deg(45)
-        .scale(scale_x, scale_y)
-        .translate(mean_x, mean_y)
+        mpl.transforms.Affine2D().rotate_deg(45).scale(scale_x, scale_y).translate(mean_x, mean_y)
     )
     ell.set_transform(transf + ax.transData)
     ax.add_patch(ell)
@@ -371,9 +364,7 @@ def multibar(
     plt.legend(loc=(1, 0))
 
 
-def plot_imputations(
-    df: pd.DataFrame, dict_df_imputed: Dict[str, pd.DataFrame]
-):
+def plot_imputations(df: pd.DataFrame, dict_df_imputed: Dict[str, pd.DataFrame]):
     """Plot original and imputed dataframes for each imputers.
 
     Parameters
@@ -397,9 +388,7 @@ def plot_imputations(
             plt.plot(values_orig, ".", color="black", label="original")
             values_imp = df_imputed[col].copy()
             values_imp[values_orig.notna()] = np.nan
-            plt.plot(
-                values_imp, ".", color=tab10(0), label=name_imputer, alpha=1
-            )
+            plt.plot(values_imp, ".", color=tab10(0), label=name_imputer, alpha=1)
             plt.ylabel(col, fontsize=16)
             if i_plot % n_columns == 0:
                 plt.legend(loc=[1, 0], fontsize=18)

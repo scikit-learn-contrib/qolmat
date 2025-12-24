@@ -57,9 +57,7 @@ class SoftImpute(BaseEstimator, TransformerMixin):
     --------
     >>> import numpy as np
     >>> from qolmat.imputations.softimpute import SoftImpute
-    >>> D = np.array(
-    ...     [[1, 2, np.nan, 4], [1, 5, 3, np.nan], [4, 2, 3, 2], [1, 1, 5, 4]]
-    ... )
+    >>> D = np.array([[1, 2, np.nan, 4], [1, 5, 3, np.nan], [4, 2, 3, 2], [1, 1, 5, 4]])
     >>> Omega = ~np.isnan(D)
     >>> M, A = SoftImpute(random_state=11).decompose(D, Omega)
     >>> print(M + A)
@@ -158,9 +156,7 @@ class SoftImpute(BaseEstimator, TransformerMixin):
 
             # Step 2 : Update on B
             D2_invreg = (D**2 + tau) ** (-1)
-            Btilde = (
-                (U * D).T @ np.where(Omega, X - A @ B.T, 0) + (B * D**2).T
-            ).T
+            Btilde = ((U * D).T @ np.where(Omega, X - A @ B.T, 0) + (B * D**2).T).T
             Btilde = Btilde * D2_invreg
 
             Utilde, D2tilde, _ = np.linalg.svd(Btilde * D, full_matrices=False)
@@ -170,9 +166,7 @@ class SoftImpute(BaseEstimator, TransformerMixin):
 
             # Step 3 : Update on A
             D2_invreg = (D**2 + tau) ** (-1)
-            Atilde = (
-                (V * D).T @ np.where(Omega, X - A @ B.T, 0).T + (A * D**2).T
-            ).T
+            Atilde = ((V * D).T @ np.where(Omega, X - A @ B.T, 0).T + (A * D**2).T).T
             Atilde = Atilde * D2_invreg
 
             Utilde, D2tilde, _ = np.linalg.svd(Atilde * D, full_matrices=False)
@@ -203,9 +197,7 @@ class SoftImpute(BaseEstimator, TransformerMixin):
         if self.verbose and (cost_end > cost_start + 1e-9):
             warnings.warn(
                 f"Convergence failed: cost function increased from"
-                f" {cost_start} to {cost_end} instead of decreasing!".format(
-                    "%.2f"
-                )
+                f" {cost_start} to {cost_end} instead of decreasing!".format("%.2f")
             )
 
         return M, A

@@ -9,9 +9,7 @@ X[np.random.choice(100, 10), np.random.choice(100, 10)] = np.nan
 X_non_regression_test = np.array(
     [[1, 2, np.nan, 4], [1, 5, 3, np.nan], [4, 2, 3, 2], [1, 1, 5, 4]]
 )
-X_expected = np.array(
-    [[1, 2, 2.9066, 4], [1, 5, 3, 2.1478], [4, 2, 3, 2], [1, 1, 5, 4]]
-)
+X_expected = np.array([[1, 2, 2.9066, 4], [1, 5, 3, 2.1478], [4, 2, 3, 2], [1, 1, 5, 4]])
 tau = 1
 max_iterations = 30
 random_state = 50
@@ -40,12 +38,8 @@ def test_soft_impute_decompose(X: NDArray) -> None:
     model = softimpute.SoftImpute(tau=tau)
     Omega = ~np.isnan(X)
     X_imputed = np.where(Omega, X, 0)
-    cost_all_in_M = model.cost_function(
-        X, X_imputed, np.full_like(X, 0), Omega, tau
-    )
-    cost_all_in_A = model.cost_function(
-        X, np.full_like(X, 0), X_imputed, Omega, tau
-    )
+    cost_all_in_M = model.cost_function(X, X_imputed, np.full_like(X, 0), Omega, tau)
+    cost_all_in_A = model.cost_function(X, np.full_like(X, 0), X_imputed, Omega, tau)
     M, A = model.decompose(X, Omega)
     cost_final = model.cost_function(X, M, A, Omega, tau)
     assert isinstance(model, softimpute.SoftImpute)

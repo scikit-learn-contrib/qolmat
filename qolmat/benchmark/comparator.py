@@ -84,15 +84,11 @@ class Comparator:
         dict_errors = {}
         for name_metric in self.metrics:
             fun_metric = metrics.get_metric(name_metric)
-            dict_errors[name_metric] = fun_metric(
-                df_origin, df_imputed, df_mask
-            )
+            dict_errors[name_metric] = fun_metric(df_origin, df_imputed, df_mask)
         df_errors = pd.concat(dict_errors.values(), keys=dict_errors.keys())
         return df_errors
 
-    def process_split(
-        self, split_data: Tuple[int, pd.DataFrame, pd.DataFrame]
-    ) -> pd.DataFrame:
+    def process_split(self, split_data: Tuple[int, pd.DataFrame, pd.DataFrame]) -> pd.DataFrame:
         """Process a split.
 
         Parameters
@@ -119,15 +115,12 @@ class Comparator:
         subset = self.generator_holes.subset
         if subset is None:
             raise ValueError(
-                "HoleGenerator `subset` should be overwritten in split "
-                "but it is none!"
+                "HoleGenerator `subset` should be overwritten in split " "but it is none!"
             )
 
         split_results = {}
         for imputer_name, imputer in self.dict_imputers.items():
-            dict_config_opti_imputer = self.dict_config_opti.get(
-                imputer_name, {}
-            )
+            dict_config_opti_imputer = self.dict_config_opti.get(imputer_name, {})
 
             imputer_opti = hyperparameters.optimize(
                 imputer,
@@ -140,9 +133,7 @@ class Comparator:
             )
 
             df_imputed = imputer_opti.fit_transform(df_with_holes)
-            errors = self.get_errors(
-                df_origin[subset], df_imputed[subset], df_mask[subset]
-            )
+            errors = self.get_errors(df_origin[subset], df_imputed[subset], df_mask[subset])
             split_results[imputer_name] = errors
 
         return pd.concat(split_results, axis=1)
@@ -168,8 +159,7 @@ class Comparator:
         subset = self.generator_holes.subset
         if subset is None:
             raise ValueError(
-                "HoleGenerator `subset` should be overwritten in split "
-                "but it is none!"
+                "HoleGenerator `subset` should be overwritten in split " "but it is none!"
             )
 
         dict_config_opti_imputer = self.dict_config_opti.get(imputer_name, {})
@@ -188,14 +178,10 @@ class Comparator:
             df_with_holes = df_origin.copy()
             df_with_holes[df_mask] = np.nan
             df_imputed = imputer_opti.fit_transform(df_with_holes)
-            errors = self.get_errors(
-                df_origin[subset], df_imputed[subset], df_mask[subset]
-            )
+            errors = self.get_errors(df_origin[subset], df_imputed[subset], df_mask[subset])
             imputer_results.append(errors)
 
-        return imputer_name, pd.concat(imputer_results).groupby(
-            level=[0, 1]
-        ).mean()
+        return imputer_name, pd.concat(imputer_results).groupby(level=[0, 1]).mean()
 
     def compare(
         self,
@@ -229,26 +215,17 @@ class Comparator:
             1-level index are the column names.
 
         """
-        logging.info(
-            f"Starting comparison for {len(self.dict_imputers)} imputers."
-        )
+        logging.info(f"Starting comparison for {len(self.dict_imputers)} imputers.")
 
         all_splits = list(self.generator_holes.split(df_origin))
 
         if parallel_over == "auto":
-            parallel_over = (
-                "splits"
-                if len(all_splits) > len(self.dict_imputers)
-                else "imputers"
-            )
+            parallel_over = "splits" if len(all_splits) > len(self.dict_imputers) else "imputers"
 
         if use_parallel:
             logging.info(f"Parallelisation over: {parallel_over}...")
             if parallel_over == "splits":
-                split_data = [
-                    (i, df_mask, df_origin)
-                    for i, df_mask in enumerate(all_splits)
-                ]
+                split_data = [(i, df_mask, df_origin) for i, df_mask in enumerate(all_splits)]
                 n_jobs = self.get_optimal_n_jobs(split_data, n_jobs)
                 results = Parallel(n_jobs=n_jobs)(
                     delayed(self.process_split)(data) for data in split_data
@@ -261,22 +238,16 @@ class Comparator:
                 ]
                 n_jobs = self.get_optimal_n_jobs(imputer_data, n_jobs)
                 results = Parallel(n_jobs=n_jobs)(
-                    delayed(self.process_imputer)(data)
-                    for data in imputer_data
+                    delayed(self.process_imputer)(data) for data in imputer_data
                 )
                 final_results = pd.concat(dict(results), axis=1)
             else:
-                raise ValueError(
-                    "`parallel_over` should be `auto`, `splits` or `imputers`."
-                )
+                raise ValueError("`parallel_over` should be `auto`, `splits` or `imputers`.")
 
         else:
             logging.info("Sequential treatment...")
             if parallel_over == "splits":
-                split_data = [
-                    (i, df_mask, df_origin)
-                    for i, df_mask in enumerate(all_splits)
-                ]
+                split_data = [(i, df_mask, df_origin) for i, df_mask in enumerate(all_splits)]
                 results = [self.process_split(data) for data in split_data]
                 final_results = pd.concat(results).groupby(level=[0, 1]).mean()
             elif parallel_over == "imputers":
@@ -287,9 +258,7 @@ class Comparator:
                 results = [self.process_imputer(data) for data in imputer_data]
                 final_results = pd.concat(dict(results), axis=1)
             else:
-                raise ValueError(
-                    "`parallel_over` should be `auto`, `splits` or `imputers`."
-                )
+                raise ValueError("`parallel_over` should be `auto`, `splits` or `imputers`.")
 
         logging.info("Comparison successfully terminated.")
         return final_results

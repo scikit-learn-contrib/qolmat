@@ -34,9 +34,7 @@ def read_csv_local(data_file_name: str, **kwargs) -> pd.DataFrame:
         dataframe
 
     """
-    df = pd.read_csv(
-        os.path.join(ROOT_DIR, "data", f"{data_file_name}.csv"), **kwargs
-    )
+    df = pd.read_csv(os.path.join(ROOT_DIR, "data", f"{data_file_name}.csv"), **kwargs)
     return df
 
 
@@ -105,9 +103,7 @@ def get_dataframes_in_folder(path: str, extension: str) -> List[pd.DataFrame]:
             if extension in file:
                 list_df.append(pd.read_csv(os.path.join(folder, file)))
             if ".tsf" in file:
-                loaded_data = convert_tsf_to_dataframe(
-                    os.path.join(folder, file)
-                )
+                loaded_data = convert_tsf_to_dataframe(os.path.join(folder, file))
                 return [loaded_data]
     return list_df
 
@@ -150,9 +146,7 @@ def generate_artificial_ts(
     n_anomalies = int(n_samples * ratio_anomalies)
     anomalies = np.random.standard_exponential(size=n_anomalies)
     anomalies *= amp_anomalies * np.random.choice([-1, 1], size=n_anomalies)
-    ind_anomalies = np.random.choice(
-        range(n_samples), size=n_anomalies, replace=False
-    )
+    ind_anomalies = np.random.choice(range(n_samples), size=n_anomalies, replace=False)
     A = np.zeros(n_samples)
     A[ind_anomalies] = anomalies
 
@@ -197,9 +191,7 @@ def get_data(
         path = "https://gist.githubusercontent.com/fyyying/4aa5b471860321d7b47fd881898162b7/raw/"
         "6907bb3a38bfbb6fccf3a8b1edfb90e39714d14f/titanic_dataset.csv"
         df = pd.read_csv(path)
-        df = df[
-            ["Survived", "Sex", "Age", "SibSp", "Parch", "Fare", "Embarked"]
-        ].copy()
+        df = df[["Survived", "Sex", "Age", "SibSp", "Parch", "Fare", "Embarked"]].copy()
         df["Age"] = pd.to_numeric(df["Age"], errors="coerce")
         df.loc["Fare"] = pd.to_numeric(df["Fare"], errors="coerce")
         return df
@@ -215,9 +207,7 @@ def get_data(
             n_samples, periods, amp_anomalies, ratio_anomalies, amp_noise
         )
         signal = X + A + E
-        df = pd.DataFrame(
-            {"signal": signal, "index": range(n_samples), "station": city}
-        )
+        df = pd.DataFrame({"signal": signal, "index": range(n_samples), "station": city})
         df.set_index(["station", "index"], inplace=True)
 
         df["X"] = X
@@ -229,9 +219,7 @@ def get_data(
         df = pd.read_parquet(path_file)
         sizes_stations = df.groupby("station")["val_in"].mean().sort_values()
         n_groups_max = min(len(sizes_stations), n_groups_max)
-        stations = sizes_stations.index.get_level_values("station").unique()[
-            -n_groups_max:
-        ]
+        stations = sizes_stations.index.get_level_values("station").unique()[-n_groups_max:]
         df = df.loc[stations]
         return df
     elif name_data == "Beijing_online":
@@ -255,13 +243,9 @@ def get_data(
         df = read_csv_local("conductors")
         return df
     elif name_data == "Monach_weather":
-        urllink = os.path.join(
-            url_zenodo, "4654822/files/weather_dataset.zip?download=1"
-        )
+        urllink = os.path.join(url_zenodo, "4654822/files/weather_dataset.zip?download=1")
         zipname = "weather_dataset"
-        list_loaded_data = download_data_from_zip(
-            zipname, urllink, datapath=datapath
-        )
+        list_loaded_data = download_data_from_zip(zipname, urllink, datapath=datapath)
         loaded_data = list_loaded_data[0]
         df_list: List[pd.DataFrame] = []
         for k in range(len(loaded_data)):
@@ -274,11 +258,7 @@ def get_data(
             )
             df_list = df_list + [
                 pd.DataFrame(
-                    {
-                        loaded_data.series_name[k]
-                        + " "
-                        + loaded_data.series_type[k]: values
-                    },
+                    {loaded_data.series_name[k] + " " + loaded_data.series_type[k]: values},
                     index=time_index,
                 )
             ]
@@ -292,9 +272,7 @@ def get_data(
             "4659727/files/australian_electricity_demand_dataset.zip?download=1",
         )
         zipname = "australian_electricity_demand_dataset"
-        list_loaded_data = download_data_from_zip(
-            zipname, urllink, datapath=datapath
-        )
+        list_loaded_data = download_data_from_zip(zipname, urllink, datapath=datapath)
         loaded_data = list_loaded_data[0]
         df_list = []
         for k in range(len(loaded_data)):
@@ -307,11 +285,7 @@ def get_data(
             )
             df_list = df_list + [
                 pd.DataFrame(
-                    {
-                        loaded_data.series_name[k]
-                        + " "
-                        + loaded_data.state[k]: values
-                    },
+                    {loaded_data.series_name[k] + " " + loaded_data.state[k]: values},
                     index=time_index,
                 )
             ]
@@ -406,16 +380,10 @@ def add_holes(
             random_state=random_state,
         )
 
-    generator.dict_probas_out = {
-        column: 1 / mean_size for column in df.columns
-    }
-    generator.dict_ratios = {
-        column: 1 / len(df.columns) for column in df.columns
-    }
+    generator.dict_probas_out = {column: 1 / mean_size for column in df.columns}
+    generator.dict_ratios = {column: 1 / len(df.columns) for column in df.columns}
     if generator.groups:
-        mask = df.groupby(groups, group_keys=False).apply(
-            generator.generate_mask
-        )
+        mask = df.groupby(groups, group_keys=False).apply(generator.generate_mask)
     else:
         mask = generator.generate_mask(df)
 
@@ -483,9 +451,7 @@ def add_station_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def add_datetime_features(
-    df: pd.DataFrame, col_time: str = "datetime"
-) -> pd.DataFrame:
+def add_datetime_features(df: pd.DataFrame, col_time: str = "datetime") -> pd.DataFrame:
     """Create a seasonal feature in the dataset with a cosine function.
 
     Parameters
@@ -504,9 +470,7 @@ def add_datetime_features(
     df = df.copy()
     time = df.index.get_level_values(col_time).to_series()
     days_in_year = time.dt.year.apply(
-        lambda x: (
-            366 if ((x % 4 == 0) and (x % 100 != 0)) or (x % 400 == 0) else 365
-        )
+        lambda x: (366 if ((x % 4 == 0) and (x % 100 != 0)) or (x % 400 == 0) else 365)
     )
     ratio = time.dt.dayofyear.values / days_in_year.values
     df["time_cos"] = np.cos(2 * np.pi * ratio)
@@ -554,29 +518,21 @@ def convert_tsf_to_dataframe(
                         line_content = line.split(" ")
                         if line.startswith("@attribute"):
                             if len(line_content) != 3:
-                                raise Exception(
-                                    "Invalid meta-data specification."
-                                )
+                                raise Exception("Invalid meta-data specification.")
 
                             col_names.append(line_content[1])
                             col_types.append(line_content[2])
                         else:
                             if len(line_content) != 2:
-                                raise Exception(
-                                    "Invalid meta-data specification."
-                                )
+                                raise Exception("Invalid meta-data specification.")
                     else:
                         if len(col_names) == 0:
-                            raise Exception(
-                                "Attribute section must come before data."
-                            )
+                            raise Exception("Attribute section must come before data.")
 
                         found_data_tag = True
                 elif not line.startswith("#"):
                     if len(col_names) == 0:
-                        raise Exception(
-                            " Attribute section must come before data."
-                        )
+                        raise Exception(" Attribute section must come before data.")
                     elif not found_data_tag:
                         raise Exception("Missing @data tag.")
                     else:
@@ -591,35 +547,25 @@ def convert_tsf_to_dataframe(
                         full_info = line.split(":")
 
                         if len(full_info) != (len(col_names) + 1):
-                            raise Exception(
-                                "Missing attributes/values in series."
-                            )
+                            raise Exception("Missing attributes/values in series.")
 
                         series = full_info[len(full_info) - 1]
                         series = series.split(",")  # type: ignore
 
                         if len(series) == 0:
-                            raise Exception(
-                                " Missing values should be indicated "
-                                "with ? symbol"
-                            )
+                            raise Exception(" Missing values should be indicated " "with ? symbol")
 
                         numeric_series = []
 
                         for val in series:
                             if val == "?":
-                                numeric_series.append(
-                                    replace_missing_vals_with
-                                )
+                                numeric_series.append(replace_missing_vals_with)
                             else:
                                 numeric_series.append(float(val))  # type: ignore
 
-                        if numeric_series.count(
-                            replace_missing_vals_with
-                        ) == len(numeric_series):
+                        if numeric_series.count(replace_missing_vals_with) == len(numeric_series):
                             raise Exception(
-                                "At least one numeric value should be "
-                                "there in a series."
+                                "At least one numeric value should be " "there in a series."
                             )
 
                         all_series.append(pd.Series(numeric_series).array)

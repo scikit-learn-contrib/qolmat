@@ -42,11 +42,7 @@ def frechet_distance_exact(
 
     """
     n = len(means1)
-    if (
-        (means2.shape != (n,))
-        or (cov1.shape != (n, n))
-        or (cov2.shape != (n, n))
-    ):
+    if (means2.shape != (n,)) or (cov1.shape != (n, n)) or (cov2.shape != (n, n)):
         raise ValueError("Inputs have to be of same dimensions.")
 
     ssdiff = np.sum((means1 - means2) ** 2.0)

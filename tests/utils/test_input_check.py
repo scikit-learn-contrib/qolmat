@@ -13,9 +13,7 @@ def multitypes_dataframe() -> pd.DataFrame:
             "float_col": [1.1, 2.2, 3.3],
             "str_col": ["a", "b", "c"],
             "bool_col": [True, False, True],
-            "datetime_col": pd.to_datetime(
-                ["2021-01-01", "2021-01-02", "2021-01-03"]
-            ),
+            "datetime_col": pd.to_datetime(["2021-01-01", "2021-01-02", "2021-01-03"]),
         }
     )
 

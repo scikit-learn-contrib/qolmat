@@ -77,9 +77,7 @@ class RpcaNoisy(RPCA):
         norm: str = "L2",
         verbose: bool = True,
     ) -> None:
-        super().__init__(
-            max_iterations=max_iterations, tolerance=tolerance, verbose=verbose
-        )
+        super().__init__(max_iterations=max_iterations, tolerance=tolerance, verbose=verbose)
         self.rng = sku.check_random_state(random_state)
         self.rank = rank
         self.mu = mu
@@ -304,15 +302,10 @@ class RpcaNoisy(RPCA):
         mu_bar = mu * 1e3
 
         # matrices for temporal correlation
-        list_H = [
-            rpca_utils.toeplitz_matrix(period, n_rows)
-            for period in list_periods
-        ]
+        list_H = [rpca_utils.toeplitz_matrix(period, n_rows) for period in list_periods]
         HtH = dok_matrix((n_rows, n_rows))
         for i_period, _ in enumerate(list_periods):
-            HtH += list_etas[i_period] * (
-                list_H[i_period].T @ list_H[i_period]
-            )
+            HtH += list_etas[i_period] * (list_H[i_period].T @ list_H[i_period])
 
         Ir = np.eye(rank)
         In = identity(n_rows)
@@ -362,9 +355,7 @@ class RpcaNoisy(RPCA):
                 if norm == "L1":
                     for i_period, _ in enumerate(list_periods):
                         eta = list_etas[i_period]
-                        R[i_period] = rpca_utils.soft_thresholding(
-                            R[i_period] / mu, eta / mu
-                        )
+                        R[i_period] = rpca_utils.soft_thresholding(R[i_period] / mu, eta / mu)
 
                 mu = min(mu * rho, mu_bar)
 
@@ -375,9 +366,7 @@ class RpcaNoisy(RPCA):
                 error_max = max([Mc, Ac, Lc, Qc])  # type: ignore # noqa
                 if norm == "L1":
                     for i_period, _ in enumerate(list_periods):
-                        Rc = np.linalg.norm(
-                            R[i_period] - R_temp[i_period], np.inf
-                        )
+                        Rc = np.linalg.norm(R[i_period] - R_temp[i_period], np.inf)
                         error_max = max(error_max, Rc)  # type: ignore # noqa
 
                 if error_max < tolerance:
@@ -522,9 +511,7 @@ class RpcaNoisy(RPCA):
             warnings.warn(
                 "RPCA algorithm may provide bad results. "
                 f"Function {function_str} increased from"
-                f" {cost_start} to {cost_end} instead of decreasing!".format(
-                    "%.2f"
-                )
+                f" {cost_start} to {cost_end} instead of decreasing!".format("%.2f")
             )
 
     @staticmethod
@@ -574,18 +561,13 @@ class RpcaNoisy(RPCA):
         temporal_norm: float = 0
         if len(list_etas) > 0:
             # matrices for temporal correlation
-            list_H = [
-                rpca_utils.toeplitz_matrix(period, D.shape[0])
-                for period in list_periods
-            ]
+            list_H = [rpca_utils.toeplitz_matrix(period, D.shape[0]) for period in list_periods]
             if norm == "L1":
                 for eta, H_matrix in zip(list_etas, list_H):
                     temporal_norm += eta * np.sum(np.abs(H_matrix @ M))
             elif norm == "L2":
                 for eta, H_matrix in zip(list_etas, list_H):
-                    temporal_norm += eta * float(
-                        np.linalg.norm(H_matrix @ M, "fro")
-                    )
+                    temporal_norm += eta * float(np.linalg.norm(H_matrix @ M, "fro"))
         anomalies_norm = np.sum(np.abs(A * Omega))
         cost = (
             1 / 2 * ((Omega * (D - M - A)) ** 2).sum()

@@ -31,9 +31,7 @@ df = pd.DataFrame({"A": [1, 2, 3], "B": [4, 5, 6], "C": [7, 8, 9]})
 df1 = pd.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]})
 df2 = pd.DataFrame({"x": [2, 3, 4], "y": [5, 6, 7]})
 dict_df_imputed = {
-    "Imputer1": pd.DataFrame(
-        {"A": [2, 3, np.nan], "B": [5, np.nan, 7], "C": [np.nan, 8, 9]}
-    )
+    "Imputer1": pd.DataFrame({"A": [2, 3, np.nan], "B": [5, np.nan, 7], "C": [np.nan, 8, 9]})
 }
 
 
@@ -52,18 +50,14 @@ def test_utils_plot_plot_matrices(
 @pytest.mark.parametrize("list_signals", [list_signals])
 @patch("matplotlib.pyplot.show")
 @patch("matplotlib.pyplot.savefig")
-def test_utils_plot_plot_signal(
-    mock_savefig, mock_show, list_signals: List[List[Any]]
-) -> None:
+def test_utils_plot_plot_signal(mock_savefig, mock_show, list_signals: List[List[Any]]) -> None:
     plot.plot_signal(list_signals=list_signals, ylabel="ylabel", title="title")
     assert len(plt.gcf().get_axes()) > 0
     assert mock_savefig.call_count == 1
     plt.close("all")
 
 
-@pytest.mark.parametrize(
-    "M, A, E, index_array, dims", [(M, A, E, [0, 1, 2], (10, 10))]
-)
+@pytest.mark.parametrize("M, A, E, index_array, dims", [(M, A, E, [0, 1, 2], (10, 10))])
 @patch("matplotlib.pyplot.show")
 @patch("matplotlib.pyplot.savefig")
 def test__utils_plot_plot_images(
@@ -92,9 +86,7 @@ def test_utils_plot_make_ellipses_from_data(mock_show, X: np.ndarray):
 
 @pytest.mark.parametrize("df1,df2", [(df1, df2)])
 @patch("matplotlib.pyplot.show")
-def test_utils_plot_compare_covariances(
-    mock_show, df1: pd.DataFrame, df2: pd.DataFrame
-):
+def test_utils_plot_compare_covariances(mock_show, df1: pd.DataFrame, df2: pd.DataFrame):
     ax = plt.gca()
     plot.compare_covariances(df1, df2, "x", "y", ax)
     assert len(plt.gcf().get_axes()) > 0

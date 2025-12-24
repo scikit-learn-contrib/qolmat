@@ -15,9 +15,7 @@ class ResidualBlock(torch.nn.Module):
     https://github.com/Yura52/rtdl/blob/main/rtdl/nn/_backbones.py
     """
 
-    def __init__(
-        self, dim_input: int, dim_embedding: int = 128, p_dropout: float = 0.0
-    ):
+    def __init__(self, dim_input: int, dim_embedding: int = 128, p_dropout: float = 0.0):
         """Init function.
 
         Parameters
@@ -39,9 +37,7 @@ class ResidualBlock(torch.nn.Module):
 
         self.linear_out = torch.nn.Linear(dim_embedding, dim_input)
 
-    def forward(
-        self, x: torch.Tensor, t: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor, t: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """Return an output of a residual block.
 
         Parameters
@@ -124,9 +120,7 @@ class ResidualBlockTS(torch.nn.Module):
 
         self.linear_out = torch.nn.Linear(dim_embedding, dim_input)
 
-    def forward(
-        self, x: torch.Tensor, t: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor, t: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """Return an output of a residual block.
 
         Parameters
@@ -146,9 +140,7 @@ class ResidualBlockTS(torch.nn.Module):
 
         x_emb = self.layer_norm(x)
         x_emb_time = self.time_layer(x_emb)
-        t_emb = t.repeat(1, size_window).reshape(
-            batch_size, size_window, dim_emb
-        )
+        t_emb = t.repeat(1, size_window).reshape(batch_size, size_window, dim_emb)
 
         x_t = x + x_emb_time + t_emb
         x_t = self.linear_out(x_t)
@@ -209,9 +201,7 @@ class AutoEncoder(torch.nn.Module):
         self.layer_out_2 = torch.nn.Linear(dim_embedding, dim_input)
         self.dropout_out = torch.nn.Dropout(p_dropout)
 
-        self.residual_layers = torch.nn.ModuleList(
-            [residual_block for _ in range(num_blocks)]
-        )
+        self.residual_layers = torch.nn.ModuleList([residual_block for _ in range(num_blocks)])
 
     def forward(self, x: torch.Tensor, t: torch.LongTensor) -> torch.Tensor:
         """Predict a noise.
@@ -243,18 +233,14 @@ class AutoEncoder(torch.nn.Module):
             x_emb, skip_connection = layer(x_emb, t_emb)
             skip.append(skip_connection)
 
-        out = torch.sum(torch.stack(skip), dim=0) / math.sqrt(
-            len(self.residual_layers)
-        )
+        out = torch.sum(torch.stack(skip), dim=0) / math.sqrt(len(self.residual_layers))
         out = torch.nn.functional.relu(self.layer_out_1(out))
         out = self.dropout_out(out)
         out = self.layer_out_2(out)
 
         return out
 
-    def _build_embedding(
-        self, num_noise_steps: int, dim: int = 64
-    ) -> torch.Tensor:
+    def _build_embedding(self, num_noise_steps: int, dim: int = 64) -> torch.Tensor:
         """Build an embedding for noise step.
 
         More details in section E.1 of Tashiro et al., 2021
@@ -274,11 +260,7 @@ class AutoEncoder(torch.nn.Module):
 
         """
         steps = torch.arange(num_noise_steps).unsqueeze(1)  # (T,1)
-        frequencies = 10.0 ** (torch.arange(dim) / (dim - 1) * 4.0).unsqueeze(
-            0
-        )  # (1,dim)
+        frequencies = 10.0 ** (torch.arange(dim) / (dim - 1) * 4.0).unsqueeze(0)  # (1,dim)
         table = steps * frequencies  # (T,dim)
-        table = torch.cat(
-            [torch.sin(table), torch.cos(table)], dim=1
-        )  # (T,dim*2)
+        table = torch.cat([torch.sin(table), torch.cos(table)], dim=1)  # (T,dim*2)
         return table

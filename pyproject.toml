@@ -133,7 +133,7 @@ testpaths = ["tests"]
 norecursedirs = ["_build"]
 
 [tool.ruff]
-line-length = 79
+line-length = 99
 fix = true
 indent-width = 4
 target-version = "py310"

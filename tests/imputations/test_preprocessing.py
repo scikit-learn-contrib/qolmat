@@ -80,9 +80,7 @@ def test_fit_transform_BinTransformer(bin_transformer):
 
 def test_transform_BinTransformer(bin_transformer):
     bin_transformer.dict_df_bins_ = {
-        0: pd.DataFrame(
-            {"value": [1, 2, 3, 4, 5], "min": [-np.inf, 1.5, 2.5, 3.5, 4.5]}
-        )
+        0: pd.DataFrame({"value": [1, 2, 3, 4, 5], "min": [-np.inf, 1.5, 2.5, 3.5, 4.5]})
     }
     bin_transformer.feature_names_in_ = pd.Index([0])
     bin_transformer.n_features_in_ = 1
@@ -99,9 +97,7 @@ def test_fit_transform_with_dataframes_BinTransformer(bin_transformer):
 
 def test_transform_with_dataframes_BinTransformer(bin_transformer):
     bin_transformer.dict_df_bins_ = {
-        0: pd.DataFrame(
-            {"value": [1, 2, 3, 4, 5], "min": [0.5, 1.5, 2.5, 3.5, 4.5]}
-        )
+        0: pd.DataFrame({"value": [1, 2, 3, 4, 5], "min": [0.5, 1.5, 2.5, 3.5, 4.5]})
     }
     bin_transformer.feature_names_in_ = pd.Index(["0"])
     bin_transformer.n_features_in_ = 1
@@ -127,9 +123,7 @@ def test_inverse_transform_OneHotEncoderProjector(encoder):
     df_back = encoder.inverse_transform(df_dum)
     pd.testing.assert_frame_equal(df, df_back)
 
-    df_dum_perturbed = df_dum + np.random.uniform(
-        -0.5, 0.5, size=df_dum.shape
-    )
+    df_dum_perturbed = df_dum + np.random.uniform(-0.5, 0.5, size=df_dum.shape)
     df_back = encoder.inverse_transform(df_dum_perturbed)
     pd.testing.assert_frame_equal(df, df_back)
 

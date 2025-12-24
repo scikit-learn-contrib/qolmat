@@ -45,9 +45,7 @@ class McarTest(ABC):
         self.rng = sku.check_random_state(random_state)
 
     @abstractmethod
-    def test(
-        self, df: Union[pd.DataFrame, np.ndarray]
-    ) -> Union[float, Tuple[float, List[float]]]:
+    def test(self, df: Union[pd.DataFrame, np.ndarray]) -> Union[float, Tuple[float, List[float]]]:
         """Perform the MCAR test on the input data.
 
         Parameters
@@ -99,8 +97,7 @@ class LittleTest(McarTest):
         super().__init__()
         if imputer and imputer.model != "multinormal":
             raise AttributeError(
-                "The ImputerEM model must be 'multinormal' "
-                "to use the Little's test"
+                "The ImputerEM model must be 'multinormal' " "to use the Little's test"
             )
         self.imputer = imputer
         self.random_state = random_state
@@ -131,22 +128,16 @@ class LittleTest(McarTest):
         # Iterate over the patterns
 
         df_nan = df.notna()
-        for tup_pattern, df_nan_pattern in df_nan.groupby(
-            df_nan.columns.tolist()
-        ):
+        for tup_pattern, df_nan_pattern in df_nan.groupby(df_nan.columns.tolist()):
             n_rows_pattern, _ = df_nan_pattern.shape
             ind_pattern = df_nan_pattern.index
             df_pattern = df.loc[ind_pattern, list(tup_pattern)]
             obs_mean = df_pattern.mean().to_numpy()
 
             diff_means = obs_mean - ml_means[list(tup_pattern)]
-            inv_sigma_pattern = np.linalg.inv(
-                ml_cov[:, tup_pattern][tup_pattern, :]
-            )
+            inv_sigma_pattern = np.linalg.inv(ml_cov[:, tup_pattern][tup_pattern, :])
 
-            d0 += n_rows_pattern * np.dot(
-                np.dot(diff_means, inv_sigma_pattern), diff_means.T
-            )
+            d0 += n_rows_pattern * np.dot(np.dot(diff_means, inv_sigma_pattern), diff_means.T)
             degree_f += tup_pattern.count(True)
 
         return 1 - float(chi2.cdf(d0, degree_f))
@@ -242,9 +233,7 @@ class PKLMTest(McarTest):
 
         return self.encoder.fit_transform(df)
 
-    def _pklm_preprocessing(
-        self, X: Union[pd.DataFrame, np.ndarray]
-    ) -> np.ndarray:
+    def _pklm_preprocessing(self, X: Union[pd.DataFrame, np.ndarray]) -> np.ndarray:
         """Preprocess the input DataFrame or ndarray for further processing.
 
         Parameters
@@ -295,9 +284,7 @@ class PKLMTest(McarTest):
         """
         return p * (2 ** (p - 1) - 1)
 
-    def _draw_features_and_target_indexes(
-        self, X: np.ndarray
-    ) -> Tuple[List[int], int]:
+    def _draw_features_and_target_indexes(self, X: np.ndarray) -> Tuple[List[int], int]:
         """Randomly select features and a target from the dataframe.
 
         This corresponds to the Ai and Bi projections of the paper.
@@ -320,9 +307,7 @@ class PKLMTest(McarTest):
         return features_idx.tolist(), target_idx
 
     @staticmethod
-    def _check_draw(
-        X: np.ndarray, features_idx: List[int], target_idx: int
-    ) -> bool:
+    def _check_draw(X: np.ndarray, features_idx: List[int], target_idx: int) -> bool:
         """Check if the drawn features and target are valid.
 
         Here we check
@@ -344,16 +329,12 @@ class PKLMTest(McarTest):
             True if the draw is valid, False otherwise.
 
         """
-        target_values = X[~np.isnan(X[:, features_idx]).any(axis=1)][
-            :, target_idx
-        ]
+        target_values = X[~np.isnan(X[:, features_idx]).any(axis=1)][:, target_idx]
         is_nan = np.isnan(target_values).any()
         is_distinct_values = (~np.isnan(target_values)).any()
         return is_nan and is_distinct_values
 
-    def _generate_label_feature_combinations(
-        self, X: np.ndarray
-    ) -> List[Tuple[List[int], int]]:
+    def _generate_label_feature_combinations(self, X: np.ndarray) -> List[Tuple[List[int], int]]:
         """Generate all valid combinations of features and labels.
 
         Parameters
@@ -400,9 +381,7 @@ class PKLMTest(McarTest):
         """
         is_checked = False
         while not is_checked:
-            features_idx, target_idx = self._draw_features_and_target_indexes(
-                X
-            )
+            features_idx, target_idx = self._draw_features_and_target_indexes(X)
             is_checked = self._check_draw(X, features_idx, target_idx)
         return features_idx, target_idx
 
@@ -434,13 +413,9 @@ class PKLMTest(McarTest):
             the target column.
 
         """
-        X_features = X[~np.isnan(X[:, features_idx]).any(axis=1)][
-            :, features_idx
-        ]
+        X_features = X[~np.isnan(X[:, features_idx]).any(axis=1)][:, features_idx]
         y = np.where(
-            np.isnan(
-                X[~np.isnan(X[:, features_idx]).any(axis=1)][:, target_idx]
-            ),
+            np.isnan(X[~np.isnan(X[:, features_idx]).any(axis=1)][:, target_idx]),
             1,
             0,
         )
@@ -479,9 +454,7 @@ class PKLMTest(McarTest):
         """
         return perm[~np.isnan(X[:, features_idx]).any(axis=1), target_idx]
 
-    def _get_oob_probabilities(
-        self, X: np.ndarray, y: np.ndarray
-    ) -> np.ndarray:
+    def _get_oob_probabilities(self, X: np.ndarray, y: np.ndarray) -> np.ndarray:
         """Retrieve out-of-bag probabilities.
 
         Train a RandomForestClassifier and retrieves out-of-bag (OOB)
@@ -547,26 +520,14 @@ class PKLMTest(McarTest):
         if unique_labels.shape[0] == 1:
             if unique_labels[0] == 0:
                 n0 = labels.shape[0]
-                return (
-                    np.log(p0_0 / (1 - p0_0)).sum() / n0
-                    - np.log(p1_0 / (1 - p1_0)).sum() / n0
-                )
+                return np.log(p0_0 / (1 - p0_0)).sum() / n0 - np.log(p1_0 / (1 - p1_0)).sum() / n0
             else:
                 n1 = labels.shape[0]
-                return (
-                    np.log(p1_1 / (1 - p1_1)).sum() / n1
-                    - np.log(p0_1 / (1 - p0_1)).sum() / n1
-                )
+                return np.log(p1_1 / (1 - p1_1)).sum() / n1 - np.log(p0_1 / (1 - p0_1)).sum() / n1
 
         n0, n1 = label_matrix.sum(axis=0)
-        u_0 = (
-            np.log(p0_0 / (1 - p0_0)).sum() / n0
-            - np.log(p0_1 / (1 - p0_1)).sum() / n1
-        )
-        u_1 = (
-            np.log(p1_1 / (1 - p1_1)).sum() / n1
-            - np.log(p1_0 / (1 - p1_0)).sum() / n0
-        )
+        u_0 = np.log(p0_0 / (1 - p0_0)).sum() / n0 - np.log(p0_1 / (1 - p0_1)).sum() / n1
+        u_1 = np.log(p1_1 / (1 - p1_1)).sum() / n1 - np.log(p1_0 / (1 - p1_0)).sum() / n0
 
         return u_0 + u_1
 
@@ -708,9 +669,7 @@ class PKLMTest(McarTest):
 
         return p_v_k / (self.nb_permutation + 1)
 
-    def test(
-        self, X: Union[pd.DataFrame, np.ndarray]
-    ) -> Union[float, Tuple[float, List[float]]]:
+    def test(self, X: Union[pd.DataFrame, np.ndarray]) -> Union[float, Tuple[float, List[float]]]:
         """Apply the PKLM test over a real dataset.
 
         Parameters
@@ -733,21 +692,15 @@ class PKLMTest(McarTest):
         if self._get_max_draw(n_cols) <= self.nb_projections_threshold:
             list_proj = self._generate_label_feature_combinations(X)
         else:
-            list_proj = [
-                self._draw_projection(X) for _ in range(self.nb_projections)
-            ]
+            list_proj = [self._draw_projection(X) for _ in range(self.nb_projections)]
 
         M = np.isnan(X).astype(int)
-        list_perm = [
-            self.rng.permutation(M) for _ in range(self.nb_permutation)
-        ]
+        list_perm = [self.rng.permutation(M) for _ in range(self.nb_permutation)]
         U = 0.0
         list_U_sigma = [0.0 for _ in range(self.nb_permutation)]
 
         parallel_results = Parallel(n_jobs=-1)(
-            delayed(self._parallel_process_projection)(
-                X, list_perm, features_idx, target_idx
-            )
+            delayed(self._parallel_process_projection)(X, list_perm, features_idx, target_idx)
             for features_idx, target_idx in list_proj
         )
 
@@ -769,14 +722,9 @@ class PKLMTest(McarTest):
             return p_value
         else:
             B = self._build_B(list_proj, n_cols)
-            U_matrix = np.array(
-                [np.atleast_1d(item[0]) for item in parallel_results]
-            )
-            U_sigma = np.array(
-                [np.atleast_1d(item[1]) for item in parallel_results]
-            )
+            U_matrix = np.array([np.atleast_1d(item[0]) for item in parallel_results])
+            U_sigma = np.array([np.atleast_1d(item[1]) for item in parallel_results])
             p_values = [
-                self._compute_partial_p_value(B, U_matrix, U_sigma, k)
-                for k in range(n_cols)
+                self._compute_partial_p_value(B, U_matrix, U_sigma, k) for k in range(n_cols)
             ]
             return p_value, p_values

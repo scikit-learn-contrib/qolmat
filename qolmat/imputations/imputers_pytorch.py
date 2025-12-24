@@ -82,9 +82,7 @@ class ImputerRegressorPyTorch(ImputerRegressor):
         self.loss_fn = loss_fn
         self.estimator = estimator
 
-    def _fit_estimator(
-        self, estimator: nn.Sequential, X: pd.DataFrame, y: pd.DataFrame
-    ) -> Any:
+    def _fit_estimator(self, estimator: nn.Sequential, X: pd.DataFrame, y: pd.DataFrame) -> Any:
         """Fit the PyTorch estimator using the provided input and target data.
 
         Parameters
@@ -124,9 +122,7 @@ class ImputerRegressorPyTorch(ImputerRegressor):
                 pbar.update(1)
         return estimator
 
-    def _predict_estimator(
-        self, estimator: nn.Sequential, X: pd.DataFrame
-    ) -> pd.Series:
+    def _predict_estimator(self, estimator: nn.Sequential, X: pd.DataFrame) -> pd.Series:
         """Perform predictions using the trained PyTorch estimator.
 
         Parameters
@@ -240,10 +236,7 @@ class Autoencoder(nn.Module):
             loss.backward()
             optimizer.step()
             if (epoch + 1) % 10 == 0:
-                logging.info(
-                    f"Epoch [{epoch + 1}/{self.epochs}], "
-                    f"Loss: {loss.item():.4f}"
-                )
+                logging.info(f"Epoch [{epoch + 1}/{self.epochs}], " f"Loss: {loss.item():.4f}")
             list_loss.append(loss.item())
         self.loss.extend([list_loss])
         return self
@@ -333,9 +326,7 @@ class ImputerAutoencoder(_Imputer):
         self.encoder = encoder
         self.decoder = decoder
 
-    def _fit_element(
-        self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
-    ) -> Autoencoder:
+    def _fit_element(self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0) -> Autoencoder:
         """Fit the imputer on `df`.
 
         It does that at the group and/or column level depending onself.groups
@@ -458,9 +449,7 @@ def build_mlp(
 
     Examples
     --------
-    >>> model = build_mlp(
-    ...     input_dim=10, list_num_neurons=[32, 64, 128], output_dim=1
-    ... )
+    >>> model = build_mlp(input_dim=10, list_num_neurons=[32, 64, 128], output_dim=1)
     >>> print(model)
     Sequential(
       (0): Linear(in_features=10, out_features=32, bias=True)
@@ -680,9 +669,7 @@ class ImputerDiffusion(_Imputer):
         ...         [2, 2, 2, 2],
         ...     ]
         ... )
-        >>> imputer = ImputerDiffusion(
-        ...     epochs=50, batch_size=1, random_state=11
-        ... )
+        >>> imputer = ImputerDiffusion(epochs=50, batch_size=1, random_state=11)
         >>>
         >>> df_imputed = imputer.fit_transform(X)
 
@@ -771,16 +758,10 @@ class ImputerDiffusion(_Imputer):
                 "num_layers_transformer",
                 "is_rolling",
             ]
-        dict_params = {
-            key: value
-            for key, value in self.__dict__.items()
-            if key in list_params
-        }
+        dict_params = {key: value for key, value in self.__dict__.items() if key in list_params}
         return dict_params
 
-    def _fit_element(
-        self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
-    ):
+    def _fit_element(self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0):
         """Fit the imputer on `df`.
 
         It does it at the group and/or column level depending onself.groups

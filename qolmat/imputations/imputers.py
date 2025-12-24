@@ -149,15 +149,11 @@ class _Imputer(_BaseImputer):
 
         self.columns_ = tuple(df.columns)
         self._rng = sku.check_random_state(self.random_state)
-        if hasattr(self, "estimator") and hasattr(
-            self.estimator, "random_state"
-        ):
+        if hasattr(self, "estimator") and hasattr(self.estimator, "random_state"):
             self.estimator.random_state = self._rng
 
         if self.groups:
-            self.ngroups_ = (
-                df.groupby(list(self.groups)).ngroup().rename("_ngroup")
-            )
+            self.ngroups_ = df.groupby(list(self.groups)).ngroup().rename("_ngroup")
         else:
             self.ngroups_ = pd.Series(0, index=df.index).rename("_ngroup")
 
@@ -218,9 +214,7 @@ class _Imputer(_BaseImputer):
             if self.columnwise:
                 df_imputed = df.copy()
                 for col in cols_with_nans:
-                    df_imputed[col] = self._transform_allgroups(
-                        df[[col]], col=col
-                    )
+                    df_imputed[col] = self._transform_allgroups(df[[col]], col=col)
             else:
                 df_imputed = self._transform_allgroups(df)
 
@@ -229,9 +223,7 @@ class _Imputer(_BaseImputer):
 
         return df_imputed
 
-    def fit_transform(
-        self, X: pd.DataFrame, y: pd.DataFrame = None
-    ) -> pd.DataFrame:
+    def fit_transform(self, X: pd.DataFrame, y: pd.DataFrame = None) -> pd.DataFrame:
         """Return an imputed dataframe.
 
         The returned df has same shape as `X`, with unchanged values,
@@ -279,9 +271,7 @@ class _Imputer(_BaseImputer):
             df[col] = df[col].fillna(df[col].mode()[0])
         return df
 
-    def _fit_allgroups(
-        self, df: pd.DataFrame, col: str = "__all__"
-    ) -> "_Imputer":
+    def _fit_allgroups(self, df: pd.DataFrame, col: str = "__all__") -> "_Imputer":
         """Fit the imputer.
 
         Either on a column, for a columnwise setting, on or all columns.
@@ -319,9 +309,7 @@ class _Imputer(_BaseImputer):
         self._dict_fitting: Dict[str, Any] = {}
         return
 
-    def _apply_groupwise(
-        self, fun: Callable, df: pd.DataFrame, **kwargs
-    ) -> Any:
+    def _apply_groupwise(self, fun: Callable, df: pd.DataFrame, **kwargs) -> Any:
         """Apply the function `fun`in a groupwise manner to the dataframe `df`.
 
         Parameters
@@ -350,9 +338,7 @@ class _Imputer(_BaseImputer):
         else:
             return fun_on_col(df)
 
-    def _transform_allgroups(
-        self, df: pd.DataFrame, col: str = "__all__"
-    ) -> pd.DataFrame:
+    def _transform_allgroups(self, df: pd.DataFrame, col: str = "__all__") -> pd.DataFrame:
         """Impute `df`.
 
         It doe sit by applying the specialized method `transform_element`
@@ -380,9 +366,7 @@ class _Imputer(_BaseImputer):
         """
         self._check_dataframe(df)
         df = df.copy()
-        imputation_values = self._apply_groupwise(
-            self._transform_element, df, col=col
-        )
+        imputation_values = self._apply_groupwise(self._transform_element, df, col=col)
 
         df = df.fillna(imputation_values)
         # fill na by applying imputation method without groups
@@ -393,9 +377,7 @@ class _Imputer(_BaseImputer):
         return df
 
     @abstractmethod
-    def _fit_element(
-        self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
-    ) -> Any:
+    def _fit_element(self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0) -> Any:
         """Fit the imputer on `df`.
 
         It does it at the group and/or column level depending onself.groups
@@ -519,10 +501,7 @@ class ImputerOracle(_Imputer):
         if hasattr(self, "df_solution"):
             df_imputed = df.fillna(self.df_solution)
         else:
-            warnings.warn(
-                "OracleImputer not initialized! "
-                "Returning imputation with zeros"
-            )
+            warnings.warn("OracleImputer not initialized! " "Returning imputation with zeros")
             df_imputed = df.fillna(0)
 
         if isinstance(X, (np.ndarray)):
@@ -565,15 +544,11 @@ class ImputerSimple(_Imputer):
 
     """
 
-    def __init__(
-        self, groups: Tuple[str, ...] = (), strategy="median"
-    ) -> None:
+    def __init__(self, groups: Tuple[str, ...] = (), strategy="median") -> None:
         super().__init__(groups=groups, columnwise=True, shrink=False)
         self.strategy = strategy
 
-    def _fit_element(
-        self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
-    ) -> Any:
+    def _fit_element(self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0) -> Any:
         """Fit the imputer on `df`.
 
         It does it at the group and/or column level depending onself.groups
@@ -677,9 +652,7 @@ class ImputerShuffle(_Imputer):
         groups: Tuple[str, ...] = (),
         random_state: RandomSetting = None,
     ) -> None:
-        super().__init__(
-            groups=groups, columnwise=True, random_state=random_state
-        )
+        super().__init__(groups=groups, columnwise=True, random_state=random_state)
 
     def _transform_element(
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
@@ -930,9 +903,7 @@ class ImputerInterpolation(_Imputer):
         order: Optional[int] = None,
         col_time: Optional[str] = None,
     ) -> None:
-        super().__init__(
-            imputer_params=("method", "order"), groups=groups, columnwise=True
-        )
+        super().__init__(imputer_params=("method", "order"), groups=groups, columnwise=True)
         self.method = method
         self.order = order
         self.col_time = col_time
@@ -1015,17 +986,12 @@ class ImputerResiduals(_Imputer):
     >>> df = pd.DataFrame(index=pd.date_range("2015-01-01", "2020-01-01"))
     >>> mean = 5
     >>> offset = 10
-    >>> df["y"] = (
-    ...     np.cos(df.index.dayofyear / 365 * 2 * np.pi - np.pi) * mean
-    ...     + offset
-    ... )
+    >>> df["y"] = np.cos(df.index.dayofyear / 365 * 2 * np.pi - np.pi) * mean + offset
     >>> trend = 5
     >>> df["y"] = df["y"] + trend * np.arange(0, df.shape[0]) / df.shape[0]
     >>> noise_mean = 0
     >>> noise_var = 2
-    >>> df["y"] = df["y"] + np.random.normal(
-    ...     noise_mean, noise_var, df.shape[0]
-    ... )
+    >>> df["y"] = df["y"] + np.random.normal(noise_mean, noise_var, df.shape[0])
     >>> mask = np.random.choice([True, False], size=df.shape)
     >>> df = df.mask(mask)
     >>> imputor = ImputerResiduals(period=365, model_tsa="additive")
@@ -1103,9 +1069,7 @@ class ImputerResiduals(_Imputer):
         name = df.columns[0]
         values = df[df.columns[0]]
         values_interp = (
-            values.interpolate(method=hyperparams["method_interpolation"])
-            .ffill()
-            .bfill()
+            values.interpolate(method=hyperparams["method_interpolation"]).ffill().bfill()
         )
         result = tsa_seasonal.seasonal_decompose(
             values_interp,
@@ -1118,13 +1082,9 @@ class ImputerResiduals(_Imputer):
 
         residuals[values.isna()] = np.nan
         residuals = (
-            residuals.interpolate(method=hyperparams["method_interpolation"])
-            .ffill()
-            .bfill()
+            residuals.interpolate(method=hyperparams["method_interpolation"]).ffill().bfill()
         )
-        df_result = pd.DataFrame(
-            {name: result.seasonal + result.trend + residuals}
-        )
+        df_result = pd.DataFrame({name: result.seasonal + result.trend + residuals})
         return df_result
 
 
@@ -1186,9 +1146,7 @@ class ImputerKNN(_Imputer):
         self.n_neighbors = n_neighbors
         self.weights = weights
 
-    def _fit_element(
-        self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
-    ) -> KNNImputer:
+    def _fit_element(self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0) -> KNNImputer:
         """Fit. the imputer on `df`.
 
         It does it at the group and/or column level depending on self.groups
@@ -1216,9 +1174,7 @@ class ImputerKNN(_Imputer):
         """
         self._check_dataframe(df)
         if col != "__all__":
-            raise ValueError(
-                f"col must be '__all__', but '{col}' has been passed."
-            )
+            raise ValueError(f"col must be '__all__', but '{col}' has been passed.")
         hyperparameters = self.get_hyperparams()
         model = KNNImputer(metric="nan_euclidean", **hyperparameters)
         model = model.fit(df)
@@ -1254,9 +1210,7 @@ class ImputerKNN(_Imputer):
         """
         self._check_dataframe(df)
         if col != "__all__":
-            raise ValueError(
-                f"col must be '__all__', but '{col}' has been passed."
-            )
+            raise ValueError(f"col must be '__all__', but '{col}' has been passed.")
         model = self._dict_fitting["__all__"][ngroup]
         X_imputed = model.fit_transform(df)
         return pd.DataFrame(data=X_imputed, columns=df.columns, index=df.index)
@@ -1331,9 +1285,7 @@ class ImputerMICE(_Imputer):
         """
         self._check_dataframe(df)
         if col != "__all__":
-            raise ValueError(
-                f"col must be '__all__', but '{col}' has been passed."
-            )
+            raise ValueError(f"col must be '__all__', but '{col}' has been passed.")
         hyperparameters = self.get_hyperparams()
         model = IterativeImputer(estimator=self.estimator, **hyperparameters)
         model = model.fit(df)
@@ -1370,9 +1322,7 @@ class ImputerMICE(_Imputer):
         """
         self._check_dataframe(df)
         if col != "__all__":
-            raise ValueError(
-                f"col must be '__all__', but '{col}' has been passed."
-            )
+            raise ValueError(f"col must be '__all__', but '{col}' has been passed.")
         model = self._dict_fitting["__all__"][ngroup]
         X_imputed = model.fit_transform(df)
         return pd.DataFrame(data=X_imputed, columns=df.columns, index=df.index)
@@ -1449,9 +1399,7 @@ class ImputerRegressor(_Imputer):
         pred = estimator.predict(X)
         return pd.Series(pred, index=X.index)
 
-    def get_Xy_valid(
-        self, df: pd.DataFrame, col: str
-    ) -> Tuple[pd.DataFrame, pd.Series]:
+    def get_Xy_valid(self, df: pd.DataFrame, col: str) -> Tuple[pd.DataFrame, pd.Series]:
         """Get a valid couple (X,y).
 
         Parameters
@@ -1481,8 +1429,7 @@ class ImputerRegressor(_Imputer):
             X = X.dropna(how="any", axis=1)
         else:
             raise ValueError(
-                f"Value '{self.handler_nan}' is not correct "
-                "for argument `handler_nan'."
+                f"Value '{self.handler_nan}' is not correct " "for argument `handler_nan'."
             )
         # X = pd.get_dummies(X, prefix_sep="=")
         y = df.loc[X.index, col]
@@ -1518,9 +1465,7 @@ class ImputerRegressor(_Imputer):
         """
         self._check_dataframe(df)
         if col != "__all__":
-            raise ValueError(
-                f"col must be '__all__', but '{col}' has been passed."
-            )
+            raise ValueError(f"col must be '__all__', but '{col}' has been passed.")
         cols_with_nans = df.columns[df.isna().any()]
         dict_estimators: Dict[str, BaseEstimator] = {}
         for col in cols_with_nans:
@@ -1572,9 +1517,7 @@ class ImputerRegressor(_Imputer):
         """
         self._check_dataframe(df)
         if col != "__all__":
-            raise ValueError(
-                f"col must be '__all__', but '{col}' has been passed."
-            )
+            raise ValueError(f"col must be '__all__', but '{col}' has been passed.")
 
         df_imputed = df.copy()
         cols_with_nans = df.columns[df.isna().any()]
@@ -1669,9 +1612,7 @@ class ImputerRpcaPcp(_Imputer):
                 "tolerance",
             ]
         }
-        model = rpca_pcp.RpcaPcp(
-            random_state=self._rng, verbose=self.verbose, **hyperparams
-        )
+        model = rpca_pcp.RpcaPcp(random_state=self._rng, verbose=self.verbose, **hyperparams)
 
         return model
 
@@ -1819,9 +1760,7 @@ class ImputerRpcaNoisy(_Imputer):
                 "norm",
             ]
         }
-        model = rpca_noisy.RpcaNoisy(
-            random_state=self._rng, verbose=self.verbose, **hyperparams
-        )
+        model = rpca_noisy.RpcaNoisy(random_state=self._rng, verbose=self.verbose, **hyperparams)
         return model
 
     def _fit_element(
@@ -1998,9 +1937,7 @@ class ImputerSoftImpute(_Imputer):
                 "tolerance",
             ]
         }
-        model = softimpute.SoftImpute(
-            random_state=self._rng, verbose=self.verbose, **hyperparams
-        )
+        model = softimpute.SoftImpute(random_state=self._rng, verbose=self.verbose, **hyperparams)
 
         return model
 
@@ -2047,9 +1984,7 @@ class ImputerSoftImpute(_Imputer):
         A_final = utils.get_shape_original(A, X.shape)
         X_imputed = M_final + A_final
 
-        df_imputed = pd.DataFrame(
-            X_imputed, index=df.index, columns=df.columns
-        )
+        df_imputed = pd.DataFrame(X_imputed, index=df.index, columns=df.columns)
         df_imputed = df.where(~df.isna(), df_imputed)
 
         return df_imputed
@@ -2232,8 +2167,6 @@ class ImputerEM(_Imputer):
         X = df.values.astype(float)
         X_imputed = model.transform(X)
 
-        df_transformed = pd.DataFrame(
-            X_imputed, columns=df.columns, index=df.index
-        )
+        df_transformed = pd.DataFrame(X_imputed, columns=df.columns, index=df.index)
 
         return df_transformed

@@ -20,9 +20,7 @@ X_incomplete = np.array(
     ]
 )
 
-X_complete = np.array(
-    [[1, 7, 4, 4], [5, 2, 4, 4], [-3, 3, 3, 3], [2, -1, 5, 5], [2, 1, 5, 5]]
-)
+X_complete = np.array([[1, 7, 4, 4], [5, 2, 4, 4], [-3, 3, 3, 3], [2, -1, 5, 5], [2, 1, 5, 5]])
 
 
 @pytest.mark.parametrize("X", [X_complete])

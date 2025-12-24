@@ -61,8 +61,7 @@ def columnwise_metric(
         pd.testing.assert_index_equal(df1.columns, df2.columns)
     except AssertionError:
         raise ValueError(
-            "Input dataframes do not have the same columns! "
-            f"({df1.columns} != {df2.columns})"
+            "Input dataframes do not have the same columns! " f"({df1.columns} != {df2.columns})"
         )
     if type_cols == "all":
         cols = df1.columns.tolist()
@@ -71,9 +70,7 @@ def columnwise_metric(
     elif type_cols == "categorical":
         cols = utils._get_categorical_features(df1)
     else:
-        raise ValueError(
-            f"Value {type_cols} is not valid for parameter `type_cols`!"
-        )
+        raise ValueError(f"Value {type_cols} is not valid for parameter `type_cols`!")
     if cols == []:
         raise ValueError(f"No column found for the type {type_cols}!")
     values = {}
@@ -87,9 +84,7 @@ def columnwise_metric(
     return pd.Series(values)
 
 
-def mean_squared_error(
-    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
-) -> pd.Series:
+def mean_squared_error(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.Series:
     """Mean squared error between two dataframes.
 
     Parameters
@@ -106,9 +101,7 @@ def mean_squared_error(
     pd.Series
 
     """
-    return columnwise_metric(
-        df1, df2, df_mask, skm.mean_squared_error, type_cols="numerical"
-    )
+    return columnwise_metric(df1, df2, df_mask, skm.mean_squared_error, type_cols="numerical")
 
 
 def root_mean_squared_error(
@@ -139,9 +132,7 @@ def root_mean_squared_error(
     )
 
 
-def mean_absolute_error(
-    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
-) -> pd.Series:
+def mean_absolute_error(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.Series:
     """Compute the mean absolute error between two dataframes.
 
     Parameters
@@ -158,9 +149,7 @@ def mean_absolute_error(
     pd.Series
 
     """
-    return columnwise_metric(
-        df1, df2, df_mask, skm.mean_absolute_error, type_cols="numerical"
-    )
+    return columnwise_metric(df1, df2, df_mask, skm.mean_absolute_error, type_cols="numerical")
 
 
 def mean_absolute_percentage_error(
@@ -191,9 +180,7 @@ def mean_absolute_percentage_error(
     )
 
 
-def _weighted_mean_absolute_percentage_error_1D(
-    values1: pd.Series, values2: pd.Series
-) -> float:
+def _weighted_mean_absolute_percentage_error_1D(values1: pd.Series, values2: pd.Series) -> float:
     """Compute the weighted mean absolute perc. error between 2 series.
 
     Based on https://en.wikipedia.org/wiki/Mean_absolute_percentage_error
@@ -242,9 +229,7 @@ def weighted_mean_absolute_percentage_error(
     )
 
 
-def accuracy(
-    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
-) -> pd.Series:
+def accuracy(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.Series:
     """Compute the matching ratio between the two datasets.
 
     Parameters
@@ -317,9 +302,7 @@ def dist_wasserstein(
 
     """
     if method == "columnwise":
-        return columnwise_metric(
-            df1, df2, df_mask, scipy.stats.wasserstein_distance
-        )
+        return columnwise_metric(df1, df2, df_mask, scipy.stats.wasserstein_distance)
     else:
         raise AssertionError(
             f"The parameter of the function wasserstein_distance should "
@@ -374,9 +357,7 @@ def kolmogorov_smirnov_test(
         KS test statistic
 
     """
-    return columnwise_metric(
-        df1, df2, df_mask, kolmogorov_smirnov_test_1D, type_cols="numerical"
-    )
+    return columnwise_metric(df1, df2, df_mask, kolmogorov_smirnov_test_1D, type_cols="numerical")
 
 
 def _total_variance_distance_1D(df1: pd.Series, df2: pd.Series) -> float:
@@ -441,9 +422,7 @@ def _check_same_number_columns(df1: pd.DataFrame, df2: pd.DataFrame):
         raise Exception("inputs have to have the same number of columns.")
 
 
-def _get_correlation_pearson_matrix(
-    df: pd.DataFrame, use_p_value: bool = True
-) -> pd.DataFrame:
+def _get_correlation_pearson_matrix(df: pd.DataFrame, use_p_value: bool = True) -> pd.DataFrame:
     """Get matrix of correlation values for numerical features.
 
     Based on Pearson correlation coefficient or p-value for
@@ -466,9 +445,7 @@ def _get_correlation_pearson_matrix(
     matrix = np.zeros((len(df.columns), len(df.columns)))
     for idx_1, col_1 in enumerate(cols):
         for idx_2, col_2 in enumerate(cols):
-            res = scipy.stats.mstats.pearsonr(
-                df[[col_1]].values, df[[col_2]].values
-            )
+            res = scipy.stats.mstats.pearsonr(df[[col_1]].values, df[[col_2]].values)
             if use_p_value:
                 matrix[idx_1, idx_2] = res[1]
             else:
@@ -514,20 +491,14 @@ def mean_difference_correlation_matrix_numerical_features(
     cols_numerical = utils._get_numerical_features(df1)
     if cols_numerical == []:
         raise Exception("No numerical feature found")
-    df_corr1 = _get_correlation_pearson_matrix(
-        df1[cols_numerical], use_p_value=use_p_value
-    )
-    df_corr2 = _get_correlation_pearson_matrix(
-        df2[cols_numerical], use_p_value=use_p_value
-    )
+    df_corr1 = _get_correlation_pearson_matrix(df1[cols_numerical], use_p_value=use_p_value)
+    df_corr2 = _get_correlation_pearson_matrix(df2[cols_numerical], use_p_value=use_p_value)
 
     diff_corr = (df_corr1 - df_corr2).abs().mean(axis=1)
     return pd.Series(diff_corr, index=cols_numerical)
 
 
-def _get_correlation_chi2_matrix(
-    data: pd.DataFrame, use_p_value: bool = True
-) -> pd.DataFrame:
+def _get_correlation_chi2_matrix(data: pd.DataFrame, use_p_value: bool = True) -> pd.DataFrame:
     """Get matrix of correlation values for categorical features.
 
     Based on Chi-square test of independence of variables
@@ -600,12 +571,8 @@ def mean_difference_correlation_matrix_categorical_features(
     cols_categorical = utils._get_categorical_features(df1)
     if cols_categorical == []:
         raise Exception("No categorical feature found")
-    df_corr1 = _get_correlation_chi2_matrix(
-        df1[cols_categorical], use_p_value=use_p_value
-    )
-    df_corr2 = _get_correlation_chi2_matrix(
-        df2[cols_categorical], use_p_value=use_p_value
-    )
+    df_corr1 = _get_correlation_chi2_matrix(df1[cols_categorical], use_p_value=use_p_value)
+    df_corr2 = _get_correlation_chi2_matrix(df2[cols_categorical], use_p_value=use_p_value)
 
     diff_corr = (df_corr1 - df_corr2).abs().mean(axis=1)
     return pd.Series(diff_corr, index=cols_categorical)
@@ -751,9 +718,7 @@ def _sum_manhattan_distances(df1: pd.DataFrame) -> float:
     return result
 
 
-def sum_energy_distances(
-    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
-) -> pd.Series:
+def sum_energy_distances(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.Series:
     """Compute the sum of energy distances between df1 and df2.
 
     It is based on https://dcor.readthedocs.io/en/latest/theory.html#
@@ -783,11 +748,7 @@ def sum_energy_distances(
 
     df = pd.concat([df1, df2])
     sum_distances_df1_df2 = _sum_manhattan_distances(df)
-    sum_distance = (
-        2 * sum_distances_df1_df2
-        - 4 * sum_distances_df1
-        - 4 * sum_distances_df2
-    )
+    sum_distance = 2 * sum_distances_df1_df2 - 4 * sum_distances_df1 - 4 * sum_distances_df2
 
     return pd.Series(sum_distance, index=["All"])
 
@@ -984,13 +945,10 @@ def kl_divergence_gaussian(df1: pd.DataFrame, df2: pd.DataFrame) -> float:
     means1 = np.array(df1.mean())
     means2 = np.array(df2.mean())
     try:
-        div_kl = algebra.kl_divergence_gaussian_exact(
-            means1, cov1, means2, cov2
-        )
+        div_kl = algebra.kl_divergence_gaussian_exact(means1, cov1, means2, cov2)
     except LinAlgError:
         raise ValueError(
-            "Provided datasets have degenerate colinearities, KL-divergence "
-            "cannot be computed!"
+            "Provided datasets have degenerate colinearities, KL-divergence " "cannot be computed!"
         )
     return div_kl
 
@@ -1038,9 +996,7 @@ def kl_divergence(
 
     """
     if method == "columnwise":
-        return columnwise_metric(
-            df1, df2, df_mask, kl_divergence_1D, type_cols="numerical"
-        )
+        return columnwise_metric(df1, df2, df_mask, kl_divergence_1D, type_cols="numerical")
     elif method == "gaussian":
         return pattern_based_weighted_mean_metric(
             df1,
@@ -1161,9 +1117,7 @@ def pattern_based_weighted_mean_metric(
     elif type_cols == "categorical":
         cols = df1.select_dtypes(exclude=["number"]).columns
     else:
-        raise ValueError(
-            f"Value {type_cols} is not valid for parameter `type_cols`!"
-        )
+        raise ValueError(f"Value {type_cols} is not valid for parameter `type_cols`!")
 
     if np.any(df_mask & df1.isna()):
         raise ValueError("The argument df1 has missing values on the mask!")
@@ -1177,9 +1131,7 @@ def pattern_based_weighted_mean_metric(
     df2 = df2[cols].loc[rows_mask]
     df_mask = df_mask[cols].loc[rows_mask]
     max_num_row = 0
-    for tup_pattern, df_mask_pattern in df_mask.groupby(
-        df_mask.columns.tolist()
-    ):
+    for tup_pattern, df_mask_pattern in df_mask.groupby(df_mask.columns.tolist()):
         ind_pattern = df_mask_pattern.index
         df1_pattern = df1.loc[ind_pattern, list(tup_pattern)]
         max_num_row = max(max_num_row, len(df1_pattern))
@@ -1190,9 +1142,7 @@ def pattern_based_weighted_mean_metric(
         scores.append(metric(df1_pattern, df2_pattern, **kwargs))
     if len(scores) == 0:
         raise NotEnoughSamples(max_num_row, min_n_rows)
-    return pd.Series(
-        sum([s * w for s, w in zip(scores, weights)]), index=["All"]
-    )
+    return pd.Series(sum([s * w for s, w in zip(scores, weights)]), index=["All"])
 
 
 def get_metric(
@@ -1221,9 +1171,7 @@ def get_metric(
         "kl_columnwise": partial(kl_divergence, method="columnwise"),
         "kl_gaussian": partial(kl_divergence, method="gaussian"),
         "ks_test": kolmogorov_smirnov_test,
-        "correlation_diff": (
-            mean_difference_correlation_matrix_numerical_features
-        ),
+        "correlation_diff": (mean_difference_correlation_matrix_numerical_features),
         "energy": sum_energy_distances,
         "frechet": partial(frechet_distance, method="single"),
         "frechet_pattern": partial(frechet_distance, method="pattern"),
