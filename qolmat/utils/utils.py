@@ -1,13 +1,14 @@
-from typing import List, Optional, Tuple, Union
-import warnings
+from typing import Callable, List, Tuple, Union
 
+from joblib import Parallel, delayed
 import numpy as np
 import pandas as pd
 
 from numpy.typing import NDArray
 from sklearn.base import check_array
+from sklearn import utils as sku
 
-from qolmat.utils.exceptions import NotDimension2, SignalTooShort
+from qolmat.utils.exceptions import NotDimension2
 
 HyperValue = Union[int, float, str]
 
@@ -306,3 +307,30 @@ def nan_mean_cov(X: NDArray) -> Tuple[NDArray, NDArray]:
     cov = np.ma.cov(np.ma.masked_invalid(X), rowvar=False).data
     cov = cov.reshape(n_variables, n_variables)
     return means, cov
+
+
+def _parallel_with_seeds_and_list(
+    func: Callable,
+    args: list[dict],
+    random_state: Union[None, int, np.random.RandomState] = None,
+) -> list:
+    """
+    Execute a function in parallel over a list with independent random seeds.
+
+    Parameters:
+    -----------
+    func: callable
+        Function to execute. Must accept 'seed' and 'item' as first parameters.
+    args: list
+        List of argument dictionaries to iterate over.
+    """
+    print("_parallel_with_seeds_and_list called with seed:", random_state)
+    n_runs = len(args)
+    rng = sku.check_random_state(random_state)
+    ss = np.random.SeedSequence(rng.randint(0, 2**32))
+    child_seeds = ss.spawn(n_runs)
+    seeds = [np.random.default_rng(s).integers(0, 2**32) for s in child_seeds]
+    print("Generated seeds:", seeds)
+
+    # return Parallel(n_jobs=-1)(delayed(func)(seed, **arg) for seed, arg in zip(seeds, args))
+    return [func(seed, **arg) for seed, arg in zip(seeds, args)]

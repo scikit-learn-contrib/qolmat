@@ -9,8 +9,10 @@ from joblib import Parallel, delayed
 from scipy.stats import chi2
 from sklearn import utils as sku
 from sklearn.ensemble import RandomForestClassifier
+from torch import rand
 
 from qolmat.imputations.imputers import ImputerEM
+from qolmat.utils import utils
 from qolmat.utils.input_check import check_pd_df_dtypes
 
 
@@ -96,7 +98,6 @@ class LittleTest(McarTest):
         """
         Apply the Little's test to a real dataframe.
 
-
         Parameters
         ----------
         df : pd.DataFrame
@@ -108,30 +109,38 @@ class LittleTest(McarTest):
             The p-value of the test.
         """
         imputer = self.imputer or ImputerEM(random_state=self.rng)
-        imputer = imputer._fit_element(df)
+        imputer_em = imputer._fit_element(df)
 
-        d0 = 0
-        n_rows, n_cols = df.shape
+        # Convert to numpy arrays
+        df_array = df.to_numpy()
+        df_nan_array = df.notna().to_numpy()
+
+        d0 = 0.0
+        n_rows, n_cols = df_array.shape
         degree_f = -n_cols
-        ml_means = imputer.means
-        ml_cov = n_rows / (n_rows - 1) * imputer.cov
+        ml_means = imputer_em.means
+        ml_cov = n_rows / (n_rows - 1) * imputer_em.cov
 
         # Iterate over the patterns
+        df_nan_df = pd.DataFrame(df_nan_array)
+        for tup_pattern, df_nan_pattern in df_nan_df.groupby(df_nan_df.columns.tolist()):
+            # Convert pattern to indices
+            indices = [i for i, val in enumerate(tup_pattern) if val]
 
-        df_nan = df.notna()
-        for tup_pattern, df_nan_pattern in df_nan.groupby(df_nan.columns.tolist()):
-            n_rows_pattern, _ = df_nan_pattern.shape
+            n_rows_pattern = len(df_nan_pattern)
             ind_pattern = df_nan_pattern.index
-            df_pattern = df.loc[ind_pattern, list(tup_pattern)]
-            obs_mean = df_pattern.mean().to_numpy()
 
-            diff_means = obs_mean - ml_means[list(tup_pattern)]
-            inv_sigma_pattern = np.linalg.solve(
-                ml_cov[:, tup_pattern][tup_pattern, :], np.eye(len(tup_pattern))
-            )
+            # Use numpy indexing
+            df_pattern = df_array[ind_pattern][:, indices]
+            obs_mean = np.nanmean(df_pattern, axis=0)
+
+            diff_means = obs_mean - ml_means[indices]
+            ml_cov_pattern = ml_cov[np.ix_(indices, indices)]
+
+            inv_sigma_pattern = np.linalg.solve(ml_cov_pattern, np.eye(len(indices)))
 
             d0 += n_rows_pattern * np.dot(np.dot(diff_means, inv_sigma_pattern), diff_means.T)
-            degree_f += tup_pattern.count(True)
+            degree_f += len(indices)
 
         return 1 - float(chi2.cdf(d0, degree_f))
 
@@ -430,7 +439,12 @@ class PKLMTest(McarTest):
         """
         return perm[~np.isnan(X[:, features_idx]).any(axis=1), target_idx]
 
-    def _get_oob_probabilities(self, X: np.ndarray, y: np.ndarray) -> np.ndarray:
+    def _get_oob_probabilities(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        random_state: Union[None, int, np.random.RandomState] = None,
+    ) -> np.ndarray:
         """
         Trains a RandomForestClassifier and retrieves out-of-bag (OOB) probabilities.
 
@@ -450,7 +464,7 @@ class PKLMTest(McarTest):
             min_samples_split=10,
             bootstrap=True,
             oob_score=True,
-            random_state=self.rng,
+            random_state=random_state,
             max_features=1.0,
         )
         clf.fit(X, y)
@@ -504,37 +518,46 @@ class PKLMTest(McarTest):
 
     def _parallel_process_permutation(
         self,
-        X: np.ndarray,
+        seed: int,
         M_perm: np.ndarray,
+        X: np.ndarray,
         features_idx: np.ndarray,
         target_idx: int,
         oob_probabilities: np.ndarray,
     ) -> float:
-        X_features, y = self._build_dataset(X, features_idx, target_idx)
+        y = self._build_label(X, M_perm, features_idx, target_idx)
         if self.exact_p_value:
             # Exact version
-            y = self._build_label(X, M_perm, features_idx, target_idx)
             # In this case, we fit the classifier in each permutation. It takes much more longer.
-            oob_probabilities = self._get_oob_probabilities(X_features, y)
+            X_features, y = self._build_dataset(X, features_idx, target_idx)
+            oob_probabilities = self._get_oob_probabilities(X_features, y, random_state=seed)
         return self._U_hat(oob_probabilities, y)
 
     def _parallel_process_projection(
         self,
+        seed: int,
         X: np.ndarray,
         list_permutations: list[np.ndarray],
         features_idx: np.ndarray,
         target_idx: int,
-    ) -> tuple[float, list[float]]:
+    ):
         X_features, y = self._build_dataset(X, features_idx, target_idx)
-        oob_probabilities = self._get_oob_probabilities(X_features, y)
+        oob_probabilities = self._get_oob_probabilities(X_features, y, random_state=seed)
         u_hat = self._U_hat(oob_probabilities, y)
         # We iterate over the permutation because for a given projection, we fit only one
         # classifier to get oob probabilities and compute u_hat nb_permutations times.
-        result_u_permutations = Parallel(n_jobs=-1)(
-            delayed(self._parallel_process_permutation)(
-                X, M_perm, features_idx, target_idx, oob_probabilities
-            )
+        args = [
+            {
+                "M_perm": M_perm,
+                "X": X,
+                "features_idx": features_idx,
+                "target_idx": target_idx,
+                "oob_probabilities": oob_probabilities,
+            }
             for M_perm in list_permutations
+        ]
+        result_u_permutations = utils._parallel_with_seeds_and_list(
+            self._parallel_process_permutation, args, random_state=seed
         )
         return u_hat, result_u_permutations
 
@@ -627,9 +650,19 @@ class PKLMTest(McarTest):
         U = 0.0
         list_U_sigma = [0.0 for _ in range(self.nb_permutation)]
 
-        parallel_results = Parallel(n_jobs=-1)(
-            delayed(self._parallel_process_projection)(X, list_perm, features_idx, target_idx)
+        args = [
+            {
+                "X": X,
+                "list_permutations": list_perm,
+                "features_idx": features_idx,
+                "target_idx": target_idx,
+            }
             for features_idx, target_idx in list_proj
+        ]
+        parallel_results = utils._parallel_with_seeds_and_list(
+            self._parallel_process_projection,
+            args,
+            random_state=self.rng,
         )
 
         for U_projection, results in parallel_results:

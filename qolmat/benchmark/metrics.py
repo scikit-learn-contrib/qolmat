@@ -112,9 +112,7 @@ def root_mean_squared_error(
     -------
     pd.Series
     """
-    return columnwise_metric(
-        df1, df2, df_mask, skm.mean_squared_error, type_cols="numerical", squared=False
-    )
+    return columnwise_metric(df1, df2, df_mask, skm.root_mean_squared_error, type_cols="numerical")
 
 
 def mean_absolute_error(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.Series:
