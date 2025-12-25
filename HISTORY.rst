@@ -2,12 +2,16 @@
 History
 =======
 
-0.1.10 (2024-??-??)
+0.1.11 (2025-12-30)
+------------------
+* PLKM test implemented and documented in the holes_characterization module
+
+0.1.10 (2025-08-30)
 ------------------
 * Long EM and RPCA operations wrapped with tqdm progress bars
 * Readme code sample updated, and results table made consistent
 
-0.1.9 (2024-08-29)
+0.1.9 (2025-08-29)
 ------------------
 * Tutorials reproducibility improved with random_state parameters
 * RPCA now accepts random_state parameters
