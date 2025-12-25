@@ -416,8 +416,8 @@ def _parallel_with_seeds_and_list(
     """
     n_runs = len(args)
     rng = sku.check_random_state(random_state)
-    ss = np.random.SeedSequence(rng.randint(0, 2**32))
+    ss = np.random.SeedSequence(rng.randint(0, 2**31 - 1))
     child_seeds = ss.spawn(n_runs)
-    seeds = [np.random.default_rng(s).integers(0, 2**32) for s in child_seeds]
+    seeds = [np.random.default_rng(s).integers(0, 2**31 - 1) for s in child_seeds]
 
     return Parallel(n_jobs=-1)(delayed(func)(seed, **arg) for seed, arg in zip(seeds, args))
