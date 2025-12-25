@@ -387,7 +387,7 @@ class PKLMTest(McarTest):
         is_checked = False
         while not is_checked:
             features_idx, target_idx = self._draw_features_and_target_indexes(X)
-            is_checked = self._check_draw(X, features_idx, target_idx)
+            is_checked = bool(self._check_draw(X, features_idx, target_idx))
         return features_idx, target_idx
 
     @staticmethod
@@ -675,7 +675,7 @@ class PKLMTest(McarTest):
             }
             for features_idx, target_idx in list_proj
         ]
-        parallel_results = utils._parallel_with_seeds_and_list(
+        parallel_results: list[tuple[float, list]] = utils._parallel_with_seeds_and_list(
             self._parallel_process_projection,
             args,
             random_state=self.rng,
@@ -699,7 +699,9 @@ class PKLMTest(McarTest):
             return p_value
         else:
             B = self._build_B(list_proj, n_cols)
-            U = np.array([item[0] for item in parallel_results])
+            U_array = np.array([item[0] for item in parallel_results])
             U_sigma = np.array([item[1] for item in parallel_results])
-            p_values = [self._compute_partial_p_value(B, U, U_sigma, k) for k in range(n_cols)]
+            p_values = [
+                self._compute_partial_p_value(B, U_array, U_sigma, k) for k in range(n_cols)
+            ]
             return p_value, p_values
