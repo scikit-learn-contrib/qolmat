@@ -1,17 +1,18 @@
-from typing import Callable, Dict, List, Optional, Tuple, Union
-
-import numpy as np
-import pandas as pd
-import pytest
-
-from qolmat.benchmark import hyperparameters
-from qolmat.benchmark.hyperparameters import HyperValue
-
-# from hyperparameters import HyperValue
-from qolmat.benchmark.missing_patterns import _HoleGenerator, EmpiricalHoleGenerator
-from qolmat.imputations.imputers import _Imputer, ImputerRpcaNoisy
+from typing import List, Optional, Tuple
 
 import hyperopt as ho
+import numpy as np
+import pandas as pd
+
+from qolmat.benchmark import hyperparameters
+
+# from hyperparameters import HyperValue
+from qolmat.benchmark.missing_patterns import (
+    EmpiricalHoleGenerator,
+    _HoleGenerator,
+)
+from qolmat.imputations.imputers import ImputerRpcaNoisy, _Imputer
+from qolmat.utils.utils import RandomSetting
 
 df_origin = pd.DataFrame({"col1": [0, np.nan, 2, 4, np.nan], "col2": [-1, np.nan, 0.5, 1, 1.5]})
 df_imputed = pd.DataFrame({"col1": [0, 1, 2, 3.5, 4], "col2": [-1.5, 0, 1.5, 2, 1.5]})
@@ -41,12 +42,15 @@ dict_config_opti = {
 
 
 class ImputerTest(_Imputer):
+    """Group tests for Imputer."""
+
     def __init__(
         self,
         groups: Tuple[str, ...] = (),
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         value: float = 0,
     ) -> None:
+        """Init function."""
         super().__init__(groups=groups, columnwise=True, random_state=random_state)
         self.value = value
 
@@ -57,11 +61,15 @@ class ImputerTest(_Imputer):
 
 
 class HoleGeneratorTest(_HoleGenerator):
+    """Group tests for HoleGenerator."""
+
     def __init__(self, mask: pd.Series, subset: Optional[List[str]] = None):
+        """Init HoleGenerator."""
         super().__init__(n_splits=1, subset=subset)
         self.mask = mask
 
     def generate_mask(self, X: pd.DataFrame) -> pd.DataFrame:
+        """Generate mask."""
         df_out = X.copy()
         for col in df_out:
             df_out[col] = self.mask
@@ -69,6 +77,7 @@ class HoleGeneratorTest(_HoleGenerator):
 
 
 def test_hyperparameters_get_objective() -> None:
+    """Test get_objective."""
     imputer = ImputerTest()
     generator = HoleGeneratorTest(pd.Series([False, False, True, True]), subset=["some_col"])
     metric = "mse"
@@ -80,6 +89,7 @@ def test_hyperparameters_get_objective() -> None:
 
 
 def test_hyperparameters_optimize():
+    """Test optimize."""
     imputer = ImputerTest()
     generator = HoleGeneratorTest(pd.Series([False, False, True, True]), subset=["some_col"])
     metric = "mse"

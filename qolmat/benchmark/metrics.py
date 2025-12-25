@@ -1,15 +1,17 @@
+"""Script for metrics."""
+
 from functools import partial
 from typing import Callable, Dict, List
 
+import dcor
 import numpy as np
 import pandas as pd
 import scipy
+from numpy.linalg import LinAlgError
 from sklearn import metrics as skm
-import dcor
 
 from qolmat.utils import algebra, utils
 from qolmat.utils.exceptions import NotEnoughSamples
-from numpy.linalg import LinAlgError
 
 EPS = np.finfo(float).eps
 
@@ -26,7 +28,9 @@ def columnwise_metric(
     type_cols: str = "all",
     **kwargs,
 ) -> pd.Series:
-    """For each column, compute a metric score based on the true dataframe
+    """Compute column-wise metrics.
+
+    For each column, compute a metric score based on the true dataframe
     and the predicted dataframe
 
     Parameters
@@ -44,32 +48,37 @@ def columnwise_metric(
         - `all` to apply the metric to all columns
         - `numerical` to apply the metric to numerical columns only
         - `categorical` to apply the metric to categorical columns only
+    **kwargs: dict
+        additional arguments
 
     Returns
     -------
     pd.Series
         Series of scores for all columns
+
     """
     try:
         pd.testing.assert_index_equal(df1.columns, df2.columns)
     except AssertionError:
         raise ValueError(
-            f"Input dataframes do not have the same columns! ({df1.columns} != {df2.columns})"
+            "Input dataframes do not have the same columns! " f"({df1.columns} != {df2.columns})"
         )
     if type_cols == "all":
-        cols = df1.columns
+        cols = df1.columns.tolist()
     elif type_cols == "numerical":
         cols = utils._get_numerical_features(df1)
     elif type_cols == "categorical":
         cols = utils._get_categorical_features(df1)
     else:
         raise ValueError(f"Value {type_cols} is not valid for parameter `type_cols`!")
+    if cols == []:
+        raise ValueError(f"No column found for the type {type_cols}!")
     values = {}
     for col in cols:
         df1_col = df1.loc[df_mask[col], col]
         df2_col = df2.loc[df_mask[col], col]
-        assert df1_col.notna().all()
-        assert df2_col.notna().all()
+        if df1_col.isna().any() or df2_col.isna().any():
+            raise ValueError(f"Column {col} contains NaN.")
         values[col] = metric(df1_col, df2_col, **kwargs)
 
     return pd.Series(values)
@@ -90,6 +99,7 @@ def mean_squared_error(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFra
     Returns
     -------
     pd.Series
+
     """
     return columnwise_metric(df1, df2, df_mask, skm.mean_squared_error, type_cols="numerical")
 
@@ -97,7 +107,7 @@ def mean_squared_error(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFra
 def root_mean_squared_error(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
 ) -> pd.Series:
-    """Root mean squared error between two dataframes.
+    """Compute the root mean squared error between two dataframes.
 
     Parameters
     ----------
@@ -111,12 +121,13 @@ def root_mean_squared_error(
     Returns
     -------
     pd.Series
+
     """
     return columnwise_metric(df1, df2, df_mask, skm.root_mean_squared_error, type_cols="numerical")
 
 
 def mean_absolute_error(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.Series:
-    """Mean absolute error between two dataframes.
+    """Compute the mean absolute error between two dataframes.
 
     Parameters
     ----------
@@ -130,6 +141,7 @@ def mean_absolute_error(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFr
     Returns
     -------
     pd.Series
+
     """
     return columnwise_metric(df1, df2, df_mask, skm.mean_absolute_error, type_cols="numerical")
 
@@ -137,7 +149,7 @@ def mean_absolute_error(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFr
 def mean_absolute_percentage_error(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
 ) -> pd.Series:
-    """Mean absolute percentage error between two dataframes.
+    """Compute the mean absolute percentage error between two dataframes.
 
     Parameters
     ----------
@@ -151,14 +163,20 @@ def mean_absolute_percentage_error(
     Returns
     -------
     pd.Series
+
     """
     return columnwise_metric(
-        df1, df2, df_mask, skm.mean_absolute_percentage_error, type_cols="numerical"
+        df1,
+        df2,
+        df_mask,
+        skm.mean_absolute_percentage_error,
+        type_cols="numerical",
     )
 
 
 def _weighted_mean_absolute_percentage_error_1D(values1: pd.Series, values2: pd.Series) -> float:
-    """Weighted mean absolute percentage error between two series.
+    """Compute the weighted mean absolute perc. error between 2 series.
+
     Based on https://en.wikipedia.org/wiki/Mean_absolute_percentage_error
 
     Parameters
@@ -172,6 +190,7 @@ def _weighted_mean_absolute_percentage_error_1D(values1: pd.Series, values2: pd.
     -------
     float
         Weighted mean absolute percentage error
+
     """
     return (values1 - values2).abs().sum() / values1.abs().sum()
 
@@ -179,7 +198,7 @@ def _weighted_mean_absolute_percentage_error_1D(values1: pd.Series, values2: pd.
 def weighted_mean_absolute_percentage_error(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
 ) -> pd.Series:
-    """Weighted mean absolute percentage error between two dataframes.
+    """Compute the weighted mean absolute percentage error between 2 df.
 
     Parameters
     ----------
@@ -193,6 +212,7 @@ def weighted_mean_absolute_percentage_error(
     Returns
     -------
     pd.Series
+
     """
     return columnwise_metric(
         df1,
@@ -204,8 +224,7 @@ def weighted_mean_absolute_percentage_error(
 
 
 def accuracy(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.Series:
-    """
-    Matching ratio beetween the two datasets.
+    """Compute the matching ratio between the two datasets.
 
     Parameters
     ----------
@@ -219,6 +238,7 @@ def accuracy(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.
     Returns
     -------
     pd.Series
+
     """
     return columnwise_metric(
         df1,
@@ -230,8 +250,7 @@ def accuracy(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.
 
 
 def accuracy_1D(values1: pd.Series, values2: pd.Series) -> float:
-    """
-    Matching ratio beetween the set of values.
+    """Compute the matching ratio between the set of values.
 
     Parameters
     ----------
@@ -244,6 +263,7 @@ def accuracy_1D(values1: pd.Series, values2: pd.Series) -> float:
     -------
     float
         accuracy
+
     """
     return (values1 == values2).mean()
 
@@ -254,8 +274,9 @@ def dist_wasserstein(
     df_mask: pd.DataFrame,
     method: str = "columnwise",
 ) -> pd.Series:
-    """Wasserstein distances between columns of 2 dataframes.
-    Wasserstein distance can only be computed columnwise
+    """Compute the Wasserstein distances between columns of 2 dataframes.
+
+    Wasserstein distance can only be computed columnwise.
 
     Parameters
     ----------
@@ -265,24 +286,32 @@ def dist_wasserstein(
         Predicted dataframe
     df_mask : pd.DataFrame
         Elements of the dataframes to compute on
+    method : str, optional
+        columnwise or not
 
     Returns
     -------
     pd.Series
         wasserstein distances
+
     """
     if method == "columnwise":
         return columnwise_metric(df1, df2, df_mask, scipy.stats.wasserstein_distance)
     else:
         raise AssertionError(
-            f"The parameter of the function wasserstein_distance should be one of"
-            f"the following: [`columnwise`], not `{method}`!"
+            f"The parameter of the function wasserstein_distance should "
+            "be one of the following: "
+            f"[`columnwise`], not `{method}`!"
         )
 
 
 def kolmogorov_smirnov_test_1D(df1: pd.Series, df2: pd.Series) -> float:
-    """Compute KS test statistic of the two-sample Kolmogorov-Smirnov test for goodness of fit.
-    See more in https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.ks_2samp.html.
+    """Compute KS test statistic.
+
+    Compute KS test stat. of the two-sample Kolmogorov-Smirnov test
+    for goodness of fit.
+    See more in
+    https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.ks_2samp.html.
 
     Parameters
     ----------
@@ -295,6 +324,7 @@ def kolmogorov_smirnov_test_1D(df1: pd.Series, df2: pd.Series) -> float:
     -------
     float
         KS test statistic
+
     """
     return scipy.stats.ks_2samp(df1, df2)[0]
 
@@ -302,7 +332,8 @@ def kolmogorov_smirnov_test_1D(df1: pd.Series, df2: pd.Series) -> float:
 def kolmogorov_smirnov_test(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
 ) -> pd.Series:
-    """Kolmogorov Smirnov Test for numerical features.
+    """Compute the Kolmogorov Smirnov Test for numerical features.
+
     Lower score means better performance.
 
     Parameters
@@ -318,12 +349,14 @@ def kolmogorov_smirnov_test(
     -------
     pd.Series
         KS test statistic
+
     """
     return columnwise_metric(df1, df2, df_mask, kolmogorov_smirnov_test_1D, type_cols="numerical")
 
 
 def _total_variance_distance_1D(df1: pd.Series, df2: pd.Series) -> float:
-    """Compute Total Variance Distance for a categorical feature
+    """Compute Total Variance Distance for a categorical feature.
+
     It is based on TVComplement in https://github.com/sdv-dev/SDMetrics
 
     Parameters
@@ -337,6 +370,7 @@ def _total_variance_distance_1D(df1: pd.Series, df2: pd.Series) -> float:
     -------
     float
         Total variance distance
+
     """
     list_categories = list(set(df1.unique()).union(set(df2.unique())))
     freqs1 = df1.value_counts() / len(df1)
@@ -349,7 +383,8 @@ def _total_variance_distance_1D(df1: pd.Series, df2: pd.Series) -> float:
 def total_variance_distance(
     df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
 ) -> pd.Series:
-    """Total variance distance for categorical features
+    """Compute the total variance distance for categorical features.
+
     It is based on TVComplement in https://github.com/sdv-dev/SDMetrics
 
     Parameters
@@ -365,6 +400,7 @@ def total_variance_distance(
     -------
     pd.Series
         Total variance distance
+
     """
     return columnwise_metric(
         df1,
@@ -381,8 +417,10 @@ def _check_same_number_columns(df1: pd.DataFrame, df2: pd.DataFrame):
 
 
 def _get_correlation_pearson_matrix(df: pd.DataFrame, use_p_value: bool = True) -> pd.DataFrame:
-    """Get matrix of correlation values for numerical features
-    based on Pearson correlation coefficient or p-value for testing non-correlation.
+    """Get matrix of correlation values for numerical features.
+
+    Based on Pearson correlation coefficient or p-value for
+    testing non-correlation.
 
     Parameters
     ----------
@@ -395,6 +433,7 @@ def _get_correlation_pearson_matrix(df: pd.DataFrame, use_p_value: bool = True) 
     -------
     pd.DataFrame
         Correlation matrix
+
     """
     cols = df.columns.tolist()
     matrix = np.zeros((len(df.columns), len(df.columns)))
@@ -415,8 +454,11 @@ def mean_difference_correlation_matrix_numerical_features(
     df_mask: pd.DataFrame,
     use_p_value: bool = True,
 ) -> pd.Series:
-    """Mean absolute of differences between the correlation matrices of df1 and df2.
-    based on Pearson correlation coefficient or p-value for testing non-correlation.
+    """Compute the mean absolute of differences.
+
+    Computed between the correlation matrices of df1 and df2.
+    based on Pearson correlation coefficient or p-value for
+    testing non-correlation.
 
     Parameters
     ----------
@@ -433,6 +475,7 @@ def mean_difference_correlation_matrix_numerical_features(
     -------
     pd.Series
         Mean absolute of differences for each feature
+
     """
     df1 = df1[df_mask].dropna(axis=0)
     df2 = df2[df_mask].dropna(axis=0)
@@ -440,6 +483,8 @@ def mean_difference_correlation_matrix_numerical_features(
     _check_same_number_columns(df1, df2)
 
     cols_numerical = utils._get_numerical_features(df1)
+    if cols_numerical == []:
+        raise Exception("No numerical feature found")
     df_corr1 = _get_correlation_pearson_matrix(df1[cols_numerical], use_p_value=use_p_value)
     df_corr2 = _get_correlation_pearson_matrix(df2[cols_numerical], use_p_value=use_p_value)
 
@@ -448,20 +493,24 @@ def mean_difference_correlation_matrix_numerical_features(
 
 
 def _get_correlation_chi2_matrix(data: pd.DataFrame, use_p_value: bool = True) -> pd.DataFrame:
-    """Get matrix of correlation values for categorical features
-    based on Chi-square test of independence of variables (the test statistic or the p-value).
+    """Get matrix of correlation values for categorical features.
+
+    Based on Chi-square test of independence of variables
+    (the test statistic or the p-value).
 
     Parameters
     ----------
-    df : pd.DataFrame
+    data : pd.DataFrame
         dataframe
     use_p_value : bool, optional
-        use the p-value of the test instead of the test statistic, by default True
+        use the p-value of the test instead of the test statistic,
+        by default True
 
     Returns
     -------
     pd.DataFrame
         Correlation matrix
+
     """
     cols = data.columns.tolist()
     matrix = np.zeros((len(data.columns), len(data.columns)))
@@ -484,8 +533,11 @@ def mean_difference_correlation_matrix_categorical_features(
     df_mask: pd.DataFrame,
     use_p_value: bool = True,
 ) -> pd.Series:
-    """Mean absolute of differences between the correlation matrix of df1 and df2
-    based on Chi-square test of independence of variables (the test statistic or the p-value)
+    """Compute the mean absolute of differences.
+
+    Computed between the correlation matrix of df1 and df2
+    based on Chi-square test of independence of variables
+    (the test statistic or the p-value)
 
     Parameters
     ----------
@@ -496,12 +548,14 @@ def mean_difference_correlation_matrix_categorical_features(
     df_mask : pd.DataFrame
         Elements of the dataframes to compute on
     use_p_value : bool, optional
-        use the p-value of the test instead of the test statistic, by default True
+        use the p-value of the test instead of the test statistic,
+        by default True
 
     Returns
     -------
     pd.Series
         Mean absolute of differences for each feature
+
     """
     df1 = df1[df_mask].dropna(axis=0)
     df2 = df2[df_mask].dropna(axis=0)
@@ -509,6 +563,8 @@ def mean_difference_correlation_matrix_categorical_features(
     _check_same_number_columns(df1, df2)
 
     cols_categorical = utils._get_categorical_features(df1)
+    if cols_categorical == []:
+        raise Exception("No categorical feature found")
     df_corr1 = _get_correlation_chi2_matrix(df1[cols_categorical], use_p_value=use_p_value)
     df_corr2 = _get_correlation_chi2_matrix(df2[cols_categorical], use_p_value=use_p_value)
 
@@ -522,7 +578,9 @@ def _get_correlation_f_oneway_matrix(
     cols_numerical: List[str],
     use_p_value: bool = True,
 ) -> pd.DataFrame:
-    """Get matrix of correlation values between categorical and numerical features
+    """Get matrix of correlation values.
+
+    Computed between categorical and numerical features
     based on the one-way ANOVA.
 
     Parameters
@@ -534,12 +592,14 @@ def _get_correlation_f_oneway_matrix(
     cols_numerical : List[str]
         list numerical columns
     use_p_value : bool, optional
-        use the p-value of the test instead of the test statistic, by default True
+        use the p-value of the test instead of the test statistic,
+        by default True
 
     Returns
     -------
     pd.DataFrame
         Correlation matrix
+
     """
     matrix = np.zeros((len(cols_categorical), len(cols_numerical)))
     for idx_cat, col_cat in enumerate(cols_categorical):
@@ -559,7 +619,9 @@ def mean_diff_corr_matrix_categorical_vs_numerical_features(
     df_mask: pd.DataFrame,
     use_p_value: bool = True,
 ) -> pd.Series:
-    """Mean absolute of differences between the correlation matrix of df1 and df2
+    """Compute the mean absolute of differences.
+
+    Computation between the correlation matrix of df1 and df2
     based on the one-way ANOVA.
 
     Parameters
@@ -571,12 +633,14 @@ def mean_diff_corr_matrix_categorical_vs_numerical_features(
     df_mask : pd.DataFrame
         Elements of the dataframes to compute on
     use_p_value : bool, optional
-        use the p-value of the test instead of the test statistic, by default True
+        use the p-value of the test instead of the test statistic,
+        by default True
 
     Returns
     -------
     pd.Series
         Mean absolute of differences for each feature
+
     """
     df1 = df1[df_mask].dropna(axis=0)
     df2 = df2[df_mask].dropna(axis=0)
@@ -584,7 +648,11 @@ def mean_diff_corr_matrix_categorical_vs_numerical_features(
     _check_same_number_columns(df1, df2)
 
     cols_categorical = utils._get_categorical_features(df1)
+    if cols_categorical == []:
+        raise Exception("No categorical feature found")
     cols_numerical = utils._get_numerical_features(df1)
+    if cols_numerical == []:
+        raise Exception("No numerical feature found")
     df_corr1 = _get_correlation_f_oneway_matrix(
         df1, cols_categorical, cols_numerical, use_p_value=use_p_value
     )
@@ -601,7 +669,8 @@ def mean_diff_corr_matrix_categorical_vs_numerical_features(
 
 
 def _sum_manhattan_distances_1D(values: pd.Series) -> float:
-    """Sum of Manhattan distances computed for one column
+    """Compute the sum of Manhattan distances computed for one column.
+
     It is based on https://www.geeksforgeeks.org/sum-manhattan-distances-pairs-points/
 
     Parameters
@@ -613,6 +682,7 @@ def _sum_manhattan_distances_1D(values: pd.Series) -> float:
     -------
     float
         Sum of Manhattan distances
+
     """
     values = values.sort_values(ascending=True)
     sums_partial = values.shift().fillna(0.0).cumsum()
@@ -622,17 +692,20 @@ def _sum_manhattan_distances_1D(values: pd.Series) -> float:
 
 
 def _sum_manhattan_distances(df1: pd.DataFrame) -> float:
-    """Sum Manhattan distances between all pairs of rows.
+    """Compute the sum Manhattan distances between all pairs of rows.
+
     It is based on https://www.geeksforgeeks.org/sum-manhattan-distances-pairs-points/
 
     Parameters
     ----------
     df1 : pd.DataFrame
+        input dataframe
 
     Returns
     -------
     float
         Sum of Manhattan distances for all pairs of rows.
+
     """
     cols = df1.columns.tolist()
     result = sum([_sum_manhattan_distances_1D(df1[col]) for col in cols])
@@ -640,7 +713,8 @@ def _sum_manhattan_distances(df1: pd.DataFrame) -> float:
 
 
 def sum_energy_distances(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> pd.Series:
-    """Sum of energy distances between df1 and df2.
+    """Compute the sum of energy distances between df1 and df2.
+
     It is based on https://dcor.readthedocs.io/en/latest/theory.html#
 
     Parameters
@@ -656,8 +730,8 @@ def sum_energy_distances(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataF
     -------
     pd.Series
         Sum of energy distances between df1 and df2.
-    """
 
+    """
     # Replace nan in dataframe
     df1 = df1[df_mask].fillna(0.0)
     df2 = df2[df_mask].fillna(0.0)
@@ -679,7 +753,8 @@ def sum_pairwise_distances(
     df_mask: pd.DataFrame,
     metric: str = "cityblock",
 ) -> float:
-    """Sum of pairwise distances based on a predefined metric.
+    """Compute the sum of pairwise distances based on a predefined metric.
+
     Metrics are found in this link
     https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.cdist.html
 
@@ -698,6 +773,7 @@ def sum_pairwise_distances(
     -------
     float
         Sum of pairwise distances based on a predefined metric
+
     """
     df1 = df1[df_mask.any(axis=1)]
     df2 = df2[df_mask.any(axis=1)]
@@ -714,13 +790,18 @@ def sum_pairwise_distances(
 def frechet_distance_base(
     df1: pd.DataFrame,
     df2: pd.DataFrame,
+    df_mask: pd.DataFrame,
 ) -> pd.Series:
-    """Compute the Fréchet distance between two dataframes df1 and df2
-    Frechet_distance = || mu_1 - mu_2 ||_2^2 + Tr(Sigma_1 + Sigma_2 - 2(Sigma_1 . Sigma_2)^(1/2))
-    It is normalized, df1 and df2 are first scaled by a factor (std(df1) + std(df2)) / 2
-    and then centered around (mean(df1) + mean(df2)) / 2
-    Based on: Dowson, D. C., and BV666017 Landau. "The Fréchet distance between multivariate normal
-    distributions." Journal of multivariate analysis 12.3 (1982): 450-455.
+    """Compute the Fréchet distance between two dataframes df1 and df2.
+
+    Frechet_distance = || mu_1 - mu_2 ||_2^2
+        + Tr(Sigma_1 + Sigma_2 - 2(Sigma_1 . Sigma_2)^(1/2))
+    It is normalized, df1 and df2 are first scaled by a factor
+    (std(df1) + std(df2)) / 2, and then centered around
+    (mean(df1) + mean(df2)) / 2
+    Based on: Dowson, D. C., and BV666017 Landau.
+    "The Fréchet distance between multivariate normal distributions."
+    Journal of multivariate analysis 12.3 (1982): 450-455.
 
     Parameters
     ----------
@@ -728,15 +809,23 @@ def frechet_distance_base(
         true dataframe
     df2 : pd.DataFrame
         predicted dataframe
+    df_mask : pd.DataFrame
+        Elements of the dataframes to compute on
 
     Returns
     -------
     pd.Series
         Frechet distance in a Series object
-    """
 
-    if df1.shape != df2.shape:
+    """
+    if df1.shape != df2.shape or df1.shape != df_mask.shape:
         raise Exception("inputs have to be of same dimensions.")
+
+    df1 = df1.copy()
+    df2 = df2.copy()
+    # Set to nan the values not in the mask
+    df1[~df_mask] = np.nan
+    df2[~df_mask] = np.nan
 
     std = (np.std(df1) + np.std(df2) + EPS) / 2
     mu = (np.nanmean(df1, axis=0) + np.nanmean(df2, axis=0)) / 2
@@ -757,24 +846,25 @@ def frechet_distance(
     method: str = "single",
     min_n_rows: int = 10,
 ) -> pd.Series:
-    """
-    Frechet distance computed using a pattern decomposition. Several variant are implemented:
-    - the `single` method relies on a single estimation of the means and covariance matrix. It is
-    relevent for MCAR data.
-    - the `pattern`method relies on the aggregation of the estimated distance between each
-    pattern. It is relevent for MAR data.
+    """Compute Frechet distance computed using a pattern decomposition.
+
+    Several variant are implemented:
+    i) the `single` method relies on a single estimation of the means and
+    covariance matrix. It is relevent for MCAR data.
+    ii) the `pattern` method relies on the aggregation of the estimated
+    distance between each pattern. It is relevent for MAR data.
 
     Parameters
     ----------
     df1 : pd.DataFrame
-        First empirical ditribution
+        First empirical distribution
     df2 : pd.DataFrame
-        Second empirical ditribution
+        Second empirical distribution
     df_mask : pd.DataFrame
         Mask indicating on which values the distance has to computed on
     method: str
-        Method used to compute the distance on multivariate datasets with missing values.
-        Possible values are `robust` and `pattern`.
+        Method used to compute the distance on multivariate datasets with
+        missing values. Possible values are `robust` and `pattern`.
     min_n_rows: int
         Minimum number of rows for a KL estimation
 
@@ -782,10 +872,10 @@ def frechet_distance(
     -------
     pd.Series
         Series of computed metrics
-    """
 
+    """
     if method == "single":
-        return frechet_distance_base(df1, df2)
+        return frechet_distance_base(df1, df2, df_mask)
     return pattern_based_weighted_mean_metric(
         df1,
         df2,
@@ -797,9 +887,12 @@ def frechet_distance(
 
 
 def kl_divergence_1D(df1: pd.Series, df2: pd.Series) -> float:
-    """Estimation of the Kullback-Leibler divergence between the two 1D empirical distributions
-    given by `df1`and `df2`. The samples are binarized using a uniform spacing with 20 bins from
-    the smallest to the largest value. Not that this may be a coarse estimation.
+    """Estimate the Kullback-Leibler divergence for 1D.
+
+    Computation between the two 1D empirical distributions
+    given by `df1`and `df2`. The samples are binarized using a uniform spacing
+    with 20 bins from the smallest to the largest value. Not that this may be
+    a coarse estimation.
 
     Parameters
     ----------
@@ -812,6 +905,7 @@ def kl_divergence_1D(df1: pd.Series, df2: pd.Series) -> float:
     -------
     float
         Kullback-Leibler divergence between the two empirical distributions.
+
     """
     min_val = min(df1.min(), df2.min())
     max_val = max(df1.max(), df2.max())
@@ -822,7 +916,9 @@ def kl_divergence_1D(df1: pd.Series, df2: pd.Series) -> float:
 
 
 def kl_divergence_gaussian(df1: pd.DataFrame, df2: pd.DataFrame) -> float:
-    """Kullback-Leibler divergence estimation based on a Gaussian approximation of both empirical
+    """Compute Kullback-Leibler divergence estimation.
+
+    Computation based on a Gaussian approximation of both empirical
     distributions
 
     Parameters
@@ -836,6 +932,7 @@ def kl_divergence_gaussian(df1: pd.DataFrame, df2: pd.DataFrame) -> float:
     -------
     pd.Series
         Series of estimated metrics
+
     """
     cov1 = df1.cov().values
     cov2 = df2.cov().values
@@ -845,7 +942,7 @@ def kl_divergence_gaussian(df1: pd.DataFrame, df2: pd.DataFrame) -> float:
         div_kl = algebra.kl_divergence_gaussian_exact(means1, cov1, means2, cov2)
     except LinAlgError:
         raise ValueError(
-            "Provided datasets have degenerate colinearities, KL-divergence cannot be computed!"
+            "Provided datasets have degenerate colinearities, KL-divergence " "cannot be computed!"
         )
     return div_kl
 
@@ -857,11 +954,12 @@ def kl_divergence(
     method: str = "columnwise",
     min_n_rows: int = 10,
 ) -> pd.Series:
-    """
-    Estimation of the Kullback-Leibler divergence between too empirical distributions. Three
-    methods are implemented:
-    - columnwise, relying on a uniform binarization and only taking marginals into account
-    (https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence),
+    """Estimate the KL divergence.
+
+    Estimation of the Kullback-Leibler divergence between too empirical
+    distributions. Three methods are implemented:
+    - columnwise, relying on a uniform binarization and only taking marginals
+    into account (https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence),
     - gaussian, relying on a Gaussian approximation,
 
     Parameters
@@ -873,8 +971,8 @@ def kl_divergence(
     df_mask: pd.DataFrame
         Mask indicating on what values the divergence should be computed
     method: str
-        Method used to compute the divergence on multivariate datasets with missing values.
-        Possible values are `columnwise` and `gaussian`.
+        Method used to compute the divergence on multivariate datasets with
+        missing values. Possible values are `columnwise` and `gaussian`.
     min_n_rows: int
         Minimum number of rows for a KL estimation
 
@@ -886,8 +984,10 @@ def kl_divergence(
     Raises
     ------
     AssertionError
-        If the empirical distributions do not have enough samples to estimate a KL divergence.
-        Consider using a larger dataset of lowering the parameter `min_n_rows`.
+        If the empirical distributions do not have enough samples to estimate
+        a KL divergence. Consider using a larger dataset of lowering
+        the parameter `min_n_rows`.
+
     """
     if method == "columnwise":
         return columnwise_metric(df1, df2, df_mask, kl_divergence_1D, type_cols="numerical")
@@ -902,13 +1002,17 @@ def kl_divergence(
         )
     else:
         raise AssertionError(
-            f"The parameter of the function wasserstein_distance should be one of"
-            f"the following: [`columnwise`, `gaussian`], not `{method}`!"
+            f"The parameter of the function wasserstein_distance "
+            "should be one of the following: "
+            f"[`columnwise`, `gaussian`], not `{method}`!"
         )
 
 
 def distance_anticorr(df1: pd.DataFrame, df2: pd.DataFrame) -> float:
-    """Score based on the distance anticorrelation between two empirical distributions.
+    """Compute distance anticorr.
+
+    Score based on the distance anticorrelation between
+    two empirical distributions.
     The theoretical basis can be found on dcor documentation:
     https://dcor.readthedocs.io/en/latest/theory.html
 
@@ -923,6 +1027,7 @@ def distance_anticorr(df1: pd.DataFrame, df2: pd.DataFrame) -> float:
     -------
     float
         Distance correlation score
+
     """
     return (1 - dcor.distance_correlation(df1.values, df2.values)) / 2
 
@@ -933,14 +1038,14 @@ def distance_anticorr_pattern(
     df_mask: pd.DataFrame,
     min_n_rows: int = 10,
 ) -> pd.Series:
-    """Correlation distance computed using a pattern decomposition
+    """Compute correlation distance computed using a pattern decomposition.
 
     Parameters
     ----------
     df1 : pd.DataFrame
-        First empirical ditribution
+        First empirical distribution
     df2 : pd.DataFrame
-        Second empirical ditribution
+        Second empirical distribution
     df_mask : pd.DataFrame
         Mask indicating on which values the distance has to computed on
     min_n_rows: int
@@ -950,8 +1055,8 @@ def distance_anticorr_pattern(
     -------
     pd.Series
         Series of computed metrics
-    """
 
+    """
     return pattern_based_weighted_mean_metric(
         df1,
         df2,
@@ -972,6 +1077,7 @@ def pattern_based_weighted_mean_metric(
     **kwargs,
 ) -> pd.Series:
     """Compute a mean score based on missing patterns.
+
     Note that for each pattern, a score is returned by the function metric.
     This code is based on https://www.statsmodels.org/
 
@@ -987,11 +1093,16 @@ def pattern_based_weighted_mean_metric(
         metric function
     min_n_rows : int, optional
         minimum number of row allowed for a pattern without nan, by default 10
+    type_cols : str, optional
+        type of the columns ("all", "numerical", "categorical")
+    **kwargs : dict
+        additional arguments
 
     Returns
     -------
     pd.Series
         _description_
+
     """
     if type_cols == "all":
         cols = df1.columns
@@ -1031,6 +1142,19 @@ def pattern_based_weighted_mean_metric(
 def get_metric(
     name: str,
 ) -> Callable[[pd.DataFrame, pd.DataFrame, pd.DataFrame], pd.Series]:
+    """Get metric.
+
+    Parameters
+    ----------
+    name : str
+        name of the metic to compute
+
+    Returns
+    -------
+    Callable[[pd.DataFrame, pd.DataFrame, pd.DataFrame], pd.Series]
+        metric
+
+    """
     dict_metrics: Dict[str, Callable] = {
         "mse": mean_squared_error,
         "rmse": root_mean_squared_error,
@@ -1038,10 +1162,10 @@ def get_metric(
         "wmape": weighted_mean_absolute_percentage_error,
         "accuracy": accuracy,
         "wasserstein_columnwise": dist_wasserstein,
-        "KL_columnwise": partial(kl_divergence, method="columnwise"),
-        "KL_gaussian": partial(kl_divergence, method="gaussian"),
-        "KS_test": kolmogorov_smirnov_test,
-        "correlation_diff": mean_difference_correlation_matrix_numerical_features,
+        "kl_columnwise": partial(kl_divergence, method="columnwise"),
+        "kl_gaussian": partial(kl_divergence, method="gaussian"),
+        "ks_test": kolmogorov_smirnov_test,
+        "correlation_diff": (mean_difference_correlation_matrix_numerical_features),
         "energy": sum_energy_distances,
         "frechet": partial(frechet_distance, method="single"),
         "frechet_pattern": partial(frechet_distance, method="pattern"),

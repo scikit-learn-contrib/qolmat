@@ -1,19 +1,40 @@
 import datetime
 import os
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
 import pytest
 from pytest_mock.plugin import MockerFixture
-from unittest.mock import MagicMock, patch
+
 from qolmat.utils import data
 
 columns = ["station", "date", "year", "month", "day", "hour", "a", "b", "wd"]
 df_beijing_raw = pd.DataFrame(
     [
         ["Beijing", datetime.datetime(2013, 3, 1), 2013, 3, 1, 0, 1, 2, "NW"],
-        ["Beijing", datetime.datetime(2013, 3, 1), 2014, 3, 1, 0, 3, np.nan, "NW"],
-        ["Beijing", datetime.datetime(2013, 3, 1), 2015, 3, 1, 0, np.nan, 6, "NW"],
+        [
+            "Beijing",
+            datetime.datetime(2013, 3, 1),
+            2014,
+            3,
+            1,
+            0,
+            3,
+            np.nan,
+            "NW",
+        ],
+        [
+            "Beijing",
+            datetime.datetime(2013, 3, 1),
+            2015,
+            3,
+            1,
+            0,
+            np.nan,
+            6,
+            "NW",
+        ],
     ],
     columns=columns,
 )
@@ -54,7 +75,7 @@ df_conductor = pd.DataFrame(
 df_monach_weather = pd.DataFrame(
     {
         "series_name": ["T1", "T2", "T3", "T4", "T5"],
-        "series_type": ["rain", "preasure", "temperature", "humidity", "sun"],
+        "series_type": ["rain", "pressure", "temperature", "humidity", "sun"],
         "series_value": [
             [1.0, 2.0, 3.0],
             [4.0, 5.0, 6.0],
@@ -71,7 +92,13 @@ df_monach_weather_preprocess = pd.DataFrame(
         [2.0, 5.0, 4.0, 1.0, 4.0],
         [3.0, 6.0, 3.0, 4.0, 6.0],
     ],
-    columns=["T1 rain", "T2 preasure", "T3 temperature", "T4 humidity", "T5 sun"],
+    columns=[
+        "T1 rain",
+        "T2 pressure",
+        "T3 temperature",
+        "T4 humidity",
+        "T5 sun",
+    ],
     index=pd.date_range(start="2010-01-01", periods=3, freq="1D"),
 )
 
@@ -104,7 +131,7 @@ df_monach_elec_preprocess = pd.DataFrame(
         [5014.0, 3655.0, 3172.0, 1119.0, 305.0],
     ],
     columns=["T1 NSW", "T2 VIC", "T3 QUN", "T4 SA", "T5 TAS"],
-    index=pd.date_range(start="2002-01-01", periods=3, freq="30T"),
+    index=pd.date_range(start="2002-01-01", periods=3, freq="30min"),
 )
 
 index_preprocess_offline = pd.MultiIndex.from_tuples(
@@ -278,7 +305,10 @@ def test_data_get_data(name_data: str, df: pd.DataFrame, mocker: MockerFixture) 
     mock_download = mocker.patch("qolmat.utils.data.download_data_from_zip", return_value=[df])
     mock_read = mocker.patch("qolmat.utils.data.read_csv_local", return_value=df)
     mock_read_dl = mocker.patch("pandas.read_csv", return_value=df)
-    mocker.patch("qolmat.utils.data.preprocess_data_beijing", return_value=df_preprocess_beijing)
+    mocker.patch(
+        "qolmat.utils.data.preprocess_data_beijing",
+        return_value=df_preprocess_beijing,
+    )
     mocker.patch("pandas.read_parquet", return_value=df_sncf)
 
     try:
@@ -291,7 +321,6 @@ def test_data_get_data(name_data: str, df: pd.DataFrame, mocker: MockerFixture) 
             "SNCF",
             "Beijing_online",
             "Superconductor_online",
-            "Monach_weather",
             "Monach_weather",
             "Monach_electricity_australia",
             "Titanic",
@@ -328,7 +357,7 @@ def test_data_get_data(name_data: str, df: pd.DataFrame, mocker: MockerFixture) 
         pd.testing.assert_frame_equal(df_result, df_monach_elec_preprocess)
     elif name_data == "Titanic":
         assert mock_read_dl.call_count == 1
-        assert np.shape(df_result) == (3, 7)
+        assert np.shape(df_result) == (4, 7)
     elif name_data == "SNCF":
         assert not df_result.empty
         assert df_result.index.name == "station"

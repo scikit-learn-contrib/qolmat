@@ -4,7 +4,6 @@ import numpy as np
 import pytest
 from numpy.typing import NDArray
 
-from qolmat.imputations.rpca import rpca_utils
 from qolmat.imputations.rpca.rpca_noisy import RpcaNoisy
 from qolmat.utils import utils
 from qolmat.utils.data import generate_artificial_ts
@@ -154,7 +153,9 @@ def test_rpca_noisy_zero_lambda(X: NDArray, tau: float, X_interpolated: NDArray)
 
 def test_rpca_noisy_decompose_rpca(synthetic_temporal_data):
     """Test RPCA noisy results for time series data.
-    Check if the cost function is smaller at the end than at the start."""
+
+    Check if the cost function is smaller at the end than at the start.
+    """
     signal = synthetic_temporal_data
     period = 100
     tau = 1
@@ -173,17 +174,14 @@ def test_rpca_noisy_decompose_rpca(synthetic_temporal_data):
 
     assert cost_result <= cost_init
 
-    # assert np.linalg.norm(X_input_rpca, "nuc") >= 1 / 2 * np.linalg.norm(
-    #     X_input_rpca - X_result.reshape(period, -1) - A_result.reshape(period, -1),
-    #     "fro",
-    # ) ** 2 + tau * np.linalg.norm(X_result.reshape(period, -1), "nuc") + lam * np.sum(
-    #     np.abs(A_result.reshape(period, -1))
-    # )
 
+def test_rpca_noisy_temporal_signal_temporal_regularisations(
+    synthetic_temporal_data,
+):
+    """Test RPCA noisy results for TS data with temporal regularisations.
 
-def test_rpca_noisy_temporal_signal_temporal_regularisations(synthetic_temporal_data):
-    """Test RPCA noisy results for time series data with temporal regularisations.
-    Check if the cost function is smaller at the end than at the start."""
+    Check if the cost function is smaller at the end than at the start.
+    """
     signal = synthetic_temporal_data
     period = 10
     tau = 1

@@ -4,7 +4,7 @@ import pytest
 
 from qolmat.benchmark import missing_patterns as mp
 
-df_complet = pd.DataFrame({"col1": [i for i in range(100)], "col2": [2 * i for i in range(100)]})
+df_complet = pd.DataFrame({"col1": list(range(100)), "col2": [2 * i for i in range(100)]})
 
 df_incomplet = df_complet.copy()
 df_incomplet.iloc[99, :] = np.nan

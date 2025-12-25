@@ -5,9 +5,11 @@ import pandas as pd
 import pytest
 from sklearn.ensemble import ExtraTreesRegressor
 from sklearn.linear_model import LinearRegression
-from sklearn.utils.estimator_checks import check_estimator, parametrize_with_checks
-from qolmat.benchmark.hyperparameters import HyperValue
+from sklearn.utils.estimator_checks import (
+    parametrize_with_checks,
+)
 
+from qolmat.benchmark.hyperparameters import HyperValue
 from qolmat.imputations import imputers
 
 df_complete = pd.DataFrame({"col1": [0, 1, 2, 3, 4], "col2": [-1, 0, 0.5, 1, 1.5]})
@@ -17,14 +19,17 @@ df_incomplete = pd.DataFrame(
 )
 
 df_mixed = pd.DataFrame(
-    {"col1": [0, np.nan, 2, 3, np.nan], "col2": ["a", np.nan, "b", np.nan, "b"]}
+    {
+        "col1": [0, np.nan, 2, 3, np.nan],
+        "col2": ["a", np.nan, "b", np.nan, "b"],
+    }
 )
 
 df_timeseries = pd.DataFrame(
     pd.DataFrame(
         {
-            "col1": [i for i in range(20)],
-            "col2": [0, np.nan, 2, np.nan, 2] + [i for i in range(5, 20)],
+            "col1": list(range(20)),
+            "col2": [0, np.nan, 2, np.nan, 2] + list(range(5, 20)),
         },
         index=pd.date_range("2023-04-17", periods=20, freq="D"),
     )
@@ -208,8 +213,8 @@ def test_ImputerResiduals_fit_transform(df: pd.DataFrame) -> None:
     result = imputer.fit_transform(df)
     expected = pd.DataFrame(
         {
-            "col1": [i for i in range(20)],
-            "col2": [0, 0.953, 2, 2.061, 2] + [i for i in range(5, 20)],
+            "col1": list(range(20)),
+            "col2": [0, 0.953, 2, 2.061, 2] + list(range(5, 20)),
         },
         index=pd.date_range("2023-04-17", periods=20, freq="D"),
     )

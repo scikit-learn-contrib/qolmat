@@ -1,25 +1,38 @@
-from typing import Dict, List, Callable, Tuple, Union
-from typing_extensions import Self
-import sys
-import numpy as np
-import pandas as pd
+"""Script for DDPM classes."""
+
+import logging
 import time
 from datetime import timedelta
-from tqdm import tqdm
+from typing import Any, Callable, Dict, List, Tuple
 
+import numpy as np
+import pandas as pd
 import torch
-from torch.utils.data import DataLoader, TensorDataset
 from sklearn import preprocessing
 from sklearn import utils as sku
+from torch.utils.data import DataLoader, TensorDataset
+from tqdm import tqdm
 
+# from typing_extensions import Self
+from qolmat.benchmark import metrics, missing_patterns
+from qolmat.imputations.diffusions.base import (
+    AutoEncoder,
+    ResidualBlock,
+    ResidualBlockTS,
+)
+from qolmat.utils.utils import RandomSetting
 
-from qolmat.imputations.diffusions.base import AutoEncoder, ResidualBlock, ResidualBlockTS
-from qolmat.imputations.diffusions.utils import get_num_params
-from qolmat.benchmark import missing_patterns, metrics
+logging.basicConfig(
+    format="%(asctime)s %(levelname)-8s %(message)s",
+    level=logging.INFO,
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 
 class TabDDPM:
-    """Diffusion model for tabular data based on
+    """Tab DDPM.
+
+    Diffusion model for tabular data based on
     Denoising Diffusion Probabilistic Models (DDPM) of
     Ho et al., 2020 (https://arxiv.org/abs/2006.11239),
     Tashiro et al., 2021 (https://arxiv.org/abs/2107.03502).
@@ -34,21 +47,15 @@ class TabDDPM:
         beta_start: float = 1e-4,
         beta_end: float = 0.02,
         lr: float = 0.001,
-        ratio_nan: float = 0.1,
+        ratio_masked: float = 0.1,
         dim_embedding: int = 128,
         num_blocks: int = 1,
         p_dropout: float = 0.0,
         num_sampling: int = 1,
         is_clip: bool = True,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
     ):
-        """Diffusion model for tabular data based on
-        Denoising Diffusion Probabilistic Models (DDPM) of
-        Ho et al., 2020 (https://arxiv.org/abs/2006.11239),
-        Tashiro et al., 2021 (https://arxiv.org/abs/2107.03502).
-        This implementation follows the implementations found in
-        https://github.com/quickgrid/pytorch-diffusion/tree/main,
-        https://github.com/ermongroup/CSDI/tree/main
+        """Init function.
 
         Parameters
         ----------
@@ -60,7 +67,7 @@ class TabDDPM:
             Range of beta (noise scale value), by default 0.02
         lr : float, optional
             Learning rate, by default 0.001
-        ratio_nan : float, optional
+        ratio_masked : float, optional
             Ratio of artificial nan for training and validation, by default 0.1
         dim_embedding : int, optional
             Embedding dimension, by default 128
@@ -70,9 +77,12 @@ class TabDDPM:
             Dropout probability, by default 0.0
         num_sampling : int, optional
             Number of samples generated for each cell, by default 1
+        is_clip : bool, optional
+            if values have to be clipped, by default True
         random_state : int, RandomState instance or None, default=None
             Controls the randomness.
             Pass an int for reproducible output across multiple function calls.
+
         """
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
@@ -80,7 +90,7 @@ class TabDDPM:
         # Section 2, equation 1, num_noise_steps is T.
         self.num_noise_steps = num_noise_steps
 
-        # Section 2, equation 4 and near explation for alpha, alpha hat, beta.
+        # Section 2, equation 4 and near explanation for alpha, alpha hat, beta.
         self.beta_start = beta_start
         self.beta_end = beta_end
         self.beta = torch.linspace(
@@ -92,7 +102,8 @@ class TabDDPM:
         self.alpha = 1 - self.beta
         self.alpha_hat = torch.cumprod(self.alpha, dim=0)
 
-        # Section 3.2, algorithm 1 formula implementation. Generate values early reuse later.
+        # Section 3.2, algorithm 1 formula implementation.
+        # Generate values early reuse later.
         self.sqrt_alpha_hat = torch.sqrt(self.alpha_hat)
         self.sqrt_one_minus_alpha_hat = torch.sqrt(1 - self.alpha_hat)
 
@@ -100,11 +111,11 @@ class TabDDPM:
         self.sqrt_alpha = torch.sqrt(self.alpha)
         self.std_beta = torch.sqrt(self.beta)
 
-        # Hyper-parameters for bulding and training the model
+        # Hyper-parameters for building and training the model
         self.loss_func = torch.nn.MSELoss(reduction="none")
 
         self.lr = lr
-        self.ratio_nan = ratio_nan
+        self.ratio_masked = ratio_masked
         self.num_noise_steps = num_noise_steps
         self.dim_embedding = dim_embedding
         self.num_blocks = num_blocks
@@ -117,10 +128,27 @@ class TabDDPM:
         seed_torch = self.random_state.randint(2**31 - 1)
         torch.manual_seed(seed_torch)
 
+    def __getstate__(self) -> dict[str, Any]:
+        """Hashing method used in sklearn check tests.
+
+        Returns
+        -------
+        ________
+        str
+            Hashed object containing the underlying model weights
+
+        """
+        state = self.__dict__.copy()
+        if "optimiser" in state:
+            state.pop("optimiser")
+        return state
+
     def _q_sample(self, x: torch.Tensor, t: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Section 3.2, algorithm 1 formula implementation. Forward process, defined by `q`.
-        Found in section 2. `q` gradually adds gaussian noise according to variance schedule. Also,
-        can be seen on figure 2.
+        """Sample q.
+
+        Section 3.2, algorithm 1 formula implementation. Forward process,
+        defined by `q`. Found in section 2. `q` gradually adds gaussian noise
+        according to variance schedule. Also, can be seen on figure 2.
         Ho et al., 2020 (https://arxiv.org/abs/2006.11239)
 
         Parameters
@@ -134,28 +162,49 @@ class TabDDPM:
         -------
         Tuple[torch.Tensor, torch.Tensor]
             Noised data at noise step t
-        """
 
+        """
         sqrt_alpha_hat = self.sqrt_alpha_hat[t].view(-1, 1)
         sqrt_one_minus_alpha_hat = self.sqrt_one_minus_alpha_hat[t].view(-1, 1)
 
         epsilon = torch.randn_like(x, device=self.device)
         return sqrt_alpha_hat * x + sqrt_one_minus_alpha_hat * epsilon, epsilon
 
-    def _set_eps_model(self) -> None:
-        self._eps_model = AutoEncoder(
+    def _get_eps_model(self) -> AutoEncoder:
+        model = AutoEncoder(
             num_noise_steps=self.num_noise_steps,
             dim_input=self.dim_input,
             residual_block=ResidualBlock(self.dim_embedding, self.dim_embedding, self.p_dropout),
             dim_embedding=self.dim_embedding,
             num_blocks=self.num_blocks,
             p_dropout=self.p_dropout,
-        ).to(self.device)
+        )
+        return model
+
+    def _set_eps_model(self) -> None:
+        model = self._get_eps_model()
+        self._eps_model = model.to(self.device)
 
         self.optimiser = torch.optim.Adam(self._eps_model.parameters(), lr=self.lr)
 
+    def get_num_params(self) -> int:
+        """Compute the number of parameters of the underlying model.
+
+        Returns
+        -------
+            int: Number of parameters if the model has been fitted,
+            0 otherwise.
+
+        """
+        if hasattr(self, "_eps_model"):
+            model_parameters = filter(lambda p: p.requires_grad, self._eps_model.parameters())
+            params = sum([np.prod(p.size()) for p in model_parameters])
+            return int(params)
+        else:
+            return 0
+
     def _print_valid(self, epoch: int, time_duration: float) -> None:
-        """Print model performance on validation data
+        """Print model performance on validation data.
 
         Parameters
         ----------
@@ -163,11 +212,13 @@ class TabDDPM:
             Epoch of the printed performance
         time_duration : float
             Duration for training step
+
         """
         self.time_durations.append(time_duration)
         print_step = 1 if int(self.epochs / 10) == 0 else int(self.epochs / 10)
         if self.print_valid and epoch == 0:
-            print(f"Num params of {self.__class__.__name__}: {self.num_params}")
+            n_params = self.get_num_params()
+            logging.info(f"Num params of {self.__class__.__name__}: {n_params}")
         if self.print_valid and epoch % print_step == 0:
             string_valid = f"Epoch {epoch}: "
             for s in self.summary:
@@ -175,10 +226,10 @@ class TabDDPM:
             # string_valid += f" | in {round(time_duration, 3)} secs"
             remaining_duration = np.mean(self.time_durations) * (self.epochs - epoch)
             string_valid += f" | remaining {timedelta(seconds=remaining_duration)}"
-            print(string_valid)
+            logging.info(string_valid)
 
     def _impute(self, x: np.ndarray, x_mask_obs: np.ndarray) -> np.ndarray:
-        """Impute data array
+        """Impute data array.
 
         Parameters
         ----------
@@ -191,6 +242,7 @@ class TabDDPM:
         -------
         np.ndarray
             Imputed data
+
         """
         x_tensor = torch.from_numpy(x).float().to(self.device)
         x_mask_tensor = torch.from_numpy(x_mask_obs).float().to(self.device)
@@ -207,11 +259,17 @@ class TabDDPM:
 
                 for i in reversed(range(1, self.num_noise_steps)):
                     t = (
-                        torch.ones((x_batch.size(dim=0), 1), dtype=torch.long, device=self.device)
+                        torch.ones(
+                            (x_batch.size(dim=0), 1),
+                            dtype=torch.long,
+                            device=self.device,
+                        )
                         * i
                     )
                     if len(x_batch.size()) == 3:
-                        # Data are splited into chunks (i.e., Time-series data), a window of rows
+                        # Data are split into chunks
+                        # (i.e., Time-series data),
+                        # a window of rows
                         # is processed.
                         sqrt_alpha_t = self.sqrt_alpha[t].view(-1, 1, 1)
                         beta_t = self.beta[t].view(-1, 1, 1)
@@ -237,7 +295,8 @@ class TabDDPM:
                     ) + (epsilon_t * random_noise)
                     noise = mask_x_batch * x_batch + (1.0 - mask_x_batch) * noise
 
-                # Generate data output, this activation function depends on normalizer_x
+                # Generate data output, this activation function depends on
+                # normalizer_x
                 x_out = noise.detach().cpu().numpy()
                 outputs.append(x_out)
 
@@ -252,7 +311,7 @@ class TabDDPM:
         x_mask_obs_df: pd.DataFrame,
         x_indices: List,
     ) -> Dict:
-        """Evaluate the model
+        """Evaluate the model.
 
         Parameters
         ----------
@@ -271,8 +330,8 @@ class TabDDPM:
         -------
         Dict
             Scores
-        """
 
+        """
         list_x_imputed = []
         for i in tqdm(range(self.num_sampling), disable=True, leave=False):
             x_imputed = self._impute(x, x_mask_obs)
@@ -289,7 +348,7 @@ class TabDDPM:
         x_final.loc[x_out.index] = x_out.loc[x_out.index]
 
         x_mask_imputed_df = ~x_mask_obs_df
-        columns_with_True = x_mask_imputed_df.columns[(x_mask_imputed_df == True).any()]
+        columns_with_True = x_mask_imputed_df.columns[(x_mask_imputed_df).any()]
         scores = {}
         for metric in self.metrics_valid:
             scores[metric.__name__] = metric(
@@ -300,9 +359,12 @@ class TabDDPM:
         return scores
 
     def _process_data(
-        self, x: pd.DataFrame, mask: pd.DataFrame = None, is_training: bool = False
+        self,
+        x: pd.DataFrame,
+        mask: pd.DataFrame = None,
+        is_training: bool = False,
     ) -> Tuple[np.ndarray, np.ndarray, List]:
-        """Pre-process data
+        """Pre-process data.
 
         Parameters
         ----------
@@ -317,6 +379,7 @@ class TabDDPM:
         -------
         Tuple[np.ndarray, np.ndarray]
             Data and mask pre-processed
+
         """
         if is_training:
             self.normalizer_x.fit(x.values)
@@ -352,8 +415,8 @@ class TabDDPM:
         ),
         round: int = 10,
         cols_imputed: Tuple[str, ...] = (),
-    ) -> Self:
-        """Fit data
+    ) -> "TabDDPM":
+        """Fit data.
 
         Parameters
         ----------
@@ -368,8 +431,8 @@ class TabDDPM:
         x_valid : pd.DataFrame, optional
             Dataframe for validation, by default None
         metrics_valid : Tuple[Callable, ...], optional
-            Set of validation metrics, by default ( metrics.mean_absolute_error,
-            metrics.dist_wasserstein )
+            Set of validation metrics, by default (metrics.mean_absolute_error,
+            metrics.dist_wasserstein)
         round : int, optional
             Number of decimal places to round to, for better displaying model
             performance, by default 10
@@ -380,11 +443,16 @@ class TabDDPM:
         ------
         ValueError
             Batch size is larger than data size
+
         Returns
         -------
         Self
             Return Self
+
         """
+        seed_torch = self.random_state.randint(2**31 - 1)
+        torch.manual_seed(seed_torch)
+
         self.dim_input = len(x.columns)
         self.epochs = epochs
         self.batch_size = batch_size
@@ -408,16 +476,18 @@ class TabDDPM:
 
         if self.batch_size > x_processed.shape[0]:
             raise ValueError(
-                f"Batch size {self.batch_size} larger than size of pre-processed x"
-                + f" size={x_processed.shape[0]}. Please reduce batch_size."
-                + " In the case of TabDDPMTS, you can also reduce freq_str."
+                f"Batch size {self.batch_size} larger than size of "
+                "pre-processed x "
+                f"size={x_processed.shape[0]}. Please reduce batch_size. "
+                "In the case of TabDDPMTS, you can also reduce freq_str."
             )
 
         if x_valid is not None:
-            # We reuse the UniformHoleGenerator to generate artificial holes (with one mask)
+            # We reuse the UniformHoleGenerator to generate artificial holes
+            # (with one mask)
             # in validation dataset
             x_valid_mask = missing_patterns.UniformHoleGenerator(
-                n_splits=1, ratio_masked=self.ratio_nan
+                n_splits=1, ratio_masked=self.ratio_masked
             ).split(x_valid)[0]
             # x_valid_obs_mask is the mask for observed values
             x_valid_obs_mask = ~x_valid_mask
@@ -437,7 +507,6 @@ class TabDDPM:
         )
 
         self._set_eps_model()
-        self.num_params: int = get_num_params(self._eps_model)
         self.summary: Dict[str, List] = {
             "epoch_loss": [],
         }
@@ -447,7 +516,9 @@ class TabDDPM:
             time_start = time.time()
             self._eps_model.train()
             for id_batch, (x_batch, mask_x_batch) in enumerate(dataloader):
-                mask_obs_rand = torch.FloatTensor(mask_x_batch.size()).uniform_() > self.ratio_nan
+                mask_obs_rand = (
+                    torch.FloatTensor(mask_x_batch.size()).uniform_() > self.ratio_masked
+                )
                 for col in self.cols_idx_not_imputed:
                     mask_obs_rand[:, col] = 0.0
                 mask_x_batch = mask_x_batch * mask_obs_rand.to(self.device)
@@ -487,7 +558,7 @@ class TabDDPM:
         return self
 
     def predict(self, x: pd.DataFrame) -> pd.DataFrame:
-        """Predict/impute data
+        """Predict/impute data.
 
         Parameters
         ----------
@@ -498,7 +569,10 @@ class TabDDPM:
         -------
         pd.DataFrame
             Imputed data
+
         """
+        seed_torch = self.random_state.randint(2**31 - 1)
+        torch.manual_seed(seed_torch)
         self._eps_model.eval()
 
         x_processed, x_mask, x_indices = self._process_data(x, is_training=False)
@@ -519,7 +593,9 @@ class TabDDPM:
 
 
 class TsDDPM(TabDDPM):
-    """Diffusion model for time-series data based on
+    """Time series DDPM.
+
+    Diffusion model for time-series data based on
     Denoising Diffusion Probabilistic Models (DDPMs) of
     Ho et al., 2020 (https://arxiv.org/abs/2006.11239),
     Tashiro et al., 2021 (https://arxiv.org/abs/2107.03502).
@@ -544,14 +620,9 @@ class TsDDPM(TabDDPM):
         p_dropout: float = 0.0,
         num_sampling: int = 1,
         is_rolling: bool = False,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
     ):
-        """Diffusion model for time-series data based on the works of
-        Ho et al., 2020 (https://arxiv.org/abs/2006.11239),
-        Tashiro et al., 2021 (https://arxiv.org/abs/2107.03502).
-        This implementation follows the implementations found in
-        https://github.com/quickgrid/pytorch-diffusion/tree/main,
-        https://github.com/ermongroup/CSDI/tree/main
+        """Init function.
 
         Parameters
         ----------
@@ -582,10 +653,12 @@ class TsDDPM(TabDDPM):
         num_sampling : int, optional
             Number of samples generated for each cell, by default 1
         is_rolling : bool, optional
-            Use pandas.DataFrame.rolling for preprocessing data, by default False
+            Use pandas.DataFrame.rolling for preprocessing data,
+            by default False
         random_state : int, RandomState instance or None, default=None
             Controls the randomness.
             Pass an int for reproducible output across multiple function calls.
+
         """
         super().__init__(
             num_noise_steps,
@@ -607,9 +680,11 @@ class TsDDPM(TabDDPM):
         self.is_rolling = is_rolling
 
     def _q_sample(self, x: torch.Tensor, t: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Section 3.2, algorithm 1 formula implementation. Forward process, defined by `q`.
-        Found in section 2. `q` gradually adds gaussian noise according to variance schedule. Also,
-        can be seen on figure 2.
+        """Sample q.
+
+        Section 3.2, algorithm 1 formula implementation. Forward process,
+        defined by `q`. Found in section 2. `q` gradually adds gaussian noise
+        according to variance schedule. Also, can be seen on figure 2.
 
         Parameters
         ----------
@@ -622,8 +697,8 @@ class TsDDPM(TabDDPM):
         -------
         Tuple[torch.Tensor, torch.Tensor]
             Noised data at noise step t
-        """
 
+        """
         sqrt_alpha_hat = self.sqrt_alpha_hat[t].view(-1, 1, 1)
         sqrt_one_minus_alpha_hat = self.sqrt_one_minus_alpha_hat[t].view(-1, 1, 1)
 
@@ -651,9 +726,12 @@ class TsDDPM(TabDDPM):
         self.optimiser = torch.optim.Adam(self._eps_model.parameters(), lr=self.lr)
 
     def _process_data(
-        self, x: pd.DataFrame, mask: pd.DataFrame = None, is_training: bool = False
+        self,
+        x: pd.DataFrame,
+        mask: pd.DataFrame = None,
+        is_training: bool = False,
     ) -> Tuple[np.ndarray, np.ndarray, List]:
-        """Pre-process data
+        """Pre-process data.
 
         Parameters
         ----------
@@ -668,6 +746,7 @@ class TsDDPM(TabDDPM):
         -------
         Tuple[np.ndarray, np.ndarray]
             Data and mask pre-processed
+
         """
         if is_training:
             self.normalizer_x.fit(x.values)
@@ -678,9 +757,11 @@ class TsDDPM(TabDDPM):
         if is_training:
             if self.is_rolling:
                 if self.print_valid:
-                    print(
-                        "Preprocessing data with sliding window (pandas.DataFrame.rolling)"
-                        + " can require more times than usual. Please be patient!"
+                    logging.info(
+                        "Preprocessing data with sliding window "
+                        "(pandas.DataFrame.rolling) "
+                        "can require more times than usual. "
+                        "Please be patient!"
                     )
                 if len(columns_index) == 0:
                     x_windows = x.rolling(window=self.freq_str)
@@ -727,7 +808,7 @@ class TsDDPM(TabDDPM):
         x_windows_mask_processed = []
         self.size_window = np.max([w.shape[0] for w in x_windows])
         for x_w in x_windows:
-            x_w_fillna = x_w.fillna(method="bfill")
+            x_w_fillna = x_w.bfill()
             x_w_fillna = x_w_fillna.fillna(x.mean())
             x_w_norm = self.normalizer_x.transform(x_w_fillna.values)
             x_w_mask = ~x_w.isna().to_numpy()
@@ -736,7 +817,12 @@ class TsDDPM(TabDDPM):
             if x_w_shape[0] < self.size_window:
                 npad = [(0, self.size_window - x_w_shape[0]), (0, 0)]
                 x_w_norm = np.pad(x_w_norm, pad_width=npad, mode="wrap")
-                x_w_mask = np.pad(x_w_mask, pad_width=npad, mode="constant", constant_values=1)
+                x_w_mask = np.pad(
+                    x_w_mask,
+                    pad_width=npad,
+                    mode="constant",
+                    constant_values=1,
+                )
 
             x_windows_processed.append(x_w_norm)
             x_windows_mask_processed.append(x_w_mask)
@@ -750,10 +836,19 @@ class TsDDPM(TabDDPM):
                 x_m_shape = x_m.shape
                 if x_m_shape[0] < self.size_window:
                     npad = [(0, self.size_window - x_m_shape[0]), (0, 0)]
-                    x_m_mask = np.pad(x_m_mask, pad_width=npad, mode="constant", constant_values=1)
+                    x_m_mask = np.pad(
+                        x_m_mask,
+                        pad_width=npad,
+                        mode="constant",
+                        constant_values=1,
+                    )
                 x_windows_mask_processed.append(x_m_mask)
 
-        return np.array(x_windows_processed), np.array(x_windows_mask_processed), x_windows_indices
+        return (
+            np.array(x_windows_processed),
+            np.array(x_windows_mask_processed),
+            x_windows_indices,
+        )
 
     def _process_reversely_data(
         self, x_imputed: np.ndarray, x_input: pd.DataFrame, x_indices: List
@@ -796,8 +891,8 @@ class TsDDPM(TabDDPM):
         cols_imputed: Tuple[str, ...] = (),
         index_datetime: str = "",
         freq_str: str = "1D",
-    ) -> Self:
-        """Fit data
+    ) -> "TsDDPM":
+        """Fit data.
 
         Parameters
         ----------
@@ -812,8 +907,8 @@ class TsDDPM(TabDDPM):
         x_valid : pd.DataFrame, optional
             Dataframe for validation, by default None
         metrics_valid : Tuple[Callable, ...], optional
-            Set of validation metrics, by default ( metrics.mean_absolute_error,
-            metrics.dist_wasserstein )
+            Set of validation metrics, by default (metrics.mean_absolute_error,
+            metrics.dist_wasserstein)
         round : int, optional
             Number of decimal places to round to, by default 10
         cols_imputed : Tuple[str, ...], optional
@@ -822,19 +917,23 @@ class TsDDPM(TabDDPM):
             Name of datetime-like index
         freq_str : str
             Frequency string of DateOffset of Pandas
+
         Raises
         ------
         ValueError
             Batch size is larger than data size
+
         Returns
         -------
         Self
             Return Self
+
         """
         if index_datetime == "":
             raise ValueError(
-                "Please set the params index_datetime (the name of datatime-like index column)."
-                + f" Suggestions: {x.index.names}"
+                "Please set the params index_datetime "
+                "(the name of datetime-like index column). "
+                f" Suggestions: {x.index.names}"
             )
         self.index_datetime = index_datetime
         self.freq_str = freq_str

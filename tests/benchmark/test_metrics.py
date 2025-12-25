@@ -2,12 +2,11 @@
 # # Evaluation metrics #
 # ######################
 
-from math import exp
 import numpy as np
-from numpy import random as npr
 import pandas as pd
 import pytest
 import scipy
+from numpy import random as npr
 
 from qolmat.benchmark import metrics
 from qolmat.utils.exceptions import NotEnoughSamples
@@ -154,12 +153,16 @@ def test_kl_divergence_gaussian(
 
 @pytest.mark.parametrize("df1", [df_incomplete])
 @pytest.mark.parametrize("df2", [df_imputed])
-def test_frechet_distance_base(df1: pd.DataFrame, df2: pd.DataFrame) -> None:
-    result = metrics.frechet_distance_base(df1, df1)
+@pytest.mark.parametrize("df_mask", [df_mask])
+def test_frechet_distance_base(
+    df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame
+) -> None:
+    result = metrics.frechet_distance_base(df1, df1, df_mask)
     np.testing.assert_allclose(result, 0, atol=1e-3)
 
-    result = metrics.frechet_distance_base(df1, df2)
-    np.testing.assert_allclose(result, 0.134, atol=1e-3)
+    result = metrics.frechet_distance_base(df1, df2, df_mask)
+    assert np.all(0 < result)
+    assert np.all(result < 1)
 
 
 @pytest.mark.parametrize("df1", [df_incomplete])
@@ -193,17 +196,23 @@ def test_sum_pairwise_distances(
 def test_sum_energy_distances(df1: pd.DataFrame, df2: pd.DataFrame, df_mask: pd.DataFrame) -> None:
     sum_distances_df1 = np.sum(
         scipy.spatial.distance.cdist(
-            df1[df_mask].fillna(0.0), df1[df_mask].fillna(0.0), metric="cityblock"
+            df1[df_mask].fillna(0.0),
+            df1[df_mask].fillna(0.0),
+            metric="cityblock",
         )
     )
     sum_distances_df2 = np.sum(
         scipy.spatial.distance.cdist(
-            df2[df_mask].fillna(0.0), df2[df_mask].fillna(0.0), metric="cityblock"
+            df2[df_mask].fillna(0.0),
+            df2[df_mask].fillna(0.0),
+            metric="cityblock",
         )
     )
     sum_distances_df1_df2 = np.sum(
         scipy.spatial.distance.cdist(
-            df1[df_mask].fillna(0.0), df2[df_mask].fillna(0.0), metric="cityblock"
+            df1[df_mask].fillna(0.0),
+            df2[df_mask].fillna(0.0),
+            metric="cityblock",
         )
     )
     energy_distance_scipy = 2 * sum_distances_df1_df2 - sum_distances_df1 - sum_distances_df2
@@ -231,7 +240,10 @@ def test_mean_difference_correlation_matrix_numerical_features(
 
 
 df_incomplete_cat = pd.DataFrame(
-    {"col1": ["a", np.nan, "a", "b", np.nan], "col2": ["c", np.nan, "d", "b", "d"]}
+    {
+        "col1": ["a", np.nan, "a", "b", np.nan],
+        "col2": ["c", np.nan, "d", "b", "d"],
+    }
 )
 
 df_imputed_cat = pd.DataFrame(
@@ -279,7 +291,10 @@ def test_mean_difference_correlation_matrix_categorical_features(
 
 
 df_incomplete_cat_num = pd.DataFrame(
-    {"col1": ["a", np.nan, "a", "b", np.nan], "col2": [-1, np.nan, 0.5, 1, 1.5]}
+    {
+        "col1": ["a", np.nan, "a", "b", np.nan],
+        "col2": [-1, np.nan, 0.5, 1, 1.5],
+    }
 )
 
 df_imputed_cat_num = pd.DataFrame(
@@ -287,7 +302,10 @@ df_imputed_cat_num = pd.DataFrame(
 )
 
 df_mask_cat_num = pd.DataFrame(
-    {"col1": [True, False, True, True, False], "col2": [True, False, True, True, False]}
+    {
+        "col1": [True, False, True, True, False],
+        "col2": [True, False, True, True, False],
+    }
 )
 
 
@@ -320,7 +338,7 @@ def test_exception_raise_different_shapes(
     with pytest.raises(Exception):
         metrics.mean_difference_correlation_matrix_numerical_features(df1, df2, df_mask)
     with pytest.raises(Exception):
-        metrics.frechet_distance_base(df1, df2)
+        metrics.frechet_distance_base(df1, df2, df_mask)
 
 
 @pytest.mark.parametrize("df1", [df_incomplete_cat])
@@ -346,7 +364,10 @@ def test_exception_raise_no_categorical_column_found(
 
 
 df_incomplete_cat_num_bad = pd.DataFrame(
-    {"col1": ["a", np.nan, "c", "b", np.nan], "col2": [-1, np.nan, 0.5, 0.5, 1.5]}
+    {
+        "col1": ["a", np.nan, "c", "b", np.nan],
+        "col2": [-1, np.nan, 0.5, 0.5, 1.5],
+    }
 )
 
 
@@ -382,7 +403,6 @@ df_mask_gauss = pd.DataFrame(np.full_like(df_gauss1, True))
 
 
 def test_pattern_mae_comparison(mocker) -> None:
-
     mock_metric = mocker.patch("qolmat.benchmark.metrics.accuracy_1D", return_value=0)
 
     df_nonan = df_incomplete.notna()

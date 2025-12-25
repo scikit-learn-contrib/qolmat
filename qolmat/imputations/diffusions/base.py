@@ -1,19 +1,22 @@
-from typing import Tuple
-import torch
+"""Script for base classes."""
+
 import math
+from typing import Tuple
+
+import torch
 
 
 class ResidualBlock(torch.nn.Module):
-    """Residual block based on the work of Gorishniy et al., 2023
+    """ResidualBlock.
+
+    Based on the work of Gorishniy et al., 2023
     (https://arxiv.org/abs/2106.11959).
     We follow the implementation found in
-    https://github.com/Yura52/rtdl/blob/main/rtdl/nn/_backbones.py"""
+    https://github.com/Yura52/rtdl/blob/main/rtdl/nn/_backbones.py
+    """
 
     def __init__(self, dim_input: int, dim_embedding: int = 128, p_dropout: float = 0.0):
-        """Residual block based on the work of Gorishniy et al., 2023
-        (https://arxiv.org/abs/2106.11959).
-        We follow the implementation found in
-        https://github.com/Yura52/rtdl/blob/main/rtdl/nn/_backbones.py
+        """Init function.
 
         Parameters
         ----------
@@ -23,8 +26,8 @@ class ResidualBlock(torch.nn.Module):
             Embedding dimension, by default 128
         p_dropout : float, optional
             Dropout probability, by default 0.1
-        """
 
+        """
         super().__init__()
 
         self.layer_norm = torch.nn.LayerNorm(dim_input)
@@ -35,7 +38,7 @@ class ResidualBlock(torch.nn.Module):
         self.linear_out = torch.nn.Linear(dim_embedding, dim_input)
 
     def forward(self, x: torch.Tensor, t: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Return an output of a residual block
+        """Return an output of a residual block.
 
         Parameters
         ----------
@@ -48,8 +51,8 @@ class ResidualBlock(torch.nn.Module):
         -------
         Tuple[torch.Tensor, torch.Tensor]
             Output data at noise step t
-        """
 
+        """
         x_t = self.layer_norm(x + t)
         x_t_emb = torch.nn.functional.relu(self.linear_in(x_t))
         x_t_emb = self.dropout(x_t_emb)
@@ -59,12 +62,15 @@ class ResidualBlock(torch.nn.Module):
 
 
 class ResidualBlockTS(torch.nn.Module):
-    """Residual block based on the work of Gorishniy et al., 2023
+    """Residual block time series.
+
+    Residual block based on the work of Gorishniy et al., 2023
     (https://arxiv.org/abs/2106.11959).
     We follow the implementation found in
     https://github.com/Yura52/rtdl/blob/main/rtdl/nn/_backbones.py
-    This class is for Time-Series data where we add Tranformers to
-    encode time-based/feature-based context."""
+    This class is for Time-Series data where we add Transformers to
+    encode time-based/feature-based context.
+    """
 
     def __init__(
         self,
@@ -76,12 +82,7 @@ class ResidualBlockTS(torch.nn.Module):
         nheads_time: int = 8,
         num_layers_transformer: int = 1,
     ):
-        """Residual block based on the work of Gorishniy et al., 2023
-        (https://arxiv.org/abs/2106.11959).
-        We follow the implementation found in
-        https://github.com/Yura52/rtdl/blob/main/rtdl/nn/_backbones.py
-        This class is for Time-Series data where we add Tranformers to
-        encode time-based/feature-based context.
+        """Init function.
 
         Parameters
         ----------
@@ -99,6 +100,7 @@ class ResidualBlockTS(torch.nn.Module):
             Number of heads to encode time-based context, by default 8
         num_layers_transformer : int, optional
             Number of transformer layer, by default 1
+
         """
         super().__init__()
 
@@ -119,7 +121,7 @@ class ResidualBlockTS(torch.nn.Module):
         self.linear_out = torch.nn.Linear(dim_embedding, dim_input)
 
     def forward(self, x: torch.Tensor, t: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Return an output of a residual block
+        """Return an output of a residual block.
 
         Parameters
         ----------
@@ -132,6 +134,7 @@ class ResidualBlockTS(torch.nn.Module):
         -------
         torch.Tensor
             Data output, noise predicted
+
         """
         batch_size, size_window, dim_emb = x.shape
 
@@ -146,11 +149,14 @@ class ResidualBlockTS(torch.nn.Module):
 
 
 class AutoEncoder(torch.nn.Module):
-    """Epsilon_theta model of the Algorithm 1 in
+    """Auto encoder class.
+
+    Epsilon_theta model of the Algorithm 1 in
     Ho et al., 2020 (https://arxiv.org/abs/2006.11239).
     This implementation is based on the work of
     Tashiro et al., 2021 (https://arxiv.org/abs/2107.03502).
-    Their code: https://github.com/ermongroup/CSDI/blob/main/diff_models.py"""
+    Their code: https://github.com/ermongroup/CSDI/blob/main/diff_models.py
+    """
 
     def __init__(
         self,
@@ -161,8 +167,7 @@ class AutoEncoder(torch.nn.Module):
         num_blocks: int = 1,
         p_dropout: float = 0.0,
     ):
-        """Epsilon_theta model in Algorithm 1 in
-        Ho et al., 2020 (https://arxiv.org/abs/2006.11239)
+        """Init function.
 
         Parameters
         ----------
@@ -170,12 +175,15 @@ class AutoEncoder(torch.nn.Module):
             Number of steps in forward/reverse processes
         dim_input : int
             Input dimension
+        residual_block: torch.nn.Module
+            residual blocks
         dim_embedding : int, optional
             Embedding dimension, by default 128
         num_blocks : int, optional
             Number of residual blocks, by default 1
         p_dropout : float, optional
             Dropout probability, by default 0.0
+
         """
         super().__init__()
 
@@ -196,7 +204,7 @@ class AutoEncoder(torch.nn.Module):
         self.residual_layers = torch.nn.ModuleList([residual_block for _ in range(num_blocks)])
 
     def forward(self, x: torch.Tensor, t: torch.LongTensor) -> torch.Tensor:
-        """Predict a noise
+        """Predict a noise.
 
         Parameters
         ----------
@@ -209,6 +217,7 @@ class AutoEncoder(torch.nn.Module):
         -------
         torch.Tensor
             Data output, noise predicted
+
         """
         # Noise step embedding
         t_emb = torch.as_tensor(self.embedding_noise_step)[t].squeeze()
@@ -233,6 +242,7 @@ class AutoEncoder(torch.nn.Module):
 
     def _build_embedding(self, num_noise_steps: int, dim: int = 64) -> torch.Tensor:
         """Build an embedding for noise step.
+
         More details in section E.1 of Tashiro et al., 2021
         (https://arxiv.org/abs/2107.03502)
 
@@ -247,6 +257,7 @@ class AutoEncoder(torch.nn.Module):
         -------
         torch.Tensor
             List of embeddings for noise steps
+
         """
         steps = torch.arange(num_noise_steps).unsqueeze(1)  # (T,1)
         frequencies = 10.0 ** (torch.arange(dim) / (dim - 1) * 4.0).unsqueeze(0)  # (1,dim)

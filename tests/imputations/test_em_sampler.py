@@ -1,22 +1,28 @@
 from typing import List, Literal
+
 import numpy as np
 import pytest
+import scipy
 from numpy.typing import NDArray
 from scipy import linalg
-import scipy
+from sklearn import utils as sku
 from sklearn.datasets import make_spd_matrix
-from qolmat.utils import utils
-
 
 from qolmat.imputations import em_sampler
-from qolmat.utils.exceptions import IllConditioned
+from qolmat.utils import utils
 
 np.random.seed(42)
 
 A: NDArray = np.array([[3, 1, 0], [1, 1, 0], [0, 0, 1]], dtype=float)
 A_inverse: NDArray = np.array([[0.5, -0.5, 0], [-0.5, 1.5, 0], [0, 0, 1]], dtype=float)
 X_missing = np.array(
-    [[1, np.nan, 1], [2, np.nan, 3], [1, 4, np.nan], [-1, 2, 1], [1, 1, np.nan]],
+    [
+        [1, np.nan, 1],
+        [2, np.nan, 3],
+        [1, 4, np.nan],
+        [-1, 2, 1],
+        [1, 1, np.nan],
+    ],
     dtype=float,
 )
 mask: NDArray = np.isnan(X_missing)
@@ -24,8 +30,8 @@ mask: NDArray = np.isnan(X_missing)
 
 # @pytest.fixture
 def generate_multinormal_predefined_mean_cov(d=3, n=500):
-    rng = np.random.default_rng(42)
-    seed = rng.integers(np.iinfo(np.int32).max)
+    rng = sku.check_random_state(42)
+    seed = rng.randint(np.iinfo(np.int32).max)
     random_state = np.random.RandomState(seed=seed)
     mean = np.array([rng.uniform(low=0, high=d) for _ in range(d)])
     covariance = make_spd_matrix(n_dim=d, random_state=random_state)
@@ -40,12 +46,11 @@ def generate_multinormal_predefined_mean_cov(d=3, n=500):
         mask[ind, j] = True
     X_missing = X.copy()
     X_missing[mask] = np.nan
-    # return {"mean": mean, "covariance": covariance, "X": X, "X_missing": X_missing}
     return X, X_missing, mean, covariance
 
 
 def get_matrix_B(d, p, eigmax=1):
-    rng = np.random.default_rng(42)
+    rng = sku.check_random_state(42)
     B = rng.normal(0, 1, size=(d * p + 1, d))
     U, S, Vt = linalg.svd(B, check_finite=False, full_matrices=False)
     S = rng.uniform(0, eigmax, size=d)
@@ -54,8 +59,8 @@ def get_matrix_B(d, p, eigmax=1):
 
 
 def generate_varp_process(d=3, n=10000, p=1):
-    rng = np.random.default_rng(42)
-    seed = rng.integers(np.iinfo(np.int32).max)
+    rng = sku.check_random_state(42)
+    seed = rng.randint(np.iinfo(np.int32).max)
     random_state = np.random.RandomState(seed=seed)
     B = get_matrix_B(d, p, eigmax=0.9)
     nu = B[0, :]
@@ -86,7 +91,7 @@ def generate_varp_process(d=3, n=10000, p=1):
     "A, mask",
     [(A, mask)],
 )
-def test_gradient_conjugue(
+def test_gradient_conjugate(
     A: NDArray,
     mask: NDArray,
 ) -> None:
@@ -102,7 +107,7 @@ def test_gradient_conjugue(
 
 
 def test_get_lag_p():
-    """Test if it can retrieve the lag p"""
+    """Test if it can retrieve the lag p."""
     X, _, _, _ = generate_varp_process(d=3, n=1000, p=2)
     varpem = em_sampler.VARpEM()
     varpem.fit(X)
@@ -120,7 +125,8 @@ def test_fit_calls(mocker, X_missing: NDArray) -> None:
     """Test number of calls of some methods in MultiNormalEM."""
     max_iter_em = 3
     mock_sample_ou = mocker.patch(
-        "qolmat.imputations.em_sampler.MultiNormalEM._sample_ou", return_value=X_missing
+        "qolmat.imputations.em_sampler.MultiNormalEM._sample_ou",
+        return_value=X_missing,
     )
     mock_maximize_likelihood = mocker.patch(
         "qolmat.imputations.em_sampler.MultiNormalEM._maximize_likelihood",
@@ -152,7 +158,11 @@ def test_fit_calls(mocker, X_missing: NDArray) -> None:
 @pytest.mark.parametrize(
     "means, covs, logliks",
     [
-        ([np.array([1, 2, 3, 3])] * 15, [np.array([1, 2, 3, 3])] * 15, [1] * 15),
+        (
+            [np.array([1, 2, 3, 3])] * 15,
+            [np.array([1, 2, 3, 3])] * 15,
+            [1] * 15,
+        ),
         (
             [np.array([1, 2, 3, 3])] * 15,
             [np.random.uniform(low=0, high=100, size=(1, 4))[0]] * 15,
@@ -180,7 +190,7 @@ def test_em_sampler_check_convergence_true(
     em.dict_criteria_stop["means"] = means
     em.dict_criteria_stop["covs"] = covs
     em.dict_criteria_stop["logliks"] = logliks
-    assert em._check_convergence() == True
+    assert em._check_convergence()
 
 
 @pytest.mark.parametrize(
@@ -197,7 +207,7 @@ def test_em_sampler_check_convergence_false(
     em.dict_criteria_stop["means"] = means
     em.dict_criteria_stop["covs"] = covs
     em.dict_criteria_stop["logliks"] = logliks
-    assert em._check_convergence() == True
+    assert em._check_convergence()
 
 
 @pytest.mark.parametrize(
@@ -227,7 +237,6 @@ def test_sample_ou_2d(model):
     alpha = 0.01
     q_alpha = scipy.stats.norm.ppf(1 - alpha / 2)
 
-    print(mean_est, "vs", mean_theo)
     assert abs(mean_est - mean_theo) < np.sqrt(var_theo / n_samples) * q_alpha
 
     ratio_inf = scipy.stats.chi2.ppf(alpha / 2, n_samples) / (n_samples - 1)
@@ -235,8 +244,6 @@ def test_sample_ou_2d(model):
 
     ratio = var_est / var_theo
 
-    print(var_est, "vs", var_theo)
-    print(ratio_inf, "<", ratio, "<", ratio_sup)
     assert ratio_inf <= ratio
     assert ratio <= ratio_sup
 
@@ -261,7 +268,7 @@ def test_varem_sampler_check_convergence_true(
     em.dict_criteria_stop["B"] = list_B
     em.dict_criteria_stop["S"] = list_S
     em.dict_criteria_stop["logliks"] = logliks
-    assert em._check_convergence() == True
+    assert em._check_convergence()
 
 
 @pytest.mark.parametrize(
@@ -278,7 +285,7 @@ def test_varem_sampler_check_convergence_false(
     em.dict_criteria_stop["B"] = list_B
     em.dict_criteria_stop["S"] = list_S
     em.dict_criteria_stop["logliks"] = logliks
-    assert em._check_convergence() == True
+    assert em._check_convergence()
 
 
 def test_illconditioned_multinormalem() -> None:
@@ -293,7 +300,7 @@ def test_illconditioned_multinormalem() -> None:
 
 
 def test_no_more_nan_multinormalem() -> None:
-    """Test there are no more missing values after the MultiNormalEM algorithm."""
+    """Test there are no more missing values after the MultiNormalEM algo."""
     X = np.array([[1, np.nan], [3, 1], [np.nan, 3]], dtype=float)
     model = em_sampler.MultiNormalEM()
     X_imp = model.fit_transform(X)
@@ -310,8 +317,8 @@ def test_no_more_nan_varpem() -> None:
     assert np.sum(np.isnan(X_imputed)) == 0
 
 
-def test_fit_parameters_multinormalem():
-    """Test the fit MultiNormalEM provides good parameters estimates (no imputation)."""
+def test_fit_parameters_multinormalem_no_imputation():
+    """Test fit MultiNormalEM provides good parameters estimates."""
     X, X_missing, mean, covariance = generate_multinormal_predefined_mean_cov(d=2, n=10000)
     em = em_sampler.MultiNormalEM()
     em.fit_parameters(X)
@@ -320,7 +327,7 @@ def test_fit_parameters_multinormalem():
 
 
 def test_mean_covariance_multinormalem():
-    """Test the MultiNormalEM provides good mean and covariance estimations."""
+    """Test MultiNormalEM provides good mean and covariance estimations."""
     X, X_missing, mean, covariance = generate_multinormal_predefined_mean_cov(d=2, n=1000)
     em = em_sampler.MultiNormalEM()
     X_imputed = em.fit_transform(X_missing)
@@ -337,23 +344,25 @@ def test_mean_covariance_multinormalem():
 
 
 def test_multinormal_em_minimize_llik():
-    X, X_missing, mean, covariance = generate_multinormal_predefined_mean_cov(d=2, n=1000)
+    """Test that the loglikelihood of the imputed data is lower."""
+    X, X_missing, _, _ = generate_multinormal_predefined_mean_cov(d=2, n=1000)
     imputer = em_sampler.MultiNormalEM(method="mle", random_state=11)
     X_imputed = imputer.fit_transform(X_missing)
     llikelihood_imputed = imputer.get_loglikelihood(X_imputed)
     for _ in range(10):
         Delta = imputer.rng.uniform(0, 1, size=X.shape)
-        X_perturbated = X_imputed + Delta
-        llikelihood_perturbated = imputer.get_loglikelihood(X_perturbated)
-        assert llikelihood_perturbated < llikelihood_imputed
-    X_perturbated = X
-    X_perturbated[np.isnan(X)] = 0
-    llikelihood_perturbated = imputer.get_loglikelihood(X_perturbated)
-    assert llikelihood_perturbated < llikelihood_imputed
+        X_perturbed = X_imputed + Delta
+        llikelihood_perturbed = imputer.get_loglikelihood(X_perturbed)
+        assert llikelihood_perturbed < llikelihood_imputed
+    X_perturbed = X
+    X_perturbed[np.isnan(X)] = 0
+    llikelihood_perturbed = imputer.get_loglikelihood(X_perturbed)
+    assert llikelihood_perturbed < llikelihood_imputed
 
 
 @pytest.mark.parametrize("method", ["sample", "mle"])
 def test_multinormal_em_fit_transform(method: Literal["mle", "sample"]):
+    """Test fit_transform method returns the same result as the fit method."""
     imputer = em_sampler.MultiNormalEM(method=method, random_state=11)
     X = X_missing.copy()
     result = imputer.fit_transform(X)
@@ -408,7 +417,7 @@ def test_gradient_X_loglik(em: em_sampler.EM, p: int):
     d = 3
     X, _, _, _ = generate_varp_process(d=d, n=10, p=p)
     em.fit_parameters(X)
-    rng = np.random.default_rng(42)
+    rng = sku.check_random_state(42)
     X0 = rng.uniform(0, 10, size=X.shape)
     # X0 = X
     loglik = em.get_loglikelihood(X0)
@@ -437,12 +446,6 @@ def test_pretreatment_temporal(em):
     mask_expected[0, :] = False
     np.testing.assert_allclose(X_result, X_missing)
     np.testing.assert_allclose(mask_result, mask_expected)
-
-
-# X_missing = np.array(
-#     [[1, np.nan, 1], [2, np.nan, 3], [1, 4, np.nan], [-1, 2, 1], [1, 1, np.nan]],
-#     dtype=float,
-# )
 
 
 @pytest.mark.parametrize(

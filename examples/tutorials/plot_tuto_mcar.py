@@ -7,24 +7,25 @@ In this tutorial, we show how to test the MCAR case using the Little and the PKL
 """
 
 # %%
-# First import some libraries
+# First, import some libraries
 from matplotlib import pyplot as plt
 
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
+from sklearn import utils as sku
 
 from qolmat.analysis.holes_characterization import LittleTest, PKLMTest
 from qolmat.benchmark.missing_patterns import UniformHoleGenerator
 
 plt.rcParams.update({"font.size": 12})
-
+seed = 1234
+rng = sku.check_random_state(seed)
 
 # %%
 # Generating random data
 # ----------------------
 
-rng = np.random.RandomState(42)
 data = rng.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]], size=200)
 df = pd.DataFrame(data=data, columns=["Column 1", "Column 2"])
 
@@ -50,7 +51,7 @@ q975 = norm.ppf(0.975)
 # The test compares distributions of different missing patterns.
 #
 # The null hypothesis, H0, is: "Distributions within each pattern are similar.".
-# We choose to use the classic threshold of 5%. If the test p-value is below this threshold,
+# We choose to use the classical threshold of 5%. If the test p-value is below this threshold,
 # we reject the null hypothesis.
 # This notebook shows how the Little and PKLM tests perform on a simplistic case and their
 # limitations. We instantiate a test object with a random state for reproducibility.
@@ -73,8 +74,16 @@ has_nan = df_mask.any(axis=1)
 df_observed = df.loc[~has_nan]
 df_hidden = df.loc[has_nan]
 
-plt.scatter(df_observed["Column 1"], df_observed[["Column 2"]], label="Fully observed values")
-plt.scatter(df_hidden[["Column 1"]], df_hidden[["Column 2"]], label="Values with missing C2")
+plt.scatter(
+    df_observed["Column 1"],
+    df_observed[["Column 2"]],
+    label="Fully observed values",
+)
+plt.scatter(
+    df_hidden[["Column 1"]],
+    df_hidden[["Column 2"]],
+    label="Values with missing C2",
+)
 
 plt.legend(
     loc="lower left",
@@ -93,13 +102,15 @@ print(f"The p-value of the Little's test is: {little_result:.2%}")
 print(f"The p-value of the PKLM test is: {pklm_result:.2%}")
 # %%
 # The two p-values are larger than 0.05, therefore we don't reject the H0 MCAR assumption.
-# In this case this is a true negative.
+# In this case, this is a true negative.
 
 # %%
 # Case 2: MAR holes with mean bias (True positive)
 # ================================================
 
-df_mask = pd.DataFrame({"Column 1": False, "Column 2": df["Column 1"] > q975}, index=df.index)
+df_mask = pd.DataFrame(
+    {"Column 1": False, "Column 2": df["Column 1"] > q975}, index=df.index
+)
 
 df_nan = df.where(~df_mask, np.nan)
 
@@ -107,8 +118,16 @@ has_nan = df_mask.any(axis=1)
 df_observed = df.loc[~has_nan]
 df_hidden = df.loc[has_nan]
 
-plt.scatter(df_observed["Column 1"], df_observed[["Column 2"]], label="Fully observed values")
-plt.scatter(df_hidden[["Column 1"]], df_hidden[["Column 2"]], label="Values with missing C2")
+plt.scatter(
+    df_observed["Column 1"],
+    df_observed[["Column 2"]],
+    label="Fully observed values",
+)
+plt.scatter(
+    df_hidden[["Column 1"]],
+    df_hidden[["Column 2"]],
+    label="Values with missing C2",
+)
 
 plt.legend(
     loc="lower left",
@@ -128,18 +147,19 @@ print(f"The p-value of the Little's test is: {little_result:.2%}")
 print(f"The p-value of the PKLM test is: {pklm_result:.2%}")
 # %%
 # The two p-values are smaller than 0.05, therefore we reject the H0 MCAR assumption.
-# In this case this is a true positive.
+# In this case, this is a true positive.
 
 # %%
 # Case 3: MAR holes with any mean bias (False negative)
 # =====================================================
 #
-# The specific case is designed to emphasize the Little's test limits. In the case, we generate
+# The specific case is designed to emphasize the Little's test limits. In this case, we generate
 # holes when the absolute value of the first feature is high. This missingness mechanism is clearly
 # MAR but the means between missing patterns is not statistically different.
 
 df_mask = pd.DataFrame(
-    {"Column 1": False, "Column 2": df["Column 1"].abs() > q975}, index=df.index
+    {"Column 1": False, "Column 2": df["Column 1"].abs() > q975},
+    index=df.index,
 )
 
 df_nan = df.where(~df_mask, np.nan)
@@ -148,8 +168,16 @@ has_nan = df_mask.any(axis=1)
 df_observed = df.loc[~has_nan]
 df_hidden = df.loc[has_nan]
 
-plt.scatter(df_observed["Column 1"], df_observed[["Column 2"]], label="Fully observed values")
-plt.scatter(df_hidden[["Column 1"]], df_hidden[["Column 2"]], label="Values with missing C2")
+plt.scatter(
+    df_observed["Column 1"],
+    df_observed[["Column 2"]],
+    label="Fully observed values",
+)
+plt.scatter(
+    df_hidden[["Column 1"]],
+    df_hidden[["Column 2"]],
+    label="Values with missing C2",
+)
 
 plt.legend(
     loc="lower left",
@@ -169,18 +197,18 @@ print(f"The p-value of the Little's test is: {little_result:.2%}")
 print(f"The p-value of the PKLM test is: {pklm_result:.2%}")
 # %%
 # The Little's p-value is larger than 0.05, therefore, using this test we don't reject the H0 MCAR
-# assumption. In this case this is a false negative since the missingness mechanism is MAR.
+# assumption. In this case, this is a false negative since the missingness mechanism is MAR.
 #
-# However the PKLM test p-value is smaller than 0.05 therefore we don't reject the H0 MCAR
-# assumption. In this case this is a true negative.
+# However the PKLM test p-value is smaller than 0.05 therefore we reject the H0 MCAR
+# assumption. In this case, this is a true negative.
 
 # %%
 # Limitations and conclusion
 # ==========================
-# In this tutoriel, we can see that Little's test fails to detect covariance heterogeneity between
+# In this tutorial, we can see that Little's test fails to detect covariance heterogeneity between
 # patterns.
 #
-# We also note that the Little's test does not handle categorical data or temporally
+# We also note that Little's test does not handle categorical data or temporally
 # correlated data.
 #
 # This is why we have implemented the PKLM test, which makes up for the shortcomings of the Little
@@ -232,15 +260,14 @@ Calculation time
 """
 
 # %%
-# 2.1 Parameters and Hyperparmaters
+# 2.1 Parameters and Hyperparameters
 # ================================================
 #
 # To use the PKLM test properly, it may be necessary to understand the use of hyper-parameters.
 #
 # * ``nb_projections``: Number of projections on which the test statistic is calculated. This
-#   parameter has the greatest influence on test calculation time. Its defaut value
+#   parameter has the greatest influence on test calculation time. Its default value
 #   ``nb_projections=100``.
-#   Est-ce qu'on donne des ordres de grandeurs utiles ? J'avais un peu fait ce travail.
 #
 # * ``nb_permutation`` : Number of permutations of the projected targets. The higher is better.
 #   This parameter has little impact on calculation time.
@@ -297,7 +324,7 @@ pklm_result = pklm_test_mcar.test(df_nan)
 print(f"The p-value of the PKLM test is: {pklm_result:.2%}")
 
 # %%
-# To perform the PKLM test over mixed data types, non numerical features need to be encoded. The
+# To perform the PKLM test over mixed data types, non-numerical features need to be encoded. The
 # default encoder in the :class:`~qolmat.analysis.holes_characterization.PKLMTest` class is the
 # default OneHotEncoder from scikit-learn. If you wish to use an encoder adapted to your data, you
 # can perform this encoding step beforehand, and then use the PKLM test.
@@ -313,7 +340,7 @@ print(f"The p-value of the PKLM test is: {pklm_result:.2%}")
 # 2.3 Partial p-values
 # ================================================
 #
-# In addition, the PKLM test can be used to calculate partial p-values. We denote as many partial
+# In addition, the PKLM test can be used to calculate partial p-values. There are as many partial
 # p-values as there are columns in the input dataframe. This “partial” p-value corresponds to the
 # effect of removing the patterns induced by variable k.
 #
@@ -343,7 +370,11 @@ df_nan = df.where(~df_mask, np.nan)
 
 # %%
 pklm_test = PKLMTest(random_state=rng, compute_partial_p_values=True)
-p_value, partial_p_values = pklm_test.test(df_nan)  # type: ignore[misc]
+result = pklm_test.test(df_nan)
+if isinstance(result, tuple):
+    p_value, partial_p_values = result
+else:
+    p_value = result
 print(f"The p-value of the PKLM test is: {p_value:.2%}")
 
 # %%

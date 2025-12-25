@@ -1,15 +1,24 @@
-import pandas as pd
-import numpy as np
+"""Script for pytroch imputers."""
 
-from typing import Any, Callable, List, Optional, Tuple, Union, Dict
-from typing_extensions import Self
+import logging
+from copy import copy
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
+import numpy as np
+import pandas as pd
 from numpy.typing import NDArray
 from sklearn.preprocessing import StandardScaler
-from sklearn.base import BaseEstimator
+from tqdm import tqdm
 
-from qolmat.imputations.imputers import _Imputer, ImputerRegressor
-from qolmat.utils.exceptions import EstimatorNotDefined, PyTorchExtraNotInstalled
+# from typing_extensions import Self
 from qolmat.benchmark import metrics
+from qolmat.imputations.diffusions import ddpms
+from qolmat.imputations.imputers import ImputerRegressor, _Imputer
+from qolmat.utils.exceptions import (
+    EstimatorNotDefined,
+    PyTorchExtraNotInstalled,
+)
+from qolmat.utils.utils import RandomSetting
 
 try:
     import torch
@@ -19,9 +28,18 @@ except ModuleNotFoundError:
     raise PyTorchExtraNotInstalled
 
 
+logging.basicConfig(
+    format="%(asctime)s %(levelname)-8s %(message)s",
+    level=logging.INFO,
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
+
 class ImputerRegressorPyTorch(ImputerRegressor):
-    """
-    This class inherits from the class ImputerRegressor and allows for PyTorch regressors.
+    """Imputer regressor based on PyTorch.
+
+    This class inherits from the class ImputerRegressor
+    and allows for PyTorch regressors.
 
     Parameters
     ----------
@@ -32,8 +50,8 @@ class ImputerRegressorPyTorch(ImputerRegressor):
     handler_nan : str
         Can be `fit, `row` or `column`:
         - if `fit`, the estimator is assumed to be fitted on parcelar data,
-        - if `row` all non complete rows will be removed from the train dataset, and will not be
-        used for the inferance,
+        - if `row` all non complete rows will be removed from the train
+        dataset, and will not be used for the inference,
         - if `column`all non complete columns will be ignored.
         By default, `row`
     epochs: int
@@ -42,6 +60,7 @@ class ImputerRegressorPyTorch(ImputerRegressor):
         Learning rate hen fitting the autoencoder, by default 0.001
     loss_fn: Callable
         Loss used when fitting the autoencoder, by default nn.L1Loss()
+
     """
 
     def __init__(
@@ -64,11 +83,12 @@ class ImputerRegressorPyTorch(ImputerRegressor):
         self.estimator = estimator
 
     def _fit_estimator(self, estimator: nn.Sequential, X: pd.DataFrame, y: pd.DataFrame) -> Any:
-        """
-        Fit the PyTorch estimator using the provided input and target data.
+        """Fit the PyTorch estimator using the provided input and target data.
 
         Parameters
         ----------
+        estimator: torch.nn.Sequential
+            PyTorch estimator for imputing a column based on the others.
         X : pd.DataFrame
             The input data for training.
         y : pd.DataFrame
@@ -78,15 +98,15 @@ class ImputerRegressorPyTorch(ImputerRegressor):
         -------
         Any
             Return fitted PyTorch estimator.
+
         """
         if not estimator:
             raise EstimatorNotDefined()
         optimizer = optim.Adam(estimator.parameters(), lr=self.learning_rate)
         loss_fn = self.loss_fn
-        if estimator is None:
-            assert EstimatorNotDefined()
-        else:
-            for epoch in range(self.epochs):
+
+        with tqdm(total=self.epochs, desc="Training", unit="epoch") as pbar:
+            for _ in range(self.epochs):
                 estimator.train()
                 optimizer.zero_grad()
 
@@ -98,16 +118,17 @@ class ImputerRegressorPyTorch(ImputerRegressor):
 
                 loss.backward()
                 optimizer.step()
-                if (epoch + 1) % 10 == 0:
-                    print(f"Epoch [{epoch + 1}/{self.epochs}], Loss: {loss.item():.4f}")
+                pbar.set_postfix(loss=f"{loss.item():.4f}")
+                pbar.update(1)
         return estimator
 
     def _predict_estimator(self, estimator: nn.Sequential, X: pd.DataFrame) -> pd.Series:
-        """
-        Perform predictions using the trained PyTorch estimator.
+        """Perform predictions using the trained PyTorch estimator.
 
         Parameters
         ----------
+        estimator: torch.nn.Sequential
+            PyTorch estimator for imputing a column based on the others.
         X : pd.DataFrame
             The input data for prediction.
 
@@ -120,6 +141,7 @@ class ImputerRegressorPyTorch(ImputerRegressor):
         ------
         EstimatorNotDefined
             Raises an error if the attribute estimator is not defined.
+
         """
         if not estimator:
             raise EstimatorNotDefined()
@@ -130,8 +152,7 @@ class ImputerRegressorPyTorch(ImputerRegressor):
 
 
 class Autoencoder(nn.Module):
-    """
-    Wrapper of a PyTorch autoencoder allowing to encode
+    """Wrapper of a PyTorch autoencoder allowing to encode.
 
     Parameters
     ----------
@@ -145,6 +166,7 @@ class Autoencoder(nn.Module):
         Learning rate for optimization, by default 0.001.
     loss_fn : Callable, optional
         Loss function for training, by default nn.L1Loss().
+
     """
 
     def __init__(
@@ -166,8 +188,7 @@ class Autoencoder(nn.Module):
         self.scaler = StandardScaler()
 
     def forward(self, x: NDArray) -> nn.Sequential:
-        """
-        Forward pass through the autoencoder.
+        """Forward pass through the autoencoder.
 
         Parameters
         ----------
@@ -178,14 +199,14 @@ class Autoencoder(nn.Module):
         -------
         pd.DataFrame
             Decoded data.
+
         """
         encode = self.encoder(x)
         decode = self.decoder(encode)
         return decode
 
-    def fit(self, X: NDArray, y: NDArray) -> Self:
-        """
-        Fit the autoencoder to the data.
+    def fit(self, X: NDArray, y: NDArray) -> "Autoencoder":
+        """Fit the autoencoder to the data.
 
         Parameters
         ----------
@@ -198,6 +219,7 @@ class Autoencoder(nn.Module):
         -------
         Self
             Return Self
+
         """
         optimizer = optim.Adam(self.parameters(), lr=self.learning_rate)
         loss_fn = self.loss_fn
@@ -214,14 +236,13 @@ class Autoencoder(nn.Module):
             loss.backward()
             optimizer.step()
             if (epoch + 1) % 10 == 0:
-                print(f"Epoch [{epoch + 1}/{self.epochs}], Loss: {loss.item():.4f}")
+                logging.info(f"Epoch [{epoch + 1}/{self.epochs}], " f"Loss: {loss.item():.4f}")
             list_loss.append(loss.item())
         self.loss.extend([list_loss])
         return self
 
     def decode(self, Z: NDArray) -> NDArray:
-        """
-        Decode encoded data.
+        """Decode encoded data.
 
         Parameters
         ----------
@@ -232,6 +253,7 @@ class Autoencoder(nn.Module):
         -------
         ndarray
             Decoded data.
+
         """
         Z_decoded = self.scaler.inverse_transform(Z)
         Z_decoded = self.decoder(torch.Tensor(Z_decoded))
@@ -239,8 +261,7 @@ class Autoencoder(nn.Module):
         return Z_decoded
 
     def encode(self, X: NDArray) -> NDArray:
-        """
-        Encode input data.
+        """Encode input data.
 
         Parameters
         ----------
@@ -251,6 +272,7 @@ class Autoencoder(nn.Module):
         -------
         ndarray
             Encoded data.
+
         """
         X_encoded = self.encoder(torch.Tensor(X))
         X_encoded = X_encoded.detach().numpy()
@@ -275,6 +297,7 @@ class ImputerAutoencoder(_Imputer):
         Learning rate hen fitting the autoencoder, by default 0.001
     loss_fn: Callable
         Loss used when fitting the autoencoder, by default nn.L1Loss()
+
     """
 
     def __init__(
@@ -282,14 +305,19 @@ class ImputerAutoencoder(_Imputer):
         encoder: nn.Sequential,
         decoder: nn.Sequential,
         groups: Tuple[str, ...] = (),
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: RandomSetting = None,
         lamb: float = 1e-2,
         max_iterations: int = 100,
         epochs: int = 100,
         learning_rate: float = 0.001,
         loss_fn: Callable = nn.L1Loss(),
     ) -> None:
-        super().__init__(groups=groups, columnwise=False, shrink=False, random_state=random_state)
+        super().__init__(
+            groups=groups,
+            columnwise=False,
+            shrink=False,
+            random_state=random_state,
+        )
         self.loss_fn = loss_fn
         self.lamb = lamb
         self.max_iterations = max_iterations
@@ -299,9 +327,10 @@ class ImputerAutoencoder(_Imputer):
         self.decoder = decoder
 
     def _fit_element(self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0) -> Autoencoder:
-        """
-        Fits the imputer on `df`, at the group and/or column level depending onself.groups and
-        self.columnwise.
+        """Fit the imputer on `df`.
+
+        It does that at the group and/or column level depending onself.groups
+        and self.columnwise.
 
         Parameters
         ----------
@@ -310,7 +339,7 @@ class ImputerAutoencoder(_Imputer):
         col : str, optional
             Column on which the imputer is fitted, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -321,6 +350,7 @@ class ImputerAutoencoder(_Imputer):
         ------
         NotDataFrame
             Input has to be a pandas.DataFrame.
+
         """
         self._check_dataframe(df)
         autoencoder = Autoencoder(
@@ -336,9 +366,10 @@ class ImputerAutoencoder(_Imputer):
     def _transform_element(
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
     ) -> pd.DataFrame:
-        """
-        Transforms the dataframe `df`, at the group and/or column level depending onself.groups and
-        self.columnwise.
+        """Transform the dataframe `df`.
+
+        It does that at the group and/or column level depending onself.groups
+        and self.columnwise.
 
         Parameters
         ----------
@@ -347,7 +378,7 @@ class ImputerAutoencoder(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -358,6 +389,7 @@ class ImputerAutoencoder(_Imputer):
         ------
         NotDataFrame
             Input has to be a pandas.DataFrame.
+
         """
         autoencoder = self._dict_fitting[col][ngroup]
         df_train = df.copy()
@@ -378,7 +410,9 @@ class ImputerAutoencoder(_Imputer):
             X_next = autoencoder.decode(Z_next)
             X[mask] = X_next[mask]
         df_imputed = pd.DataFrame(
-            scaler.inverse_transform(X), index=df_train.index, columns=df_train.columns
+            scaler.inverse_transform(X),
+            index=df_train.index,
+            columns=df_train.columns,
         )
         return df_imputed
 
@@ -389,8 +423,7 @@ def build_mlp(
     output_dim: int = 1,
     activation: Callable = nn.ReLU,
 ) -> nn.Sequential:
-    """
-    Constructs a multi-layer perceptron (MLP) with a custom architecture.
+    """Construct a multi-layer perceptron (MLP) with a custom architecture.
 
     Parameters
     ----------
@@ -401,7 +434,8 @@ def build_mlp(
     output_dim : int, optional
         Dimension of the output layer, defaults to 1.
     activation : nn.Module, optional
-        Activation function to use between hidden layers, defaults to nn.ReLU().
+        Activation function to use between hidden layers,
+        defaults to nn.ReLU().
 
     Returns
     -------
@@ -426,6 +460,7 @@ def build_mlp(
       (5): ReLU()
       (6): Linear(in_features=128, out_features=1, bias=True)
     )
+
     """
     layers = []
     for num_neurons in list_num_neurons:
@@ -445,8 +480,7 @@ def build_autoencoder(
     output_dim: int = 1,
     activation: Callable = nn.ReLU,
 ) -> Tuple[nn.Sequential, nn.Sequential]:
-    """
-    Constructs an autoencoder with a custom architecture.
+    """Construct an autoencoder with a custom architecture.
 
     Parameters
     ----------
@@ -459,7 +493,8 @@ def build_autoencoder(
     output_dim : int, optional
         Dimension of the output layer, defaults to 1.
     activation : nn.Module, optional
-        Activation function to use between hidden layers, defaults to nn.ReLU().
+        Activation function to use between hidden layers,
+        defaults to nn.ReLU().
 
     Returns
     -------
@@ -473,10 +508,12 @@ def build_autoencoder(
 
     Examples
     --------
-    >>> encoder, decoder = build_autoencoder(input_dim=10,
-    ...                                      latent_dim=4,
-    ...                                      list_num_neurons=[32, 64, 128],
-    ...                                      output_dim=252)
+    >>> encoder, decoder = build_autoencoder(
+    ...     input_dim=10,
+    ...     latent_dim=4,
+    ...     list_num_neurons=[32, 64, 128],
+    ...     output_dim=252,
+    ... )
     >>> print(encoder)
     Sequential(
       (0): Linear(in_features=10, out_features=128, bias=True)
@@ -497,8 +534,8 @@ def build_autoencoder(
       (5): ReLU()
       (6): Linear(in_features=128, out_features=252, bias=True)
     )
-    """
 
+    """
     encoder = build_mlp(
         input_dim=input_dim,
         output_dim=latent_dim,
@@ -515,14 +552,16 @@ def build_autoencoder(
 
 
 class ImputerDiffusion(_Imputer):
-    """This class inherits from the class _Imputer.
+    """Imputer based on diffusion models.
+
+    This class inherits from the class _Imputer.
     It is a wrapper for imputers based on diffusion models.
     """
 
     def __init__(
         self,
+        model: str = "TabDDPM",
         groups: Tuple[str, ...] = (),
-        model: Optional[BaseEstimator] = None,
         epochs: int = 100,
         batch_size: int = 100,
         x_valid: pd.DataFrame = None,
@@ -535,17 +574,32 @@ class ImputerDiffusion(_Imputer):
         cols_imputed: Tuple[str, ...] = (),
         index_datetime: str = "",
         freq_str: str = "1D",
+        random_state: RandomSetting = None,
+        # Model parameters
+        num_noise_steps: int = 50,
+        beta_start: float = 1e-4,
+        beta_end: float = 0.02,
+        lr: float = 0.001,
+        ratio_masked: float = 0.1,
+        dim_embedding: int = 128,
+        dim_feedforward: int = 64,
+        num_blocks: int = 1,
+        nheads_feature: int = 5,
+        nheads_time: int = 8,
+        num_layers_transformer: int = 1,
+        p_dropout: float = 0.0,
+        num_sampling: int = 1,
+        is_rolling: bool = False,
     ):
-        """This class inherits from the class _Imputer.
-        It is a wrapper for imputers based on diffusion models.
+        """Init ImputerDiffusion.
 
         Parameters
         ----------
         groups : Tuple[str, ...], optional
             List of column names to group by, by default ()
-        model : Optional[BaseEstimator], optional
-            Imputer based on diffusion models (e.g., TabDDPM, TsDDPM),
-            by default None
+        model : str
+            Name of the imputer based on diffusion models (e.g., TabDDPM,
+            TsDDPM), by default `TabDDPM`
         epochs : int, optional
             Number of epochs, by default 10
         batch_size : int, optional
@@ -555,8 +609,8 @@ class ImputerDiffusion(_Imputer):
         print_valid : bool, optional
             Print model performance for after several epochs, by default False
         metrics_valid : Tuple[Callable, ...], optional
-            Set of validation metrics, by default ( metrics.mean_absolute_error,
-            metrics.dist_wasserstein )
+            Set of validation metrics, by default (metrics.mean_absolute_error,
+            metrics.dist_wasserstein)
         round : int, optional
             Number of decimal places to round to, for better displaying model
             performance, by default 10
@@ -564,21 +618,61 @@ class ImputerDiffusion(_Imputer):
             Name of columns that need to be imputed, by default ()
         index_datetime : str
             Name of datetime-like index.
-            It is for processing time-series data, used in diffusion models e.g., TsDDPM.
+            It is for processing time-series data, used in diffusion models
+            e.g., TsDDPM.
         freq_str : str
             Frequency string of DateOffset of Pandas.
-            It is for processing time-series data, used in diffusion models e.g., TsDDPM.
+            It is for processing time-series data, used in diffusion models
+            e.g., TsDDPM.
+        random_state : RandomSetting, optional
+            Controls the randomness of the fit_transform, by default None
+        num_noise_steps : int, optional
+            Number of noise steps, by default 50
+        beta_start : float, optional
+            Range of beta (noise scale value), by default 1e-4
+        beta_end : float, optional
+            Range of beta (noise scale value), by default 0.02
+        lr : float, optional
+            Learning rate, by default 0.001
+        ratio_masked : float, optional
+            Ratio of artificial nan for training and validation, by default 0.1
+        dim_embedding : int, optional
+            Embedding dimension, by default 128
+        dim_feedforward : int, optional
+            Feedforward layer dimension in Transformers, by default 64
+        num_blocks : int, optional
+            Number of residual blocks, by default 1
+        nheads_feature : int, optional
+            Number of heads to encode feature-based context, by default 5
+        nheads_time : int, optional
+            Number of heads to encode time-based context, by default 8
+        num_layers_transformer : int, optional
+            Number of transformer layer, by default 1
+        p_dropout : float, optional
+            Dropout probability, by default 0.0
+        num_sampling : int, optional
+            Number of samples generated for each cell, by default 1
+        is_rolling : bool, optional
+            Use pandas.DataFrame.rolling for preprocessing data,
+            by default False
 
         Examples
         --------
         >>> import numpy as np
         >>> from qolmat.imputations.imputers_pytorch import ImputerDiffusion
-        >>> from qolmat.imputations.diffusions.ddpms import TabDDPM
         >>>
-        >>> X = np.array([[1, 1, 1, 1], [np.nan, np.nan, 3, 2], [1, 2, 2, 1], [2, 2, 2, 2]])
-        >>> imputer = ImputerDiffusion(model=TabDDPM(random_state=11), epochs=50, batch_size=1)
+        >>> X = np.array(
+        ...     [
+        ...         [1, 1, 1, 1],
+        ...         [np.nan, np.nan, 3, 2],
+        ...         [1, 2, 2, 1],
+        ...         [2, 2, 2, 2],
+        ...     ]
+        ... )
+        >>> imputer = ImputerDiffusion(epochs=50, batch_size=1, random_state=11)
         >>>
         >>> df_imputed = imputer.fit_transform(X)
+
         """
         super().__init__(groups=groups, columnwise=False)
         self.model = model
@@ -591,22 +685,87 @@ class ImputerDiffusion(_Imputer):
         self.cols_imputed = cols_imputed
         self.index_datetime = index_datetime
         self.freq_str = freq_str
+        self.random_state = random_state
+        self.num_noise_steps = num_noise_steps
+        self.beta_start = beta_start
+        self.beta_end = beta_end
+        self.lr = lr
+        self.ratio_masked = ratio_masked
+        self.dim_embedding = dim_embedding
+        self.dim_feedforward = dim_feedforward
+        self.num_blocks = num_blocks
+        self.nheads_feature = nheads_feature
+        self.nheads_time = nheads_time
+        self.num_layers_transformer = num_layers_transformer
+        self.p_dropout = p_dropout
+        self.num_sampling = num_sampling
+        self.is_rolling = is_rolling
 
-    def _more_tags(self):
-        return {
-            "non_deterministic": True,
-            "_xfail_checks": {
-                "check_estimators_pickle": "Diffusion models can return\
-                                  different outputs",
-                "check_estimators_overwrite_params": "Diffusion models can\
-                                    return different outputs",
-            },
-        }
+    def get_model(self) -> ddpms.TabDDPM:
+        """Get the underlying model of the imputer based on its attributes.
+
+        Returns
+        -------
+        ddpms.TabDDPM
+            TabDDPM model to be used in the fit and transform methods.
+
+        """
+        params_model = self.get_params_model()
+        if self.model == "TabDDPM":
+            return ddpms.TabDDPM(
+                random_state=self.random_state,
+                **params_model,
+            )
+        elif self.model == "TsDDPM":
+            return ddpms.TsDDPM(
+                random_state=self.random_state,
+                **params_model,  # type: ignore #noqa
+            )
+        else:
+            raise ValueError(
+                f"Model argument `{self.model}` is invalid!"
+                " Valid values are `TabDDPM`and `TsDDPM`."
+            )
+
+    def get_params_model(self) -> dict:
+        """Get parameters for creating a DDPM model.
+
+        Returns
+        -------
+        dict
+            A dictionary containing the parameters required to create a model
+            of type TabDDPM or TsDDPM.
+
+        """
+        list_params = [
+            "num_noise_steps",
+            "beta_start",
+            "beta_end",
+            "lr",
+            "ratio_masked",
+            "dim_embedding",
+            "num_blocks",
+            "p_dropout",
+            "num_sampling",
+        ]
+        if self.model == "TabDDPM":
+            list_params += ["is_clip"]
+        elif self.model == "TsDDPM":
+            list_params += [
+                "dim_feedforward",
+                "nheads_feature",
+                "nheads_time",
+                "num_layers_transformer",
+                "is_rolling",
+            ]
+        dict_params = {key: value for key, value in self.__dict__.items() if key in list_params}
+        return dict_params
 
     def _fit_element(self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0):
-        """
-        Fits the imputer on `df`, at the group and/or column level depending onself.groups and
-        self.columnwise.
+        """Fit the imputer on `df`.
+
+        It does it at the group and/or column level depending onself.groups
+        and self.columnwise.
 
         Parameters
         ----------
@@ -615,7 +774,7 @@ class ImputerDiffusion(_Imputer):
         col : str, optional
             Column on which the imputer is fitted, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -626,16 +785,21 @@ class ImputerDiffusion(_Imputer):
         ------
         NotDataFrame
             Input has to be a pandas.DataFrame.
+
         """
         self._check_dataframe(df)
-        hp = self._get_params_fit()
-        return self.model.fit(df, **hp)
+        model = self.get_model()
+        hp_fit = self._get_params_fit()
+        model = model.fit(df, **hp_fit)
+        self._model_fitted = copy(model)
+        return model
 
     def _transform_element(
         self, df: pd.DataFrame, col: str = "__all__", ngroup: int = 0
     ) -> pd.DataFrame:
-        """
-        Transforms the dataframe `df`, at the group and/or column level depending on self.groups
+        """Transform the dataframe `df`.
+
+        It does it at the group and/or column level depending on self.groups
         and self.columnwise.
 
         Parameters
@@ -645,7 +809,7 @@ class ImputerDiffusion(_Imputer):
         col : str, optional
             Column transformed by the imputer, by default "__all__"
         ngroup : int, optional
-            Id of the group on which the method is applied
+            ID of the group on which the method is applied
 
         Returns
         -------
@@ -656,8 +820,13 @@ class ImputerDiffusion(_Imputer):
         ------
         NotDataFrame
             Input has to be a pandas.DataFrame.
+
         """
-        df_imputed = self.model.predict(df)
+        self._check_dataframe(df)
+        if df.notna().all().all():
+            return df
+        model = self._dict_fitting[col][ngroup]
+        df_imputed = model.predict(df)
         return df_imputed
 
     def _get_params_fit(self) -> Dict:
@@ -682,10 +851,29 @@ class ImputerDiffusion(_Imputer):
         return hyperparams
 
     def get_summary_training(self) -> Dict:
-        return self.model.summary
+        """Get the summary of the training.
+
+        Returns
+        -------
+        Dict
+            Summary of the training
+
+        """
+        model = self._model_fitted
+        return model.summary
 
     def get_summary_architecture(self) -> Dict:
+        """Get the summary of the architecture.
+
+        Returns
+        -------
+        Dict
+            Summary of the architecture
+
+        """
+        model = self._model_fitted
+        eps_model = model._get_eps_model()
         return {
-            "number_parameters": self.model.num_params,
-            "epsilon_model": self.model._eps_model,
+            "number_parameters": model.get_num_params(),
+            "epsilon_model": eps_model,
         }

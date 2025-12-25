@@ -1,15 +1,12 @@
 import numpy as np
 import pandas as pd
 import pytest
-from sklearn.compose import make_column_selector as selector
-
-from sklearn.pipeline import Pipeline
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.metrics import mean_squared_error
-from sklearn.utils.estimator_checks import check_estimator
-from sklearn.utils.validation import check_X_y, check_array
 from sklearn.model_selection import train_test_split
-from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.utils.estimator_checks import check_estimator
+
 from qolmat.imputations.preprocessing import (
     BinTransformer,
     MixteHGBM,
@@ -126,8 +123,8 @@ def test_inverse_transform_OneHotEncoderProjector(encoder):
     df_back = encoder.inverse_transform(df_dum)
     pd.testing.assert_frame_equal(df, df_back)
 
-    df_dum_perturbated = df_dum + np.random.uniform(-0.5, 0.5, size=df_dum.shape)
-    df_back = encoder.inverse_transform(df_dum_perturbated)
+    df_dum_perturbed = df_dum + np.random.uniform(-0.5, 0.5, size=df_dum.shape)
+    df_back = encoder.inverse_transform(df_dum_perturbed)
     pd.testing.assert_frame_equal(df, df_back)
 
 
@@ -137,16 +134,22 @@ def test_inverse_transform_OneHotEncoderProjector(encoder):
 
 
 class DummyTransformer(TransformerMixin, BaseEstimator):
+    """Dummy transformer for testing."""
+
     def fit(self, X, y=None):
+        """Fit function."""
         return self
 
     def transform(self, X):
+        """Transform function."""
         return X
 
     def fit_transform(self, X, y=None):
+        """Fit and transform function."""
         return self.fit(X, y).transform(X)
 
     def inverse_transform(self, X, y=None):
+        """Inverse transform function."""
         return X
 
 

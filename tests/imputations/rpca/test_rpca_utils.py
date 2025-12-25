@@ -1,14 +1,14 @@
 import numpy as np
-from numpy.typing import NDArray
 import pytest
+from numpy.typing import NDArray
+
 from qolmat.imputations.rpca.rpca_utils import (
     approx_rank,
+    l1_norm,
     soft_thresholding,
     svd_thresholding,
-    l1_norm,
     toeplitz_matrix,
 )
-from qolmat.utils.utils import fold_signal
 
 X_incomplete = np.array(
     [

@@ -1,3 +1,5 @@
+"""Script for characterising the holes."""
+
 from abc import ABC, abstractmethod
 from itertools import combinations
 from typing import Optional, Union
@@ -5,11 +7,9 @@ from typing import Optional, Union
 import numpy as np
 import pandas as pd
 from category_encoders.one_hot import OneHotEncoder
-from joblib import Parallel, delayed
 from scipy.stats import chi2
 from sklearn import utils as sku
 from sklearn.ensemble import RandomForestClassifier
-from torch import rand
 
 from qolmat.imputations.imputers import ImputerEM
 from qolmat.utils import utils
@@ -17,8 +17,7 @@ from qolmat.utils.input_check import check_pd_df_dtypes
 
 
 class McarTest(ABC):
-    """
-    Abstract base class for performing MCAR (Missing Completely At Random) tests.
+    """Abstract base class for performing MCAR (Missing Completely At Random) tests.
 
     Parameters
     ----------
@@ -29,23 +28,23 @@ class McarTest(ABC):
     -------
     test(df)
         Abstract method to perform the MCAR test on the given DataFrame or NumPy array.
+
     """
 
-    def __init__(self, random_state: Union[None, int, np.random.RandomState] = None):
-        """
-        Initializes the McarTest class with a random state.
+    def __init__(self, random_state: utils.RandomSetting = None):
+        """Initialize the McarTest class with a random state.
 
         Parameters
         ----------
         random_state : int or np.random.RandomState, optional
             Seed or random state for reproducibility.
+
         """
         self.rng = sku.check_random_state(random_state)
 
     @abstractmethod
     def test(self, df: Union[pd.DataFrame, np.ndarray]) -> Union[float, tuple[float, list[float]]]:
-        """
-        Perform the MCAR test on the input data.
+        """Perform the MCAR test on the input data.
 
         Parameters
         ----------
@@ -57,15 +56,17 @@ class McarTest(ABC):
         float or tuple of float and list of float
             Test statistic, or a tuple with the test statistic and additional details if
             applicable.
+
         """
         raise NotImplementedError("Subclasses must implement this method.")
 
 
 class LittleTest(McarTest):
-    """
-    This class implements the Little's test, which is designed to detect the heterogeneity across
-    the missing patterns. The null hypothesis is "The missing data mechanism is MCAR". The
-    shortcoming of this test is that it won't detect the heterogeneity of covariance.
+    """Implement Little's test.
+
+    It is designed to detect the heterogeneity across missing patterns. The null hypothesis is "The
+    missing data mechanism is MCAR". The shortcoming of this test is that it won't detect the
+    heterogeneity of covariance.
 
     References
     ----------
@@ -75,28 +76,28 @@ class LittleTest(McarTest):
     Parameters
     ----------
     imputer : Optional[ImputerEM]
-        Imputer based on the EM algorithm. The 'model' attribute must be equal to 'multinormal'.
-        If None, the default ImputerEM is taken.
+        Imputer based on the EM algorithm. The 'model' attribute must be
+        equal to 'multinormal'. If None, the default ImputerEM is taken.
     random_state : int, RandomState instance or None, default=None
         Controls the randomness.
         Pass an int for reproducible output across multiple function calls.
+
     """
 
     def __init__(
         self,
         imputer: Optional[ImputerEM] = None,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: utils.RandomSetting = None,
     ):
         super().__init__(random_state=random_state)
         if imputer and imputer.model != "multinormal":
             raise AttributeError(
-                "The ImputerEM model must be 'multinormal' to use the Little's test"
+                "The ImputerEM model must be 'multinormal' " "to use the Little's test"
             )
         self.imputer = imputer
 
     def test(self, df: pd.DataFrame) -> float:
-        """
-        Apply the Little's test to a real dataframe.
+        """Apply the Little's test to a real dataframe.
 
         Parameters
         ----------
@@ -107,6 +108,7 @@ class LittleTest(McarTest):
         -------
         float
             The p-value of the test.
+
         """
         imputer = self.imputer or ImputerEM(random_state=self.rng)
         imputer_em = imputer._fit_element(df)
@@ -146,10 +148,11 @@ class LittleTest(McarTest):
 
 
 class PKLMTest(McarTest):
-    """
-    This class implements the PKLM test, a fully non-parametric, easy-to-use, and powerful test
-    for the missing completely at random (MCAR) assumption on the missingness mechanism of a
-    dataset. The null hypothesis is "The missing data mechanism is MCAR".
+    """Implement the PKLM test.
+
+    It is a fully non-parametric, easy-to-use, and powerful test for the missing completely at
+    random (MCAR) assumption on the missingness mechanism of a dataset. The null hypothesis is "The
+    missing data mechanism is MCAR".
 
     This test is applicable to mixed data (quantitative and categoricals) types.
 
@@ -163,7 +166,7 @@ class PKLMTest(McarTest):
     Classification. arXiv preprint arXiv:2109.10150.
 
     Parameters
-    -----------
+    ----------
     nb_projections : int
         Number of projections.
     nb_projections_threshold : int
@@ -182,6 +185,7 @@ class PKLMTest(McarTest):
     random_state : int, RandomState instance or None, default=None
         Controls the randomness.
         Pass an int for reproducible output across multiple function calls.
+
     """
 
     def __init__(
@@ -193,7 +197,7 @@ class PKLMTest(McarTest):
         compute_partial_p_values: bool = False,
         exact_p_value: bool = False,
         encoder: Union[None, OneHotEncoder] = None,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: utils.RandomSetting = None,
     ):
         super().__init__(random_state=random_state)
         self.nb_projections = nb_projections
@@ -205,20 +209,22 @@ class PKLMTest(McarTest):
         self.encoder = encoder
 
     def _encode_dataframe(self, df: pd.DataFrame) -> np.ndarray:
-        """
-        Encodes the DataFrame by converting numeric columns to a numpy array
-        and applying one-hot encoding to objects and boolean columns.
+        """Encode the DataFrame.
 
-        Parameters:
-        -----------
+        Converts numeric columns to a numpy array and applies one-hot encoding to objects and
+        boolean columns.
+
+        Parameters
+        ----------
         df : pd.DataFrame
             The DataFrame to be encoded.
 
-        Returns:
+        Returns
         -------
         np.ndarray
             The encoded DataFrame as a numpy ndarray, with numeric data concatenated
             with one-hot encoded categorical and boolean data.
+
         """
         if not df.select_dtypes(include=["object", "bool"]).columns.to_list():
             return df.to_numpy()
@@ -233,24 +239,24 @@ class PKLMTest(McarTest):
         return self.encoder.fit_transform(df)
 
     def _pklm_preprocessing(self, X: Union[pd.DataFrame, np.ndarray]) -> np.ndarray:
-        """
-        Preprocesses the input DataFrame or ndarray for further processing.
+        """Preprocesse the input DataFrame or ndarray for further processing.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         X : Union[pd.DataFrame, np.ndarray]
             The input data to be preprocessed. Can be a pandas DataFrame or a numpy ndarray.
 
-        Returns:
+        Returns
         -------
         np.ndarray
             The preprocessed data as a numpy ndarray.
 
-        Raises:
-        -------
+        Raises
+        ------
         TypeNotHandled
             If the DataFrame contains columns with data types that are not numeric, string, or
             boolean.
+
         """
         if isinstance(X, np.ndarray):
             return X
@@ -267,35 +273,36 @@ class PKLMTest(McarTest):
 
     @staticmethod
     def _get_max_draw(p: int) -> int:
-        """
-        Calculates the number of possible projections.
+        """Calculate the number of possible projections.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         p : int
             The number of columns of the input matrix.
 
-        Returns:
-        --------
+        Returns
+        -------
         int
             The number of possible projections.
+
         """
         return p * (2 ** (p - 1) - 1)
 
     def _draw_features_and_target_indexes(self, X: np.ndarray) -> tuple[list[int], int]:
-        """
-        Randomly selects features and a target from the dataframe.
+        """Randomly selects features and a target from the dataframe.
+
         This corresponds to the Ai and Bi projections of the paper.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         X : np.ndarray
             The input dataframe.
 
-        Returns:
-        --------
+        Returns
+        -------
         tuple[np.ndarray, int]
             Indices of selected features and the target.
+
         """
         _, p = X.shape
         nb_features = self.rng.randint(1, p)
@@ -305,12 +312,13 @@ class PKLMTest(McarTest):
 
     @staticmethod
     def _check_draw(X: np.ndarray, features_idx: list[int], target_idx: int) -> np.bool_:
-        """
-        Checks if the drawn features and target are valid. Here we check that the number of induced
+        """Check if the drawn features and target are valid.
+
+        Here we check that the number of induced
         classes is equal to 2. Using the notation from the paper, we want |G(Ai, Bi)| = 2.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         X : np.ndarray
             The input dataframe.
         features_idx : np.ndarray
@@ -318,10 +326,11 @@ class PKLMTest(McarTest):
         target_idx : int
             Index of the target.
 
-        Returns:
-        --------
+        Returns
+        -------
         bool
             True if the draw is valid, False otherwise.
+
         """
         target_values = X[~np.isnan(X[:, features_idx]).any(axis=1)][:, target_idx]
         is_nan = np.isnan(target_values).any()
@@ -329,20 +338,21 @@ class PKLMTest(McarTest):
         return is_nan and is_distinct_values
 
     def _generate_label_feature_combinations(self, X: np.ndarray) -> list[tuple[list[int], int]]:
-        """
-        Generates all valid combinations of features and labels for projection if
-        nb_projections_threshold > _get_max_draw(X.shape[1]).
+        """Generate all valid combinations of features and labels for projection.
 
-        Parameters:
-        -----------
+        Tests if nb_projections_threshold > _get_max_draw(X.shape[1]).
+
+        Parameters
+        ----------
         X : np.ndarray
             The input data array.
 
-        Returns:
-        --------
+        Returns
+        -------
         list[tuple[list[int], int]]
             A list of tuples where each tuple contains a list of selected features that
             can be used for projection, a target label.
+
         """
         _, p = X.shape
         indices = list(range(p))
@@ -359,19 +369,20 @@ class PKLMTest(McarTest):
         return result
 
     def _draw_projection(self, X: np.ndarray) -> tuple[list[int], int]:
-        """
-        Draws a valid projection of features and a target.
+        """Draw a valid projection of features and a target.
+
         If nb_projections_threshold < _get_max_draw(X.shape[1]).
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         X : np.ndarray
             The input dataframe.
 
-        Returns:
-        --------
+        Returns
+        -------
         tuple[np.ndarray, int]
             Indices of selected features and the target.
+
         """
         is_checked = False
         while not is_checked:
@@ -383,14 +394,14 @@ class PKLMTest(McarTest):
     def _build_dataset(
         X: np.ndarray, features_idx: np.ndarray, target_idx: int
     ) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Builds a dataset by selecting specified features and target from a NumPy array, excluding
-        rows with NaN values in the feature columns.
+        """Build a dataset by selecting specified features and target from a NumPy array.
+
+        Excludes rows with NaN values in the feature columns.
         For the label, we create a binary classification problem where yi =1 if target_idx_i is
         missing.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         X: np.ndarray
             Input data array.
         features_idx: np.ndarray
@@ -398,11 +409,12 @@ class PKLMTest(McarTest):
         target_idx: int
             Index of the target column.
 
-        Returns:
-        --------
+        Returns
+        -------
         tuple[np.ndarray, np.ndarray]: A tuple containing:
             - X (np.ndarray): Full observed array of selected features.
             - y (np.ndarray): Binary array indicating presence of NaN (1) in the target column.
+
         """
         X_features = X[~np.isnan(X[:, features_idx]).any(axis=1)][:, features_idx]
         y = np.where(
@@ -416,14 +428,14 @@ class PKLMTest(McarTest):
     def _build_label(
         X: np.ndarray, perm: np.ndarray, features_idx: np.ndarray, target_idx: int
     ) -> np.ndarray:
-        """
-        Builds a label array by selecting target values from a permutation array,
-        excluding rows with NaN values in the specified feature columns.
+        """Build a label array by selecting target values from a permutation array.
+
+        Excludes rows with NaN values in the specified feature columns.
         For the label, we create a binary classification problem where yi =1 if target_idx_i is
         missing.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         X: np.ndarray
             Input data array.
         perm: np.ndarray
@@ -433,9 +445,10 @@ class PKLMTest(McarTest):
         target_idx: int
             Index of the target column in the permutation array.
 
-        Returns:
-        --------
+        Returns
+        -------
             np.ndarray: Binary array indicating presence of NaN (1) in the target column.
+
         """
         return perm[~np.isnan(X[:, features_idx]).any(axis=1), target_idx]
 
@@ -443,21 +456,23 @@ class PKLMTest(McarTest):
         self,
         X: np.ndarray,
         y: np.ndarray,
-        random_state: Union[None, int, np.random.RandomState] = None,
+        random_state: utils.RandomSetting = None,
     ) -> np.ndarray:
-        """
-        Trains a RandomForestClassifier and retrieves out-of-bag (OOB) probabilities.
+        """Train a RandomForestClassifier and retrieves out-of-bag (OOB) probabilities.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         X: np.ndarray
             Feature array for training.
         y: np.ndarray
             Target array for training.
+        random_state: int, RandomState instance or None, default=None
+            Controls the randomness for the RandomForestClassifier.
 
-        Returns:
-        --------
+        Returns
+        -------
             np.ndarray: Out-of-bag probabilities for each class.
+
         """
         clf = RandomForestClassifier(
             n_estimators=self.nb_trees_per_proj,
@@ -472,20 +487,21 @@ class PKLMTest(McarTest):
 
     @staticmethod
     def _U_hat(oob_probabilities: np.ndarray, labels: np.ndarray) -> float:
-        """
-        Computes the U_hat statistic, a measure of classifier performance, using
-        out-of-bag probabilities and true labels.
+        """Compute the U_hat statistic, a measure of classifier performance.
 
-        Parameters:
-        -----------
+        Uses out-of-bag probabilities and true labels.
+
+        Parameters
+        ----------
         oob_probabilities: np.ndarray
             Out-of-bag probabilities for each class.
         labels: np.ndarray
             True labels for the data.
 
-        Returns:
-        --------
+        Returns
+        -------
             float: The computed U_hat statistic.
+
         """
         if oob_probabilities.shape[1] == 1:
             return 0.0
@@ -563,22 +579,22 @@ class PKLMTest(McarTest):
 
     @staticmethod
     def _build_B(list_proj: list, n_cols: int) -> np.ndarray:
-        """
-        Constructs a binary matrix B based on the given projections.
+        """Construct a binary matrix B based on the given projections.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         list_proj : list
             A list of tuples where each tuple represents a projection, and the
             second element of each tuple is an index used to build the target.
         n_cols : int
             The number of columns in the resulting matrix B.
 
-        Returns:
-        --------
+        Returns
+        -------
         np.ndarray
             A binary matrix of shape (n_cols, len(list_proj)) where each column corresponds to a
             projection, and the entries are 0 or 1 based on the projections.
+
         """
         list_bi = [projection[1] for projection in list_proj]
         B = np.ones((len(list_proj), n_cols), dtype=int)
@@ -591,11 +607,10 @@ class PKLMTest(McarTest):
     def _compute_partial_p_value(
         self, B: np.ndarray, U: np.ndarray, U_sigma: np.ndarray, k: int
     ) -> float:
-        """
-        Computes the partial p-value for a statistical test based on a given permutation.
+        """Compute the partial p-value for a statistical test based on a given permutation.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         B : np.ndarray
             Pass matrix indicating the column used to create the target in each projection.
         U : np.ndarray
@@ -606,10 +621,11 @@ class PKLMTest(McarTest):
         k : int
             The index of the column on which to compute the partial p_value.
 
-        Returns:
-        --------
+        Returns
+        -------
         float
             The partial p-value.
+
         """
         U_k = B[k, :] @ U
         p_v_k = 1
@@ -621,8 +637,7 @@ class PKLMTest(McarTest):
         return p_v_k / (self.nb_permutation + 1)
 
     def test(self, X: Union[pd.DataFrame, np.ndarray]) -> Union[float, tuple[float, list[float]]]:
-        """
-        Apply the PKLM test over a real dataset.
+        """Apply the PKLM test over a real dataset.
 
         Parameters
         ----------
@@ -636,6 +651,7 @@ class PKLMTest(McarTest):
         tuple[float, list[float]]
             If compute_partial_p_values=True. Returns the p-value of the test and the list of all
             the partial p-values.
+
         """
         X = self._pklm_preprocessing(X)
         _, n_cols = X.shape

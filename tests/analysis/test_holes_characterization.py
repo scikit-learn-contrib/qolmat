@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from scipy.stats import norm
+from sklearn import utils as sku
 
 from qolmat.analysis.holes_characterization import LittleTest, PKLMTest
 from qolmat.benchmark.missing_patterns import UniformHoleGenerator
@@ -12,8 +13,8 @@ from qolmat.imputations.imputers import ImputerEM
 
 @pytest.fixture
 def mcar_df() -> pd.DataFrame:
-    rng = np.random.default_rng(42)
-    matrix = rng.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]], size=100)
+    rng = sku.check_random_state(42)
+    matrix = rng.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]], size=200)
     df = pd.DataFrame(data=matrix, columns=["Column_1", "Column_2"])
     hole_gen = UniformHoleGenerator(
         n_splits=1, random_state=42, subset=["Column_2"], ratio_masked=0.2
@@ -24,7 +25,7 @@ def mcar_df() -> pd.DataFrame:
 
 @pytest.fixture
 def mar_hm_df() -> pd.DataFrame:
-    rng = np.random.default_rng(42)
+    rng = sku.check_random_state(42)
     matrix = rng.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]], size=200)
 
     quantile_95 = norm.ppf(0.975)
@@ -38,7 +39,7 @@ def mar_hm_df() -> pd.DataFrame:
 
 @pytest.fixture
 def mar_hc_df() -> pd.DataFrame:
-    rng = np.random.default_rng(42)
+    rng = sku.check_random_state(42)
     matrix = rng.multivariate_normal(mean=[0, 0], cov=[[1, 0], [0, 1]], size=200)
 
     quantile_95 = norm.ppf(0.975)
@@ -51,7 +52,8 @@ def mar_hc_df() -> pd.DataFrame:
 
 
 @pytest.mark.parametrize(
-    "df_input, expected", [("mcar_df", True), ("mar_hm_df", False), ("mar_hc_df", True)]
+    "df_input, expected",
+    [("mcar_df", True), ("mar_hm_df", False), ("mar_hc_df", True)],
 )
 def test_little_mcar_test(df_input: str, expected: bool, request):
     mcar_test_little = LittleTest(random_state=42)
@@ -81,7 +83,7 @@ def supported_multitypes_dataframe() -> pd.DataFrame:
 
 @pytest.fixture
 def np_matrix_with_nan_mcar() -> np.ndarray:
-    rng = np.random.default_rng(42)
+    rng = sku.check_random_state(42)
     n_rows, n_cols = 10, 4
     matrix = rng.normal(size=(n_rows, n_cols))
     num_nan = int(n_rows * n_cols * 0.40)
@@ -97,13 +99,13 @@ def missingness_matrix_mcar(np_matrix_with_nan_mcar):
 
 @pytest.fixture
 def missingness_matrix_mcar_perm(missingness_matrix_mcar):
-    rng = np.random.default_rng(42)
+    rng = sku.check_random_state(42)
     return rng.permutation(missingness_matrix_mcar)
 
 
 @pytest.fixture
 def oob_probabilities() -> np.ndarray:
-    return np.matrix([[0.5, 0.5], [0, 1], [1, 0], [1, 0]]).A
+    return np.array([[0.5, 0.5], [0, 1], [1, 0], [1, 0]])
 
 
 def test__encode_dataframe(supported_multitypes_dataframe):
@@ -151,7 +153,7 @@ def test__generate_label_feature_combinations(request, matrix_fixture):
     # Check that number of projections is smaller than possible
     assert len(result) <= mcar_test_pklm._get_max_draw(n_cols)
     # Check there are no duplicates
-    assert len(set([x for x in result if result.count(x) > 1])) == 0
+    assert len({x for x in result if result.count(x) > 1}) == 0
     for features, label in result:
         assert isinstance(label, int)
         assert isinstance(features, list)
@@ -181,7 +183,12 @@ def test__build_dataset(request, dataframe_fixture, features_idx, target_idx):
 @pytest.mark.parametrize(
     "dataframe_fixture, permutation_fixture, features_idx, target_idx",
     [
-        ("np_matrix_with_nan_mcar", "missingness_matrix_mcar_perm", np.array([1, 0]), 2),
+        (
+            "np_matrix_with_nan_mcar",
+            "missingness_matrix_mcar_perm",
+            np.array([1, 0]),
+            2,
+        ),
     ],
 )
 def test__build_label(request, dataframe_fixture, permutation_fixture, features_idx, target_idx):
@@ -210,7 +217,11 @@ def test__U_hat_unique_label(request, oob_fixture, label):
 @pytest.mark.parametrize(
     "oob_fixture, label, expected",
     [
-        ("oob_probabilities", np.array([1, 0, 0, 0]), 2 / 3 * (np.log(1 - 1e-9) - np.log(1e-9))),
+        (
+            "oob_probabilities",
+            np.array([1, 0, 0, 0]),
+            2 / 3 * (np.log(1 - 1e-9) - np.log(1e-9)),
+        ),
     ],
 )
 def test__U_hat_computation(request, oob_fixture, label, expected):

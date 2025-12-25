@@ -1,6 +1,8 @@
+"""Utils algebra functions for qolmat package."""
+
 import numpy as np
 import scipy
-from numpy.typing import NDArray, ArrayLike
+from numpy.typing import NDArray
 
 
 def frechet_distance_exact(
@@ -9,13 +11,18 @@ def frechet_distance_exact(
     means2: NDArray,
     cov2: NDArray,
 ) -> float:
-    """Compute the Fréchet distance between two dataframes df1 and df2
-    Frechet_distance = || mu_1 - mu_2 ||_2^2 + Tr(Sigma_1 + Sigma_2 - 2(Sigma_1 . Sigma_2)^(1/2))
-    It is normalized, df1 and df2 are first scaled by a factor (std(df1) + std(df2)) / 2
+    """Compute the Fréchet distance between two dataframes df1 and df2.
+
+    Frechet_distance = || mu_1 - mu_2 ||_2^2
+        + Tr(Sigma_1 + Sigma_2 - 2(Sigma_1 . Sigma_2)^(1/2))
+    It is normalized, df1 and df2 are first scaled
+    by a factor (std(df1) + std(df2)) / 2
     and then centered around (mean(df1) + mean(df2)) / 2
-    The result is divided by the number of samples to get an homogeneous result.
-    Based on: Dowson, D. C., and BV666017 Landau. "The Fréchet distance between multivariate normal
-    distributions." Journal of multivariate analysis 12.3 (1982): 450-455.
+    The result is divided by the number of samples to get
+    a homogeneous result.
+    Based on: Dowson, D. C., and BV666017 Landau.
+        "The Fréchet distance between multivariate normal distributions."
+        Journal of multivariate analysis 12.3 (1982): 450-455.
 
     Parameters
     ----------
@@ -32,6 +39,7 @@ def frechet_distance_exact(
     -------
     float
         Frechet distance
+
     """
     n = len(means1)
     if (means2.shape != (n,)) or (cov1.shape != (n, n)) or (cov2.shape != (n, n)):
@@ -52,8 +60,9 @@ def frechet_distance_exact(
 def kl_divergence_gaussian_exact(
     means1: NDArray, cov1: NDArray, means2: NDArray, cov2: NDArray
 ) -> float:
-    """
-    Exact Kullback-Leibler divergence computed between two multivariate normal distributions
+    """Compute the exact Kullback-Leibler divergence.
+
+    This is computed between two multivariate normal distributions
     Based on https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence
 
     Parameters
@@ -61,15 +70,17 @@ def kl_divergence_gaussian_exact(
     means1: NDArray
         Mean of the first distribution
     cov1: NDArray
-        Covariance matrx of the first distribution
+        Covariance matrix of the first distribution
     means2: NDArray
         Mean of the second distribution
     cov2: NDArray
-        Covariance matrx of the second distribution
+        Covariance matrix of the second distribution
+
     Returns
     -------
     float
-        Kulback-Leibler divergence
+        Kullback-Leibler divergence
+
     """
     n_variables = len(means1)
     L1, _ = scipy.linalg.cho_factor(cov1)

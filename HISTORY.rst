@@ -2,6 +2,17 @@
 History
 =======
 
+0.1.10 (2024-??-??)
+------------------
+* Long EM and RPCA operations wrapped with tqdm progress bars
+* Readme code sample updated, and results table made consistent
+
+0.1.9 (2024-08-29)
+------------------
+* Tutorials reproducibility improved with random_state parameters
+* RPCA now accepts random_state parameters
+* Dependency management improved with poetry
+
 0.1.7 (2024-06-13)
 ------------------
 * Little's test implemented in a new hole_characterization module
@@ -30,7 +41,7 @@ History
 * RPCA algorithms now start with a normalizing scaler
 * The EM algorithms now include a gradient projection step to be more robust to colinearity
 * The EM algorithm based on the Gaussian model is now initialized using a robust estimation of the covariance matrix
-* A bug in the EM algorithm has been patched: the normalizing matrix gamma was creating a sampling biais
+* A bug in the EM algorithm has been patched: the normalizing matrix gamma was creating a sampling bias
 * Speed up of the EM algorithm likelihood maximization, using the conjugate gradient method
 * The ImputeRegressor class now handles the nans by `row` by default
 * The metric `frechet` was not correctly called and has been patched
@@ -56,9 +67,9 @@ History
 -------------------
 
 * VAR(p) EM sampler implemented, founding on a VAR(p) modelization such as the one described in `Lütkepohl (2005) New Introduction to Multiple Time Series Analysis`
-* EM and RPCA matrices transposed in the low-level impelmentation, however the API remains unchanged
+* EM and RPCA matrices transposed in the low-level implementation, however the API remains unchanged
 * Sparse matrices introduced in the RPCA implementation so as to speed up the execution
-* Implementation of SoftImpute, which provides a fast but less robust alterantive to RPCA
+* Implementation of SoftImpute, which provides a fast but less robust alternative to RPCA
 * Implementation of TabDDPM and TsDDPM, which are diffusion-based models for tabular data and time-series data, based on Denoising Diffusion Probabilistic Models. Their implementations follow the work of Tashiro et al., (2021) and Kotelnikov et al., (2023).
 * ImputerDiffusion is an imputer-wrapper of these two models TabDDPM and TsDDPM.
 * Docstrings and tests improved for the EM sampler
@@ -89,7 +100,7 @@ been changed into tuple attributes so that all are not immutable
 0.0.13 (2023-06-07)
 -------------------
 
-* Refacto cross validation
+* Refactor cross validation
 * Fix Readme
 * Add test utils.plot
 

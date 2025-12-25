@@ -1,5 +1,4 @@
 import numpy as np
-from sympy import diag
 
 from qolmat.utils import algebra
 
