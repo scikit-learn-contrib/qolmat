@@ -156,8 +156,10 @@ sphinx_gallery_conf = {
     "gallery_dirs": ["examples/tutorials/"],
     "doc_module": "qolmat",
     "backreferences_dir": os.path.join("generated"),
-    "reference_url": {"qolmat": "https://qolmat.readthedocs.io/en/latest/"},
+    "reference_url": {},
+    "inspect_global_variables": False,
 }
+
 
 suppress_warnings = ["autosectionlabel.*"]
 
