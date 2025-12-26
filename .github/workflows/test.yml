@@ -64,10 +64,13 @@ jobs:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Check Changed Files
         id: changed-files
-        run: |
-          git fetch origin ${{ github.base_ref }}:${{ github.base_ref }} --depth=1
-          git diff --name-only ${{ github.base_ref }} > changed_files.txt
+        uses: tj-actions/changed-files@v40
+        with:
+          files: |
+            docs/**
+            **.rst
+
       - name: Build Docs
-        if: contains(fromJSON('["docs/", ".rst"]').join(','), fromJSON('["${{ steps.changed-files.outputs.files }}"]').join(','))
+        if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest' && steps.changed-files.outputs.any_changed == 'true'
         run: |
           poetry run sphinx-build -b html docs/ _build/html

@@ -45,9 +45,5 @@ def test__check_pd_df_dtypes_raise_error(multitypes_dataframe):
 def test__check_pd_df_dtypes(supported_multitypes_dataframe):
     check_pd_df_dtypes(
         supported_multitypes_dataframe,
-        [
-            pd.api.types.is_numeric_dtype,
-            pd.api.types.is_string_dtype,
-            pd.api.types.is_bool_dtype,
-        ],
+        [pd.api.types.is_numeric_dtype, pd.api.types.is_string_dtype, pd.api.types.is_bool_dtype],
     )

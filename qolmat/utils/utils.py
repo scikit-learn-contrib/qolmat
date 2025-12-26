@@ -1,10 +1,12 @@
-"""Utils for qolmat package."""
+"""Utility functions for qolmat package."""
 
-from typing import List, Tuple, Union
+from typing import Callable, List, Tuple, Union
 
 import numpy as np
 import pandas as pd
+from joblib import Parallel, delayed
 from numpy.typing import NDArray
+from sklearn import utils as sku
 
 from qolmat.utils.exceptions import NotDimension2
 
@@ -393,3 +395,29 @@ def nan_mean_cov(X: NDArray) -> Tuple[NDArray, NDArray]:
     cov = np.ma.cov(np.ma.masked_invalid(X), rowvar=False).data
     cov = cov.reshape(n_variables, n_variables)
     return means, cov
+
+
+def _parallel_with_seeds_and_list(
+    func: Callable,
+    args: list[dict],
+    random_state: RandomSetting = None,
+) -> list:
+    """Execute a function in parallel over a list with independent random seeds.
+
+    Parameters
+    ----------
+    func: callable
+        Function to execute. Must accept 'seed' and 'item' as first parameters.
+    args: list
+        List of argument dictionaries to iterate over.
+    random_state : int or np.random.RandomState, optional
+            Seed or random state for reproducibility.
+
+    """
+    n_runs = len(args)
+    rng = sku.check_random_state(random_state)
+    ss = np.random.SeedSequence(rng.randint(0, 2**31 - 1))
+    child_seeds = ss.spawn(n_runs)
+    seeds = [np.random.default_rng(s).integers(0, 2**31 - 1) for s in child_seeds]
+
+    return Parallel(n_jobs=-1)(delayed(func)(seed, **arg) for seed, arg in zip(seeds, args))

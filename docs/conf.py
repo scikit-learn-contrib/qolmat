@@ -75,7 +75,7 @@ autosummary_generate = True
 source_suffix = ".rst"
 
 # Generate the plots for the gallery
-plot_gallery = True
+plot_gallery = "True"
 
 # The master toctree document.
 master_doc = "index"
@@ -156,8 +156,10 @@ sphinx_gallery_conf = {
     "gallery_dirs": ["examples/tutorials/"],
     "doc_module": "qolmat",
     "backreferences_dir": os.path.join("generated"),
-    "reference_url": {"qolmat": None},
+    "reference_url": {},
+    "inspect_global_variables": False,
 }
+
 
 suppress_warnings = ["autosectionlabel.*"]
 
