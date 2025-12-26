@@ -75,7 +75,7 @@ autosummary_generate = True
 source_suffix = ".rst"
 
 # Generate the plots for the gallery
-plot_gallery = True
+plot_gallery = "True"
 
 # The master toctree document.
 master_doc = "index"
