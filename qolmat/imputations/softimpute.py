@@ -61,6 +61,8 @@ class SoftImpute(BaseEstimator, TransformerMixin):
     >>> Omega = ~np.isnan(D)
     >>> print(np.__version__)
     2.2.6
+    >>> print(SoftImpute(random_state=11).random_state.randint(0, 100))
+    25
     >>> M, A = SoftImpute(random_state=11).decompose(D, Omega)
     >>> print(M + A)
     [[1.         2.         2.38678001 4.        ]
