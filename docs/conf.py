@@ -53,8 +53,6 @@ mathjax_path = "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS
 # see https://github.com/numpy/numpydoc/issues/69
 numpydoc_show_class_members = False
 
-from distutils.version import LooseVersion
-
 # pngmath / imgmath compatibility layer for different sphinx versions
 # import sphinx
 

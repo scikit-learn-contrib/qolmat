@@ -366,7 +366,7 @@ def create_lag_matrices(X: NDArray, p: int) -> Tuple[NDArray, NDArray]:
     """
     n_rows, _ = X.shape
     n_rows_new = n_rows - p
-    list_X_lag = [np.ones((n_rows_new, 1))]
+    list_X_lag: list[NDArray] = [np.ones((n_rows_new, 1))]
     for lag in range(p):
         X_lag = X[p - lag - 1 : n_rows - lag - 1, :]
         list_X_lag.append(X_lag)

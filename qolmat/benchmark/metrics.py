@@ -61,7 +61,7 @@ def columnwise_metric(
         pd.testing.assert_index_equal(df1.columns, df2.columns)
     except AssertionError:
         raise ValueError(
-            "Input dataframes do not have the same columns! " f"({df1.columns} != {df2.columns})"
+            f"Input dataframes do not have the same columns! ({df1.columns} != {df2.columns})"
         )
     if type_cols == "all":
         cols = df1.columns.tolist()
@@ -942,7 +942,7 @@ def kl_divergence_gaussian(df1: pd.DataFrame, df2: pd.DataFrame) -> float:
         div_kl = algebra.kl_divergence_gaussian_exact(means1, cov1, means2, cov2)
     except LinAlgError:
         raise ValueError(
-            "Provided datasets have degenerate colinearities, KL-divergence " "cannot be computed!"
+            "Provided datasets have degenerate colinearities, KL-divergence cannot be computed!"
         )
     return div_kl
 

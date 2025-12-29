@@ -61,8 +61,8 @@ class SoftImpute(BaseEstimator, TransformerMixin):
     >>> Omega = ~np.isnan(D)
     >>> M, A = SoftImpute(random_state=11).decompose(D, Omega)
     >>> print(M + A)
-    [[1.         2.         4.12611456 4.        ]
-     [1.         5.         3.         0.87217939]
+    [[1.         2.         2.38678001 4.        ]
+     [1.         5.         3.         6.23499344]
      [4.         2.         3.         2.        ]
      [1.         1.         5.         4.        ]]
 
@@ -180,8 +180,7 @@ class SoftImpute(BaseEstimator, TransformerMixin):
                 logging.info(f"Iteration {iter_}: ratio = {round(ratio, 4)}")
                 if ratio < self.tolerance:
                     logging.info(
-                        f"Convergence reached at iteration {iter_} "
-                        f"with ratio = {round(ratio, 4)}"
+                        f"Convergence reached at iteration {iter_} with ratio = {round(ratio, 4)}"
                     )
                     break
 

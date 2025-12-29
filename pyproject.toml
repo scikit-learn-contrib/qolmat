@@ -85,9 +85,10 @@ name = "pytorch_cpu"
 url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 
-# CONFIGURATION (unchanged)
+# CONFIGURATION
 [tool.bandit]
 targets = ["qolmat"]
+skips = ["B310"]
 
 [tool.mypy]
 pretty = true

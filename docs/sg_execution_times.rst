@@ -6,7 +6,7 @@
 
 Computation times
 =================
-**00:00.000** total execution time for 6 files **from all galleries**:
+**01:04.897** total execution time for 6 files **from all galleries**:
 
 .. container::
 
@@ -33,20 +33,20 @@ Computation times
      - Time
      - Mem (MB)
    * - :ref:`sphx_glr_examples_tutorials_plot_tuto_benchmark_TS.py` (``../examples/tutorials/plot_tuto_benchmark_TS.py``)
-     - 00:00.000
+     - 00:21.381
      - 0.0
    * - :ref:`sphx_glr_examples_tutorials_plot_tuto_categorical.py` (``../examples/tutorials/plot_tuto_categorical.py``)
-     - 00:00.000
+     - 00:16.026
      - 0.0
    * - :ref:`sphx_glr_examples_tutorials_plot_tuto_diffusion_models.py` (``../examples/tutorials/plot_tuto_diffusion_models.py``)
-     - 00:00.000
-     - 0.0
-   * - :ref:`sphx_glr_examples_tutorials_plot_tuto_hole_generator.py` (``../examples/tutorials/plot_tuto_hole_generator.py``)
-     - 00:00.000
+     - 00:11.896
      - 0.0
    * - :ref:`sphx_glr_examples_tutorials_plot_tuto_mcar.py` (``../examples/tutorials/plot_tuto_mcar.py``)
-     - 00:00.000
+     - 00:08.072
      - 0.0
    * - :ref:`sphx_glr_examples_tutorials_plot_tuto_mean_median.py` (``../examples/tutorials/plot_tuto_mean_median.py``)
-     - 00:00.000
+     - 00:04.939
+     - 0.0
+   * - :ref:`sphx_glr_examples_tutorials_plot_tuto_hole_generator.py` (``../examples/tutorials/plot_tuto_hole_generator.py``)
+     - 00:02.583
      - 0.0

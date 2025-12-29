@@ -1,4 +1,8 @@
+# Install dependencies
+install:
+	uv sync --all-extras
 
+# Code quality checks
 check-coverage:
 	uv run pytest --cov-branch --cov=qolmat/ --cov-report=xml tests/
 
@@ -16,16 +20,26 @@ check-types:
 
 checkers: check-coverage check-types
 
+# Formatting
+format:
+	uv run ruff format qolmat/ tests/
+	uv run ruff check --fix qolmat/ tests/
+
+# Cleaning
 clean:
-	rm -rf .mypy_cache .pytest_cache .coverage*
+	rm -rf .mypy_cache .pytest_cache .coverage* .ruff_cache
 	rm -rf **__pycache__
-	make clean -C docs
+	uv run make clean -C docs
 
-coverage:
-	uv run pytest --cov-branch --cov=qolmat --cov-report=xml tests
-
+# Documentation
 doc:
-	make html -C docs
+	uv run make html -C docs
 
 doctest:
 	uv run pytest --doctest-modules --pyargs qolmat
+
+# Development helpers
+lock:
+	uv lock
+
+.PHONY: install check-coverage check-quality check-security check-tests check-types checkers format clean doc doctest lock

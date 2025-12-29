@@ -115,7 +115,7 @@ class Comparator:
         subset = self.generator_holes.subset
         if subset is None:
             raise ValueError(
-                "HoleGenerator `subset` should be overwritten in split " "but it is none!"
+                "HoleGenerator `subset` should be overwritten in split but it is none!"
             )
 
         split_results = {}
@@ -159,7 +159,7 @@ class Comparator:
         subset = self.generator_holes.subset
         if subset is None:
             raise ValueError(
-                "HoleGenerator `subset` should be overwritten in split " "but it is none!"
+                "HoleGenerator `subset` should be overwritten in split but it is none!"
             )
 
         dict_config_opti_imputer = self.dict_config_opti.get(imputer_name, {})

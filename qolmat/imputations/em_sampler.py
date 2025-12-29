@@ -176,9 +176,7 @@ class EM(BaseEstimator, TransformerMixin):
         verbose: bool = False,
     ):
         if method not in ["mle", "sample"]:
-            raise ValueError(
-                "`method` must be 'mle' or 'sample', " f"provided value is '{method}'."
-            )
+            raise ValueError(f"`method` must be 'mle' or 'sample', provided value is '{method}'.")
 
         self.method = method
         self.max_iter_em = max_iter_em
@@ -227,7 +225,6 @@ class EM(BaseEstimator, TransformerMixin):
             Array to compute the parameters.
 
         """
-        print("fit_parameters")
         self.reset_learned_parameters()
         self.update_parameters(X)
         self.combine_parameters()
@@ -243,7 +240,6 @@ class EM(BaseEstimator, TransformerMixin):
             Data matrix with missingness
 
         """
-        print("fit_parameters_with_missingness")
         X_imp = self.init_imputation(X)
         self.fit_parameters(X_imp)
 
@@ -459,16 +455,15 @@ class EM(BaseEstimator, TransformerMixin):
         sku.validation.validate_data(self, X, ensure_all_finite="allow-nan", dtype="float")
         self.shape_original = X.shape
 
-        self.hash_fit = hash(X.tobytes())
         if not isinstance(X, np.ndarray):
             raise AssertionError("Invalid type. X must be a NDArray.")
+        self.hash_fit = hash(X.tobytes())
 
         X = utils.prepare_data(X, self.period)
 
         if hasattr(self, "p_to_fit") and self.p_to_fit:
             aics: List[float] = []
             for p in range(self.max_lagp + 1):
-                print("p=", p)
                 self.p = p
                 self.fit_X(X)
                 n1, n2 = self.X.shape
@@ -724,8 +719,6 @@ class MultiNormalEM(EM):
             Gamma matrix
 
         """
-        print("get_gamma")
-        print(self.cov)
         U, diag, Vt = spl.svd(self.cov)
         diag_trunc = np.where(diag < self.min_std**2, 0, diag)
         diag_trunc = np.where(diag_trunc == 0, 0, np.min(diag_trunc))
@@ -771,17 +764,12 @@ class MultiNormalEM(EM):
         else:
             cov = np.cov(X, bias=True, rowvar=False).reshape(n_cols, -1)
         self.list_cov.append(cov)
-        print("update_parameters")
-        print(X)
-        print("Mean:", means)
-        print("Cov:\n", cov)
 
     def combine_parameters(self):
         """Combine all statistics computed for each sample in the update step.
 
         If uses the MANOVA formula.
         """
-        print("combine_parameters")
         list_means = self.list_means[-self.n_samples :]
         list_cov = self.list_cov[-self.n_samples :]
 
@@ -794,12 +782,8 @@ class MultiNormalEM(EM):
             cov_intergroup = np.zeros(cov_intragroup.shape)
         else:
             cov_intergroup = np.cov(means_stack, bias=True, rowvar=False)
-        print("Intragroup covariance:\n", cov_intragroup)
-        print("Intergroup covariance:\n", cov_intergroup)
         self.cov = cov_intragroup + cov_intergroup
-        print("Cov:", self.cov)
         self.cov_inv = np.linalg.pinv(self.cov)
-        print("Cov inv:", self.cov_inv)
 
     def fit_parameters_with_missingness(self, X: NDArray):
         """Fit the first estimation of the model parameters.
@@ -1221,7 +1205,7 @@ class VARpEM(EM):
         if self.p == 0:
             return X, mask_na
         mask_na = mask_na.copy()
-        n_holes_left = np.sum(~np.cumsum(~mask_na, axis=0).any(axis=1))
+        n_holes_left = int(np.sum(~np.cumsum(~mask_na, axis=0).any(axis=1)))
         mask_na[:n_holes_left] = False
         return X, mask_na
 

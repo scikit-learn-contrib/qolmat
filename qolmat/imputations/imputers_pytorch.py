@@ -236,7 +236,7 @@ class Autoencoder(nn.Module):
             loss.backward()
             optimizer.step()
             if (epoch + 1) % 10 == 0:
-                logging.info(f"Epoch [{epoch + 1}/{self.epochs}], " f"Loss: {loss.item():.4f}")
+                logging.info(f"Epoch [{epoch + 1}/{self.epochs}], Loss: {loss.item():.4f}")
             list_loss.append(loss.item())
         self.loss.extend([list_loss])
         return self
