@@ -59,6 +59,8 @@ class SoftImpute(BaseEstimator, TransformerMixin):
     >>> from qolmat.imputations.softimpute import SoftImpute
     >>> D = np.array([[1, 2, np.nan, 4], [1, 5, 3, np.nan], [4, 2, 3, 2], [1, 1, 5, 4]])
     >>> Omega = ~np.isnan(D)
+    >>> print(np.__version__)
+    2.2.6
     >>> M, A = SoftImpute(random_state=11).decompose(D, Omega)
     >>> print(M + A)
     [[1.         2.         2.38678001 4.        ]
