@@ -9,8 +9,8 @@ from sklearn.utils.estimator_checks import (
     parametrize_with_checks,
 )
 
-from qolmat.benchmark.hyperparameters import HyperValue
 from qolmat.imputations import imputers
+from qolmat.utils.utils import HyperValue
 
 df_complete = pd.DataFrame({"col1": [0, 1, 2, 3, 4], "col2": [-1, 0, 0.5, 1, 1.5]})
 

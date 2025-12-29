@@ -394,6 +394,7 @@ def nan_mean_cov(X: NDArray) -> Tuple[NDArray, NDArray]:
     means = np.nanmean(X, axis=0)
     cov = np.ma.cov(np.ma.masked_invalid(X), rowvar=False).data
     cov = cov.reshape(n_variables, n_variables)
+    cov[~np.isfinite(cov)] = 0.0
     return means, cov
 
 

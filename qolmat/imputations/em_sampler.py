@@ -205,17 +205,17 @@ class EM(BaseEstimator, TransformerMixin):
     @abstractmethod
     def reset_learned_parameters(self):
         """Reset learned parameters."""
-        pass
+        raise NotImplementedError("Method reset_learned_parameters not implemented.")
 
     @abstractmethod
     def update_parameters(self, X: NDArray):
         """Update parameters."""
-        pass
+        raise NotImplementedError("Method update_parameters not implemented.")
 
     @abstractmethod
     def combine_parameters(self):
         """Combine parameters."""
-        pass
+        raise NotImplementedError("Method combine_parameters not implemented.")
 
     def fit_parameters(self, X: NDArray):
         """Fir parameters.
@@ -227,6 +227,7 @@ class EM(BaseEstimator, TransformerMixin):
             Array to compute the parameters.
 
         """
+        print("fit_parameters")
         self.reset_learned_parameters()
         self.update_parameters(X)
         self.combine_parameters()
@@ -242,6 +243,7 @@ class EM(BaseEstimator, TransformerMixin):
             Data matrix with missingness
 
         """
+        print("fit_parameters_with_missingness")
         X_imp = self.init_imputation(X)
         self.fit_parameters(X_imp)
 
@@ -396,6 +398,7 @@ class EM(BaseEstimator, TransformerMixin):
             grad_X = -self.gradient_X_loglik(X_copy)
             X_copy += -self.dt * grad_X @ gamma + np.sqrt(2 * self.dt) * noise @ sqrt_gamma
             X_copy[~mask_na] = X_init[~mask_na]
+
             if estimate_params:
                 self.update_parameters(X_copy)
 
@@ -453,8 +456,6 @@ class EM(BaseEstimator, TransformerMixin):
 
         """
         X = X.copy()
-        # utils.check_dtypes(X)
-        # sku.check_array(X, ensure_all_finite="allow-nan", dtype="float")
         sku.validation.validate_data(self, X, ensure_all_finite="allow-nan", dtype="float")
         self.shape_original = X.shape
 
@@ -723,12 +724,13 @@ class MultiNormalEM(EM):
             Gamma matrix
 
         """
+        print("get_gamma")
+        print(self.cov)
         U, diag, Vt = spl.svd(self.cov)
         diag_trunc = np.where(diag < self.min_std**2, 0, diag)
         diag_trunc = np.where(diag_trunc == 0, 0, np.min(diag_trunc))
 
         gamma = (U * diag_trunc) @ Vt
-        # gamma = np.eye(len(self.cov))
 
         return gamma
 
@@ -769,12 +771,17 @@ class MultiNormalEM(EM):
         else:
             cov = np.cov(X, bias=True, rowvar=False).reshape(n_cols, -1)
         self.list_cov.append(cov)
+        print("update_parameters")
+        print(X)
+        print("Mean:", means)
+        print("Cov:\n", cov)
 
     def combine_parameters(self):
         """Combine all statistics computed for each sample in the update step.
 
         If uses the MANOVA formula.
         """
+        print("combine_parameters")
         list_means = self.list_means[-self.n_samples :]
         list_cov = self.list_cov[-self.n_samples :]
 
@@ -787,8 +794,12 @@ class MultiNormalEM(EM):
             cov_intergroup = np.zeros(cov_intragroup.shape)
         else:
             cov_intergroup = np.cov(means_stack, bias=True, rowvar=False)
+        print("Intragroup covariance:\n", cov_intragroup)
+        print("Intergroup covariance:\n", cov_intergroup)
         self.cov = cov_intragroup + cov_intergroup
+        print("Cov:", self.cov)
         self.cov_inv = np.linalg.pinv(self.cov)
+        print("Cov inv:", self.cov_inv)
 
     def fit_parameters_with_missingness(self, X: NDArray):
         """Fit the first estimation of the model parameters.

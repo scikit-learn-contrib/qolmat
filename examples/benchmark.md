@@ -22,9 +22,7 @@ First, import some useful libraries
 ```python tags=[]
 import warnings
 # warnings.filterwarnings('error')
-```
 
-```python tags=[]
 %reload_ext autoreload
 %autoreload 2
 
@@ -33,7 +31,7 @@ from IPython.display import Image
 import pandas as pd
 from datetime import datetime
 import numpy as np
-import hyperopt as ho
+from skopt.space import Real, Integer, Categorical
 np.random.seed(1234)
 from matplotlib import pyplot as plt
 import matplotlib.ticker as plticker
@@ -41,12 +39,12 @@ import matplotlib.ticker as plticker
 tab10 = plt.get_cmap("tab10")
 plt.rcParams.update({'font.size': 18})
 
-
 from sklearn.linear_model import LinearRegression
 
 from qolmat.benchmark import comparator, missing_patterns
 from qolmat.imputations import imputers
 from qolmat.utils import data, utils, plot
+
 
 ```
 
@@ -124,15 +122,15 @@ imputer_residuals = imputers.ImputerResiduals(groups=("station",), period=365, m
 imputer_rpca = imputers.ImputerRpcaNoisy(groups=("station",), columnwise=False, max_iterations=500, tau=.01, lam=5, rank=1)
 imputer_rpca_opti = imputers.ImputerRpcaNoisy(groups=("station",), columnwise=False, max_iterations=256)
 dict_config_opti["RPCA_opti"] = {
-    "tau": ho.hp.uniform("tau", low=.5, high=5),
-    "lam": ho.hp.uniform("lam", low=.1, high=1),
+    "tau": Real(0.5, 5.0, name="tau"),
+    "lam": Real(0.1, 1.0, name="lam"),
 }
 imputer_rpca_opticw = imputers.ImputerRpcaNoisy(groups=("station",), columnwise=False, max_iterations=256)
 dict_config_opti["RPCA_opticw"] = {
-    "tau/TEMP": ho.hp.uniform("tau/TEMP", low=.5, high=5),
-    "tau/PRES": ho.hp.uniform("tau/PRES", low=.5, high=5),
-    "lam/TEMP": ho.hp.uniform("lam/TEMP", low=.1, high=1),
-    "lam/PRES": ho.hp.uniform("lam/PRES", low=.1, high=1),
+    "tau/TEMP": Real(0.5, 5.0, name="tau/TEMP"),
+    "tau/PRES": Real(0.5, 5.0, name="tau/PRES"),
+    "lam/TEMP": Real(0.1, 1.0, name="lam/TEMP"),
+    "lam/PRES": Real(0.1, 1.0, name="lam/PRES"),
 }
 
 imputer_normal_sample = imputers.ImputerEM(groups=("station",), model="multinormal", method="sample", max_iter_em=8, n_iter_ou=128, dt=4e-2)

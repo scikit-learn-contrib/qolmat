@@ -1,8 +1,8 @@
 from typing import List, Optional, Tuple
 
-import hyperopt as ho
 import numpy as np
 import pandas as pd
+from skopt.space import Real
 
 from qolmat.benchmark import hyperparameters
 
@@ -89,14 +89,18 @@ def test_hyperparameters_get_objective() -> None:
 
 
 def test_hyperparameters_optimize():
-    """Test optimize."""
+    """Test optimize with scikit-optimize."""
     imputer = ImputerTest()
+
     generator = HoleGeneratorTest(pd.Series([False, False, True, True]), subset=["some_col"])
+
     metric = "mse"
-    dict_config_opti = {"value": ho.hp.uniform("value", 0, 10)}
+    dict_config_opti = {"value": Real(0, 10, name="value")}
     df = pd.DataFrame({"some_col": [np.nan, 0, 3, 5]})
+
     imputer_opti = hyperparameters.optimize(
-        imputer, df, generator, metric, dict_config_opti, max_evals=500
+        imputer, df, generator, metric, dict_config_opti, max_evals=20, verbose=True
     )
+
     assert isinstance(imputer_opti, ImputerTest)
     np.testing.assert_almost_equal(imputer_opti.value, 4, decimal=1)

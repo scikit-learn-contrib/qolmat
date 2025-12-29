@@ -5,6 +5,8 @@ History
 0.1.11 (2025-12-30)
 ------------------
 * PLKM test implemented and documented in the holes_characterization module
+* Dependency management improved with uv
+* Migrated from hyperopt to skopt for hyperparameter optimization
 
 0.1.10 (2025-08-30)
 ------------------
