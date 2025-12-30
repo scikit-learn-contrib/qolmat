@@ -60,8 +60,13 @@ class SoftImpute(BaseEstimator, TransformerMixin):
     >>> D = np.array([[1, 2, np.nan, 4], [1, 5, 3, np.nan], [4, 2, 3, 2], [1, 1, 5, 4]])
     >>> Omega = ~np.isnan(D)
     >>> M, A = SoftImpute(random_state=11, tau=1).decompose(D, Omega)
+    >>> print(M + A)
+    [[1.         2.         3.04868607 4.        ]
+     [1.         5.         3.         3.37501463]
+     [4.         2.         3.         2.        ]
+     [1.         1.         5.         4.        ]]
     >>> print(SoftImpute.cost_function(D, M, A, Omega, tau=1))
-    18.520175080977893
+    18.520174964466026
 
     """
 
@@ -134,7 +139,8 @@ class SoftImpute(BaseEstimator, TransformerMixin):
         # Step 1 : Initializing
         n, m = X.shape
         V = np.zeros((m, rank))
-        U = self.random_state.normal(0.0, 1.0, (n, rank))
+        # U = self.random_state.normal(0.0, 1.0, (n, rank))
+        U = np.zeros((n, rank))
         U, _, _ = np.linalg.svd(U, full_matrices=False)
         D = np.ones((1, rank))
 
