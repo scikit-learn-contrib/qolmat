@@ -63,6 +63,15 @@ class SoftImpute(BaseEstimator, TransformerMixin):
     2.2.6
     >>> print(SoftImpute(random_state=11).random_state.randint(0, 100))
     25
+    >>> rs = sku.check_random_state(11)
+    >>> print("Step 1 - randint:", rs.randint(0, 100))
+    Step 1 - randint: 25
+    >>> U = rs.normal(0.0, 1.0, (4, 2))
+    >>> print("Step 2 - U[0,0]:", U[0, 0])
+    Step 2 - U[0,0]: 0.20031399762813357
+    >>> U_svd, _, _ = np.linalg.svd(U, full_matrices=False)
+    >>> print("Step 3 - U_svd[0,0]:", U_svd[0, 0])
+    Step 3 - U_svd[0,0]: -0.20385139037822042
     >>> M, A = SoftImpute(random_state=11).decompose(D, Omega)
     >>> print(M + A)
     [[1.         2.         2.38678001 4.        ]
