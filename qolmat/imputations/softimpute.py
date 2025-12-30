@@ -44,7 +44,7 @@ class SoftImpute(BaseEstimator, TransformerMixin):
     tolerance : float
         Tolerance for the convergence criterion
     tau : float
-        regularisation parameter
+        Regularisation parameter
     max_iterations : int
         Maximum number of iterations
     random_state : int, optional
@@ -72,12 +72,14 @@ class SoftImpute(BaseEstimator, TransformerMixin):
     >>> U_svd, _, _ = np.linalg.svd(U, full_matrices=False)
     >>> print("Step 3 - U_svd[0,0]:", U_svd[0, 0])
     Step 3 - U_svd[0,0]: -0.20385139037822042
-    >>> M, A = SoftImpute(random_state=11).decompose(D, Omega)
+    >>> M, A = SoftImpute(random_state=11, tau=1).decompose(D, Omega)
     >>> print(M + A)
-    [[1.         2.         2.38678001 4.        ]
-     [1.         5.         3.         6.23499344]
+    [[1.         2.         3.0486858  4.        ]
+     [1.         5.         3.         3.37501527]
      [4.         2.         3.         2.        ]
      [1.         1.         5.         4.        ]]
+    >>> print(SoftImpute.cost_function(D, M, A, Omega, tau=1))
+    18.520175080977893
 
     """
 
@@ -281,7 +283,7 @@ class SoftImpute(BaseEstimator, TransformerMixin):
             Anomalies
         Omega : NDArray
             Mask for observations
-        tau: Optional[float]
+        tau: float
             penalizing parameter for the nuclear norm
 
         Returns
