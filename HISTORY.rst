@@ -2,7 +2,7 @@
 History
 =======
 
-0.1.11 (2025-12-30)
+0.2.0 (2026-01-01)
 ------------------
 * PLKM test implemented and documented in the holes_characterization module
 * Dependency management improved with uv
