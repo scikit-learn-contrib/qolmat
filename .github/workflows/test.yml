@@ -61,7 +61,7 @@ jobs:
         run: uv python install 3.12
 
       - name: Install only docs dependencies
-        run: uv sync --extra docs --extra torch
+        run: uv sync --all-extras
 
       - name: Build docs
         run: uv run sphinx-build -b html docs/ _build/html
