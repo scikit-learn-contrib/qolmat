@@ -2,12 +2,18 @@
 History
 =======
 
-0.1.10 (2024-??-??)
+0.2.0 (2026-01-01)
+------------------
+* PLKM test implemented and documented in the holes_characterization module
+* Dependency management improved with uv
+* Migrated from hyperopt to skopt for hyperparameter optimization
+
+0.1.10 (2025-08-30)
 ------------------
 * Long EM and RPCA operations wrapped with tqdm progress bars
 * Readme code sample updated, and results table made consistent
 
-0.1.9 (2024-08-29)
+0.1.9 (2025-08-29)
 ------------------
 * Tutorials reproducibility improved with random_state parameters
 * RPCA now accepts random_state parameters

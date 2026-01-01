@@ -120,9 +120,7 @@ def toeplitz_matrix(T: int, dimension: int) -> sps.spmatrix:
     """
     n_lags = dimension - T
     diagonals = [np.ones(n_lags), -np.ones(n_lags)]
-    H_top = sps.diags(
-        diagonals, offsets=[0, T], shape=(n_lags, dimension), format="csr"
-    )
+    H_top = sps.diags(diagonals, offsets=[0, T], shape=(n_lags, dimension), format="csr")
     H = sps.dok_matrix((dimension, dimension))
     H[:n_lags] = H_top
     return H

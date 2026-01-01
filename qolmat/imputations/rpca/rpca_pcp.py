@@ -59,9 +59,7 @@ class RpcaPcp(RPCA):
         tolerance: float = 1e-6,
         verbose: bool = True,
     ) -> None:
-        super().__init__(
-            max_iterations=max_iterations, tolerance=tolerance, verbose=verbose
-        )
+        super().__init__(max_iterations=max_iterations, tolerance=tolerance, verbose=verbose)
         self.rng = sku.check_random_state(random_state)
         self.mu = mu
         self.lam = lam
@@ -175,9 +173,7 @@ class RpcaPcp(RPCA):
 
         """
         cost_start = np.linalg.norm(observations, "nuc")
-        cost_end = np.linalg.norm(low_rank, "nuc") + lam * np.sum(
-            Omega * np.abs(anomalies)
-        )
+        cost_end = np.linalg.norm(low_rank, "nuc") + lam * np.sum(Omega * np.abs(anomalies))
         if self.verbose and round(cost_start, 4) - round(cost_end, 4) <= -1e-2:
             function_str = "||D||_* + lam ||A||_1"
             warnings.warn(

@@ -43,9 +43,7 @@ def compute_transition_counts_matrix(states: pd.Series):
     return df_counts
 
 
-def compute_transition_matrix(
-    states: pd.Series, ngroups: Optional[List] = None
-):
+def compute_transition_matrix(states: pd.Series, ngroups: Optional[List] = None):
     """Compute the transition matrix.
 
     Parameters
@@ -64,13 +62,8 @@ def compute_transition_matrix(
     if ngroups is None:
         df_counts = compute_transition_counts_matrix(states)
     else:
-        list_counts = [
-            compute_transition_counts_matrix(df)
-            for _, df in states.groupby(ngroups)
-        ]
-        df_counts = functools.reduce(
-            lambda a, b: a.add(b, fill_value=0), list_counts
-        )
+        list_counts = [compute_transition_counts_matrix(df) for _, df in states.groupby(ngroups)]
+        df_counts = functools.reduce(lambda a, b: a.add(b, fill_value=0), list_counts)
 
     df_transition = df_counts.div(df_counts.sum(axis=1), axis=0)
     return df_transition
@@ -149,9 +142,7 @@ class _HoleGenerator:
         missing_per_col = X[self.subset].isna().sum()
         self.dict_ratios = (missing_per_col / missing_per_col.sum()).to_dict()
         if self.groups:
-            self.ngroups = (
-                X.groupby(list(self.groups)).ngroup().rename("_ngroup")
-            )
+            self.ngroups = X.groupby(list(self.groups)).ngroup().rename("_ngroup")
         else:
             self.ngroups = None
 
@@ -178,9 +169,7 @@ class _HoleGenerator:
             if self.ngroups is None:
                 mask = self.generate_mask(X)
             else:
-                mask = X.groupby(self.ngroups, group_keys=False).apply(
-                    self.generate_mask
-                )
+                mask = X.groupby(self.ngroups, group_keys=False).apply(self.generate_mask)
             list_masks.append(mask)
         return list_masks
 
@@ -307,9 +296,7 @@ class _SamplerHoleGenerator(_HoleGenerator):
             groups=groups,
         )
 
-    def generate_hole_sizes(
-        self, column: str, n_masked: int, sort: bool = True
-    ) -> List[int]:
+    def generate_hole_sizes(self, column: str, n_masked: int, sort: bool = True) -> List[int]:
         """Generate a sequence of states "states" of size "size".
 
         Generated from a transition matrix "df_transition"
@@ -364,17 +351,13 @@ class _SamplerHoleGenerator(_HoleGenerator):
             sizes_max = get_sizes_max(states)
             n_masked_left = n_masked_col
 
-            sizes_sampled = self.generate_hole_sizes(
-                column, n_masked_col, sort=True
-            )
+            sizes_sampled = self.generate_hole_sizes(column, n_masked_col, sort=True)
             if sum(sizes_sampled) != n_masked_col:
                 raise ValueError(
                     "sum of sizes_sampled is different from n_masked_col: "
                     f"{sum(sizes_sampled)} != {n_masked_col}."
                 )
-            sizes_sampled += self.generate_hole_sizes(
-                column, n_masked_col, sort=False
-            )
+            sizes_sampled += self.generate_hole_sizes(column, n_masked_col, sort=False)
             for sample in sizes_sampled:
                 sample = min(min(sample, sizes_max.max()), n_masked_left)
                 i_hole = self.rng.choice(np.where(sample <= sizes_max)[0])
@@ -400,9 +383,7 @@ class _SamplerHoleGenerator(_HoleGenerator):
                     break
 
         if list_failed:
-            warnings.warn(
-                f"No place to introduce sampled holes of size {list_failed}!"
-            )
+            warnings.warn(f"No place to introduce sampled holes of size {list_failed}!")
         return mask
 
 
@@ -488,9 +469,7 @@ class GeometricHoleGenerator(_SamplerHoleGenerator):
         proba_out = self.dict_probas_out[column]
         mean_size = 1 / proba_out
         n_holes = 2 * round(n_masked / mean_size)
-        sizes_sampled = pd.Series(
-            self.rng.geometric(p=proba_out, size=n_holes)
-        )
+        sizes_sampled = pd.Series(self.rng.geometric(p=proba_out, size=n_holes))
         return sizes_sampled
 
 
@@ -576,16 +555,12 @@ class EmpiricalHoleGenerator(_SamplerHoleGenerator):
         for column in self.subset:
             states = X[column].isna()
             if self.ngroups is None:
-                self.dict_distributions_holes[column] = (
-                    self.compute_distribution_holes(states)
-                )
+                self.dict_distributions_holes[column] = self.compute_distribution_holes(states)
             else:
                 distributions_holes = states.groupby(self.ngroups).apply(
                     self.compute_distribution_holes
                 )
-                distributions_holes = distributions_holes.groupby(
-                    by="_size_hole"
-                ).sum()
+                distributions_holes = distributions_holes.groupby(by="_size_hole").sum()
                 self.dict_distributions_holes[column] = distributions_holes
         return self
 
@@ -606,14 +581,10 @@ class EmpiricalHoleGenerator(_SamplerHoleGenerator):
         """
         distribution_holes = self.dict_distributions_holes[column]
         distribution_holes /= distribution_holes.sum()
-        mean_size = (
-            distribution_holes.values * distribution_holes.index.values
-        ).sum()
+        mean_size = (distribution_holes.values * distribution_holes.index.values).sum()
 
         n_samples = 2 * round(n_masked / mean_size)
-        sizes_sampled = self.rng.choice(
-            distribution_holes.index, n_samples, p=distribution_holes
-        )
+        sizes_sampled = self.rng.choice(distribution_holes.index, n_samples, p=distribution_holes)
         return sizes_sampled
 
 
@@ -679,18 +650,12 @@ class MultiMarkovHoleGenerator(_HoleGenerator):
 
         states = X[self.subset].isna().apply(lambda x: tuple(x), axis=1)
         self.df_transition = compute_transition_matrix(states, self.ngroups)
-        self.df_transition.index = pd.MultiIndex.from_tuples(
-            self.df_transition.index
-        )
-        self.df_transition.columns = pd.MultiIndex.from_tuples(
-            self.df_transition.columns
-        )
+        self.df_transition.index = pd.MultiIndex.from_tuples(self.df_transition.index)
+        self.df_transition.columns = pd.MultiIndex.from_tuples(self.df_transition.columns)
 
         return self
 
-    def generate_multi_realisation(
-        self, n_masked: int
-    ) -> List[List[Tuple[bool, ...]]]:
+    def generate_multi_realisation(self, n_masked: int) -> List[List[Tuple[bool, ...]]]:
         """Generate a sequence of states "states" of size "size".
 
         Generated from a transition matrix "df_transition"
@@ -716,9 +681,7 @@ class MultiMarkovHoleGenerator(_HoleGenerator):
             realisation = []
             while True:
                 probas = self.df_transition.loc[state, :].values
-                state = np.random.choice(
-                    self.df_transition.columns, 1, p=probas
-                )[0]
+                state = np.random.choice(self.df_transition.columns, 1, p=probas)[0]
                 if state == state_nona:
                     break
                 else:
@@ -748,9 +711,7 @@ class MultiMarkovHoleGenerator(_HoleGenerator):
         """
         self.rng = sku.check_random_state(self.random_state)
         X_subset = X[self.subset]
-        mask = pd.DataFrame(
-            False, columns=X_subset.columns, index=X_subset.index
-        )
+        mask = pd.DataFrame(False, columns=X_subset.columns, index=X_subset.index)
 
         values_hasna = X_subset.isna().any(axis=1)
 
@@ -851,9 +812,7 @@ class GroupedHoleGenerator(_HoleGenerator):
         super().fit(X)
 
         if self.n_splits > self.ngroups.nunique():
-            raise ValueError(
-                "n_samples has to be smaller than the number of groups."
-            )
+            raise ValueError("n_samples has to be smaller than the number of groups.")
 
         return self
 
@@ -872,15 +831,11 @@ class GroupedHoleGenerator(_HoleGenerator):
 
         """
         self.fit(X)
-        group_sizes = (
-            X.groupby(self.ngroups, group_keys=False).count().mean(axis=1)
-        )
+        group_sizes = X.groupby(self.ngroups, group_keys=False).count().mean(axis=1)
         list_masks = []
 
         for _ in range(self.n_splits):
-            shuffled_group_sizes = group_sizes.sample(
-                frac=1, random_state=self.random_state
-            )
+            shuffled_group_sizes = group_sizes.sample(frac=1, random_state=self.random_state)
 
             ratio_masks = shuffled_group_sizes.cumsum() / len(X)
             ratio_masks = ratio_masks.reset_index(name="ratio")
@@ -888,9 +843,7 @@ class GroupedHoleGenerator(_HoleGenerator):
             closest_ratio_mask = ratio_masks.iloc[
                 (ratio_masks["ratio"] - self.ratio_masked).abs().argsort()[:1]
             ]
-            groups_masked = ratio_masks.iloc[: closest_ratio_mask.index[0], :][
-                "_ngroup"
-            ].values
+            groups_masked = ratio_masks.iloc[: closest_ratio_mask.index[0], :]["_ngroup"].values
             if closest_ratio_mask.index[0] == 0:
                 groups_masked = ratio_masks.iloc[:1, :]["_ngroup"].values
 

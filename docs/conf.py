@@ -27,7 +27,7 @@ copyright = "2022, Quantmetry"
 author = "Quantmetry"
 
 # The full version, including alpha/beta/rc tags
-version = "0.1.9"
+version = "0.2.0"
 release = version
 
 # -- General configuration ---------------------------------------------------
@@ -53,8 +53,6 @@ mathjax_path = "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS
 # see https://github.com/numpy/numpydoc/issues/69
 numpydoc_show_class_members = False
 
-from distutils.version import LooseVersion
-
 # pngmath / imgmath compatibility layer for different sphinx versions
 # import sphinx
 
@@ -75,7 +73,7 @@ autosummary_generate = True
 source_suffix = ".rst"
 
 # Generate the plots for the gallery
-plot_gallery = True
+plot_gallery = "True"
 
 # The master toctree document.
 master_doc = "index"
@@ -156,8 +154,10 @@ sphinx_gallery_conf = {
     "gallery_dirs": ["examples/tutorials/"],
     "doc_module": "qolmat",
     "backreferences_dir": os.path.join("generated"),
-    "reference_url": {"qolmat": None},
+    "reference_url": {},
+    "inspect_global_variables": False,
 }
+
 
 suppress_warnings = ["autosectionlabel.*"]
 

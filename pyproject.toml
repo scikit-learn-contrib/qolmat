@@ -1,106 +1,94 @@
-# PACKAGE
-
-[tool.poetry]
+[project]
 name = "qolmat"
-version = "0.1.9"
+version = "0.2.0"
 description = "A Python library for optimal data imputation."
 authors = [
-    "Julien ROUSSEL <julien.roussel@capgemini.com>",
-    "Anh Khoa NGO HO <anh-khoa.ngo-ho@capgemini.com>",
-    "Hong-Lan BOTTERMAN <hong-lan.botterman@capgemini.com>",
-    "Guillaume SAËS <guillaume.saes@capgemini.com>",
+    { name = "Julien ROUSSEL", email = "julien.roussel@capgemini.com" },
+    { name = "Anh Khoa NGO HO", email = "anh-khoa.ngo-ho@capgemini.com" },
+    { name = "Hong-Lan BOTTERMAN", email = "hong-lan.botterman@capgemini.com" },
+    { name = "Guillaume SAËS", email = "guillaume.saes@capgemini.com" },
 ]
-license = "BSD-3-Clause"
+license = { text = "BSD-3-Clause" }
 readme = "README.rst"
-homepage = "https://github.com/Quantmetry/qolmat"
-repository = "https://github.com/Quantmetry/qolmat"
-documentation = "https://qolmat.readthedocs.io/en/latest/"
+requires-python = ">=3.9,<3.13"
 keywords = ["imputation"]
 classifiers = [
     "Intended Audience :: Science/Research",
     "Intended Audience :: Developers",
-    "License :: OSI Approved",
+    "License :: OSI Approved :: BSD License",
     "Topic :: Software Development",
     "Topic :: Scientific/Engineering",
-    "Operating System :: Microsoft :: Windows",
-    "Operating System :: POSIX",
-    "Operating System :: Unix",
-    "Operating System :: MacOS",
-    "Programming Language :: Python :: 3.8",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
 
-# DEPENDENCIES
+dependencies = [
+    "scikit-optimize>=0.9",
+    "numpy>=1.24",
+    "pandas>=2.0.1",
+    "scipy",
+    "scikit-learn>=1.6",
+    "statsmodels>=0.14.0",
+    "category-encoders>=2.6.3,<3",
+    "dcor>=0.6",
+    "numba>=0.59",
+    "tqdm",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.9,<3.13"
-hyperopt = "*"
-numpy = ">= 1.24"
-pandas = ">= 2.0.1"
-scipy = "*"
-scikit-learn = ">= 1.6"
-sphinx-markdown-tables = { version = "*", optional = true }
-statsmodels = ">= 0.14.0"
-typed-ast = { version = "*", optional = true }
-category-encoders = "^2.6.3"
-dcor = ">= 0.6"
-tqdm = "*"
+[project.optional-dependencies]
+torch = ["torch<2.5"]
+docs = [
+    "sphinx-markdown-tables",
+    "numpydoc==1.1.0",
+    "sphinx>=5.0",
+    "sphinx-gallery>=0.15",
+    "sphinx-rtd-theme==1.0.0",
+]
+dev = [
+    "bump2version==1.0.1",
+    "ipykernel>=6.29.5",
+    "jupyter==1.0.0",
+    "jupyterlab==1.2.6",
+    "jupytext==1.14.4",
+    "matplotlib",
+    "packaging==23.1",
+    "pre-commit==2.21.0",
+    "twine==3.7.1",
+    "wheel==0.37.1",
+]
+checkers = [
+    "bandit>=1.7.9",
+    "mypy==1.1.1",
+    "ruff>=0.6.3",
+    "pytest==7.2.0",
+    "pytest-cov==4.0.0",
+    "pytest-mock==3.10.0",
+]
+ci = ["codecov>=2.1.13"]
 
-[tool.poetry.group.torch.dependencies]
-torch = "< 2.5"
-
-[tool.poetry.group.dev.dependencies]
-bump2version = "1.0.1"
-ipykernel = "^6.29.5"
-jupyter = "1.0.0"
-jupyterlab = "1.2.6"
-jupytext = "1.14.4"
-matplotlib = "*"
-packaging = "23.1"
-pre-commit = "2.21.0"
-twine = "3.7.1"
-wheel = "0.37.1"
-
-[tool.poetry.group.checkers.dependencies]
-bandit = "^1.7.9"
-mypy = "1.1.1"
-ruff = "^0.6.3"
-pytest = "7.2.0"
-pytest-cov = "4.0.0"
-pytest-mock = "3.10.0"
-
-[tool.poetry.group.ci.dependencies]
-codecov = "^2.1.13"
-
-[tool.poetry.group.docs.dependencies]
-numpydoc = "1.1.0"
-sphinx = ">= 5.0"
-sphinx-gallery = "0.10.1"
-sphinx_rtd_theme = "1.0.0"
-sphinx_markdown_tables = "0.0.17"
-
-[tool.poetry.extras]
-tests = ["typed-ast"]
-docs = ["sphinx-markdown-tables"]
-
-[tool.poetry.urls]
-"Bug Tracker" = "https://github.com/Quantmetry/qolmat"
-"Source Code" = "https://github.com/Quantmetry/qolmat"
-
-[[tool.poetry.source]]
-name = "pytorch_cpu"
-url = "https://download.pytorch.org/whl/cpu"
-priority = "explicit"
+[project.urls]
+Homepage = "https://github.com/Quantmetry/qolmat"
+Documentation = "https://qolmat.readthedocs.io/en/latest/"
+Repository = "https://github.com/Quantmetry/qolmat"
+"Bug Tracker" = "https://github.com/Quantmetry/qolmat/issues"
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
+# PyTorch CPU source
+[[tool.uv.index]]
+name = "pytorch_cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 # CONFIGURATION
 [tool.bandit]
 targets = ["qolmat"]
+skips = ["B310"]
 
 [tool.mypy]
 pretty = true
@@ -133,7 +121,7 @@ testpaths = ["tests"]
 norecursedirs = ["_build"]
 
 [tool.ruff]
-line-length = 79
+line-length = 99
 fix = true
 indent-width = 4
 target-version = "py310"
@@ -149,9 +137,9 @@ ignore = [
     "D107",
     "D203",
     "D213",
-    "N803",  # allow X as a name for data
-    "N806",  # allow X as a name for data
-    "N816",  # allow mixed case names such as np_X_t as a name for data
+    "N803",
+    "N806",
+    "N816",
 ]
 
 [tool.ruff.lint.isort]

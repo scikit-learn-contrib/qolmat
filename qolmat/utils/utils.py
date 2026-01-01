@@ -1,10 +1,12 @@
-"""Utils for qolmat package."""
+"""Utility functions for qolmat package."""
 
-from typing import List, Tuple, Union
+from typing import Callable, List, Tuple, Union
 
 import numpy as np
 import pandas as pd
+from joblib import Parallel, delayed
 from numpy.typing import NDArray
+from sklearn import utils as sku
 
 from qolmat.utils.exceptions import NotDimension2
 
@@ -55,9 +57,7 @@ def _get_categorical_features(df1: pd.DataFrame) -> List[str]:
 
     """
     cols_numerical = df1.select_dtypes(include=np.number).columns.tolist()
-    cols_categorical = [
-        col for col in df1.columns.to_list() if col not in cols_numerical
-    ]
+    cols_categorical = [col for col in df1.columns.to_list() if col not in cols_numerical]
     return cols_categorical
 
 
@@ -122,9 +122,7 @@ def check_dtypes(X: pd.DataFrame):
     >>> import numpy as np
     >>> import pandas as pd
     >>> check_dtypes(np.array([1, 2.0, "three"]))
-    >>> check_dtypes(
-    ...     pd.DataFrame({"col1": [1, 2.0], "col2": ["three", "four"]})
-    ... )
+    >>> check_dtypes(pd.DataFrame({"col1": [1, 2.0], "col2": ["three", "four"]}))
     >>> check_dtypes(np.array([1, 2.0, None]))
     Traceback (most recent call last):
         ...
@@ -170,9 +168,7 @@ def progress_bar(
         bar fill character, by default "█"
 
     """
-    percent = ("{0:." + str(decimals) + "f}").format(
-        100 * (iteration / float(total))
-    )
+    percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
     filled_length = int(length * iteration // total)
     bar = fill * filled_length + "-" * (length - filled_length)
     print(f"\r{prefix} |{bar}| {percent}% {suffix}", end="\r")
@@ -231,13 +227,9 @@ def impute_nans(M: NDArray, method: str = "zeros") -> NDArray:
         isna = np.isnan(values)
         nna = np.sum(isna)
         if method == "mean":
-            value_imputation = (
-                np.nanmean(M) if nna == n_rows else np.nanmean(values)
-            )
+            value_imputation = np.nanmean(M) if nna == n_rows else np.nanmean(values)
         elif method == "median":
-            value_imputation = (
-                np.nanmedian(M) if nna == n_rows else np.nanmedian(values)
-            )
+            value_imputation = np.nanmedian(M) if nna == n_rows else np.nanmedian(values)
         elif method == "zeros":
             value_imputation = 0
         else:
@@ -374,7 +366,7 @@ def create_lag_matrices(X: NDArray, p: int) -> Tuple[NDArray, NDArray]:
     """
     n_rows, _ = X.shape
     n_rows_new = n_rows - p
-    list_X_lag = [np.ones((n_rows_new, 1))]
+    list_X_lag: list[NDArray] = [np.ones((n_rows_new, 1))]
     for lag in range(p):
         X_lag = X[p - lag - 1 : n_rows - lag - 1, :]
         list_X_lag.append(X_lag)
@@ -402,4 +394,31 @@ def nan_mean_cov(X: NDArray) -> Tuple[NDArray, NDArray]:
     means = np.nanmean(X, axis=0)
     cov = np.ma.cov(np.ma.masked_invalid(X), rowvar=False).data
     cov = cov.reshape(n_variables, n_variables)
+    cov[~np.isfinite(cov)] = 0.0
     return means, cov
+
+
+def _parallel_with_seeds_and_list(
+    func: Callable,
+    args: list[dict],
+    random_state: RandomSetting = None,
+) -> list:
+    """Execute a function in parallel over a list with independent random seeds.
+
+    Parameters
+    ----------
+    func: callable
+        Function to execute. Must accept 'seed' and 'item' as first parameters.
+    args: list
+        List of argument dictionaries to iterate over.
+    random_state : int or np.random.RandomState, optional
+            Seed or random state for reproducibility.
+
+    """
+    n_runs = len(args)
+    rng = sku.check_random_state(random_state)
+    ss = np.random.SeedSequence(rng.randint(0, 2**31 - 1))
+    child_seeds = ss.spawn(n_runs)
+    seeds = [np.random.default_rng(s).integers(0, 2**31 - 1) for s in child_seeds]
+
+    return Parallel(n_jobs=-1)(delayed(func)(seed, **arg) for seed, arg in zip(seeds, args))

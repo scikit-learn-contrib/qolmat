@@ -14,9 +14,7 @@ from qolmat.utils import utils
 np.random.seed(42)
 
 A: NDArray = np.array([[3, 1, 0], [1, 1, 0], [0, 0, 1]], dtype=float)
-A_inverse: NDArray = np.array(
-    [[0.5, -0.5, 0], [-0.5, 1.5, 0], [0, 0, 1]], dtype=float
-)
+A_inverse: NDArray = np.array([[0.5, -0.5, 0], [-0.5, 1.5, 0], [0, 0, 1]], dtype=float)
 X_missing = np.array(
     [
         [1, np.nan, 1],
@@ -100,13 +98,9 @@ def test_gradient_conjugate(
     """Test the conjugate gradient algorithm."""
     X_first_guess = utils.impute_nans(X_missing)
     X_result = em_sampler._conjugate_gradient(A, X_first_guess, mask)
-    X_expected = np.array(
-        [[1, -1, 1], [2, -2, 3], [1, 4, 0], [-1, 2, 1], [1, 1, 0]], dtype=float
-    )
+    X_expected = np.array([[1, -1, 1], [2, -2, 3], [1, 4, 0], [-1, 2, 1], [1, 1, 0]], dtype=float)
 
-    assert np.sum(X_result * (X_result @ A)) <= np.sum(
-        X_first_guess * (X_first_guess @ A)
-    )
+    assert np.sum(X_result * (X_result @ A)) <= np.sum(X_first_guess * (X_first_guess @ A))
     assert np.allclose(X_missing[~mask], X_result[~mask])
     assert ((X_result @ A)[mask] == 0).all()
     np.testing.assert_allclose(X_result, X_expected, atol=1e-5)
@@ -246,9 +240,7 @@ def test_sample_ou_2d(model):
     assert abs(mean_est - mean_theo) < np.sqrt(var_theo / n_samples) * q_alpha
 
     ratio_inf = scipy.stats.chi2.ppf(alpha / 2, n_samples) / (n_samples - 1)
-    ratio_sup = scipy.stats.chi2.ppf(1 - alpha / 2, n_samples) / (
-        n_samples - 1
-    )
+    ratio_sup = scipy.stats.chi2.ppf(1 - alpha / 2, n_samples) / (n_samples - 1)
 
     ratio = var_est / var_theo
 
@@ -298,15 +290,10 @@ def test_varem_sampler_check_convergence_false(
 
 def test_illconditioned_multinormalem() -> None:
     """Test that data with colinearity raises an exception."""
-    X = np.array(
-        [[1, np.nan, 8, 1], [3, 1, 4, 2], [2, 3, np.nan, 1]], dtype=float
-    )
+    X = np.array([[1, np.nan, 8, 1], [3, 1, 4, 2], [2, 3, np.nan, 1]], dtype=float)
     model = em_sampler.MultiNormalEM()
     with pytest.warns(UserWarning):
         _ = model.fit_transform(X)
-    # except IllConditioned:
-    #     return
-    # assert False
 
 
 def test_no_more_nan_multinormalem() -> None:
@@ -329,9 +316,7 @@ def test_no_more_nan_varpem() -> None:
 
 def test_fit_parameters_multinormalem_no_imputation():
     """Test fit MultiNormalEM provides good parameters estimates."""
-    X, X_missing, mean, covariance = generate_multinormal_predefined_mean_cov(
-        d=2, n=10000
-    )
+    X, X_missing, mean, covariance = generate_multinormal_predefined_mean_cov(d=2, n=10000)
     em = em_sampler.MultiNormalEM()
     em.fit_parameters(X)
     np.testing.assert_allclose(em.means, mean, atol=1e-1)
@@ -340,9 +325,7 @@ def test_fit_parameters_multinormalem_no_imputation():
 
 def test_mean_covariance_multinormalem():
     """Test MultiNormalEM provides good mean and covariance estimations."""
-    X, X_missing, mean, covariance = generate_multinormal_predefined_mean_cov(
-        d=2, n=1000
-    )
+    X, X_missing, mean, covariance = generate_multinormal_predefined_mean_cov(d=2, n=1000)
     em = em_sampler.MultiNormalEM()
     X_imputed = em.fit_transform(X_missing)
 
@@ -354,9 +337,7 @@ def test_mean_covariance_multinormalem():
     np.testing.assert_allclose(em.means, mean, rtol=1e-1, atol=1e-1)
     np.testing.assert_allclose(em.cov, covariance, rtol=1e-1, atol=1e-1)
     np.testing.assert_allclose(mean_imputed, mean, rtol=1e-1, atol=1e-1)
-    np.testing.assert_allclose(
-        covariance_imputed, covariance, rtol=1e-1, atol=1e-1
-    )
+    np.testing.assert_allclose(covariance_imputed, covariance, rtol=1e-1, atol=1e-1)
 
 
 def test_multinormal_em_minimize_llik():
@@ -415,9 +396,7 @@ def test_parameters_after_imputation_varpem(p: int):
 
 def test_varpem_fit_transform():
     imputer = em_sampler.VARpEM(method="mle", random_state=11)
-    X = np.array(
-        [[1, 1, 1, 1], [np.nan, np.nan, 3, 2], [1, 2, 2, 1], [2, 2, 2, 2]]
-    )
+    X = np.array([[1, 1, 1, 1], [np.nan, np.nan, 3, 2], [1, 2, 2, 1], [2, 2, 2, 2]])
     result = imputer.fit_transform(X)
     assert result.shape == X.shape
     np.testing.assert_allclose(result[~np.isnan(X)], X[~np.isnan(X)])

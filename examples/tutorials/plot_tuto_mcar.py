@@ -7,7 +7,7 @@ In this tutorial, we show how to test the MCAR case using the Little and the PKL
 """
 
 # %%
-# First import some libraries
+# First, import some libraries
 from matplotlib import pyplot as plt
 
 import numpy as np
@@ -51,7 +51,7 @@ q975 = norm.ppf(0.975)
 # The test compares distributions of different missing patterns.
 #
 # The null hypothesis, H0, is: "Distributions within each pattern are similar.".
-# We choose to use the classic threshold of 5%. If the test p-value is below this threshold,
+# We choose to use the classical threshold of 5%. If the test p-value is below this threshold,
 # we reject the null hypothesis.
 # This notebook shows how the Little and PKLM tests perform on a simplistic case and their
 # limitations. We instantiate a test object with a random state for reproducibility.
@@ -102,7 +102,7 @@ print(f"The p-value of the Little's test is: {little_result:.2%}")
 print(f"The p-value of the PKLM test is: {pklm_result:.2%}")
 # %%
 # The two p-values are larger than 0.05, therefore we don't reject the H0 MCAR assumption.
-# In this case this is a true negative.
+# In this case, this is a true negative.
 
 # %%
 # Case 2: MAR holes with mean bias (True positive)
@@ -147,13 +147,13 @@ print(f"The p-value of the Little's test is: {little_result:.2%}")
 print(f"The p-value of the PKLM test is: {pklm_result:.2%}")
 # %%
 # The two p-values are smaller than 0.05, therefore we reject the H0 MCAR assumption.
-# In this case this is a true positive.
+# In this case, this is a true positive.
 
 # %%
 # Case 3: MAR holes with any mean bias (False negative)
 # =====================================================
 #
-# The specific case is designed to emphasize the Little's test limits. In the case, we generate
+# The specific case is designed to emphasize the Little's test limits. In this case, we generate
 # holes when the absolute value of the first feature is high. This missingness mechanism is clearly
 # MAR but the means between missing patterns is not statistically different.
 
@@ -197,10 +197,10 @@ print(f"The p-value of the Little's test is: {little_result:.2%}")
 print(f"The p-value of the PKLM test is: {pklm_result:.2%}")
 # %%
 # The Little's p-value is larger than 0.05, therefore, using this test we don't reject the H0 MCAR
-# assumption. In this case this is a false negative since the missingness mechanism is MAR.
+# assumption. In this case, this is a false negative since the missingness mechanism is MAR.
 #
-# However the PKLM test p-value is smaller than 0.05 therefore we don't reject the H0 MCAR
-# assumption. In this case this is a true negative.
+# However the PKLM test p-value is smaller than 0.05 therefore we reject the H0 MCAR
+# assumption. In this case, this is a true negative.
 
 # %%
 # Limitations and conclusion
@@ -208,7 +208,7 @@ print(f"The p-value of the PKLM test is: {pklm_result:.2%}")
 # In this tutorial, we can see that Little's test fails to detect covariance heterogeneity between
 # patterns.
 #
-# We also note that the Little's test does not handle categorical data or temporally
+# We also note that Little's test does not handle categorical data or temporally
 # correlated data.
 #
 # This is why we have implemented the PKLM test, which makes up for the shortcomings of the Little
@@ -231,33 +231,43 @@ print(f"The p-value of the PKLM test is: {pklm_result:.2%}")
 #
 
 # %%
-
-"""
-Calculation time
-================
-
-+------------+------------+----------------------+
-| **n_rows** | **n_cols** | **Calculation_time**  |
-+============+============+======================+
-| 200        | 2          | 2"12                 |
-+------------+------------+----------------------+
-| 500        | 2          | 2"24                 |
-+------------+------------+----------------------+
-| 500        | 4          | 2"18                 |
-+------------+------------+----------------------+
-| 1000       | 4          | 2"48                 |
-+------------+------------+----------------------+
-| 1000       | 6          | 2"42                 |
-+------------+------------+----------------------+
-| 10000      | 6          | 20"54                |
-+------------+------------+----------------------+
-| 10000      | 10         | 14"48                |
-+------------+------------+----------------------+
-| 100000     | 10         | 4'51"                |
-+------------+------------+----------------------+
-| 100000     | 15         | 3'06"                |
-+------------+------------+----------------------+
-"""
+# Calculation time
+# ================
+#
+# .. list-table::
+#    :header-rows: 1
+#    :widths: 15 15 25
+#
+#    * - **n_rows**
+#      - **n_cols**
+#      - **Calculation time**
+#    * - 200
+#      - 2
+#      - 2"12
+#    * - 500
+#      - 2
+#      - 2"24
+#    * - 500
+#      - 4
+#      - 2"18
+#    * - 1000
+#      - 4
+#      - 2"48
+#    * - 1000
+#      - 6
+#      - 2"42
+#    * - 10000
+#      - 6
+#      - 20"54
+#    * - 10000
+#      - 10
+#      - 14"48
+#    * - 100000
+#      - 10
+#      - 4'51"
+#    * - 100000
+#      - 15
+#      - 3'06"
 
 # %%
 # 2.1 Parameters and Hyperparameters
@@ -268,10 +278,9 @@ Calculation time
 # * ``nb_projections``: Number of projections on which the test statistic is calculated. This
 #   parameter has the greatest influence on test calculation time. Its default value
 #   ``nb_projections=100``.
-#   Est-ce qu'on donne des ordres de grandeurs utiles ? J'avais un peu fait ce travail.
 #
-# * ``nb_permutation`` : Number of permutations of the projected targets. The higher is better. This
-#   parameter has little impact on calculation time.
+# * ``nb_permutation`` : Number of permutations of the projected targets. The higher is better.
+#   This parameter has little impact on calculation time.
 #   Its default value ``nb_permutation=30``.
 #
 # * ``nb_trees_per_proj`` : The number of subtrees in each random forest fitted. In order to
@@ -296,8 +305,8 @@ Calculation time
 # ================================================
 #
 # As we have seen, Little's test only applies to quantitative data. In real life, however, it is
-# common to have to deal with mixed data. Here's an example of how to use the PKLM test on a dataset
-# with mixed data types.
+# common to have to deal with mixed data. Here's an example of how to use the PKLM test on a
+# dataset with mixed data types.
 
 # %%
 n_rows = 100
@@ -308,9 +317,7 @@ col3 = rng.choice([True, False], n_rows)
 modalities = ["A", "B", "C", "D"]
 col4 = rng.choice(modalities, n_rows)
 
-df = pd.DataFrame(
-    {"Numeric1": col1, "Numeric2": col2, "Boolean": col3, "Object": col4}
-)
+df = pd.DataFrame({"Numeric1": col1, "Numeric2": col2, "Boolean": col3, "Object": col4})
 
 hole_gen = UniformHoleGenerator(
     n_splits=1,
@@ -327,7 +334,7 @@ pklm_result = pklm_test_mcar.test(df_nan)
 print(f"The p-value of the PKLM test is: {pklm_result:.2%}")
 
 # %%
-# To perform the PKLM test over mixed data types, non numerical features need to be encoded. The
+# To perform the PKLM test over mixed data types, non-numerical features need to be encoded. The
 # default encoder in the :class:`~qolmat.analysis.holes_characterization.PKLMTest` class is the
 # default OneHotEncoder from scikit-learn. If you wish to use an encoder adapted to your data, you
 # can perform this encoding step beforehand, and then use the PKLM test.
@@ -343,7 +350,7 @@ print(f"The p-value of the PKLM test is: {pklm_result:.2%}")
 # 2.3 Partial p-values
 # ================================================
 #
-# In addition, the PKLM test can be used to calculate partial p-values. We denote as many partial
+# In addition, the PKLM test can be used to calculate partial p-values. There are as many partial
 # p-values as there are columns in the input dataframe. This “partial” p-value corresponds to the
 # effect of removing the patterns induced by variable k.
 #
@@ -351,13 +358,9 @@ print(f"The p-value of the PKLM test is: {pklm_result:.2%}")
 
 # %%
 data = rng.multivariate_normal(
-    mean=[0, 0, 0, 0],
-    cov=[[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]],
-    size=400,
+    mean=[0, 0, 0, 0], cov=[[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], size=400
 )
-df = pd.DataFrame(
-    data=data, columns=["Column 1", "Column 2", "Column 3", "Column 4"]
-)
+df = pd.DataFrame(data=data, columns=["Column 1", "Column 2", "Column 3", "Column 4"])
 
 df_mask = pd.DataFrame(
     {
@@ -391,9 +394,7 @@ print(f"The p-value of the PKLM test is: {p_value:.2%}")
 
 # %%
 for col_index, partial_p_v in enumerate(partial_p_values):
-    print(
-        f"The partial p-value for the column index {col_index + 1} is: {partial_p_v:.2%}"
-    )
+    print(f"The partial p-value for the column index {col_index + 1} is: {partial_p_v:.2%}")
 
 # %%
 # As a result, by removing the missing patterns induced by variable 2, the p-value rises

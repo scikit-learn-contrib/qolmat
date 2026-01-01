@@ -49,9 +49,7 @@ def comparator(generator_holes_mock: _HoleGenerator) -> Comparator:
 def expected_get_errors() -> pd.Series:
     return pd.Series(
         [1.0, 1.0, 1.0, 1.0],
-        index=pd.MultiIndex.from_tuples(
-            [("mae", "A"), ("mae", "B"), ("mse", "A"), ("mse", "B")]
-        ),
+        index=pd.MultiIndex.from_tuples([("mae", "A"), ("mae", "B"), ("mse", "A"), ("mse", "B")]),
     )
 
 
@@ -73,9 +71,7 @@ def df_mask() -> pd.DataFrame:
 @pytest.fixture
 def imputers_mock(mocker: MockerFixture) -> Dict[str, Any]:
     imputer_mock = mocker.MagicMock()
-    imputer_mock.fit_transform.return_value = pd.DataFrame(
-        {"A": [1, 2, 3], "B": [4, 5, 6]}
-    )
+    imputer_mock.fit_transform.return_value = pd.DataFrame({"A": [1, 2, 3], "B": [4, 5, 6]})
     return {"imputer_1": imputer_mock}
 
 
@@ -101,10 +97,8 @@ def test_get_errors(
     df_mask: pd.DataFrame,
 ) -> None:
     mock_get_metric = mocker.patch("qolmat.benchmark.metrics.get_metric")
-    mock_get_metric.return_value = (
-        lambda df_origin, df_imputed, df_mask: pd.Series(
-            [1.0, 1.0], index=["A", "B"]
-        )
+    mock_get_metric.return_value = lambda df_origin, df_imputed, df_mask: pd.Series(
+        [1.0, 1.0], index=["A", "B"]
     )
     errors = comparator.get_errors(df_origin, df_imputed, df_mask)
     pd.testing.assert_series_equal(errors, expected_get_errors)
@@ -124,9 +118,7 @@ def test_process_split(
     comparator.max_evals = 100
     comparator.verbose = False
 
-    mock_optimize = mocker.patch(
-        "qolmat.benchmark.comparator.hyperparameters.optimize"
-    )
+    mock_optimize = mocker.patch("qolmat.benchmark.comparator.hyperparameters.optimize")
     mock_optimize.return_value = imputers_mock["imputer_1"]
     split_data = (0, df_mask, df_origin)
     df_with_holes = df_origin.copy()
@@ -165,9 +157,7 @@ def test_process_imputer(
     comparator.metric_optim = "mae"
     comparator.max_evals = 100
     comparator.verbose = False
-    mock_optimize = mocker.patch(
-        "qolmat.benchmark.comparator.hyperparameters.optimize"
-    )
+    mock_optimize = mocker.patch("qolmat.benchmark.comparator.hyperparameters.optimize")
     mock_optimize.return_value = imputers_mock["imputer_1"]
     mock_get_errors = mocker.patch.object(comparator, "get_errors")
     mock_get_errors.side_effect = [
@@ -202,9 +192,7 @@ def test_process_imputer(
         max_evals=comparator.max_evals,
         verbose=comparator.verbose,
     )
-    assert imputers_mock["imputer_1"].fit_transform.call_count == len(
-        all_masks
-    )
+    assert imputers_mock["imputer_1"].fit_transform.call_count == len(all_masks)
     assert mock_get_errors.call_count == len(all_masks)
 
 
@@ -230,9 +218,7 @@ def test_compare_parallel_splits(
             index=pd.MultiIndex.from_tuples([("mae", "A"), ("mae", "B")]),
         ),
     ]
-    mock_get_optimal_n_jobs = mocker.patch.object(
-        comparator, "get_optimal_n_jobs"
-    )
+    mock_get_optimal_n_jobs = mocker.patch.object(comparator, "get_optimal_n_jobs")
     mock_get_optimal_n_jobs.return_value = 1
 
     expected_result = pd.Series(
@@ -275,9 +261,7 @@ def test_compare_sequential_splits(
         index=pd.MultiIndex.from_tuples([("mae", "A"), ("mae", "B")]),
     )
     with caplog.at_level(logging.INFO):
-        result = comparator.compare(
-            df_origin, use_parallel=False, parallel_over="splits"
-        )
+        result = comparator.compare(df_origin, use_parallel=False, parallel_over="splits")
     pd.testing.assert_series_equal(result, expected_result)
     assert mock_process_split.call_count == 2
     assert "Starting comparison for" in caplog.text
@@ -316,9 +300,7 @@ def test_compare_parallel_imputers(
             ),
         ),
     ]
-    mock_get_optimal_n_jobs = mocker.patch.object(
-        comparator, "get_optimal_n_jobs"
-    )
+    mock_get_optimal_n_jobs = mocker.patch.object(comparator, "get_optimal_n_jobs")
     mock_get_optimal_n_jobs.return_value = 1
 
     expected_result = pd.concat(
@@ -335,9 +317,7 @@ def test_compare_parallel_imputers(
         axis=1,
     )
     with caplog.at_level(logging.INFO):
-        result = comparator.compare(
-            df_origin, use_parallel=True, parallel_over="imputers"
-        )
+        result = comparator.compare(df_origin, use_parallel=True, parallel_over="imputers")
     pd.testing.assert_frame_equal(result, expected_result)
     assert mock_process_imputer.call_count == 2
     assert mock_get_optimal_n_jobs.call_count == 1
@@ -391,9 +371,7 @@ def test_compare_sequential_imputers(
         axis=1,
     )
     with caplog.at_level(logging.INFO):
-        result = comparator.compare(
-            df_origin, use_parallel=False, parallel_over="imputers"
-        )
+        result = comparator.compare(df_origin, use_parallel=False, parallel_over="imputers")
     pd.testing.assert_frame_equal(result, expected_result)
     assert mock_process_imputer.call_count == 2
     assert "Starting comparison for" in caplog.text
@@ -430,18 +408,12 @@ def test_compare_reproducibility():
         "shuffle2": ImputerShuffle(random_state=seed),
     }
     cols = ["A", "B"]
-    df_data = pd.DataFrame(
-        np.random.random((100, 2)), dtype=float, columns=cols
-    )
-    generator_holes = UniformHoleGenerator(
-        n_splits=2, subset=cols, ratio_masked=0.5
-    )
+    df_data = pd.DataFrame(np.random.random((100, 2)), dtype=float, columns=cols)
+    generator_holes = UniformHoleGenerator(n_splits=2, subset=cols, ratio_masked=0.5)
     comparator = Comparator(
         dict_models=dict_models,
         generator_holes=generator_holes,
         metrics=["mae", "mse"],
     )
     df_errors = comparator.compare(df_data)
-    pd.testing.assert_series_equal(
-        df_errors["shuffle1"], df_errors["shuffle2"], check_names=False
-    )
+    pd.testing.assert_series_equal(df_errors["shuffle1"], df_errors["shuffle2"], check_names=False)

@@ -134,6 +134,6 @@ def test_rpca_temporal_signal(synthetic_temporal_data):
     Omega = ~np.isnan(D)
     D_interpolated = utils.linear_interpolation(D)
     X_result, A_result = rpca.decompose(D, Omega)
-    assert np.linalg.norm(D_interpolated, "nuc") >= np.linalg.norm(
-        X_result, "nuc"
-    ) + lam * np.sum(np.abs(A_result))
+    assert np.linalg.norm(D_interpolated, "nuc") >= np.linalg.norm(X_result, "nuc") + lam * np.sum(
+        np.abs(A_result)
+    )

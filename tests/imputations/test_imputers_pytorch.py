@@ -28,9 +28,7 @@ def test_ImputerRegressorPyTorch_fit_transform(df: pd.DataFrame) -> None:
     nn.manual_seed(42)
     if nn.cuda.is_available():
         nn.cuda.manual_seed(42)
-    estimator = imputers_pytorch.build_mlp(
-        input_dim=2, list_num_neurons=[64, 32]
-    )
+    estimator = imputers_pytorch.build_mlp(input_dim=2, list_num_neurons=[64, 32])
     imputer = imputers_pytorch.ImputerRegressorPyTorch(
         estimator=estimator, handler_nan="column", epochs=10
     )

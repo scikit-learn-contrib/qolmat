@@ -313,16 +313,12 @@ class WrapperTransformer(TransformerMixin, BaseEstimator):
     Wrapper with reversible transformers designed to embed the data.
     """
 
-    def __init__(
-        self, transformer: TransformerMixin, wrapper: TransformerMixin
-    ):
+    def __init__(self, transformer: TransformerMixin, wrapper: TransformerMixin):
         super().__init__()
         self.transformer = transformer
         self.wrapper = wrapper
 
-    def fit(
-        self, X: NDArray, y: Optional[NDArray] = None
-    ) -> "WrapperTransformer":
+    def fit(self, X: NDArray, y: Optional[NDArray] = None) -> "WrapperTransformer":
         """Fit the model according to the given training data.
 
         Parameters
@@ -406,15 +402,11 @@ def make_pipeline_mixte_preprocessing(
     """
     transformers: List[Tuple] = []
     if scale_numerical:
-        transformers += [
-            ("num", StandardScaler(), selector(dtype_include=np.number))
-        ]
+        transformers += [("num", StandardScaler(), selector(dtype_include=np.number))]
 
     ohe = OneHotEncoder(handle_unknown="ignore", use_cat_names=True)
     transformers += [("cat", ohe, selector(dtype_exclude=np.number))]
-    col_transformer = ColumnTransformer(
-        transformers=transformers, remainder="passthrough"
-    )
+    col_transformer = ColumnTransformer(transformers=transformers, remainder="passthrough")
     col_transformer = col_transformer.set_output(transform="pandas")
     preprocessor = Pipeline(steps=[("col_transformer", col_transformer)])
 
@@ -423,9 +415,7 @@ def make_pipeline_mixte_preprocessing(
     return preprocessor
 
 
-def make_robust_MixteHGB(
-    scale_numerical: bool = False, avoid_new: bool = False
-) -> Pipeline:
+def make_robust_MixteHGB(scale_numerical: bool = False, avoid_new: bool = False) -> Pipeline:
     """Create a robust pipeline for MixteHGBM.
 
     Create a preprocessing pipeline managing mixed type data

@@ -25,15 +25,12 @@ Local setup
 
 We encourage you to use a virtual environment. You'll want to activate it every time you want to work on `Qolmat`.
 
-You can create a virtual environment via `conda`:
+You can create a virtual environment and install dependencies with `uv`:
 
 .. code:: sh
 
-    $ pip install poetry
-    $ poetry config virtualenvs.in-project true
-    $ poetry lock
-    $ poetry install
-    $ poetry shell
+    $ uv sync
+    $ uv run pytest
 
 Once the environment is installed, pre-commit is installed, but need to be activated using the following command:
 
