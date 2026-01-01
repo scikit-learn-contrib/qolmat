@@ -501,7 +501,7 @@ class ImputerOracle(_Imputer):
         if hasattr(self, "df_solution"):
             df_imputed = df.fillna(self.df_solution)
         else:
-            warnings.warn("OracleImputer not initialized! " "Returning imputation with zeros")
+            warnings.warn("OracleImputer not initialized! Returning imputation with zeros")
             df_imputed = df.fillna(0)
 
         if isinstance(X, (np.ndarray)):
@@ -1429,7 +1429,7 @@ class ImputerRegressor(_Imputer):
             X = X.dropna(how="any", axis=1)
         else:
             raise ValueError(
-                f"Value '{self.handler_nan}' is not correct " "for argument `handler_nan'."
+                f"Value '{self.handler_nan}' is not correct for argument `handler_nan'."
             )
         # X = pd.get_dummies(X, prefix_sep="=")
         y = df.loc[X.index, col]
@@ -1998,23 +1998,47 @@ class ImputerEM(_Imputer):
 
     Parameters
     ----------
-    groups: Tuple[str, ...]
-        List of column names to group by, by default []
-    method : {'multinormal', 'VAR'}, default='multinormal'
+    groups : Tuple[str, ...], default=()
+        List of column names to group by.
+    model : {'multinormal', 'VAR'}, default='multinormal'
         Method defining the hypothesis made on the data distribution.
         Possible values:
         - 'multinormal' : the data points are independent and uniformly
         distributed following a multinormal distribution
         - 'VAR' : the data is a time series modeled by a VAR(p) process
-    columnwise : bool
+    columnwise : bool, default=False
         If False, correlations between variables will be used,
         which is advised.
         If True, each column is imputed independently. For the multinormal case
         each value will be imputed by the mean up to a noise with fixed noise,
-        for the VAR1 case the imputation will be a noisy temporal
-        interpolation.
+        for the VAR case the imputation will be a noisy temporal interpolation.
     random_state : RandomSetting, optional
         Controls the randomness of the fit_transform, by default None
+    method : {'mle', 'sample'}, default='sample'
+        Imputation method after EM convergence.
+        - 'mle' : Maximum Likelihood Estimation
+        - 'sample' : Sample from the posterior distribution
+    max_iter_em : int, default=200
+        Maximum number of EM iterations.
+    n_iter_ou : int, default=50
+        Number of Ornstein-Uhlenbeck process iterations for sampling.
+    ampli : float, default=1
+        Amplitude parameter for the Ornstein-Uhlenbeck process.
+    dt : float, default=0.02
+        Time step for the Ornstein-Uhlenbeck process discretization.
+    tolerance : float, default=1e-4
+        Convergence tolerance for EM algorithm.
+    stagnation_threshold : float, default=5e-3
+        Threshold for element-wise stagnation detection in EM algorithm.
+    stagnation_loglik : float, default=2
+        Threshold for log-likelihood stagnation in EM algorithm.
+    period : int, default=1
+        If different from 1, the data is folded with respect to the given period
+        before applying the imputation.
+    verbose : bool, default=False
+        If True, print convergence information during fitting.
+    p : int, optional
+        Order of the VAR process (only used when model='VAR'), by default None
 
     """
 

@@ -294,9 +294,6 @@ def test_illconditioned_multinormalem() -> None:
     model = em_sampler.MultiNormalEM()
     with pytest.warns(UserWarning):
         _ = model.fit_transform(X)
-    # except IllConditioned:
-    #     return
-    # assert False
 
 
 def test_no_more_nan_multinormalem() -> None:

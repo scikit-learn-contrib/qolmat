@@ -92,7 +92,7 @@ class LittleTest(McarTest):
         super().__init__(random_state=random_state)
         if imputer and imputer.model != "multinormal":
             raise AttributeError(
-                "The ImputerEM model must be 'multinormal' " "to use the Little's test"
+                "The ImputerEM model must be 'multinormal' to use the Little's test"
             )
         self.imputer = imputer
 

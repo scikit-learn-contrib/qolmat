@@ -44,7 +44,7 @@ class NotDimension2(Exception):
     """Raise an error when the matrix is not of dim 2."""
 
     def __init__(self, shape: Tuple[int, ...]):
-        super().__init__(f"Provided matrix is of shape {shape}, " "which is not of dimension 2!")
+        super().__init__(f"Provided matrix is of shape {shape}, which is not of dimension 2!")
 
 
 class NotDataFrame(Exception):
@@ -96,4 +96,4 @@ class TypeNotHandled(Exception):
     """Raise an error when the type is not handled."""
 
     def __init__(self, col: str, type_col: str):
-        super().__init__(f"The column `{col}` is of type `{type_col}`, " "which is not handled!")
+        super().__init__(f"The column `{col}` is of type `{type_col}`, which is not handled!")

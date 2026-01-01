@@ -380,7 +380,7 @@ def add_holes(
             random_state=random_state,
         )
 
-    generator.dict_probas_out = {column: 1 / mean_size for column in df.columns}
+    generator.dict_probas_out = dict.fromkeys(df.columns, 1 / mean_size)
     generator.dict_ratios = {column: 1 / len(df.columns) for column in df.columns}
     if generator.groups:
         mask = df.groupby(groups, group_keys=False).apply(generator.generate_mask)
@@ -553,7 +553,7 @@ def convert_tsf_to_dataframe(
                         series = series.split(",")  # type: ignore
 
                         if len(series) == 0:
-                            raise Exception(" Missing values should be indicated " "with ? symbol")
+                            raise Exception(" Missing values should be indicated with ? symbol")
 
                         numeric_series = []
 
@@ -565,7 +565,7 @@ def convert_tsf_to_dataframe(
 
                         if numeric_series.count(replace_missing_vals_with) == len(numeric_series):
                             raise Exception(
-                                "At least one numeric value should be " "there in a series."
+                                "At least one numeric value should be there in a series."
                             )
 
                         all_series.append(pd.Series(numeric_series).array)

@@ -286,7 +286,7 @@ class RpcaNoisy(RPCA):
         # init
         Y = np.zeros((n_rows, n_cols))
         M = D.copy()
-        A = np.zeros((n_rows, n_cols))
+        A: NDArray = np.zeros((n_rows, n_cols))
 
         U, S, Vt = np.linalg.svd(M, full_matrices=False)
         U = U[:, :rank]
@@ -297,7 +297,7 @@ class RpcaNoisy(RPCA):
         Q = np.diag(np.sqrt(S)) @ Vt
 
         if norm == "L1":
-            R = [np.ones((n_rows, n_cols)) for _ in list_periods]
+            R: list[NDArray] = [np.ones((n_rows, n_cols)) for _ in list_periods]
 
         mu_bar = mu * 1e3
 
@@ -425,7 +425,7 @@ class RpcaNoisy(RPCA):
         # M, A, L, Q = self.decompose_rpca(D, Omega)
         n_rank, _ = Q.shape
         Ir = np.eye(n_rank)
-        A = np.zeros((n_rows, n_cols))
+        A: NDArray = np.zeros((n_rows, n_cols))
         L = np.zeros((n_rows, n_rank))
         for _ in range(self.max_iterations):
             A_prev = A.copy()

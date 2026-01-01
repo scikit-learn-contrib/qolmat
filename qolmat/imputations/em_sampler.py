@@ -176,9 +176,7 @@ class EM(BaseEstimator, TransformerMixin):
         verbose: bool = False,
     ):
         if method not in ["mle", "sample"]:
-            raise ValueError(
-                "`method` must be 'mle' or 'sample', " f"provided value is '{method}'."
-            )
+            raise ValueError(f"`method` must be 'mle' or 'sample', provided value is '{method}'.")
 
         self.method = method
         self.max_iter_em = max_iter_em
@@ -205,17 +203,17 @@ class EM(BaseEstimator, TransformerMixin):
     @abstractmethod
     def reset_learned_parameters(self):
         """Reset learned parameters."""
-        pass
+        raise NotImplementedError("Method reset_learned_parameters not implemented.")
 
     @abstractmethod
     def update_parameters(self, X: NDArray):
         """Update parameters."""
-        pass
+        raise NotImplementedError("Method update_parameters not implemented.")
 
     @abstractmethod
     def combine_parameters(self):
         """Combine parameters."""
-        pass
+        raise NotImplementedError("Method combine_parameters not implemented.")
 
     def fit_parameters(self, X: NDArray):
         """Fir parameters.
@@ -396,6 +394,7 @@ class EM(BaseEstimator, TransformerMixin):
             grad_X = -self.gradient_X_loglik(X_copy)
             X_copy += -self.dt * grad_X @ gamma + np.sqrt(2 * self.dt) * noise @ sqrt_gamma
             X_copy[~mask_na] = X_init[~mask_na]
+
             if estimate_params:
                 self.update_parameters(X_copy)
 
@@ -453,21 +452,18 @@ class EM(BaseEstimator, TransformerMixin):
 
         """
         X = X.copy()
-        # utils.check_dtypes(X)
-        # sku.check_array(X, ensure_all_finite="allow-nan", dtype="float")
         sku.validation.validate_data(self, X, ensure_all_finite="allow-nan", dtype="float")
         self.shape_original = X.shape
 
-        self.hash_fit = hash(X.tobytes())
         if not isinstance(X, np.ndarray):
             raise AssertionError("Invalid type. X must be a NDArray.")
+        self.hash_fit = hash(X.tobytes())
 
         X = utils.prepare_data(X, self.period)
 
         if hasattr(self, "p_to_fit") and self.p_to_fit:
             aics: List[float] = []
             for p in range(self.max_lagp + 1):
-                print("p=", p)
                 self.p = p
                 self.fit_X(X)
                 n1, n2 = self.X.shape
@@ -728,7 +724,6 @@ class MultiNormalEM(EM):
         diag_trunc = np.where(diag_trunc == 0, 0, np.min(diag_trunc))
 
         gamma = (U * diag_trunc) @ Vt
-        # gamma = np.eye(len(self.cov))
 
         return gamma
 
@@ -1210,7 +1205,7 @@ class VARpEM(EM):
         if self.p == 0:
             return X, mask_na
         mask_na = mask_na.copy()
-        n_holes_left = np.sum(~np.cumsum(~mask_na, axis=0).any(axis=1))
+        n_holes_left = int(np.sum(~np.cumsum(~mask_na, axis=0).any(axis=1)))
         mask_na[:n_holes_left] = False
         return X, mask_na
 

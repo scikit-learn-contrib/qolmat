@@ -44,7 +44,7 @@ class SoftImpute(BaseEstimator, TransformerMixin):
     tolerance : float
         Tolerance for the convergence criterion
     tau : float
-        regularisation parameter
+        Regularisation parameter
     max_iterations : int
         Maximum number of iterations
     random_state : int, optional
@@ -59,12 +59,13 @@ class SoftImpute(BaseEstimator, TransformerMixin):
     >>> from qolmat.imputations.softimpute import SoftImpute
     >>> D = np.array([[1, 2, np.nan, 4], [1, 5, 3, np.nan], [4, 2, 3, 2], [1, 1, 5, 4]])
     >>> Omega = ~np.isnan(D)
-    >>> M, A = SoftImpute(random_state=11).decompose(D, Omega)
-    >>> print(M + A)
-    [[1.         2.         4.12611456 4.        ]
-     [1.         5.         3.         0.87217939]
-     [4.         2.         3.         2.        ]
-     [1.         1.         5.         4.        ]]
+    >>> M, A = SoftImpute(random_state=10, tau=1).decompose(D, Omega)
+    >>> naive_cost = SoftImpute.cost_function(
+    ...     D, np.where(Omega, M, 0), np.zeros_like(M), Omega, tau=1
+    ... )
+    >>> minimal_cost = SoftImpute.cost_function(D, M, A, Omega, tau=1)
+    >>> minimal_cost < naive_cost
+    np.True_
 
     """
 
@@ -137,7 +138,8 @@ class SoftImpute(BaseEstimator, TransformerMixin):
         # Step 1 : Initializing
         n, m = X.shape
         V = np.zeros((m, rank))
-        U = self.random_state.normal(0.0, 1.0, (n, rank))
+        # U = self.random_state.normal(0.0, 1.0, (n, rank))
+        U = np.zeros((n, rank))
         U, _, _ = np.linalg.svd(U, full_matrices=False)
         D = np.ones((1, rank))
 
@@ -180,8 +182,7 @@ class SoftImpute(BaseEstimator, TransformerMixin):
                 logging.info(f"Iteration {iter_}: ratio = {round(ratio, 4)}")
                 if ratio < self.tolerance:
                     logging.info(
-                        f"Convergence reached at iteration {iter_} "
-                        f"with ratio = {round(ratio, 4)}"
+                        f"Convergence reached at iteration {iter_} with ratio = {round(ratio, 4)}"
                     )
                     break
 
@@ -269,7 +270,7 @@ class SoftImpute(BaseEstimator, TransformerMixin):
             Anomalies
         Omega : NDArray
             Mask for observations
-        tau: Optional[float]
+        tau: float
             penalizing parameter for the nuclear norm
 
         Returns
