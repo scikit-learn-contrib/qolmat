@@ -3,17 +3,19 @@ version: 2
 build:
   os: "ubuntu-22.04"
   tools:
-    python: "mambaforge-22.9"
+    python: "3.12"
+  jobs:
+    pre_install:
+      - pip install uv
+    post_install:
+      - uv sync --extra docs
 
 python:
   install:
     - method: pip
       path: .
       extra_requirements:
-        - pytorch
-
-conda:
-  environment: environment.doc.yml
+        - docs
 
 sphinx:
   builder: html
