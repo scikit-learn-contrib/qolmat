@@ -1,6 +1,6 @@
 [project]
 name = "qolmat"
-version = "0.1.10"
+version = "0.2.0"
 description = "A Python library for optimal data imputation."
 authors = [
     { name = "Julien ROUSSEL", email = "julien.roussel@capgemini.com" },
