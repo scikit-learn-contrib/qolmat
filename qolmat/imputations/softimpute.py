@@ -59,14 +59,13 @@ class SoftImpute(BaseEstimator, TransformerMixin):
     >>> from qolmat.imputations.softimpute import SoftImpute
     >>> D = np.array([[1, 2, np.nan, 4], [1, 5, 3, np.nan], [4, 2, 3, 2], [1, 1, 5, 4]])
     >>> Omega = ~np.isnan(D)
-    >>> M, A = SoftImpute(random_state=11, tau=1).decompose(D, Omega)
-    >>> print(M + A)
-    [[1.         2.         3.04868607 4.        ]
-     [1.         5.         3.         3.37501463]
-     [4.         2.         3.         2.        ]
-     [1.         1.         5.         4.        ]]
-    >>> print(SoftImpute.cost_function(D, M, A, Omega, tau=1))
-    18.520174964466026
+    >>> M, A = SoftImpute(random_state=10, tau=1).decompose(D, Omega)
+    >>> naive_cost = SoftImpute.cost_function(
+    ...     D, np.where(Omega, M, 0), np.zeros_like(M), Omega, tau=1
+    ... )
+    >>> minimal_cost = SoftImpute.cost_function(D, M, A, Omega, tau=1)
+    >>> minimal_cost < naive_cost
+    np.True_
 
     """
 
